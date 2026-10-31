@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, test } from 'node:test';
+import { expect } from '../expect.ts';
 import { openDatabase, type Database } from '../../src/db.ts';
 import { loadEnv } from '../../src/env.ts';
 loadEnv();

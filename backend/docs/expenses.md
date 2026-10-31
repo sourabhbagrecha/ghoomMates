@@ -2,7 +2,7 @@
 
 Expense-splitting module of the unified Ghoomates backend, mounted at `/api/*`. See [../README.md](../README.md) for running the server.
 
-Node.js / Bun + TypeScript HTTP API backed by Google Cloud SQL for PostgreSQL, shared with the auth module. Money remains integer paise; the HTTP API is unchanged.
+Node.js + TypeScript HTTP API backed by Google Cloud SQL for PostgreSQL, shared with the auth module. Money remains integer paise; the HTTP API is unchanged.
 
 > 📖 **Architecture & Design Document**: For data models, entity relationships, splitting algorithms, and transaction lifecycles, see [expenses-architecture.md](expenses-architecture.md).
 
@@ -31,18 +31,16 @@ npm run test:connection
 # Run end-to-end trip verification (group, expense, split, settlement); writes sample data:
 node scripts/verify-e2e.ts
 
-# Start the service (with Node or Bun):
+# Start the service:
 npm start
-# or:
-bun start
 ```
 
 ### Tests
 
 ```bash
-bun run test:unit
-bun run typecheck
-DB_NAME=ghoomates_test bun run test:expenses
+npm run test:unit
+npm run typecheck
+DB_NAME=ghoomates_test npm run test:expenses
 ```
 
 API tests create groups in the configured database and never delete them, so run them against the `ghoomates_test` database rather than `ghoomates`. They cover duplicate retries, concurrent expenses, simultaneous settlement attempts, new connection pools, and history pagination. Requests from a laptop cross the network to `asia-south1`, so the suite allows 30 seconds per test.
@@ -186,7 +184,7 @@ After deployment, set `BASE_URL` to the returned HTTPS URL and `API_KEY` to the 
 
 ```bash
 # From this service directory:
-bun scripts/test-api.ts
+node scripts/test-api.ts
 ```
 
 This creates a sample group, adds a ₹1,200 expense split three ways, fetches balances and suggested transfers, and records one sample manual settlement. It leaves labeled test data in the database and does not move real money.

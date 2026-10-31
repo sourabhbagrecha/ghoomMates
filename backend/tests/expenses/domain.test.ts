@@ -1,4 +1,5 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, test } from 'node:test';
+import { expect } from '../expect.ts';
 import { splitExpense, suggestTransfers } from '../../src/expenses/domain.ts';
 
 const participants = ['a', 'b', 'c'].map(memberId => ({ memberId }));

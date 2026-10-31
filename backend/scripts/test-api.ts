@@ -1,6 +1,6 @@
 export {};
 // Creates a small sample trip and records one MANUAL settlement; no money moves.
-// BASE_URL=https://your-service.run.app API_KEY=... bun scripts/test-api.ts
+// BASE_URL=https://your-service.run.app API_KEY=... node scripts/test-api.ts
 const baseUrl = process.env.BASE_URL?.replace(/\/$/, '');
 const apiKey = process.env.API_KEY;
 if (!baseUrl || !apiKey) throw new Error('Set BASE_URL and API_KEY before running the test flow');

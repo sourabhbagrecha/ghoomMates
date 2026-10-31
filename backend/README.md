@@ -1,6 +1,6 @@
 # Ghoomates backend
 
-Single Node.js / Bun + TypeScript server for every Ghoomates backend module. One process, one port, one shared PostgreSQL connection pool (local or Google Cloud SQL).
+Single Node.js + TypeScript server for every Ghoomates backend module. One process, one port, one shared PostgreSQL connection pool (local or Google Cloud SQL).
 
 | Prefix | Module | Source | Docs |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ Single Node.js / Bun + TypeScript server for every Ghoomates backend module. One
 
 Copy `.env.example` to `.env`. All modules read the same file.
 
-- `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`: shared Cloud SQL database, reached through the [Cloud SQL Node.js Connector](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector) with Application Default Credentials (`gcloud auth application-default login` locally, `roles/cloudsql.client` on the Cloud Run service account). `DATABASE_URL` can replace them with any Postgres connection string. Without either, auth uses an in-memory store and the expense API is disabled.
+- `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`: shared Cloud SQL database, reached through the [Cloud SQL Node.js Connector](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector) with Application Default Credentials (`gcloud auth application-default login` locally, `roles/cloudsql.client` on the Cloud Run service account). `DATABASE_URL` can replace them with any Postgres connection string, including a direct encrypted connection to the instance's public IP that needs no Google credentials (see `.env.example`). Without either, auth uses an in-memory store and the expense API is disabled.
 - `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `CLIENT_ORIGIN`: auth.
 - `API_KEY`: required to enable the expense API (at least 32 characters). Without it, `/api/*` returns 503.
 
@@ -34,25 +34,25 @@ Migrations apply automatically on startup. To switch to Cloud SQL later, comment
 `DB_NAME` settings. Cloud SQL takes priority when both connection settings are enabled.
 Switching connections does not copy local data into the cloud database.
 
+Requires Node.js 22.18+ (runs the TypeScript sources directly, no build step).
 
 ```bash
-# From repository root
-npm run dev:backend
-
-# Or from backend/
+# From repository root: installs everything, then runs backend + frontend together
 npm install
-npm run dev        # Node
-bun run dev:bun    # Bun
+npm run dev
+
+# Backend only
+npm run dev:backend   # or, from backend/: npm run dev
 ```
 
-Default address: `http://127.0.0.1:3000`. The frontend Vite dev server proxies `/auth` here.
+Default address: `http://127.0.0.1:3000` (`PORT` in `.env` overrides it). The frontend Vite dev server proxies `/auth` and `/api` here.
 
 ## Tests
 
 ```bash
-npm test                 # routing + auth tests (node:test)
-bun run test:unit        # expense domain tests
-DB_NAME=ghoomates_test bun run test:expenses    # expense domain + API tests (needs a database)
+npm test                 # routing, auth, and expense domain tests (node:test)
+npm run test:unit        # expense domain tests only
+DB_NAME=ghoomates_test npm run test:expenses    # expense domain + API tests (needs a database)
 npm run typecheck
 npm run test:connection  # connect, apply migrations, list table row counts
 ```
@@ -72,4 +72,4 @@ The API tests write groups to the configured database; point them at the `ghooma
 
 ## Deploy
 
-The `Dockerfile` builds the whole backend with Bun and binds to `0.0.0.0:$PORT` (8080 in the image). See [Cloud Run deployment](../cloud-ops/deploy/README.md).
+The `Dockerfile` builds the whole backend on Node.js 24 and binds to `0.0.0.0:$PORT` (8080 in the image). See [Cloud Run deployment](../cloud-ops/deploy/README.md).

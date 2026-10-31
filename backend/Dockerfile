@@ -1,15 +1,15 @@
-FROM oven/bun:1.4.4 AS dependencies
+FROM node:24-slim AS dependencies
 WORKDIR /app
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
-FROM oven/bun:1.4.4-slim
+FROM node:24-slim
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080
-COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
-COPY --chown=bun:bun package.json ./
-COPY --chown=bun:bun src ./src
-COPY --chown=bun:bun migrations ./migrations
-USER bun
+COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json ./
+COPY --chown=node:node src ./src
+COPY --chown=node:node migrations ./migrations
+USER node
 EXPOSE 8080
-CMD ["bun", "src/index.ts"]
+CMD ["node", "src/index.ts"]

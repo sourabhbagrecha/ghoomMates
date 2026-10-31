@@ -6,7 +6,7 @@ Use `src/` for application code, `public/` for static assets, and `tests/` for t
 
 ## Development
 
-Requires Node.js 20.19+ or 22.12+. Run these from the `frontend/` directory:
+Requires Node.js 22.18+. To run frontend and backend together, use `npm run dev` from the repository root. Frontend-only commands, run from the `frontend/` directory:
 
 ```bash
 npm install

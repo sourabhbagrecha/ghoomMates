@@ -2,7 +2,7 @@
 **Module:** `expenses`  
 **Monorepo Path:** `backend` (module `src/expenses/`, served by the unified backend)  
 **Ecosystem:** Ghoomates Travel Companion Platform  
-**Runtimes:** Node.js (v22+) / Bun (v1.3+) &bull; **Database:** Google Cloud SQL for PostgreSQL 18
+**Runtimes:** Node.js (v22.18+) &bull; **Database:** Google Cloud SQL for PostgreSQL 18
 
 ---
 
@@ -14,7 +14,7 @@ The `expenses` module of the unified backend is the component within the **Ghoom
 1. **Zero Financial Precision Drift**: No floating-point numbers are used for monetary calculations. All amounts are stored and calculated as 64-bit integer **paise** ($1\text{ INR} = 100\text{ paise}$).
 2. **ACID Transactional Consistency**: All balance mutations, sequential audit logs, and idempotency states execute within a single Postgres transaction.
 3. **Strict Idempotency**: All state-modifying requests require a unique `Idempotency-Key` header hashed via SHA-256 to prevent duplicate charges or double payments.
-4. **Platform & Runtime Neutrality**: Operates on both standard Node.js and Bun without external web framework dependencies (built on standard Web Fetch & Streams primitives).
+4. **Platform & Runtime Neutrality**: Runs on standard Node.js, executing the TypeScript sources directly with no build step.
 
 ---
 
@@ -28,7 +28,7 @@ flowchart TD
     end
 
     subgraph Service["Expense Service (Port 3000)"]
-        HTTP["HTTP Dispatcher\n(Express 5 on Node.js / Bun)"]
+        HTTP["HTTP Dispatcher\n(Express 5 on Node.js)"]
         Auth["Auth & Security Guard\n(Bearer Token & Constant-Time Check)"]
         Router["REST Router & Parser\n(app.ts)"]
         Domain["Domain Engine\n(Split Math & Debt Graph)"]
@@ -233,7 +233,7 @@ The service connects to the `ghoomates` Cloud SQL instance (`optimal-comfort-510
 
 ```text
 Local Dev (Port 3000) ---> Cloud Run (Port 8080)
-   ├── Node 22+ / Bun          ├── Distroless Container
+   ├── Node 22.18+             ├── node:24-slim Container
    ├── Direct TLS connection   ├── Managed VPC & Secret Manager
    └── Automatic .env loader   └── Zero-trust Service Account (cloudsql.client)
 ```

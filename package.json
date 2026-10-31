@@ -1,13 +1,24 @@
 {
   "name": "ghoomates",
   "private": true,
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
+    "postinstall": "npm --prefix backend install && npm --prefix frontend install",
+    "dev": "concurrently --kill-others-on-fail -n api,web -c blue,magenta \"npm:dev:backend\" \"npm:dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "start": "npm --prefix backend start",
+    "test": "npm --prefix backend test",
+    "typecheck": "npm --prefix backend run typecheck",
     "db:cli": "npm --prefix backend run db:cli",
     "psql": "npm --prefix backend run psql",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }
