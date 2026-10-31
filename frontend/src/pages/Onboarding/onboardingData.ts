@@ -6,7 +6,7 @@ import type { PersonId } from '../../data/people'
 
 export type OnboardingStep = 'welcome' | 'sign-in' | 'selfie' | 'about-you' | 'permissions' | 'invite'
 
-export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'sign-in', 'selfie', 'about-you', 'permissions', 'invite']
+export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'sign-in', 'selfie', 'about-you', 'invite']
 
 export const isOnboardingStep = (route: string): route is OnboardingStep =>
   (ONBOARDING_STEPS as string[]).includes(route)

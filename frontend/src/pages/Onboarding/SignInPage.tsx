@@ -74,10 +74,11 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
 
   return (
     <OnboardingLayout
-      eyebrow="Sign in · Google"
+      eyebrow="Step 1 of 3 · Sign in"
       title="Welcome to Ghoomate"
       subtitle="Sign in or create your account with Google to plan, split, and share with your squad."
       step={1}
+      totalSteps={3}
       onBack={onBack}
       actions={
         <p className="onboarding__footnote">

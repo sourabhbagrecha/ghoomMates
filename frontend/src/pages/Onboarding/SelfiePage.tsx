@@ -141,7 +141,7 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
 
   return (
     <OnboardingLayout
-      eyebrow="Step 2 of 4 · Live Selfie"
+      eyebrow="Step 2 of 3 · Live Selfie"
       title="Take a live selfie"
       subtitle={
         userName
@@ -149,6 +149,7 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
           : 'Smile for the camera so your squad and GhoomMate can recognize you.'
       }
       step={2}
+      totalSteps={3}
       onBack={onBack}
       bodyClassName="selfie__body"
       actions={
