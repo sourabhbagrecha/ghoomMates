@@ -16,9 +16,11 @@ export interface ServerModules {
   heritage?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
+  // Heritage Ops: crowd forecasts from squads' plans and advisories, mounted under /api/ops. Works without a database.
+  ops?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, ops }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -49,6 +51,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (media) app.use('/api/media', media);
+  if (ops) app.use('/api/ops', ops);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));
