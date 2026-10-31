@@ -1,8 +1,8 @@
 export interface AuthUser {
   id: string;
-  googleId: string;
+  googleId?: string;
   email: string;
-  emailVerified: boolean;
+  emailVerified?: boolean;
   name: string;
   givenName?: string;
   familyName?: string;
@@ -49,6 +49,29 @@ function notifyAuth(user: AuthUser | null) {
   }
 }
 
+export function decodeJwtPayload(token: string): Partial<AuthUser> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonStr = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonStr);
+    return {
+      id: payload.userId,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -60,7 +83,29 @@ export function getToken(): string | null {
 export function getStoredUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return JSON.parse(raw);
+
+    // If not yet in storage, check if there is an active token in the URL hash or query
+    if (typeof window !== 'undefined') {
+      const hashQuery = window.location.hash.split('?')[1] || '';
+      const search = window.location.search.replace(/^\?/, '') || '';
+      const params = new URLSearchParams(search || hashQuery);
+      const token = params.get('token');
+      if (token) {
+        const decoded = decodeJwtPayload(token);
+        if (decoded && decoded.id && decoded.email) {
+          const u: AuthUser = {
+            id: decoded.id,
+            email: decoded.email,
+            name: decoded.name || decoded.email.split('@')[0],
+            picture: decoded.picture,
+          };
+          saveAuthSession(token, u, false);
+          return u;
+        }
+      }
+    }
+    return null;
   } catch {
     return null;
   }

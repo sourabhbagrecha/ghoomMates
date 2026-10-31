@@ -157,13 +157,21 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
         }
 
         if (!code) {
-          throw new ApiError(400, 'MISSING_CODE', 'Authorization code missing from redirect');
+          console.error('Google OAuth missing authorization code');
+          const redirectError = `${clientOrigin}/#/sign-in?error=${encodeURIComponent('missing_authorization_code')}`;
+          return Response.redirect(redirectError, 302);
         }
 
-        const result = await service.handleGoogleCode(code);
-        const destination = 'selfie';
-        const target = `${clientOrigin}/#/${destination}?token=${encodeURIComponent(result.token)}`;
-        return Response.redirect(target, 302);
+        try {
+          const result = await service.handleGoogleCode(code);
+          const destination = 'selfie';
+          const target = `${clientOrigin}/#/${destination}?token=${encodeURIComponent(result.token)}`;
+          return Response.redirect(target, 302);
+        } catch (authErr: any) {
+          console.error('Google OAuth code exchange error:', authErr);
+          const redirectError = `${clientOrigin}/#/sign-in?error=${encodeURIComponent(authErr.message || 'google_auth_failed')}`;
+          return Response.redirect(redirectError, 302);
+        }
       }
 
       // Dev mock login for rapid local development

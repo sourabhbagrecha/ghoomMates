@@ -4,7 +4,9 @@ const readRoute = () => {
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback')) {
     return 'auth/callback'
   }
-  return window.location.hash.replace(/^#\/?/, '')
+  const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#\/?/, '') : ''
+  // Strip query parameters (?token=..., ?error=..., etc.) from the route name
+  return hash.split('?')[0]
 }
 
 export type Navigate = (route: string, options?: { replace?: boolean }) => void
@@ -40,12 +42,18 @@ export function useHashRoute(): [string, Navigate, EntryRoutes] {
   }, [])
 
   const navigate = useCallback<Navigate>((next, options) => {
+    const clean = next.replace(/^#\/?/, '').split('?')[0]
     if (options?.replace) {
       // replaceState doesn't fire hashchange, so update state ourselves
       window.history.replaceState(null, '', `#/${next}`)
-      setState((prev) => moveTo(prev, next))
+      setState((prev) => moveTo(prev, clean))
     } else {
-      window.location.hash = `/${next}`
+      const current = window.location.hash.replace(/^#\/?/, '').split('?')[0]
+      if (current === clean) {
+        setState((prev) => moveTo(prev, clean))
+      } else {
+        window.location.hash = `/${next}`
+      }
     }
   }, [])
 

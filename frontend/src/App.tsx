@@ -26,6 +26,7 @@ import { StatesPage } from './pages/States/StatesPage'
 import { rememberTripTab } from './pages/Trip/lastTab'
 import { TripDetailRoutes } from './pages/Trip/TripDetailRoutes'
 import {
+  decodeJwtPayload,
   fetchCurrentUser,
   getStoredUser,
   loginWithGoogleCode,
@@ -92,45 +93,58 @@ function App() {
   // Process OAuth callback from Google
   useEffect(() => {
     const isCallbackPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback')
-    const rawQuery = (typeof window !== 'undefined' && (window.location.search.replace(/^\?/, '') || window.location.hash.split('?')[1])) || ''
-    const hasAuthParam = rawQuery.includes('token=') || rawQuery.includes('code=')
+    const rawHashQuery = typeof window !== 'undefined' ? window.location.hash.split('?')[1] : ''
+    const rawSearch = typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : ''
+    const rawQuery = rawSearch || rawHashQuery || ''
 
-    if (route.startsWith('auth/callback') || isCallbackPath || hasAuthParam) {
+    if (route.startsWith('auth/callback') || isCallbackPath || rawQuery.includes('token=') || rawQuery.includes('code=')) {
       const params = new URLSearchParams(rawQuery)
       const token = params.get('token')
       const code = params.get('code')
 
       if (token) {
+        const decoded = decodeJwtPayload(token)
+        if (decoded?.id && decoded?.email) {
+          const authUser: AuthUser = {
+            id: decoded.id,
+            email: decoded.email,
+            name: decoded.name || decoded.email.split('@')[0],
+            picture: decoded.picture,
+          }
+          saveAuthSession(token, authUser, false)
+          setUser(authUser)
+        }
+
+        window.history.replaceState(null, '', '#/selfie')
+        navigate('selfie', { replace: true })
+
         fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
           .then((r) => r.json())
           .then((data) => {
             if (data.user) {
               saveAuthSession(token, data.user, false)
               setUser(data.user)
-              window.history.replaceState(null, '', '/#/selfie')
-              navigate('selfie')
             }
           })
-          .catch(() => {
-            window.history.replaceState(null, '', '/#/sign-in')
-            navigate('sign-in')
+          .catch((err) => {
+            console.warn('Background token check warning:', err)
           })
       } else if (code) {
         const redirectUri = `${window.location.origin}/auth/callback`
         loginWithGoogleCode(code, redirectUri)
           .then((res) => {
             setUser(res.user)
-            window.history.replaceState(null, '', '/#/selfie')
-            navigate('selfie')
+            window.history.replaceState(null, '', '#/selfie')
+            navigate('selfie', { replace: true })
           })
           .catch((err) => {
             console.error('Google OAuth callback error:', err)
-            window.history.replaceState(null, '', '/#/sign-in')
-            navigate('sign-in')
+            window.history.replaceState(null, '', '#/sign-in')
+            navigate('sign-in', { replace: true })
           })
       } else if (isCallbackPath) {
-        window.history.replaceState(null, '', '/#/selfie')
-        navigate('selfie')
+        window.history.replaceState(null, '', '#/selfie')
+        navigate('selfie', { replace: true })
       }
     }
   }, [route, navigate])
@@ -172,6 +186,7 @@ function App() {
     screen = (
       <OnboardingFlow
         step={onboardingStep}
+        currentUser={user}
         go={navigate}
         onDone={(details) => {
           markOnboarded(details.name)
