@@ -14,11 +14,13 @@ export interface ServerModules {
   voice?: Router;
   // Live crowd levels at heritage sites, mounted under /api/heritage. Needs no database.
   heritage?: Router;
+  // Green Trip impact (footprint, crowd-hours, local spend, pledges), mounted under /api/impact. Omitted without a database.
+  impact?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, impact, media }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -46,6 +48,9 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
   }));
   app.use('/api/voice', voice ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+  }));
+  app.use('/api/impact', impact ?? (() => {
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Impact needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (media) app.use('/api/media', media);

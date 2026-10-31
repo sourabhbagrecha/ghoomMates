@@ -8,6 +8,7 @@ import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
+import { createImpactApp } from './impact/app.ts';
 import { logger } from './logger.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
@@ -72,6 +73,7 @@ const gemini = createGemini();
 
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
+let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
   trips = createTripsApp(db, storage, authenticate, clientOrigin);
   voice = createVoiceApp({
@@ -81,6 +83,7 @@ if (db) {
     agentToken: (user) => signJwt({ userId: user.id, email: user.email, name: user.name }, jwtSecret, 2 * 60 * 60),
     env: process.env,
   });
+  impact = createImpactApp({ db, authenticate, gemini, env: process.env });
 } else {
   logger.warn('Server', 'Trips API (/api/trips/*) and voice (/api/voice/*) are disabled: requires a database');
 }
@@ -100,6 +103,7 @@ const app = createServer({
   expenses,
   trips,
   voice,
+  impact,
   heritage: createHeritageApp(),
   media: createMediaRouter(storage),
 });
