@@ -153,7 +153,7 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
   // Dev mock login for rapid local development; off in production unless ALLOW_DEV_LOGIN=true (see devLogin.ts)
   router.post('/dev/login', optionalJsonBody, async (req, res) => {
     assertDevLogin(service.devLoginEnabled);
-    logger.info('Auth', `Dev mock login requested for ${req.body?.email || 'Aditi Sharma (default)'}`);
+    // Nothing from the request is logged until it is accepted: on a public URL anyone can send this route anything
     const result = await service.devMockLogin(req.body);
     logger.info('Auth', `Dev mock login granted: ${result.user.email} (id: ${result.user.id})`);
     res.json(result);
