@@ -9,6 +9,7 @@ import { TextField } from '../../components/TextField'
 import { Toast } from '../../components/Toast'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
+import { getStoredUser, logoutUser } from '../../services/authService'
 import { signOut } from '../../services/onboardingStorage'
 import { ACCOUNT, APP_VERSION, LANGUAGES, NOTIFICATION_PREFS, isValidUpi } from './profileData'
 import { ConfirmBox, Switch } from './ProfileParts'
@@ -24,6 +25,7 @@ export function SettingsPage() {
   const [upiDraft, setUpiDraft] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const upiValid = upiDraft !== null && isValidUpi(upiDraft)
+  const email = getStoredUser()?.email || ACCOUNT.email
 
   const saveUpi = () => {
     if (!upiValid) return
@@ -34,7 +36,7 @@ export function SettingsPage() {
   }
 
   const logOut = () => {
-    // TODO: end the server session too
+    void logoutUser()
     signOut()
     profileActions.reset()
     navigate('welcome')
@@ -116,7 +118,7 @@ export function SettingsPage() {
           <div className="app-settings__row">
             <span className="app-settings__row-text">
               <span className="app-settings__label">Email</span>
-              <span className="app-settings__value">{ACCOUNT.email}</span>
+              <span className="app-settings__value">{email}</span>
             </span>
             {/* TODO: email change with a verification link */}
             <button type="button" className="text-link" onClick={() => showToast('We’ll send a link to confirm · coming soon')}>
@@ -275,7 +277,7 @@ export function SettingsPage() {
               onConfirm={() => {
                 // TODO: account deletion request on the server
                 setConfirm(null)
-                showToast(`We’ve emailed ${ACCOUNT.email} to confirm`)
+                showToast(`We’ve emailed ${email} to confirm`)
               }}
             >
               This removes your profile, selfie and photos within 30 days. Squads keep the expenses you shared so their

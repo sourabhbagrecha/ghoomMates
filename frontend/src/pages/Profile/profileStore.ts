@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { SAMPLE_YOU_VIBE } from '../../data/vibe'
+import { getStoredUser, subscribeAuth, updateUserProfile } from '../../services/authService'
 import { getProfileName } from '../../services/onboardingStorage'
 import { loadVibe } from '../../services/vibeStorage'
 import { COLOURS } from '../Onboarding/onboardingData'
@@ -13,7 +14,8 @@ import {
 } from './profileData'
 
 // Your profile and settings. Shared by every Profile screen (they remount on
-// each route); resets on reload until there's a profile service.
+// each route). Name and photo are saved to the signed-in account; the rest
+// resets on reload until there's a profile service.
 type ProfileState = {
   /** null until edited here; falls back to the name from sign-up */
   name: string | null
@@ -34,7 +36,7 @@ const initialState = (): ProfileState => ({
   name: null,
   username: ACCOUNT.username,
   colour: COLOURS[0].id,
-  photo: null,
+  photo: getStoredUser()?.picture || null,
   // Taken during sign-up
   hasSelfie: true,
   selfie: null,
@@ -60,6 +62,9 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener)
 }
 
+// Follow the account: a new selfie or sign-in brings its photo, signing out starts over
+subscribeAuth((user) => (user ? set({ photo: user.picture || null }) : set(initialState())))
+
 export const useProfileStore = () => useSyncExternalStore(subscribe, () => state)
 
 /** Display name: edited here, else from sign-up, else the mock user */
@@ -74,6 +79,7 @@ export const profileActions = {
   saveProfile: (patch: Pick<ProfileState, 'name' | 'username' | 'colour' | 'photo'>) => {
     set(patch)
     notice = 'Profile saved'
+    void updateUserProfile({ name: patch.name ?? undefined, picture: patch.photo ?? '' })
   },
   setSelfie: (selfie: string) => set({ hasSelfie: true, selfie }),
   deleteSelfie: () => set({ hasSelfie: false, selfie: null }),

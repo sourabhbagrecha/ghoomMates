@@ -32,7 +32,7 @@ export function EditProfilePage() {
   const canSave = !!draft.name.trim() && draft.username.length > 1
 
   const save = () => {
-    // TODO: persist to the profile service (and the name used on Home)
+    // Name and photo are saved to the account too, which updates Home
     profileActions.saveProfile({ ...draft, name: draft.name.trim() })
     navigate('profile')
   }
