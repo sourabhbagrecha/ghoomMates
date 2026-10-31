@@ -51,6 +51,29 @@ export async function openDatabase(env = process.env): Promise<Database> {
 
   const pool = new pg.Pool({ ...config, types, max: Number(env.DB_POOL_SIZE ?? 10) });
   pool.on('error', (err) => logger.error('DB', `Idle database connection failed: ${err.message}`));
+
+  // Log application queries to terminal
+  const origQuery = pool.query.bind(pool);
+  pool.query = (async (...args: any[]) => {
+    const start = Date.now();
+    try {
+      const res = await (origQuery as any)(...args);
+      const ms = Date.now() - start;
+      const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+      if (text && !text.includes('pg_advisory')) {
+        const preview = text.replace(/\s+/g, ' ').trim().slice(0, 120);
+        logger.debug('DB:SQL', `${preview} (${ms}ms, rows: ${res?.rowCount ?? 0})`);
+      }
+      return res;
+    } catch (err: any) {
+      const ms = Date.now() - start;
+      const text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+      const preview = (text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      logger.error('DB:SQL', `Query failed (${ms}ms): ${preview} -> ${err.message}`);
+      throw err;
+    }
+  }) as any;
+
   try {
     await migrate(pool);
     logger.info('DB', 'Postgres connection pool & migrations ready');
