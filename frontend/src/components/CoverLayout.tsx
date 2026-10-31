@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import iconBack from '../assets/figma/icon-back-white.svg'
-import { StatusBar } from './StatusBar'
+import { TopSafeArea } from './TopSafeArea'
 import './CoverLayout.css'
 
 type CoverLayoutProps = {
@@ -22,7 +22,7 @@ export function CoverLayout({ cover, onBack, overlay, bodyClassName, children, a
         <div className="cover-layout__cover">
           <img className="cover-layout__photo" src={cover} alt="" />
           <div className="cover-layout__chrome">
-            <StatusBar />
+            <TopSafeArea />
             <div className="cover-layout__top-bar">
               <button type="button" className="cover-layout__back" onClick={onBack} aria-label="Back">
                 <img src={iconBack} alt="" width={20} height={20} />

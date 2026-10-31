@@ -1,9 +1,7 @@
-import { useState } from 'react'
 import headerBg from '../../assets/figma/expenses-header-bg.svg'
 import iconCalendar from '../../assets/figma/icon-calendar-sky.svg'
 import iconCheck from '../../assets/figma/icon-check-success.svg'
 import iconPlus from '../../assets/figma/icon-plus.svg'
-import iconGoogle from '../../assets/icon-google.svg'
 import grid1 from '../../assets/figma/photo-grid-1.svg'
 import grid3 from '../../assets/figma/photo-grid-3.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
@@ -49,7 +47,6 @@ type HomePageProps = {
   onOpenNotifications: () => void
   onOpenTrip: (tab: TabId) => void
   onHaveInvite: () => void
-  onLogout?: () => void
 }
 
 export function HomePage({
@@ -60,14 +57,11 @@ export function HomePage({
   onOpenNotifications,
   onOpenTrip,
   onHaveInvite,
-  onLogout,
 }: HomePageProps) {
   const navigate = useNavigate()
-  const [showAccountModal, setShowAccountModal] = useState(false)
   const planTrip = () => navigate('create')
 
   const displayName = user?.name || name || 'there'
-  const initial = displayName.trim().charAt(0).toUpperCase() || 'A'
 
   return (
     <>
@@ -77,12 +71,7 @@ export function HomePage({
         eyebrow={TODAY}
         title={`Hey ${displayName}`}
         actions={
-          <HeaderActions
-            leading={<NotificationsButton unread={unread} onClick={onOpenNotifications} />}
-            profileInitial={initial}
-            profilePicture={user?.picture}
-            onProfileClick={() => setShowAccountModal(true)}
-          />
+          <HeaderActions leading={<NotificationsButton unread={unread} onClick={onOpenNotifications} />} />
         }
       >
         <div className="screen__header-row">
@@ -98,43 +87,6 @@ export function HomePage({
           {empty ? <EmptyHome onPlanTrip={planTrip} onHaveInvite={onHaveInvite} /> : <Trips onOpenTrip={onOpenTrip} onOpenPlan={() => navigate('plan')} />}
         </main>
       </ScreenLayout>
-
-      {/* Account Profile Dialog */}
-      {showAccountModal && (
-        <div className="account-modal-overlay" onClick={() => setShowAccountModal(false)}>
-          <div className="account-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="account-modal__avatar-wrap">
-              {user?.picture ? (
-                <img src={user.picture} alt="" className="account-modal__avatar-img" />
-              ) : (
-                <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-primary)' }}>{initial}</span>
-              )}
-            </div>
-            <h3 className="account-modal__name">{displayName}</h3>
-            {user?.email && <p className="account-modal__email">{user.email}</p>}
-            <span className="account-modal__badge">
-              <img src={iconGoogle} alt="Google" />
-              Signed in with Google
-            </span>
-            <div className="account-modal__actions">
-              {onLogout && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowAccountModal(false)
-                    onLogout()
-                  }}
-                >
-                  Sign out
-                </Button>
-              )}
-              <Button variant="primary" onClick={() => setShowAccountModal(false)}>
-                Done
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {empty ? (
         <span className="home-indicator" aria-hidden="true" />
@@ -157,6 +109,13 @@ function Trips({ onOpenTrip, onOpenPlan }: { onOpenTrip: (tab: TabId) => void; o
   return (
     <>
       <section className="card live-trip" aria-label={`${LIVE_TRIP.name}, happening now`}>
+        {/* Whole card opens the trip; the shortcuts sit above this and open a specific tab */}
+        <button
+          type="button"
+          className="live-trip__open"
+          aria-label={`Open ${LIVE_TRIP.name}`}
+          onClick={() => onOpenTrip('itinerary')}
+        />
         <div className="live-trip__cover">
           <img src={LIVE_TRIP.cover} alt="" width={220} height={118} />
           <span className="live-trip__badge">

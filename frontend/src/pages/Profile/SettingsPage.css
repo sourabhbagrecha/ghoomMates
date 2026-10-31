@@ -178,3 +178,10 @@
 .app-settings__states {
   align-self: center;
 }
+
+.app-settings__via {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

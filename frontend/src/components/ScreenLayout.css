@@ -15,7 +15,7 @@
 .screen__header-bg {
   position: absolute;
   left: 0;
-  top: 0;
+  top: var(--header-art-offset);
   width: 100%;
 }
 

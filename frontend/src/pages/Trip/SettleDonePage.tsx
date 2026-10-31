@@ -1,7 +1,7 @@
 import iconCheckBig from '../../assets/figma/icon-check-big-primary.svg'
 import iconCheck from '../../assets/figma/icon-check-success.svg'
 import { Button } from '../../components/Button'
-import { StatusBar } from '../../components/StatusBar'
+import { TopSafeArea } from '../../components/TopSafeArea'
 import { PEOPLE } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { DUES, INCOMING, NET_PAYMENT, UPI_APPS } from './tripDetailData'
@@ -16,7 +16,7 @@ export function SettleDonePage() {
 
   return (
     <div className="settle-done">
-      <StatusBar />
+      <TopSafeArea />
       <main className="settle-done__body">
         <div className="settle-done__hero">
           <span className="settle-done__check">

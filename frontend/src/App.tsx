@@ -30,7 +30,6 @@ import {
   fetchCurrentUser,
   getStoredUser,
   loginWithGoogleCode,
-  logoutUser,
   saveAuthSession,
   subscribeAuth,
   type AuthUser,
@@ -169,12 +168,6 @@ function App() {
   // Hook-free like the other route modules; unknown profile paths fall back to Home
   const profileScreen = section === 'profile' ? ProfileRoutes({ path: segments.slice(1) }) : null
 
-  const handleLogout = async () => {
-    await logoutUser()
-    setUser(null)
-    navigate('welcome')
-  }
-
   let screen
   if (route.startsWith('auth/callback') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback'))) {
     screen = (
@@ -237,7 +230,6 @@ function App() {
           onOpenNotifications={() => navigate('notifications')}
           onOpenTrip={(tab) => navigate(`trip/${tab}`)}
           onHaveInvite={() => navigate('invite')}
-          onLogout={handleLogout}
         />
         <GhoomMateFab />
       </>

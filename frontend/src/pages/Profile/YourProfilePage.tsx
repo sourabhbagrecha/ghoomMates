@@ -11,6 +11,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
+import { getStoredUser } from '../../services/authService'
 import { ACCOUNT, BADGES, PLACES, PLACE_STATUS, SQUAD_SCORES, SQUADS, STATS } from './profileData'
 import { ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
@@ -59,7 +60,7 @@ export function YourProfilePage() {
         bodyClassName="your-profile__body"
       >
         <section className="card your-profile__card" aria-label="About you">
-          <ProfileAvatar name={name} colour={profile.colour} photo={profile.photo} size={88} ring />
+          <ProfileAvatar name={name} colour={profile.colour} photo={profile.photo ?? getStoredUser()?.picture ?? null} size={88} ring />
           <div className="your-profile__identity">
             <h2 className="your-profile__name">{name}</h2>
             <p className="your-profile__handle">{profile.username}</p>

@@ -4,7 +4,7 @@ import ellipse1 from '../../assets/figma/welcome-ellipse-1.svg'
 import ellipse3 from '../../assets/figma/welcome-ellipse-3.svg'
 import { Button } from '../../components/Button'
 import { GhoomMateAvatar } from '../../components/GhoomMate'
-import { StatusBar } from '../../components/StatusBar'
+import { TopSafeArea } from '../../components/TopSafeArea'
 import './GeneratingStep.css'
 
 const STEP_MS = 700
@@ -41,7 +41,7 @@ export function GeneratingStep({ destination, steps, onCancel, onDone }: Generat
       <div className="create-generating__canvas">
         <img className="create-generating__ellipse" src={ellipse1} alt="" width={280} height={280} style={{ left: 190, top: -80 }} />
         <img className="create-generating__ellipse" src={ellipse3} alt="" width={120} height={120} style={{ left: -40, top: 420 }} />
-        <StatusBar />
+        <TopSafeArea />
 
         <div className="create-generating__hero">
           <span className="create-generating__mascot">

@@ -7,7 +7,7 @@ import iconDownload from '../../assets/figma/icon-download-white.svg'
 import iconFilm from '../../assets/figma/icon-film-white.svg'
 import iconShare from '../../assets/figma/icon-share-white.svg'
 import { Avatar } from '../../components/Avatar'
-import { StatusBar } from '../../components/StatusBar'
+import { TopSafeArea } from '../../components/TopSafeArea'
 import { PEOPLE } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
@@ -42,7 +42,7 @@ export function PhotoViewerPage({ index }: { index: number }) {
 
   return (
     <div className="viewer">
-      <StatusBar />
+      <TopSafeArea />
       <div className="viewer__top-bar">
         <button type="button" className="viewer__icon-button" onClick={() => navigate('trip/photos')} aria-label="Back to photos">
           <img src={iconBack} alt="" width={20} height={20} />

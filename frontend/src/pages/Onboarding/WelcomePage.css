@@ -24,7 +24,7 @@
 .welcome__wordmark {
   position: absolute;
   left: 20px;
-  top: 62px;
+  top: calc(var(--top-inset) + 8px);
   display: flex;
   align-items: center;
   gap: 6px;

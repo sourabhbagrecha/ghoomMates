@@ -1,0 +1,4 @@
+.top-safe-area {
+  flex-shrink: 0;
+  height: var(--top-inset);
+}

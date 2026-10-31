@@ -125,3 +125,32 @@
   line-height: 18px;
   color: var(--color-ink);
 }
+
+/* Photo being checked, shown over the live feed until the one-face check finishes */
+.selfie__preview--checking {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  opacity: 0.85;
+}
+
+.selfie__error {
+  align-self: stretch;
+  padding: 10px 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-primary);
+}
+
+.selfie__note {
+  max-width: 280px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-muted);
+}

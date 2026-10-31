@@ -3,7 +3,7 @@
   position: absolute;
   left: 16px;
   right: 16px;
-  top: 58px;
+  top: calc(var(--top-inset) + 4px);
   z-index: 35;
   display: flex;
   justify-content: center;

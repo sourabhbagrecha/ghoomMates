@@ -2,7 +2,7 @@ import { useContext, type ReactNode } from 'react'
 import iconBack from '../assets/figma/icon-back-white.svg'
 import { HeaderActions } from './HeaderActions'
 import { ScreenBackContext } from './screenBack'
-import { StatusBar } from './StatusBar'
+import { TopSafeArea } from './TopSafeArea'
 import './ScreenLayout.css'
 
 type ScreenLayoutProps = {
@@ -18,7 +18,7 @@ type ScreenLayoutProps = {
   children: ReactNode
 }
 
-/** Shared shell for every tab screen: blue header, status bar, title bar and a scrolling body. */
+/** Shared shell for every tab screen: blue header, title bar and a scrolling body. */
 export function ScreenLayout({ headerBg, headerHeight, eyebrow, title, actions, withBubble, children }: ScreenLayoutProps) {
   const onBack = useContext(ScreenBackContext)
 
@@ -26,7 +26,7 @@ export function ScreenLayout({ headerBg, headerHeight, eyebrow, title, actions, 
     <div className={`screen${withBubble ? ' screen--with-bubble' : ''}`}>
       <img className="screen__header-bg" src={headerBg} alt="" width={393} height={headerHeight} />
       <div className="screen__content">
-        <StatusBar />
+        <TopSafeArea />
         <header className="screen__top-bar">
           <div className="screen__title-group">
             {onBack && (

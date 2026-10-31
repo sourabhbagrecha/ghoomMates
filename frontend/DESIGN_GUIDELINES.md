@@ -136,7 +136,7 @@ Ghoomate is designed for a **393 × 852 pt** iPhone frame. On desktop the app re
 
 ```
 ┌──────────────────────────────┐  ← Header background SVG (height varies per screen)
-│ StatusBar (54)               │
+│ TopSafeArea (24, or notch)   │
 │ Top bar: eyebrow + title     │  padding 4 20 0 · HeaderActions on the right
 │ .screen__header-row          │  padding 14 20 0 · group pill / search / balances
 ├──────────────────────────────┤
@@ -205,7 +205,7 @@ All shadows are tinted with the primary blue, never black. Use `filter: drop-sha
 Reuse these before writing new markup.
 
 ### `ScreenLayout`: [`src/components/ScreenLayout.tsx`](src/components/ScreenLayout.tsx)
-The shell for every tab screen: header SVG, status bar, eyebrow and title, header actions, and a scrolling body. Pass `withBubble` when the screen shows a GhoomMate tip. Put header-row content in `.screen__header-row` and the main column in `<main className="screen__body">`.
+The shell for every tab screen: header SVG, top safe area, eyebrow and title, header actions, and a scrolling body. Pass `withBubble` when the screen shows a GhoomMate tip. Put header-row content in `.screen__header-row` and the main column in `<main className="screen__body">`.
 
 ```tsx
 <ScreenLayout headerBg={headerBg} headerHeight={210} eyebrow="Goa Gang · Expenses" title="Split & Settle" withBubble>
@@ -240,8 +240,8 @@ Four tabs: Itinerary, Photos, Expenses, Explore. The active tab gets a 56 × 32 
 ### `GhoomMateFab` and `GhoomMateSays`: [`src/components/GhoomMate.tsx`](src/components/GhoomMate.tsx)
 The FAB lives at app level and appears on every screen. `GhoomMateSays` is a dark ink bubble (corners 18/18/4/18, with the 4 px corner pointing at the FAB) holding **one short sentence** (≤ ~60 characters) suggesting something to say or do. Use it on at most one tip per screen, and leave it off when the screen already has a strong CTA near the bottom (as Explore does).
 
-### `HeaderActions` and `StatusBar`
-Fixed header chrome: a QR invite button (frosted glass) and your profile avatar (amber with a yellow ring). The status bar is a static mock for the iOS frame.
+### `HeaderActions` and `TopSafeArea`
+Fixed header chrome: a QR invite button (frosted glass, opens Members) and your profile avatar (your photo, else your Google photo, else your initial, with a yellow ring). `TopSafeArea` is the small top margin of every screen (`--top-inset`: 24 px, or the phone's own status-bar height when the app runs full-screen on a notched phone). Don't draw a fake time, signal or battery. The header artwork is shifted up by `--header-art-offset` so headers keep their Figma shape.
 
 ### Onboarding and form components
 Used by the sign-up flow in [`src/pages/Onboarding/`](src/pages/Onboarding/) (Figma: the **Onboarding** section and **Components · Onboarding**).
@@ -282,7 +282,7 @@ The rest of the app hangs off those screens:
 | System states gallery | `#/states` (loading, empty, error, offline) | `src/pages/States/` |
 | After the trip | `#/past/<id>` (recap), `…/album`, `…/days`, `…/expenses` (final tally + settle up), `…/rate[/<stars>]` | `src/pages/PastTrip/` |
 
-Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. **Runs on every screen:** the GhoomMate FAB opens the voice overlay (`src/components/voice/`, `useVoice().open(prompt?)`), and `OfflineBanner` shows under the status bar when the connection drops. For loading, empty and error moments use `Skeleton`, `EmptyState` and `ErrorState` from `src/components/states/`; never ship a blank screen.
+Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. **Runs on every screen:** the GhoomMate FAB opens the voice overlay (`src/components/voice/`, `useVoice().open(prompt?)`), and `OfflineBanner` shows just below the top safe area when the connection drops. For loading, empty and error moments use `Skeleton`, `EmptyState` and `ErrorState` from `src/components/states/`; never ship a blank screen.
 
 `CoverLayout` (full-bleed photo header with a sheet body: stop, guide trip, trip recap) and `Toast` + `useToast` (feedback for stubbed actions) are shared. Still local and worth promoting once a second screen needs them: toggle switch, segmented control, progress bar, status tag, person toggle and star rating. Profile still draws your vibe with its own `VibeWeb` and the Create-trip vibe step with the static `spiderweb.svg`; both could switch to the shared `VibeChart` (see Vibe components).
 

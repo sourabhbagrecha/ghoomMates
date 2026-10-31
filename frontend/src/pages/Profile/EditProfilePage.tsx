@@ -10,6 +10,7 @@ import { TextField } from '../../components/TextField'
 import { Toast } from '../../components/Toast'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
+import { checkSingleFace } from '../../services/faceCheck'
 import { COLOURS } from '../Onboarding/onboardingData'
 import { ConfirmBox, ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
@@ -125,13 +126,22 @@ export function EditProfilePage() {
             ref={selfieInput}
             type="file"
             accept="image/*"
-            capture="user"
             hidden
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0]
+              e.target.value = ''
               if (!file) return
+              // Camera or photo library; either way it must show just you
+              const url = URL.createObjectURL(file)
+              showToast('Checking your photo…')
+              const result = await checkSingleFace(url)
+              if (!result.ok) {
+                URL.revokeObjectURL(url)
+                showToast(result.message)
+                return
+              }
               // TODO: upload and re-index face match
-              profileActions.setSelfie(URL.createObjectURL(file))
+              profileActions.setSelfie(url)
               setConfirmDelete(false)
               showToast('Selfie updated')
             }}

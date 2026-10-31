@@ -4,6 +4,7 @@ import iconScanFace from '../../assets/figma/icon-scan-face-primary.svg'
 import iconShield from '../../assets/figma/icon-shield-primary.svg'
 import { Button, LinkButton } from '../../components/Button'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { checkSingleFace, preloadFaceCheck } from '../../services/faceCheck'
 import './SelfiePage.css'
 
 const PRIVACY_POINTS = [
@@ -22,36 +23,41 @@ type SelfiePageProps = {
 
 export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: SelfiePageProps) {
   const fileInput = useRef<HTMLInputElement>(null)
+  // Opens the photo library rather than the camera
+  const uploadInput = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  // A photo waiting on the one-face check, and why the last one was rejected
+  const [checking, setChecking] = useState<string | null>(null)
+  const [photoError, setPhotoError] = useState<string | null>(null)
 
-  // Start the live front camera stream
-  const startCamera = async () => {
-    try {
-      setCameraError(null)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 640 },
-        },
-        audio: false,
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play().catch(() => {})
-      }
-      setCameraActive(true)
-    } catch (err: any) {
-      console.warn('Camera access could not be started:', err)
-      setCameraActive(false)
-      setCameraError('Camera access not available. You can upload a photo instead.')
+  useEffect(preloadFaceCheck, [])
+
+  // Every selfie, live or uploaded, must show exactly one face: just you
+  const acceptPhoto = async (dataUrl: string) => {
+    setPhotoError(null)
+    setChecking(dataUrl)
+    const result = await checkSingleFace(dataUrl)
+    setChecking(null)
+    if (!result.ok) {
+      setPhotoError(result.message)
+      return
     }
+    stopCamera()
+    onSelfie(dataUrl)
+  }
+
+  const readFile = (file: File | undefined) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      if (typeof evt.target?.result === 'string') acceptPhoto(evt.target.result)
+    }
+    reader.readAsDataURL(file)
   }
 
   // Stop camera tracks
@@ -63,45 +69,45 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
     setCameraActive(false)
   }
 
-  // Trigger live camera when on this screen without an existing selfie
+  // Open the front camera whenever there's no selfie yet (first visit, or after Retake)
   useEffect(() => {
+    if (selfie) return
     let canceled = false
-    if (!selfie) {
-      navigator.mediaDevices
-        ?.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
-          audio: false,
-        })
-        .then((stream) => {
-          if (canceled) {
-            stream.getTracks().forEach((track) => track.stop())
-            return
-          }
-          streamRef.current = stream
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream
-            videoRef.current.play().catch(() => {})
-          }
-          setCameraActive(true)
-        })
-        .catch((err) => {
-          if (canceled) return
-          console.warn('Camera access could not be started:', err)
-          setCameraActive(false)
-          setCameraError('Camera access not available. You can take a photo or upload instead.')
-        })
-    } else {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop())
-        streamRef.current = null
-      }
-    }
+    navigator.mediaDevices
+      ?.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
+        audio: false,
+      })
+      .then((stream) => {
+        if (canceled) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
+        streamRef.current = stream
+        // Renders the <video>; the effect below attaches the stream once it's on screen
+        setCameraActive(true)
+      })
+      .catch((err) => {
+        if (canceled) return
+        console.warn('Camera access could not be started:', err)
+        setCameraActive(false)
+        setCameraError('Camera access not available. You can take a photo or upload instead.')
+      })
 
     return () => {
       canceled = true
       stopCamera()
     }
   }, [selfie])
+
+  // The <video> only exists while the camera is active, so connect the stream after it mounts.
+  // (Setting srcObject before then was why the first open showed a blank viewfinder.)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!cameraActive || !video || !streamRef.current || video.srcObject === streamRef.current) return
+    video.srcObject = streamRef.current
+    video.play().catch(() => {})
+  }, [cameraActive])
 
   // Capture frame from the live video feed
   const capturePhoto = () => {
@@ -128,25 +134,31 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
       const startY = (height - size) / 2
       ctx.drawImage(video, startX, startY, size, size, 0, 0, size, size)
 
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.88)
-      stopCamera()
-      onSelfie(dataUrl)
+      // The camera keeps running until the photo passes the check, so a retry is one tap away
+      acceptPhoto(canvas.toDataURL('image/jpeg', 0.88))
     }
   }
 
+  // Clearing the selfie re-opens the camera (see the effect above)
   const handleRetake = () => {
+    setPhotoError(null)
+    setCameraError(null)
     onSelfie('')
-    startCamera()
+  }
+
+  const uploadAnother = () => {
+    setPhotoError(null)
+    uploadInput.current?.click()
   }
 
   return (
     <OnboardingLayout
-      eyebrow="Step 2 of 3 · Live Selfie"
-      title="Take a live selfie"
+      eyebrow="Step 2 of 3 · Selfie"
+      title="Add a selfie"
       subtitle={
         userName
-          ? `Welcome ${userName}! Smile for the camera so your squad and GhoomMate can recognize you.`
-          : 'Smile for the camera so your squad and GhoomMate can recognize you.'
+          ? `Welcome ${userName}! Snap one, or upload a photo of just you, so your squad and GhoomMate can recognize you.`
+          : 'Snap one, or upload a photo of just you, so your squad and GhoomMate can recognize you.'
       }
       step={2}
       totalSteps={3}
@@ -158,12 +170,20 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
             <Button variant="primary" onClick={onContinue}>
               Continue with this photo
             </Button>
-            <LinkButton onClick={handleRetake}>Retake live selfie</LinkButton>
+            <LinkButton onClick={handleRetake}>Retake selfie</LinkButton>
+            <LinkButton onClick={uploadAnother}>Upload a different photo</LinkButton>
           </>
         ) : (
           <>
-            <Button variant="primary" onClick={cameraActive ? capturePhoto : () => fileInput.current?.click()}>
-              {cameraActive ? 'Snap live selfie' : 'Take photo / upload'}
+            <Button
+              variant="primary"
+              disabled={!!checking}
+              onClick={cameraActive ? capturePhoto : () => fileInput.current?.click()}
+            >
+              {checking ? 'Checking your photo…' : cameraActive ? 'Snap live selfie' : 'Take a photo'}
+            </Button>
+            <Button variant="outline" disabled={!!checking} onClick={() => uploadInput.current?.click()}>
+              Upload a photo instead
             </Button>
             <LinkButton onClick={onContinue}>Skip for now</LinkButton>
           </>
@@ -177,17 +197,18 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
         capture="user"
         hidden
         onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) {
-            const reader = new FileReader()
-            reader.onload = (evt) => {
-              if (evt.target?.result) {
-                stopCamera()
-                onSelfie(evt.target.result as string)
-              }
-            }
-            reader.readAsDataURL(file)
-          }
+          readFile(e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
+      <input
+        ref={uploadInput}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          readFile(e.target.files?.[0])
+          e.target.value = ''
         }}
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -206,6 +227,7 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
         </svg>
 
         <span className="selfie__viewfinder">
+          {checking && <img className="selfie__preview selfie__preview--checking" src={checking} alt="" />}
           {selfie ? (
             <img className="selfie__preview" src={selfie} alt="Your selfie" />
           ) : cameraActive ? (
@@ -221,15 +243,22 @@ export function SelfiePage({ userName, selfie, onSelfie, onBack, onContinue }: S
         </span>
 
         <span className="selfie__hint">
-          {selfie ? 'Looking good!' : cameraActive ? 'Look straight & tap Snap' : 'Look straight · good light'}
+          {selfie
+            ? 'Looking good!'
+            : checking
+              ? 'Checking it’s just you…'
+              : cameraActive
+                ? 'Look straight & tap Snap'
+                : 'Just you · good light'}
         </span>
       </div>
 
-      {cameraError && (
-        <p style={{ fontSize: 12, color: 'var(--color-muted)', textAlign: 'center', maxWidth: 280 }}>
-          {cameraError}
+      {photoError && (
+        <p className="selfie__error" role="alert">
+          {photoError}
         </p>
       )}
+      {cameraError && !photoError && !selfie && <p className="selfie__note">{cameraError}</p>}
 
       <section className="selfie__privacy">
         <h2>

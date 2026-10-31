@@ -61,6 +61,11 @@
   --shadow-cover-card: 0 6px 18px rgba(7, 42, 200, 0.1);
   --shadow-fab: 0 10px 24px rgba(7, 42, 200, 0.45);
 
+  /* Space above the header: a small margin, or the phone's own status bar when the app runs full-screen */
+  --top-inset: max(env(safe-area-inset-top, 0px), 24px);
+  /* The Figma frames reserve 54px up there; header artwork is shifted up by the difference */
+  --header-art-offset: calc(var(--top-inset) - 54px);
+
   /* Device frame */
   --device-width: 393px;
   --device-height: 852px;

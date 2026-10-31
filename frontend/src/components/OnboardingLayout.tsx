@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import iconBack from '../assets/figma/icon-back-white.svg'
 import defaultHeaderBg from '../assets/figma/onboarding-header-bg.svg'
-import { StatusBar } from './StatusBar'
+import { TopSafeArea } from './TopSafeArea'
 import './OnboardingLayout.css'
 
 type OnboardingLayoutProps = {
@@ -48,7 +48,7 @@ export function OnboardingLayout({
       <div className="onboarding__scroll">
         <img className="onboarding__header-bg" src={headerBg} alt="" width={393} height={headerHeight} />
         <div className="onboarding__content">
-          <StatusBar />
+          <TopSafeArea />
           <div className="onboarding__top-bar">
             <button type="button" className="onboarding__back" onClick={onBack} aria-label="Back">
               <img src={iconBack} alt="" width={20} height={20} />

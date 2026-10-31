@@ -8,7 +8,7 @@ import iconMap from '../../assets/figma/icon-map-primary-18.svg'
 import iconZap from '../../assets/figma/icon-zap-18.svg'
 import { Button } from '../../components/Button'
 import { GhoomMateAvatar } from '../../components/GhoomMate'
-import { StatusBar } from '../../components/StatusBar'
+import { TopSafeArea } from '../../components/TopSafeArea'
 import './WelcomePage.css'
 
 // Tilted feature "stickers" around the mascot; box = rotated bounding box from Figma
@@ -30,7 +30,7 @@ export function WelcomePage({ onGetStarted, onHaveInvite }: WelcomePageProps) {
         <img className="welcome__ellipse" src={ellipse1} alt="" width={280} height={280} style={{ left: 190, top: -80 }} />
         <img className="welcome__ellipse" src={ellipse2} alt="" width={220} height={220} style={{ left: -90, top: 560 }} />
         <img className="welcome__ellipse" src={ellipse3} alt="" width={120} height={120} style={{ left: 300, top: 410 }} />
-        <StatusBar />
+        <TopSafeArea />
 
         <p className="welcome__wordmark">
           <img src={dot} alt="" width={10} height={10} />
