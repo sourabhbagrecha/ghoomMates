@@ -59,7 +59,7 @@ export function createVoiceApp({ db, authenticate, agentToken, env = process.env
       userName: user.name || user.username,
       authToken: agentToken(user),
     });
-    logger.info('Voice', `${user.email} started a GhoomMate session in ${session.roomName}`);
+    logger.info('Voice', `${user.email} started a GhoomMate session in ${session.roomName} (agent "${config.agentName}")`);
     res.json(session);
   });
 

@@ -20,6 +20,8 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 
 ## Running
 
+- **Use your own agent name in dev.** Set `GHOOMATE_AGENT_NAME` in `backend/.env`. Otherwise your sessions can go to a teammate's worker (running their code), and you'll see no `received job request` in your agent log.
+
 - `npm run dev` from the repo root starts api + web + agent.
 - To run the worker on its own: `npm --prefix backend run agent` (`node src/voice/agent.ts dev`). It logs "registered worker" once it's connected to `LIVEKIT_URL`.
 - The worker reaches the API at `BACKEND_URL`, so the API must be running too.
@@ -40,6 +42,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | Token minting, worker registration and Inference billing |
 | `GHOOMATE_MODEL` | `google/gemini-3.8-live` | Any LiveKit Inference realtime model |
 | `GHOOMATE_VOICE` | `Puck` | Voice name |
+| `GHOOMATE_AGENT_NAME` | `ghoomate` | Worker name that sessions dispatch to. LiveKit shares a project's sessions across every worker with the same name, so in dev set your own (e.g. `ghoomate-animesh`). The API and the worker both read it, so your app only reaches your worker. The deployed app keeps the default. |
 | `GHOOMATE_IDLE_PROCESSES` | `1` | Job processes kept started and loaded, so a chat starts without spawning Node and importing the agent (about 1–2 s). `0` turns it off, which you may want while editing the agent: the warm process runs the code from when it started, so an edit applies from the chat after next. |
 | `BACKEND_URL` | `http://127.0.0.1:$PORT` | Where the worker calls the API |
 

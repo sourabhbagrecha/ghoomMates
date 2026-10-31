@@ -85,3 +85,12 @@ test('mints a token whose room dispatches the ghoomate agent with the trip metad
     expect(JSON.parse(agents[0].metadata)).toEqual({ tripId: '11111111-1111-4111-8111-111111111111', userId: 'usr_1', userName: 'Asha', authToken: 'agent-jwt-usr_1' });
   });
 });
+
+test('dispatches to the GHOOMATE_AGENT_NAME worker when one is set', async () => {
+  await withServer({ ...LIVEKIT_ENV, GHOOMATE_AGENT_NAME: ' ghoomate-asha ' }, async (post) => {
+    const res = await post({ tripId: '11111111-1111-4111-8111-111111111111' });
+    expect(res.status).toBe(200);
+    const { participantToken } = await res.json();
+    expect(jwtPayload(participantToken).roomConfig.agents[0].agentName).toBe('ghoomate-asha');
+  });
+});

@@ -6,7 +6,7 @@ import { loadEnv } from '../env.ts';
 import { logger } from '../logger.ts';
 import { createBackendClient } from './backendClient.ts';
 import { firstName } from './members.ts';
-import { ACTION_RPC_METHOD, AGENT_NAME, type DispatchMetadata, type UiAction } from './protocol.ts';
+import { ACTION_RPC_METHOD, AGENT_NAME, agentNameFrom, type DispatchMetadata, type UiAction } from './protocol.ts';
 import { SKILLS, type SessionState, type Skill, type SkillContext, type TripDetail } from './skills/index.ts';
 import { createUiPusher } from './ui.ts';
 
@@ -132,5 +132,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     logger.warn('Voice', 'GhoomMate agent not started: set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in backend/.env');
     process.exit(0);
   }
-  cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url), agentName: AGENT_NAME, numIdleProcesses: IDLE_PROCESSES }));
+  const agentName = agentNameFrom();
+  // Every worker on the LiveKit project with this name shares its sessions, teammates' laptops included
+  if (agentName === AGENT_NAME) logger.warn('Voice', `Registering as the shared "${AGENT_NAME}"; set GHOOMATE_AGENT_NAME in backend/.env so your app's sessions only come to this worker`);
+  else logger.info('Voice', `Registering GhoomMate as "${agentName}"`);
+  cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url), agentName, numIdleProcesses: IDLE_PROCESSES }));
 }

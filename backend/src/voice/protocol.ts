@@ -2,8 +2,15 @@
 // the frontend overlay. The frontend mirrors this file in
 // frontend/src/components/voice/protocol.ts; keep both in sync.
 
-/** Explicit-dispatch name the worker registers with and session tokens request. */
+/**
+ * Default explicit-dispatch name the worker registers with and session tokens request. LiveKit shares a project's
+ * sessions across every worker with the same name, so in dev each person sets GHOOMATE_AGENT_NAME to their own
+ * (see agentNameFrom); the deployed app keeps this one.
+ */
 export const AGENT_NAME = 'ghoomate';
+
+/** The agent name for this machine: GHOOMATE_AGENT_NAME, else the shared default. Read it after loadEnv(). */
+export const agentNameFrom = (env: Record<string, string | undefined> = process.env) => env.GHOOMATE_AGENT_NAME?.trim() || AGENT_NAME;
 
 /** RPC the agent calls on the user's participant to drive on-screen UI. Payload: JSON UiEvent. */
 export const UI_RPC_METHOD = 'ghoomate.ui';

@@ -1,15 +1,21 @@
 import { randomBytes } from 'node:crypto';
 import { AccessToken, RoomAgentDispatch, RoomConfiguration } from 'livekit-server-sdk';
-import { AGENT_NAME, type DispatchMetadata, type VoiceSession } from './protocol.ts';
+import { agentNameFrom, type DispatchMetadata, type VoiceSession } from './protocol.ts';
 
-export type LiveKitConfig = { url: string; apiKey: string; apiSecret: string };
+export type LiveKitConfig = {
+  url: string;
+  apiKey: string;
+  apiSecret: string;
+  /** The worker name sessions dispatch to (GHOOMATE_AGENT_NAME); must match the agent worker's */
+  agentName: string;
+};
 
-// Reads LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET; null when any is missing (voice disabled).
+// Reads LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET (+ GHOOMATE_AGENT_NAME); null when any key is missing.
 export function liveKitConfig(env: Record<string, string | undefined> = process.env): LiveKitConfig | null {
   const url = env.LIVEKIT_URL?.trim();
   const apiKey = env.LIVEKIT_API_KEY?.trim();
   const apiSecret = env.LIVEKIT_API_SECRET?.trim();
-  return url && apiKey && apiSecret ? { url, apiKey, apiSecret } : null;
+  return url && apiKey && apiSecret ? { url, apiKey, apiSecret, agentName: agentNameFrom(env) } : null;
 }
 
 export type SessionRequest = {
@@ -29,7 +35,7 @@ export async function createVoiceSession(config: LiveKitConfig, req: SessionRequ
   const at = new AccessToken(config.apiKey, config.apiSecret, { identity: participantIdentity, name: req.userName, ttl: '15m' });
   at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true });
   at.roomConfig = new RoomConfiguration({
-    agents: [new RoomAgentDispatch({ agentName: AGENT_NAME, metadata: JSON.stringify(metadata) })],
+    agents: [new RoomAgentDispatch({ agentName: config.agentName, metadata: JSON.stringify(metadata) })],
   });
 
   return { serverUrl: config.url, participantToken: await at.toJwt(), roomName, participantIdentity };
