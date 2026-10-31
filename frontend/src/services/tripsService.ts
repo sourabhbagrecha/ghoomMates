@@ -55,6 +55,9 @@ export type TripDetail = TripBase & {
   members: TripMember[]
 }
 
+/** What a trip update returns: the trip, plus how many stops moved to the new last day because the trip got shorter */
+export type TripUpdate = TripDetail & { movedStops: number }
+
 export type InvitePreview = TripBase & {
   code: string
   invitedBy: { name: string; picture: string | null } | null
@@ -211,7 +214,7 @@ export const tripsApi = {
   list: () => request<{ items: TripListItem[] }>('/api/trips').then((r) => r.items),
   create: (input: NewTrip) => request<TripDetail>('/api/trips', { body: input }),
   get: (id: string) => request<TripDetail>(trip(id)),
-  update: (id: string, patch: Partial<NewTrip>) => request<TripDetail>(trip(id), { method: 'PATCH', body: patch }),
+  update: (id: string, patch: Partial<NewTrip>) => request<TripUpdate>(trip(id), { method: 'PATCH', body: patch }),
   previewInvite: (code: string) => request<InvitePreview>(`/api/trips/invites/${encodeURIComponent(code)}`),
   join: (code: string) => request<TripDetail>('/api/trips/join', { body: { code } }),
   summary: (id: string) => request<TripSummary>(`${trip(id)}/summary`),

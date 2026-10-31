@@ -4,13 +4,15 @@ import iconChevron from '../../assets/figma/icon-chevron-right-muted.svg'
 import iconLock from '../../assets/figma/icon-lock-sky.svg'
 import { AvatarStack } from '../../components/Avatar'
 import { Button, LinkButton } from '../../components/Button'
+import { DateRangeSheet } from '../../components/DateRangeSheet'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { TextField } from '../../components/TextField'
 import { useState } from 'react'
-import { activeTrip, formatTripDates, tripPhase, useActiveTrip } from '../../data/activeTrip'
+import { activeTrip, formatTripDates, tripDay, tripPhase, useActiveTrip } from '../../data/activeTrip'
+import { MAX_TRIP_DAYS, daysBetween, type IsoDate } from '../../data/tripDates'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
-import { tripsApi } from '../../services/tripsService'
+import { tripsApi, type TripUpdate } from '../../services/tripsService'
 import { myDues } from '../Expenses/expensesData'
 import { NOTIFICATION_SETTINGS } from './tripDetailData'
 import { formatINR } from './tripFormat'
@@ -21,8 +23,10 @@ import './TripSettingsPage.css'
 export function TripSettingsPage() {
   const navigate = useNavigate()
   const { notifications } = useTripStore()
-  const { trip, summary } = useActiveTrip()
-  const [toast, showToast] = useToast(3000)
+  const { trip, summary, itinerary } = useActiveTrip()
+  // Long enough to read "3 stops moved to Day 3"
+  const [toast, showToast] = useToast(4500)
+  const [editingDates, setEditingDates] = useState(false)
   // Edited locally, saved when the field loses focus
   const [name, setName] = useState<string | null>(null)
   const tripName = name ?? trip?.name ?? ''
@@ -43,6 +47,35 @@ export function TripSettingsPage() {
       showToast(err instanceof Error ? err.message : 'Could not save the name')
     }
     setName(null)
+  }
+
+  const phase = trip ? tripPhase(trip) : null
+  const day = trip && phase === 'live' ? tripDay(trip) : null
+
+  const changeDates = () => {
+    if (!trip) return
+    if (trip.role !== 'organiser') showToast('Only the organiser can change the dates')
+    else if (phase === 'past') showToast('This trip is over, so its dates are fixed')
+    else setEditingDates(true)
+  }
+
+  // Once the trip has begun only its last day can move; the sheet says so and keeps the first day as it is
+  const datesSubtitle = phase === 'live' ? 'The trip has started, so only the last day can move.' : 'Pick the new first and last day.'
+
+  // Days after the new last day disappear; the server moves their stops to the new last day
+  const datesHint = ({ start, end }: { start: IsoDate; end: IsoDate }) => {
+    const length = Math.min(MAX_TRIP_DAYS, daysBetween(start, end) + 1)
+    const leaving = (itinerary ?? []).filter((d) => d.number > length).reduce((n, d) => n + d.stops.length, 0)
+    return leaving ? `${leaving} ${leaving === 1 ? 'stop' : 'stops'} planned after Day ${length} will move to Day ${length}.` : null
+  }
+
+  const saveDates = async ({ start, end }: { start: IsoDate; end: IsoDate }) => {
+    if (!trip) return
+    const updated = await tripsApi.update(trip.id, { startDate: start, endDate: end })
+    setEditingDates(false)
+    // The itinerary (day labels, moved stops, crowd forecasts) and Home (live or upcoming) follow the new dates
+    void activeTrip.applyDates(updated)
+    showToast(datesSavedMessage(updated, phase))
   }
 
   return (
@@ -68,16 +101,11 @@ export function TripSettingsPage() {
           <div className="trip-settings__row">
             <img src={iconCalendar} alt="" width={14} height={14} />
             <span className="trip-settings__row-text">
-              <span className="trip-settings__row-label">Dates</span>
+              <span className="trip-settings__row-label">{day ? `Dates · Day ${day.day} of ${day.total}` : 'Dates'}</span>
               <span className="trip-settings__row-value">{trip ? formatTripDates(trip) : '…'}</span>
             </span>
-            {/* TODO: date picker once trips can be extended mid-way */}
-            <button
-              type="button"
-              className="text-link"
-              onClick={() => showToast(trip && tripPhase(trip) === 'live' ? 'Dates are locked while the trip is live' : 'Changing dates is coming soon')}
-            >
-              Change
+            <button type="button" className="text-link" disabled={!trip} onClick={changeDates}>
+              {trip && !trip.startDate ? 'Set dates' : 'Change'}
             </button>
           </div>
           <div className="trip-settings__row">
@@ -141,7 +169,29 @@ export function TripSettingsPage() {
           <LinkButton onClick={() => showToast('Archive opens once the trip ends')}>Archive trip</LinkButton>
         </div>
       </OnboardingLayout>
+      {editingDates && trip && (
+        <DateRangeSheet
+          title="Change dates"
+          subtitle={datesSubtitle}
+          start={trip.startDate}
+          end={trip.endDate ?? trip.startDate}
+          lockStart={phase === 'live'}
+          hint={datesHint}
+          onSave={saveDates}
+          onClose={() => setEditingDates(false)}
+        />
+      )}
       <Toast message={toast} />
     </>
   )
+}
+
+/** What the toast says after new dates are saved: the stops that moved, a trip that just went live, or the new dates */
+function datesSavedMessage(updated: TripUpdate, before: ReturnType<typeof tripPhase> | null) {
+  if (updated.movedStops > 0) {
+    const last = updated.startDate && updated.endDate ? Math.min(MAX_TRIP_DAYS, daysBetween(updated.startDate, updated.endDate) + 1) : 1
+    return `Dates saved. ${updated.movedStops} ${updated.movedStops === 1 ? 'stop' : 'stops'} from the removed days moved to Day ${last}.`
+  }
+  if (before !== 'live' && tripPhase(updated) === 'live') return 'Dates saved. The trip starts today, so it’s live!'
+  return `Dates saved · ${formatTripDates(updated)}`
 }
