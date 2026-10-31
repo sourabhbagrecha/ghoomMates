@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix backend run dev",
+    "db:cli": "npm --prefix backend run db:cli",
+    "psql": "npm --prefix backend run psql",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview"
