@@ -8,11 +8,11 @@ import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { TextField } from '../../components/TextField'
 import { SQUAD } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { Toast } from './Toast'
+import { Toast } from '../../components/Toast'
 import { DUES, NOTIFICATION_SETTINGS, TRIP_INFO } from './tripDetailData'
 import { formatINR } from './tripFormat'
 import { tripActions, useTripStore } from './tripStore'
-import { useToast } from './useToast'
+import { useToast } from '../../hooks/useToast'
 import './TripSettingsPage.css'
 
 export function TripSettingsPage() {

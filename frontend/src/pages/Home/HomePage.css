@@ -325,3 +325,9 @@
   width: 100%;
   text-align: left;
 }
+
+.past-trip--button {
+  display: block;
+  height: 100%;
+  text-align: left;
+}

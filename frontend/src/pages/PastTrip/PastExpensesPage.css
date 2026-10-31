@@ -1,0 +1,145 @@
+.past-expenses__body {
+  padding-top: 20px;
+  gap: 14px;
+}
+
+.past-expenses__total {
+  gap: 2px;
+}
+
+.past-expenses__amount {
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: var(--color-ink);
+}
+
+.past-expenses__per-person {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.past-expenses__bar {
+  display: flex;
+  gap: 3px;
+  height: 12px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.past-expenses__bar span {
+  flex-basis: 0;
+}
+
+.past-expenses__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  list-style: none;
+}
+
+.past-expenses__legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.past-expenses__legend li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--swatch);
+}
+
+.past-expenses__owed {
+  gap: 4px;
+}
+
+.past-expenses__balance {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.past-expenses__people {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.past-expenses__balance-text,
+.past-expenses__item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.past-expenses__balance-text strong {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.past-expenses__balance-text span,
+.past-expenses__item-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.past-expenses__balance-amount {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-sky);
+}
+
+.past-expenses__square {
+  gap: 6px;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-success);
+}
+
+.past-expenses__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.past-expenses__item {
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.past-expenses__item-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.past-expenses__item-amount {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}

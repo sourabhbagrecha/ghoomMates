@@ -278,8 +278,9 @@ The rest of the app hangs off those screens:
 | Create a trip | `#/create/destination` → `dates` → `squad` → `vibe` → `generating` → `draft` | `src/pages/CreateTrip/` |
 | Before the trip (planning mode) | `#/plan`, `#/plan/vote/<id>`, `#/plan/bookings`, `#/plan/checklist`, `#/plan/budget` | `src/pages/Plan/` |
 | During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
+| After the trip | `#/past/<id>` (recap), `…/album`, `…/days`, `…/expenses` (final tally + settle up), `…/rate[/<stars>]` | `src/pages/PastTrip/` |
 
-Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. Several pieces were built locally in those folders and are good candidates to move into `src/components/` once a second screen needs them: toggle switch, segmented control, toast, progress bar, status tag, person toggle and photo-cover layout. The vibe step in Create a trip still shows the static `spiderweb.svg`; switch it to `VibeChart` (see Vibe components).
+Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. `CoverLayout` (full-bleed photo header with a sheet body: stop, guide trip, trip recap) and `Toast` + `useToast` (feedback for stubbed actions) are shared. Still local and worth promoting once a second screen needs them: toggle switch, segmented control, progress bar, status tag, person toggle and star rating. The spiderweb on the Create-trip vibe step is still the static `spiderweb.svg`; switch it to the shared `VibeChart` (see Vibe components).
 
 - Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot.
 - Something that needs the user ("2 votes need you", "Pay ₹450") is sky blue or a `.pill-button`, never red.

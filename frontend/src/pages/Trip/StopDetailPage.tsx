@@ -7,11 +7,11 @@ import { Button } from '../../components/Button'
 import { PEOPLE, SQUAD } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { DAYS } from '../Itinerary/itineraryData'
-import { Toast } from './Toast'
-import { TripCoverLayout } from './TripCoverLayout'
+import { Toast } from '../../components/Toast'
+import { CoverLayout } from '../../components/CoverLayout'
 import { RSVP_OPTIONS } from './tripDetailData'
 import { tripActions, useTripStore } from './tripStore'
-import { useToast } from './useToast'
+import { useToast } from '../../hooks/useToast'
 import './StopDetailPage.css'
 
 export function StopDetailPage({ stopId }: { stopId: string }) {
@@ -27,7 +27,7 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
 
   return (
     <>
-      <TripCoverLayout
+      <CoverLayout
         cover={stop.photo}
         onBack={() => navigate('trip/itinerary')}
         overlay={
@@ -118,7 +118,7 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
             {stop.notes || 'No notes yet. Add tips for the squad when you edit the stop.'}
           </p>
         </section>
-      </TripCoverLayout>
+      </CoverLayout>
       <Toast message={toast} />
     </>
   )

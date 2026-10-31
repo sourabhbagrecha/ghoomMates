@@ -8,12 +8,12 @@ import { Avatar, AvatarStack } from '../../components/Avatar'
 import { Button } from '../../components/Button'
 import { PEOPLE } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { Toast } from './Toast'
-import { TripCoverLayout } from './TripCoverLayout'
+import { Toast } from '../../components/Toast'
+import { CoverLayout } from '../../components/CoverLayout'
 import { GUIDE_DETAIL as GUIDE } from './tripDetailData'
 import { listNames } from './tripFormat'
 import { tripActions, useTripStore } from './tripStore'
-import { useToast } from './useToast'
+import { useToast } from '../../hooks/useToast'
 import './GuideTripPage.css'
 
 export function GuideTripPage() {
@@ -37,7 +37,7 @@ export function GuideTripPage() {
 
   return (
     <>
-      <TripCoverLayout
+      <CoverLayout
         cover={GUIDE.cover}
         onBack={() => navigate('trip/explore')}
         overlay={<span className="guide__pick">{GUIDE.pick}</span>}
@@ -138,7 +138,7 @@ export function GuideTripPage() {
             {guideJoined ? ', and so are you!' : '. Make it a squad plan?'}
           </p>
         </section>
-      </TripCoverLayout>
+      </CoverLayout>
       <Toast message={toast} />
     </>
   )

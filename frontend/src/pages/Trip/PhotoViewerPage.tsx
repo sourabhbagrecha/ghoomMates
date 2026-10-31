@@ -10,10 +10,10 @@ import { Avatar } from '../../components/Avatar'
 import { StatusBar } from '../../components/StatusBar'
 import { PEOPLE } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { Toast } from './Toast'
+import { Toast } from '../../components/Toast'
 import { PHOTO_DETAILS, VIEWER_PHOTOS } from './tripDetailData'
 import { tripActions, useTripStore } from './tripStore'
-import { useToast } from './useToast'
+import { useToast } from '../../hooks/useToast'
 import './PhotoViewerPage.css'
 
 export function PhotoViewerPage({ index }: { index: number }) {

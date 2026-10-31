@@ -9,10 +9,10 @@ import { Avatar } from '../../components/Avatar'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { Toast } from './Toast'
+import { Toast } from '../../components/Toast'
 import { DUES, INCOMING, INVITE_LINK, MEMBERS, TRIP_DEPOSIT, TRIP_INFO } from './tripDetailData'
 import { useTripStore } from './tripStore'
-import { useToast } from './useToast'
+import { useToast } from '../../hooks/useToast'
 import './MembersPage.css'
 
 type Balance = { label: string; tone: 'settled' | 'incoming' | 'due' | 'neutral' }

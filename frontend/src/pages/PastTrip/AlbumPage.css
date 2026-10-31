@@ -1,0 +1,45 @@
+.album__body {
+  padding-top: 20px;
+  gap: 12px;
+}
+
+.album__filters {
+  display: flex;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.album__count {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.album__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  list-style: none;
+}
+
+/* Same corner on every tile, whatever shape the placeholder image has */
+.album__photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+}
+
+.album__photo > img {
+  width: 100%;
+  aspect-ratio: 116 / 110;
+  object-fit: cover;
+}
+
+.album__photo .avatar-stack {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+}
