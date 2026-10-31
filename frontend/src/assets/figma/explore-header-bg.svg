@@ -1,0 +1,18 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="393" height="170" viewBox="0 0 393 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Header bg">
+<g clip-path="url(#clip0_0_115)">
+<path d="M0 0H393V138C393 155.673 378.673 170 361 170H32C14.3269 170 0 155.673 0 138V0Z" fill="url(#paint0_linear_0_115)"/>
+<circle id="Ellipse" cx="353" cy="50" r="80" fill="#FCF300" fill-opacity="0.18"/>
+<circle id="Ellipse_2" cx="25" cy="155" r="55" fill="#A2D6F9" fill-opacity="0.22"/>
+</g>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_115" x1="32.75" y1="14.1667" x2="135.993" y2="252.84" gradientUnits="userSpaceOnUse">
+<stop stop-color="#072AC8"/>
+<stop offset="1" stop-color="#1E96FC"/>
+</linearGradient>
+<clipPath id="clip0_0_115">
+<path d="M0 0H393V138C393 155.673 378.673 170 361 170H32C14.3269 170 0 155.673 0 138V0Z" fill="white"/>
+</clipPath>
+</defs>
+</svg>

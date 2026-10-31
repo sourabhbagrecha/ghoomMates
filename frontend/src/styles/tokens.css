@@ -1,0 +1,66 @@
+/* Design tokens from the Ghoomate Figma file. See DESIGN_GUIDELINES.md. */
+:root {
+  /* Brand */
+  --color-primary: #072ac8;
+  --color-primary-bright: #1557e6;
+  --color-sky: #1e96fc;
+  --color-sky-light: #a2d6f9;
+  --color-yellow: #fcf300;
+  --color-amber: #ffc600;
+
+  /* Text */
+  --color-ink: #0b1747;
+  --color-muted: #5b6894;
+  --color-subtle: #8a94b8;
+  --color-disabled: #9aa6c8;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-bg: #f2f8ff;
+  --color-tint: #eef6ff;
+  --color-tint-cool: #eef3fb;
+  --color-track: #e6effc;
+  --color-track-muted: #e2eaf7;
+  --color-divider: #edf2fa;
+  --color-border: #d7e6fb;
+
+  /* Status */
+  --color-success: #16a34a;
+
+  /* People */
+  --color-person-you: #ffc600;
+  --color-person-riya: #1e96fc;
+  --color-person-kabir: #ff7aa8;
+  --color-person-meera: #7b61ff;
+  --color-person-dev: #22c39a;
+
+  /* On the blue header */
+  --color-on-brand-muted: rgba(255, 255, 255, 0.8);
+  --color-glass: rgba(255, 255, 255, 0.16);
+  --color-glass-strong: rgba(255, 255, 255, 0.18);
+
+  /* Gradients */
+  --gradient-sky: linear-gradient(135deg, var(--color-sky) 8.33%, var(--color-primary) 91.67%);
+  --gradient-deep: linear-gradient(152.49deg, var(--color-primary) 8.33%, var(--color-primary-bright) 91.67%);
+  --gradient-sunshine: linear-gradient(to right, var(--color-yellow), var(--color-amber));
+
+  /* Type */
+  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Radii */
+  --radius-pill: 999px;
+  --radius-card: 22px;
+  --radius-list-card: 18px;
+  --radius-tile: 14px;
+
+  /* Elevation (drop-shadow filters follow the shape of rounded cards) */
+  --shadow-card: drop-shadow(0 6px 9px rgba(7, 42, 200, 0.08));
+  --shadow-list-card: drop-shadow(0 4px 6px rgba(7, 42, 200, 0.06));
+  --shadow-float: drop-shadow(0 8px 10px rgba(7, 42, 200, 0.18));
+  --shadow-cover-card: 0 6px 18px rgba(7, 42, 200, 0.1);
+  --shadow-fab: 0 10px 24px rgba(7, 42, 200, 0.45);
+
+  /* Device frame */
+  --device-width: 393px;
+  --device-height: 852px;
+}

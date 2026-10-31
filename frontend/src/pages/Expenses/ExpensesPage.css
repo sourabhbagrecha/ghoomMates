@@ -1,0 +1,261 @@
+/* Balance tiles on the blue header */
+.balances {
+  gap: 10px;
+}
+
+.balance {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-glass);
+  white-space: nowrap;
+}
+
+.balance__label {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-on-brand-muted);
+}
+
+.balance__value {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: #fff;
+}
+
+.balance__value--highlight {
+  color: var(--color-yellow);
+}
+
+/* Settle-all call to action */
+.settle-cta {
+  display: flex;
+  padding: 4px;
+  border-radius: var(--radius-card);
+  background: var(--color-yellow);
+  filter: drop-shadow(0 10px 12px rgba(255, 198, 0, 0.45));
+  text-align: left;
+}
+
+.settle-cta__inner {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-list-card);
+  background: var(--gradient-sunshine);
+}
+
+.settle-cta__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-tile);
+  background: var(--color-primary);
+}
+
+.settle-cta__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settle-cta__title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.settle-cta__subtitle {
+  font-weight: 700;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: rgba(7, 42, 200, 0.75);
+}
+
+.settle-cta__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+/* Smart settle-up card */
+.settle-up__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+
+.settle-up__saved {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+  white-space: nowrap;
+}
+
+.settle-up__divider {
+  height: 1px;
+  border: 0;
+  background: var(--color-tint-cool);
+}
+
+.settlement {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.settlement__people {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settlement__info {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.settlement__title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.settlement__note {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.settlement__amount {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.settlement__amount--incoming {
+  color: var(--color-success);
+}
+
+/* Category split bar + legend */
+.category-split {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.category-split__bar {
+  display: flex;
+  gap: 3px;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.category-split__bar span {
+  flex-basis: 0;
+}
+
+.category-split__legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.category-split__legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.category-split__legend li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--swatch);
+}
+
+/* Recent spends */
+.expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.expense {
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.expense__photo {
+  flex-shrink: 0;
+}
+
+.expense__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.expense__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.expense__detail {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.expense__amount {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}

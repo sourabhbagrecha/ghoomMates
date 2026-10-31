@@ -1,0 +1,262 @@
+/* Search field on the blue header */
+.search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--color-surface);
+  filter: var(--shadow-float);
+  cursor: text;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.search input::placeholder {
+  color: var(--color-subtle);
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search__voice {
+  display: flex;
+}
+
+/* Horizontal rows that bleed to the screen edge */
+.explore__categories,
+.trending {
+  display: flex;
+  margin: 0 -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+}
+
+.explore__categories {
+  gap: 8px;
+}
+
+/* Extra padding keeps the card shadows from being clipped by the scroll area */
+.trending {
+  gap: 12px;
+  margin-block: -12px -24px;
+  padding-block: 12px 24px;
+}
+
+.trend-card {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 220px;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-cover-card);
+}
+
+.trend-card__cover {
+  position: relative;
+  height: 118px;
+}
+
+.trend-card__badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10.5px;
+  line-height: 16px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.trend-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.trend-card__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.trend-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Guide trip card */
+.guide-trip {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 20px;
+}
+
+.guide-trip__cover {
+  position: relative;
+  flex-shrink: 0;
+  width: 78px;
+  height: 86px;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+}
+
+.guide-trip__host-avatar {
+  position: absolute;
+  left: 6px;
+  top: 54px;
+  display: flex;
+}
+
+.guide-trip__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.guide-trip__pick {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.guide-trip__host {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.guide-trip__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.guide-trip__details {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.guide-trip__footer {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2px;
+}
+
+.guide-trip__price {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.guide-trip__price span {
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.guide-trip__join {
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: #fff;
+}
+
+/* Become-a-host banner */
+.host-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--color-sky-light);
+  text-align: left;
+}
+
+.host-banner__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-primary);
+}
+
+.host-banner__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.host-banner__title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.host-banner__subtitle {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}

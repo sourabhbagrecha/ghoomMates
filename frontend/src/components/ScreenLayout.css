@@ -1,0 +1,77 @@
+/* Scrolls under the tab bar; the header background scrolls with the content */
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.screen::-webkit-scrollbar {
+  display: none;
+}
+
+/* 393px wide in the design; stretches to fill wider phones */
+.screen__header-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+}
+
+.screen__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Tab bar height + breathing room */
+  padding-bottom: 104px;
+}
+
+.screen--with-bubble .screen__content {
+  padding-bottom: 196px;
+}
+
+.screen__top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 20px 0;
+}
+
+.screen__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.screen__eyebrow {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.screen__title {
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #fff;
+}
+
+/* Row that sits on the blue header under the title (group pill, search, balances) */
+.screen__header-row {
+  display: flex;
+  padding: 14px 20px 0;
+}
+
+/* Main column of cards and sections */
+.screen__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 16px 0;
+}

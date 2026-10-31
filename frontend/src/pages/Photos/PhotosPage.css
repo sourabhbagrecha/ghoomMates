@@ -1,0 +1,374 @@
+.photos__body {
+  padding-top: 14px;
+}
+
+/* Face filter (sits on the blue header) */
+.face-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.face-filter__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+.face-filter__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: #fff;
+}
+
+.face-filter__status {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-yellow);
+}
+
+.face-filter__faces {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 54px;
+}
+
+.face__add,
+.face__ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.face__add {
+  border: 2px dashed var(--color-sky);
+  background: var(--color-surface);
+}
+
+.face--selected .face__ring {
+  border: 3px solid var(--color-yellow);
+}
+
+.face__label {
+  font-weight: 600;
+  font-size: 10.5px;
+  line-height: 16px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.face__label--bold {
+  font-weight: 700;
+}
+
+.face--selected .face__label {
+  font-weight: 800;
+  color: var(--color-yellow);
+}
+
+/* Upload + AI pipeline card */
+.upload-card {
+  gap: 10px;
+}
+
+.upload-card__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-tile);
+  background: var(--color-sky-light);
+}
+
+.upload-card__progress {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.upload-card__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-track);
+}
+
+.progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(177.14deg, var(--color-sky) 8.33%, var(--color-primary) 91.67%);
+}
+
+.upload-card__add {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--color-primary);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: #fff;
+}
+
+.upload-card__divider {
+  height: 1px;
+  border: 0;
+  background: var(--color-divider);
+}
+
+.upload-card__pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.upload-card__found {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+  white-space: nowrap;
+}
+
+/* Pipeline steps: 52px steps joined by stretching connectors */
+.pipeline {
+  display: flex;
+  list-style: none;
+}
+
+.pipeline__item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.pipeline__item:not(:first-child) {
+  flex: 1;
+}
+
+.pipeline__connector {
+  flex: 1;
+  height: 3px;
+  margin-top: 12px;
+  border-radius: 2px;
+  background: var(--color-track-muted);
+}
+
+.pipeline__connector--done {
+  background: var(--color-primary);
+}
+
+.pipeline__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 52px;
+}
+
+.pipeline__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.pipeline__label {
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-ink);
+}
+
+.pipeline__step--done .pipeline__badge {
+  background: var(--color-primary);
+}
+
+.pipeline__step--current .pipeline__badge {
+  border: 4px solid rgba(252, 243, 0, 0.35);
+  background: var(--color-yellow);
+  background-clip: padding-box;
+  color: var(--color-primary);
+}
+
+.pipeline__step--pending .pipeline__badge {
+  background: var(--color-tint-cool);
+  color: var(--color-disabled);
+}
+
+.pipeline__step--pending .pipeline__label {
+  color: var(--color-disabled);
+}
+
+/* Reel studio */
+.reel-studio {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow: hidden;
+  padding: 14px;
+  border-radius: 24px;
+  background: var(--gradient-deep);
+}
+
+.reel-studio__glow {
+  position: absolute;
+  left: 261px;
+  top: 98px;
+}
+
+.reel-preview {
+  position: relative;
+  flex-shrink: 0;
+  width: 82px;
+  height: 132px;
+  overflow: hidden;
+  border: 2px solid var(--color-yellow);
+  border-radius: 16px;
+}
+
+.reel-preview__photo {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+}
+
+.reel-preview__play {
+  position: absolute;
+  left: 25px;
+  top: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.reel-preview__duration {
+  position: absolute;
+  left: 4px;
+  top: 108px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 14px;
+  color: #fff;
+}
+
+.reel-studio__controls {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reel-studio__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reel-studio__overline {
+  color: var(--color-yellow);
+}
+
+.reel-studio__prompt {
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: rgba(255, 255, 255, 0.14);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  color: #fff;
+}
+
+.reel-studio__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reel-studio__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reel-studio__generate {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 12px;
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.reel-studio__voice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--color-glass-strong);
+}
+
+/* Photo grid: 3 columns, 116 × 110 tiles at 393px */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.photo-grid img {
+  width: 100%;
+  height: auto;
+}

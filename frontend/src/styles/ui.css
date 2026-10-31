@@ -1,0 +1,79 @@
+/* Shared surface and text styles used across screens. See DESIGN_GUIDELINES.md. */
+
+/* Large white card: vibe card, upload card, settle-up card */
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  filter: var(--shadow-card);
+}
+
+/* Compact white row card: timeline stops, expenses, guide trips */
+.list-card {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+/* Small uppercase label above a card's content */
+.overline {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* Text-only action, e.g. "See all", "Filters", "Saved 4 transfers" */
+.text-link {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+  white-space: nowrap;
+}
+
+/* Tag inside a list card, e.g. ADVENTURE / FOOD */
+.tag {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* Small solid pill button on light surfaces: "Add", "Join", day pills */
+.pill-button {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* Hides scrollbars on horizontal carousels and chip rows */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

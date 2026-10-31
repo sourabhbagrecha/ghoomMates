@@ -1,0 +1,26 @@
+/* Border and initial scale with size: 26px → 1.3px border, 11.05px text */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: 50%;
+  border: calc(var(--avatar-size) * 0.05) solid #fff;
+  background: var(--avatar-color);
+  color: #fff;
+  font-weight: 800;
+  font-size: calc(var(--avatar-size) * 0.425);
+  line-height: normal;
+}
+
+.avatar-stack {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.avatar-stack > .avatar:not(:last-child) {
+  margin-right: var(--avatar-overlap);
+}

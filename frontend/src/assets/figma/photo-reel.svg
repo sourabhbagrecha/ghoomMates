@@ -1,0 +1,17 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="82" height="132" viewBox="0 0 82 132" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Photo placeholder" clip-path="url(#clip0_0_94)">
+<path id="Vector" d="M82 0H0V132H82V0Z" fill="url(#paint0_linear_0_94)"/>
+<path id="Vector_2" d="M51.7 55.6C57.6094 55.6 62.4 50.8094 62.4 44.9C62.4 38.9906 57.6094 34.2 51.7 34.2C45.7906 34.2 41 38.9906 41 44.9C41 50.8094 45.7906 55.6 51.7 55.6Z" fill="#FCF300"/>
+<path id="Vector_3" d="M0 95L18 66L31.2 84.5L47.6 52.8L65.6 81.8L82 63.4V132H0V95Z" fill="#C2410C" fill-opacity="0.85"/>
+<path id="Vector_4" d="M0 113.5C6.53333 108.233 13.3667 108.233 20.5 113.5C27.6333 118.767 34.4667 118.767 41 113.5C47.5333 108.233 54.3667 108.233 61.5 113.5C68.6333 118.767 75.4667 118.767 82 113.5V132H0V113.5Z" fill="white" fill-opacity="0.35"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_94" x1="0" y1="0" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF9A5C"/>
+<stop offset="1" stop-color="#FFC600"/>
+</linearGradient>
+<clipPath id="clip0_0_94">
+<rect width="82" height="132" fill="white"/>
+</clipPath>
+</defs>
+</svg>
