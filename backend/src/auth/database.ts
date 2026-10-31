@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { ApiError } from '../http.ts';
+import { logger } from '../logger.ts';
 import type { User } from './types.ts';
 import type { Database, Pool } from '../db.ts';
 
@@ -73,6 +74,7 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
         lastLoginAt: now,
       };
       this.users.set(updated.id, updated);
+      logger.info('DB:Memory', `Updated existing user in-memory: ${updated.email} (${updated.id})`);
       return { user: updated, isNew: false };
     }
 
@@ -94,6 +96,7 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
     };
 
     this.users.set(newUser.id, newUser);
+    logger.info('DB:Memory', `Created new user in-memory: ${newUser.email} (${newUser.id})`);
     return { user: newUser, isNew: true };
   }
 
@@ -105,6 +108,7 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
     }
     const updated = { ...user, ...patch, preferences: { ...user.preferences, ...patch.preferences }, updatedAt: new Date().toISOString() };
     this.users.set(id, updated);
+    logger.info('DB:Memory', `Updated profile in-memory for user ${id}`);
     return updated;
   }
 
@@ -188,7 +192,9 @@ class PostgresOAuthDatabase implements OAuthDatabase {
          RETURNING ${USER_COLUMNS}`,
         [existing.id, profile.googleId, email, profile.emailVerified ?? null, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
       );
-      return { user: toUser(row), isNew: false };
+      const user = toUser(row);
+      logger.info('DB:Postgres', `Updated existing user in Postgres: ${user.email} (${user.id})`);
+      return { user, isNew: false };
     }
 
     const { rows: [row] } = await this.pool.query(
@@ -197,7 +203,9 @@ class PostgresOAuthDatabase implements OAuthDatabase {
        RETURNING ${USER_COLUMNS}`,
       [`usr_${randomBytes(8).toString('hex')}`, profile.googleId, email, profile.emailVerified ?? true, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
     );
-    return { user: toUser(row), isNew: true };
+    const user = toUser(row);
+    logger.info('DB:Postgres', `Inserted new user in Postgres: ${user.email} (${user.id})`);
+    return { user, isNew: true };
   }
 
   async updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null> {
@@ -215,6 +223,9 @@ class PostgresOAuthDatabase implements OAuthDatabase {
       if (error.code === '23505') throw new ApiError(409, 'USERNAME_TAKEN', 'This username is already taken');
       throw error;
     });
+    if (row) {
+      logger.info('DB:Postgres', `Updated user profile in Postgres: ${id}`);
+    }
     return row ? toUser(row) : null;
   }
 

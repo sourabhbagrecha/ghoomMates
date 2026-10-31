@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { ApiError, integer } from './domain.ts';
 import { ExpenseService } from './service.ts';
 import { jsonBody } from '../http.ts';
+import { logger } from '../logger.ts';
 import type { Database, Tx } from '../db.ts';
 
 const GROUP_PATH = /^\/groups\/[a-zA-Z0-9-]+(?:\/(members|expenses|balances|settlement-suggestions|settlements))?$/;
@@ -39,7 +40,10 @@ export function createApp(db: Database, apiKey: string) {
   });
 
   router.post('/groups', jsonBody, async (req, res) => {
-    res.status(201).json(await service.mutate('groups', idempotencyKey(req), req.body, (tx) => service.createGroup(req.body, tx)));
+    logger.info('Expenses', `Creating group "${(req.body as any)?.name || 'unnamed'}"`);
+    const created = await service.mutate('groups', idempotencyKey(req), req.body, (tx) => service.createGroup(req.body, tx));
+    logger.info('Expenses', `Group created successfully: ${(created as any)?.id}`);
+    res.status(201).json(created);
   });
 
   router.get('/groups/:groupId', async (req, res) => {
@@ -47,10 +51,12 @@ export function createApp(db: Database, apiKey: string) {
   });
 
   router.get('/groups/:groupId/balances', async (req, res) => {
+    logger.debug('Expenses', `Fetching balances for group ${req.params.groupId}`);
     res.json({ currency: 'INR', balances: await service.balances(req.params.groupId) });
   });
 
   router.get('/groups/:groupId/settlement-suggestions', async (req, res) => {
+    logger.debug('Expenses', `Calculating settlement suggestions for group ${req.params.groupId}`);
     res.json({ currency: 'INR', transfers: await service.suggestions(req.params.groupId) });
   });
 
@@ -67,7 +73,10 @@ export function createApp(db: Database, apiKey: string) {
   const mutation = (resource: string, action: (groupId: string, input: unknown, tx: Tx) => Promise<unknown>): RequestHandler =>
     async (req, res) => {
       const { groupId } = req.params as { groupId: string };
-      res.status(201).json(await service.mutate(`${groupId}/${resource}`, idempotencyKey(req), req.body, (tx) => action(groupId, req.body, tx)));
+      logger.info('Expenses', `Mutation on group ${groupId} [${resource}]`);
+      const result = await service.mutate(`${groupId}/${resource}`, idempotencyKey(req), req.body, (tx) => action(groupId, req.body, tx));
+      logger.info('Expenses', `Completed mutation on group ${groupId} [${resource}]`);
+      res.status(201).json(result);
     };
   router.post('/groups/:groupId/members', jsonBody, mutation('members', (id, input, tx) => service.addMember(id, input, tx)));
   router.post('/groups/:groupId/expenses', jsonBody, mutation('expenses', (id, input, tx) => service.addExpense(id, input, tx)));

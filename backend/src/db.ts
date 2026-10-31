@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import pg from 'pg';
 import { Connector, IpAddressTypes } from '@google-cloud/cloud-sql-connector';
+import { logger } from './logger.ts';
 
 export type Pool = pg.Pool;
 export type Tx = pg.PoolClient;
@@ -31,6 +32,7 @@ export async function openDatabase(env = process.env): Promise<Database> {
   let connector: Connector | undefined;
   let config: pg.PoolConfig;
   if (env.CLOUD_SQL_INSTANCE) {
+    logger.info('DB', `Connecting to Postgres via Cloud SQL Connector (${env.CLOUD_SQL_INSTANCE})...`);
     connector = new Connector();
     const ipType = (env.CLOUD_SQL_IP_TYPE ?? 'PUBLIC').toUpperCase() as keyof typeof IpAddressTypes;
     if (!(ipType in IpAddressTypes)) throw new Error('CLOUD_SQL_IP_TYPE must be PUBLIC, PRIVATE, or PSC');
@@ -41,15 +43,17 @@ export async function openDatabase(env = process.env): Promise<Database> {
       database: env.DB_NAME || 'ghoomates',
     };
   } else if (env.DATABASE_URL) {
+    logger.info('DB', 'Connecting to Postgres via DATABASE_URL...');
     config = { connectionString: env.DATABASE_URL };
   } else {
     throw new Error('Set CLOUD_SQL_INSTANCE (with DB_USER, DB_PASSWORD, DB_NAME) or DATABASE_URL in your environment or .env file');
   }
 
   const pool = new pg.Pool({ ...config, types, max: Number(env.DB_POOL_SIZE ?? 10) });
-  pool.on('error', (err) => console.error('Idle database connection failed:', err.message));
+  pool.on('error', (err) => logger.error('DB', `Idle database connection failed: ${err.message}`));
   try {
     await migrate(pool);
+    logger.info('DB', 'Postgres connection pool & migrations ready');
   } catch (err) {
     await pool.end();
     connector?.close();
@@ -71,17 +75,25 @@ async function migrate(pool: Pool) {
     await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK]);
     await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
     const applied = new Set((await client.query<{ name: string }>('SELECT name FROM schema_migrations')).rows.map(r => r.name));
-    for (const name of readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort()) {
-      if (applied.has(name)) continue;
+    const pending = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort().filter(f => !applied.has(f));
+    if (pending.length > 0) {
+      logger.info('DB', `Applying ${pending.length} pending migration(s)...`);
+    }
+    for (const name of pending) {
       await client.query('BEGIN');
       try {
         await client.query(readFileSync(resolve(MIGRATIONS_DIR, name), 'utf-8'));
         await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [name]);
         await client.query('COMMIT');
+        logger.info('DB', `Applied migration: ${name}`);
       } catch (err) {
         await client.query('ROLLBACK');
+        logger.error('DB', `Migration failed: ${name}`);
         throw err;
       }
+    }
+    if (pending.length === 0) {
+      logger.debug('DB', 'All database migrations are already applied');
     }
   } finally {
     await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK]).catch(() => {});

@@ -1,5 +1,6 @@
 import express from 'express';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
+import { logger } from './logger.ts';
 
 export class ApiError extends Error {
   status: number;
@@ -37,20 +38,23 @@ export const notFound: RequestHandler = (req) => {
 };
 
 // Maps ApiError and body-parser failures to the { error: { code, message } } envelope.
-export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   if (res.headersSent) return next(err);
   if (err instanceof ApiError) {
+    logger.warn('HTTP', `${req.method} ${req.originalUrl || req.path} -> ${err.status} [${err.code}] ${err.message}`);
     res.status(err.status).json({ error: { code: err.code, message: err.message } });
     return;
   }
   if (err?.type === 'entity.too.large') {
+    logger.warn('HTTP', `${req.method} ${req.originalUrl || req.path} -> 413 [BODY_TOO_LARGE] Request body exceeds 64 KiB`);
     res.status(413).json({ error: { code: 'BODY_TOO_LARGE', message: 'Request body exceeds 64 KiB' } });
     return;
   }
   if (err?.type === 'entity.parse.failed') {
+    logger.warn('HTTP', `${req.method} ${req.originalUrl || req.path} -> 400 [INVALID_JSON] Malformed JSON body`);
     res.status(400).json({ error: { code: 'INVALID_JSON', message: 'Malformed JSON body' } });
     return;
   }
-  console.error('Request failed:', err instanceof Error ? err.message : 'UnknownError');
+  logger.error('HTTP', `Unhandled error on ${req.method} ${req.originalUrl || req.path}: ${err instanceof Error ? err.message : String(err)}`, err instanceof Error ? err.stack : undefined);
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
 };
