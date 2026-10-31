@@ -318,13 +318,26 @@
 }
 
 .reel-studio__prompt {
+  width: 100%;
   padding: 8px 10px;
+  border: 0;
   border-radius: var(--radius-tile);
   background: rgba(255, 255, 255, 0.14);
+  font: inherit;
   font-weight: 600;
   font-size: 12px;
   line-height: 16px;
   color: #fff;
+  resize: none;
+}
+
+.reel-studio__prompt::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.reel-studio__prompt:focus-visible {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: 1px;
 }
 
 .reel-studio__presets {
@@ -348,6 +361,11 @@
   font-size: 12px;
   line-height: 18px;
   color: var(--color-primary);
+}
+
+.reel-studio__generate:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .reel-studio__voice {

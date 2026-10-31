@@ -15,6 +15,9 @@ import { ScreenLayout } from '../../components/ScreenLayout'
 import { useVoice } from '../../components/voice/voiceContext'
 import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
+import { reelActions, useReelStore } from '../../reels/reelStore'
+import { formatReelDuration, reelTimeline } from '../../reels/timeline'
+import { REEL_STYLES } from '../../reels/types'
 import { FACE_MATCH, LIBRARY, PHOTOS, PIPELINE, REEL, UPLOAD } from './photosData'
 import './PhotosPage.css'
 
@@ -148,7 +151,14 @@ function UploadCard() {
 function ReelStudio() {
   const navigate = useNavigate()
   const voice = useVoice()
-  const [preset, setPreset] = useState<string | null>(null)
+  const { direction, style, status, reel } = useReelStore()
+  const duration = status === 'ready' && reel ? formatReelDuration(reelTimeline(reel.plan).total) : REEL.duration
+
+  const generate = () => {
+    if (!direction.trim()) return
+    void reelActions.generate()
+    navigate('trip/photos/reel')
+  }
 
   return (
     <section className="reel-studio">
@@ -158,23 +168,34 @@ function ReelStudio() {
         <button type="button" className="reel-preview__play" aria-label="Play reel preview" onClick={() => navigate('trip/photos/reel')}>
           <img src={iconPlay} alt="" width={12} height={12} />
         </button>
-        <span className="reel-preview__duration">{REEL.duration}</span>
+        <span className="reel-preview__duration">{duration}</span>
       </div>
       <div className="reel-studio__controls">
         <div className="reel-studio__header">
           <img src={iconFilm} alt="" width={14} height={14} />
           <p className="overline reel-studio__overline">Reel studio</p>
         </div>
-        <p className="reel-studio__prompt">{REEL.prompt}</p>
-        <div className="reel-studio__presets">
-          {REEL.presets.map((p) => (
-            <Chip key={p} variant="onDark" selected={p === preset} onClick={() => setPreset(p === preset ? null : p)}>
-              {p}
+        <textarea
+          className="reel-studio__prompt"
+          rows={3}
+          maxLength={500}
+          value={direction}
+          onChange={(e) => reelActions.setDirection(e.target.value)}
+          placeholder="Describe your reel, e.g. a slow sunset film of the squad"
+          aria-label="Describe your reel"
+        />
+        <div className="reel-studio__presets" role="group" aria-label="Reel type">
+          <Chip variant="onDark" selected={style === null} onClick={() => reelActions.setStyle(null)}>
+            Auto
+          </Chip>
+          {REEL_STYLES.map((s) => (
+            <Chip key={s.id} variant="onDark" selected={s.id === style} onClick={() => reelActions.setStyle(s.id === style ? null : s.id)}>
+              {s.label}
             </Chip>
           ))}
         </div>
         <div className="reel-studio__actions">
-          <button type="button" className="reel-studio__generate" onClick={() => navigate('trip/photos/reel')}>
+          <button type="button" className="reel-studio__generate" onClick={generate} disabled={!direction.trim()}>
             Generate reel
           </button>
           <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice" onClick={() => voice.open('Make a reel of Kabir')}>

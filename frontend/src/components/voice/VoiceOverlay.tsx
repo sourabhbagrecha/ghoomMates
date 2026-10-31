@@ -4,6 +4,7 @@ import iconClose from '../../assets/figma/icon-x-ink.svg'
 import { useNavigate } from '../../hooks/navigation'
 import { tripActions } from '../../pages/Trip/tripStore'
 import { formatINR } from '../../pages/Trip/tripFormat'
+import { reelActions } from '../../reels/reelStore'
 import { Button, LinkButton } from '../Button'
 import { GhoomMateAvatar } from '../GhoomMate'
 import { TextField } from '../TextField'
@@ -145,6 +146,7 @@ export function VoiceOverlay({ prompt, onClose, onNotify }: VoiceOverlayProps) {
         return
       case 'reel':
         onClose()
+        void reelActions.generate({ direction: heard })
         navigate('trip/photos/reel')
         return
     }

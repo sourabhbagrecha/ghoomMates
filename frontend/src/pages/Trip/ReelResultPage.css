@@ -25,8 +25,15 @@
   transition: opacity 0.2s;
 }
 
-.reel__preview--busy .reel__cover {
+.reel__preview--busy .reel__cover,
+.reel__preview--busy .reel__player {
   opacity: 0.4;
+}
+
+.reel__player {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s;
 }
 
 .reel__play {
@@ -78,16 +85,6 @@
   background: var(--color-yellow);
 }
 
-.reel__track-fill--playing {
-  animation: reel-play 30s linear forwards;
-}
-
-@keyframes reel-play {
-  to {
-    width: 100%;
-  }
-}
-
 .reel__busy {
   position: absolute;
   left: 10px;
@@ -115,6 +112,13 @@
   font-size: 18px;
   line-height: 27px;
   color: var(--color-ink);
+}
+
+.reel__error {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
 }
 
 .reel__meta {
@@ -152,6 +156,11 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+
+.reel__target:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .reel__target {

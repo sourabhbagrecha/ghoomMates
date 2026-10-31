@@ -1,5 +1,5 @@
 import express from 'express';
-import type { ErrorRequestHandler, RequestHandler } from 'express';
+import type { ErrorRequestHandler, Request, RequestHandler } from 'express';
 
 export class ApiError extends Error {
   status: number;
@@ -13,16 +13,21 @@ export class ApiError extends Error {
 }
 
 const MAX_BODY = '64kb';
-const parseJson = express.json({ limit: MAX_BODY, type: () => true });
 const parseOptionalJson = express.json({ limit: MAX_BODY });
 
-// Parses a JSON body up to 64 KiB. Requests without Content-Type: application/json are rejected with 415.
-export const jsonBody: RequestHandler = (req, res, next) => {
-  if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
-    throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Use Content-Type: application/json');
-  }
-  parseJson(req, res, next);
-};
+// Parses a JSON body up to `limit`. Requests without Content-Type: application/json are rejected with 415.
+export function jsonBodyUpTo(limit: string): RequestHandler {
+  const parseJson = express.json({ limit, type: () => true });
+  return (req, res, next) => {
+    if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
+      throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Use Content-Type: application/json');
+    }
+    parseJson(req, res, next);
+  };
+}
+
+// Parses a JSON body up to 64 KiB.
+export const jsonBody = jsonBodyUpTo(MAX_BODY);
 
 // Best-effort JSON parsing: a missing, oversized, or malformed body leaves req.body as {}.
 export const optionalJsonBody: RequestHandler = (req, res, next) => {
@@ -31,6 +36,40 @@ export const optionalJsonBody: RequestHandler = (req, res, next) => {
     next();
   });
 };
+
+export function getBearerToken(req: Request): string {
+  const authHeader = req.headers.authorization || '';
+  const [type, token] = authHeader.split(' ');
+  if (type?.toLowerCase() !== 'bearer' || !token) {
+    throw new ApiError(401, 'UNAUTHORIZED', 'Bearer token is missing or malformed');
+  }
+  return token.trim();
+}
+
+// Allows the configured frontend origin (and any localhost port in development) to call this router.
+export function cors(clientOrigin: string): RequestHandler {
+  return (req, res, next) => {
+    const reqOrigin = req.headers.origin;
+    const allowedOrigin = reqOrigin && (reqOrigin === clientOrigin || reqOrigin.startsWith('http://localhost:'))
+      ? reqOrigin
+      : clientOrigin;
+
+    res.set({
+      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+      'Access-Control-Allow-Credentials': 'true',
+      'Vary': 'Origin',
+    });
+
+    // Preflight OPTIONS handler
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  };
+}
 
 export const notFound: RequestHandler = (req) => {
   throw new ApiError(404, 'NOT_FOUND', `Route ${req.method} ${req.path} not found`);
@@ -44,7 +83,8 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     return;
   }
   if (err?.type === 'entity.too.large') {
-    res.status(413).json({ error: { code: 'BODY_TOO_LARGE', message: 'Request body exceeds 64 KiB' } });
+    const limit = typeof err.limit === 'number' ? `${Math.round(err.limit / 1024)} KiB` : 'the size limit';
+    res.status(413).json({ error: { code: 'BODY_TOO_LARGE', message: `Request body exceeds ${limit}` } });
     return;
   }
   if (err?.type === 'entity.parse.failed') {

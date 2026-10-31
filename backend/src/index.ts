@@ -5,6 +5,8 @@ import { createApp as createAuthApp } from './auth/app.ts';
 import { attachOAuthDatabase, createInMemoryOAuthDatabase } from './auth/database.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { attachDatabase } from './expenses/database.ts';
+import { createApp as createReelsApp } from './reels/app.ts';
+import { createGeminiPlanner } from './reels/gemini.ts';
 
 loadEnv();
 
@@ -36,6 +38,15 @@ if (mongo && db && apiKey) {
   console.warn(`Expense API disabled: set ${[!mongo && 'MONGODB_URI', !apiKey && 'API_KEY'].filter(Boolean).join(' and ')} to enable /api routes.`);
 }
 
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const reels = geminiApiKey
+  ? createReelsApp(
+    createGeminiPlanner({ apiKey: geminiApiKey, model: process.env.GEMINI_MODEL || 'gemini-flash-latest' }),
+    { jwtSecret, clientOrigin },
+  )
+  : undefined;
+if (!reels) console.warn('Reel planner disabled: set GEMINI_API_KEY to enable /reels routes.');
+
 const app = createServer({
   auth: createAuthApp(authDb, {
     jwtSecret,
@@ -45,6 +56,7 @@ const app = createServer({
     clientOrigin,
   }),
   expenses,
+  reels,
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {

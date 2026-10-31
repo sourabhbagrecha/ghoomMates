@@ -9,7 +9,7 @@
     "dev:bun": "bun --watch src/index.ts",
     "start:bun": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/app.test.ts tests/auth/oauth.test.ts",
+    "test": "node --test tests/app.test.ts tests/auth/oauth.test.ts tests/reels/reels.test.ts",
     "test:auth": "node --test tests/auth/oauth.test.ts",
     "test:unit": "bun test tests/expenses/domain.test.ts",
     "test:expenses": "bun test tests/expenses",

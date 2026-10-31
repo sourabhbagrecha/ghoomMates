@@ -24,6 +24,10 @@ export default defineConfig({
         target: backendUrl(),
         changeOrigin: true,
       },
+      '/reels': {
+        target: backendUrl(),
+        changeOrigin: true,
+      },
     },
   },
 })

@@ -2,45 +2,12 @@ import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import { ApiError } from './types.ts';
 import { OAuthService } from './service.ts';
-import { jsonBody, optionalJsonBody } from '../http.ts';
+import { cors, getBearerToken, jsonBody, optionalJsonBody } from '../http.ts';
 import type { OAuthDatabase } from './database.ts';
 import type { OAuthServiceConfig } from './service.ts';
 
-function getBearerToken(req: Request): string {
-  const authHeader = req.headers.authorization || '';
-  const [type, token] = authHeader.split(' ');
-  if (type?.toLowerCase() !== 'bearer' || !token) {
-    throw new ApiError(401, 'UNAUTHORIZED', 'Bearer token is missing or malformed');
-  }
-  return token.trim();
-}
-
 function queryString(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
-}
-
-function cors(clientOrigin: string): RequestHandler {
-  return (req, res, next) => {
-    const reqOrigin = req.headers.origin;
-    const allowedOrigin = reqOrigin && (reqOrigin === clientOrigin || reqOrigin.startsWith('http://localhost:'))
-      ? reqOrigin
-      : clientOrigin;
-
-    res.set({
-      'Access-Control-Allow-Origin': allowedOrigin,
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-      'Access-Control-Allow-Credentials': 'true',
-      'Vary': 'Origin',
-    });
-
-    // Preflight OPTIONS handler
-    if (req.method === 'OPTIONS') {
-      res.status(204).end();
-      return;
-    }
-    next();
-  };
 }
 
 // Google OAuth and user profile routes. Mount under /auth.

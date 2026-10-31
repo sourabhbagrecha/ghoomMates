@@ -31,10 +31,9 @@ export const PIPELINE: PipelineStep[] = [
   { label: 'Reel', status: 'pending' },
 ]
 
+/** Shown on the Reel studio card until a reel has been cut */
 export const REEL = {
-  prompt: '“Make a 30s reel of Kabir’s funniest moments with a Bollywood beat”',
   duration: '0:30',
-  presets: ['Hackathon recap', 'Beach day'],
 }
 
 export const PHOTOS = [grid1, grid2, grid3, grid4, grid5, grid6]

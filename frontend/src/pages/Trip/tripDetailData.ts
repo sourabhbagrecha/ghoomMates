@@ -12,7 +12,7 @@ import { LIVE_TRIP } from '../../data/trips'
 import { SETTLEMENTS } from '../Expenses/expensesData'
 import { GUIDE_TRIP } from '../Explore/exploreData'
 import { DAYS, type Stop } from '../Itinerary/itineraryData'
-import { PHOTOS, REEL } from '../Photos/photosData'
+import { PHOTOS } from '../Photos/photosData'
 
 /** Stop with the extra detail the stop screen needs. Seeded from the itinerary data. */
 export type TripStop = Stop & {
@@ -111,14 +111,6 @@ export const VIEWER_PHOTOS = PHOTOS
 export const CAMERA_ROLL = [...PHOTOS, photoVagator, photoNightMarket, photoReel]
 
 export const UPLOAD_STEPS = ['Ingest', 'Faces', 'Embed', 'Match']
-
-export const REEL_RESULT = {
-  title: 'Kabir’s funniest moments',
-  meta: `${REEL.duration} · Bollywood beat · 24 clips`,
-  duration: REEL.duration,
-  prompt: REEL.prompt,
-  cover: photoReel,
-}
 
 export const SHARE_TARGETS = [
   { id: 'instagram', label: 'Instagram', initial: 'Ig' },
