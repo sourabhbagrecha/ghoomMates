@@ -86,6 +86,7 @@ export function HomePage({
       <ScreenLayout
         headerBg={headerBg}
         headerHeight={210}
+        fitHeader
         eyebrow={todayLabel()}
         title={`Hey ${displayName}`}
         actions={
