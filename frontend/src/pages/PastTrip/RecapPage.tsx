@@ -16,7 +16,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
 import { PEOPLE } from '../../data/people'
 import { usePastTrips } from '../../data/pastTripStore'
-import { useNavigate } from '../../hooks/navigation'
+import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { formatINR } from '../Trip/tripFormat'
 import type { PastTripDetails } from './pastTripData'
@@ -25,6 +25,8 @@ import './RecapPage.css'
 
 export function RecapPage({ details }: { details: PastTripDetails }) {
   const navigate = useNavigate()
+  // Opened from Home's past trips or Profile's places; back returns there
+  const backTo = useEntryRoute('past')
   const { settled, ratings } = usePastTrips()
   const [toast, showToast] = useToast()
   const { trip } = details
@@ -44,7 +46,7 @@ export function RecapPage({ details }: { details: PastTripDetails }) {
     <>
       <CoverLayout
         cover={trip.cover}
-        onBack={() => navigate('')}
+        onBack={() => navigate(backTo)}
         overlay={<span className="recap__when">Trip recap · {trip.dates}</span>}
         bodyClassName="recap__body"
         actions={

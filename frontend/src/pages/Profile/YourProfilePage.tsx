@@ -9,7 +9,7 @@ import { AvatarStack } from '../../components/Avatar'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
-import { useNavigate } from '../../hooks/navigation'
+import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { ACCOUNT, BADGES, PLACES, PLACE_STATUS, SQUAD_SCORES, SQUADS, STATS } from './profileData'
 import { ProfileAvatar } from './ProfileParts'
@@ -26,6 +26,8 @@ const MENU = [
 
 export function YourProfilePage() {
   const navigate = useNavigate()
+  // Back to wherever Profile was opened from (Home, a trip tab, a past trip…)
+  const backTo = useEntryRoute('profile')
   const profile = useProfileStore()
   const vibe = currentVibe()
   const [toast, showToast] = useToast()
@@ -43,7 +45,7 @@ export function YourProfilePage() {
       <OnboardingLayout
         eyebrow="Account"
         title="Your profile"
-        onBack={() => navigate('')}
+        onBack={() => navigate(backTo)}
         headerRight={
           <button
             type="button"

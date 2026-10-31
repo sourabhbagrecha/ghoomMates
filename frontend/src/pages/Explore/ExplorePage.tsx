@@ -10,7 +10,10 @@ import { Avatar, AvatarStack } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
+import { Toast } from '../../components/Toast'
+import { useVoice } from '../../components/voice/voiceContext'
 import { useNavigate } from '../../hooks/navigation'
+import { useToast } from '../../hooks/useToast'
 import { CATEGORIES, GUIDE_TRIP, TRENDING } from './exploreData'
 import './ExplorePage.css'
 
@@ -18,14 +21,17 @@ export function ExplorePage() {
   const [category, setCategory] = useState(CATEGORIES[0])
   const navigate = useNavigate()
   const openGuideTrip = () => navigate('trip/explore/guide')
+  const voice = useVoice()
+  const [toast, showToast] = useToast()
 
   return (
+    <>
     <ScreenLayout headerBg={headerBg} headerHeight={170} eyebrow="Trending near your squad" title="Explore Goa">
       <div className="screen__header-row">
         <label className="search">
           <img src={iconSearch} alt="" width={18} height={18} />
           <input type="search" placeholder="Search spots, guides, vibes…" aria-label="Search" />
-          <button type="button" className="search__voice" aria-label="Search by voice">
+          <button type="button" className="search__voice" aria-label="Search by voice" onClick={() => voice.open('Find food nearby')}>
             <img src={iconMicPrimary} alt="" width={18} height={18} />
           </button>
         </label>
@@ -43,7 +49,8 @@ export function ExplorePage() {
         <SectionHeader
           title="Trending this weekend"
           action={
-            <button type="button" className="text-link">
+            // TODO: full trending list once that screen exists
+            <button type="button" className="text-link" onClick={() => showToast('More trending spots are coming soon')}>
               See all
             </button>
           }
@@ -72,7 +79,8 @@ export function ExplorePage() {
         <SectionHeader
           title="Trips by local guides"
           action={
-            <button type="button" className="text-link">
+            // TODO: guide-trip filters (date, price, vibe)
+            <button type="button" className="text-link" onClick={() => showToast('Guide filters are coming soon')}>
               Filters
             </button>
           }
@@ -106,7 +114,8 @@ export function ExplorePage() {
           </div>
         </article>
 
-        <button type="button" className="host-banner">
+        {/* TODO: the host / local guide side of the app */}
+        <button type="button" className="host-banner" onClick={() => showToast('Hosting your own trips is coming soon')}>
           <span className="host-banner__icon">
             <img src={iconUsers} alt="" width={20} height={20} />
           </span>
@@ -118,5 +127,7 @@ export function ExplorePage() {
         </button>
       </main>
     </ScreenLayout>
+    <Toast message={toast} />
+    </>
   )
 }

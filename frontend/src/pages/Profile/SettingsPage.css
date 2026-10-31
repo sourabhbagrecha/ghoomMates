@@ -174,3 +174,7 @@
 .app-settings__exit > .link-button {
   align-self: center;
 }
+
+.app-settings__states {
+  align-self: center;
+}

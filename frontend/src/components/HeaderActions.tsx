@@ -5,14 +5,14 @@ import { PEOPLE } from '../data/people'
 import { useNavigate } from '../hooks/navigation'
 import './HeaderActions.css'
 
-/** Header buttons: a frosted action (QR invite by default) and the profile avatar. */
+/** Header buttons: a frosted action (QR invite by default, opens the squad's invite on Members) and the profile avatar. */
 export function HeaderActions({ leading }: { leading?: ReactNode }) {
   const navigate = useNavigate()
 
   return (
     <div className="header-actions">
       {leading ?? (
-        <button type="button" className="header-actions__button" aria-label="Show invite QR code">
+        <button type="button" className="header-actions__button" aria-label="Show invite QR code" onClick={() => navigate('trip/members')}>
           <img src={iconQr} alt="" width={20} height={20} />
         </button>
       )}

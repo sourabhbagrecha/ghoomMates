@@ -7,13 +7,16 @@ import { GhoomMateAvatar } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
-import { useNavigate } from '../../hooks/navigation'
+import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { APP_VERSION, FAQS, SUPPORT_EMAIL } from './profileData'
 import './HelpPage.css'
 
 export function HelpPage() {
   const navigate = useNavigate()
+  // Help opens from Profile, Settings, or the sign-in screens before there's an account
+  const entry = useEntryRoute('profile', 'profile')
+  const backTo = entry === 'sign-in' || entry === 'verify' ? entry : 'profile'
   const [toast, showToast] = useToast()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set())
@@ -33,7 +36,7 @@ export function HelpPage() {
       <OnboardingLayout
         eyebrow="Profile · Support"
         title="Help & FAQ"
-        onBack={() => navigate('profile')}
+        onBack={() => navigate(backTo)}
         headerExtra={
           <div className="help__search-row">
             <label className="help__search">

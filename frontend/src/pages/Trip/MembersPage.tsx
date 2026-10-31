@@ -11,6 +11,7 @@ import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
 import { DUES, INCOMING, INVITE_LINK, MEMBERS, TRIP_DEPOSIT, TRIP_INFO } from './tripDetailData'
+import { lastTripTab } from './lastTab'
 import { useTripStore } from './tripStore'
 import { useToast } from '../../hooks/useToast'
 import './MembersPage.css'
@@ -43,7 +44,7 @@ export function MembersPage() {
       <OnboardingLayout
         eyebrow={`${tripName} · ${SQUAD.length} mates`}
         title={TRIP_INFO.group}
-        onBack={() => navigate('trip/itinerary')}
+        onBack={() => navigate(`trip/${lastTripTab()}`)}
         headerBg={headerBg}
         headerHeight={262}
         headerExtra={

@@ -11,7 +11,7 @@ import { ScreenBackContext } from '../../components/screenBack'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { PEOPLE } from '../../data/people'
-import { useNavigate } from '../../hooks/navigation'
+import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import {
   bookingIcon,
   CONFIRMED,
@@ -35,6 +35,9 @@ type PlanProps = { plan: PlanState }
 
 export function PlanOverviewPage({ plan }: PlanProps) {
   const navigate = useNavigate()
+  // Back to Home or Profile; arriving from the create-trip flow goes Home rather than into the draft
+  const entry = useEntryRoute('plan')
+  const backTo = entry.startsWith('create') ? '' : entry
   const link = (label: string, to: string) => (
     <button type="button" className="text-link" onClick={() => navigate(to)}>
       {label}
@@ -43,7 +46,7 @@ export function PlanOverviewPage({ plan }: PlanProps) {
 
   return (
     <div className="plan-overview">
-      <ScreenBackContext.Provider value={() => navigate('')}>
+      <ScreenBackContext.Provider value={() => navigate(backTo)}>
         {/* No header actions: the trip name needs the full width next to the back button */}
         <ScreenLayout headerBg={headerBg} headerHeight={210} eyebrow={PLAN.eyebrow} title={TRIP.name} actions={false}>
           <div className="screen__header-row">

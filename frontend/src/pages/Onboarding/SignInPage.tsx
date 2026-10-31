@@ -3,6 +3,7 @@ import iconLock from '../../assets/figma/icon-lock-sky.svg'
 import { Button } from '../../components/Button'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { TextField } from '../../components/TextField'
+import { useNavigate } from '../../hooks/navigation'
 import { COUNTRY_CODE, PHONE_LENGTH, formatPhone } from './onboardingData'
 import './SignInPage.css'
 
@@ -16,6 +17,7 @@ type SignInPageProps = {
 }
 
 export function SignInPage({ phone, onPhoneChange, onBack, onSendCode, onSocialSignIn }: SignInPageProps) {
+  const navigate = useNavigate()
   return (
     <OnboardingLayout
       eyebrow="Step 1 of 4 · Sign in"
@@ -24,7 +26,7 @@ export function SignInPage({ phone, onPhoneChange, onBack, onSendCode, onSocialS
       step={1}
       onBack={onBack}
       headerRight={
-        <button type="button" className="onboarding__header-link">
+        <button type="button" className="onboarding__header-link" onClick={() => navigate('profile/help')}>
           Help
         </button>
       }

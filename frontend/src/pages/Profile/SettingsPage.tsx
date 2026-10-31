@@ -285,6 +285,10 @@ export function SettingsPage() {
             <LinkButton onClick={() => setConfirm('delete')}>Delete account</LinkButton>
           )}
           <p className="onboarding__footnote">{APP_VERSION}</p>
+          {/* For the team: preview the shared loading / empty / error / offline states */}
+          <button type="button" className="text-link app-settings__states" onClick={() => navigate('states')}>
+            Preview system states
+          </button>
         </div>
       </OnboardingLayout>
       <Toast message={toast} />

@@ -12,6 +12,7 @@ import { Avatar } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
+import { useVoice } from '../../components/voice/voiceContext'
 import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { FACE_MATCH, LIBRARY, PHOTOS, PIPELINE, REEL, UPLOAD } from './photosData'
@@ -48,6 +49,7 @@ export function PhotosPage() {
 }
 
 function FaceFilter() {
+  const navigate = useNavigate()
   const [selected, setSelected] = useState<PersonId | null>(FACE_MATCH.person)
 
   return (
@@ -57,7 +59,8 @@ function FaceFilter() {
         {selected && <span className="face-filter__status">Face filter on</span>}
       </div>
       <div className="face-filter__faces">
-        <button type="button" className="face">
+        {/* Your face-match selfie lives in Edit profile */}
+        <button type="button" className="face" onClick={() => navigate('profile/edit')}>
           <span className="face__add">
             <img src={iconCameraSky} alt="" width={20} height={20} />
           </span>
@@ -144,6 +147,7 @@ function UploadCard() {
 
 function ReelStudio() {
   const navigate = useNavigate()
+  const voice = useVoice()
   const [preset, setPreset] = useState<string | null>(null)
 
   return (
@@ -151,7 +155,7 @@ function ReelStudio() {
       <img className="reel-studio__glow" src={reelGlow} alt="" width={120} height={120} />
       <div className="reel-preview">
         <img className="reel-preview__photo" src={photoReel} alt="" width={82} height={132} />
-        <button type="button" className="reel-preview__play" aria-label="Play reel preview">
+        <button type="button" className="reel-preview__play" aria-label="Play reel preview" onClick={() => navigate('trip/photos/reel')}>
           <img src={iconPlay} alt="" width={12} height={12} />
         </button>
         <span className="reel-preview__duration">{REEL.duration}</span>
@@ -173,7 +177,7 @@ function ReelStudio() {
           <button type="button" className="reel-studio__generate" onClick={() => navigate('trip/photos/reel')}>
             Generate reel
           </button>
-          <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice">
+          <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice" onClick={() => voice.open('Make a reel of Kabir')}>
             <img src={iconMicWhite} alt="" width={18} height={18} />
           </button>
         </div>

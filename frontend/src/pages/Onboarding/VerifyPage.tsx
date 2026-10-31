@@ -3,6 +3,7 @@ import { Button } from '../../components/Button'
 import { GhoomMateTip } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { OtpInput } from '../../components/OtpInput'
+import { useNavigate } from '../../hooks/navigation'
 import { COUNTRY_CODE, OTP_LENGTH, RESEND_SECONDS, formatPhone } from './onboardingData'
 import './VerifyPage.css'
 
@@ -14,6 +15,7 @@ type VerifyPageProps = {
 }
 
 export function VerifyPage({ phone, onBack, onEditNumber, onVerified }: VerifyPageProps) {
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS)
 
@@ -38,7 +40,7 @@ export function VerifyPage({ phone, onBack, onEditNumber, onVerified }: VerifyPa
       step={2}
       onBack={onBack}
       headerRight={
-        <button type="button" className="onboarding__header-link">
+        <button type="button" className="onboarding__header-link" onClick={() => navigate('profile/help')}>
           Help
         </button>
       }

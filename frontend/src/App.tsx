@@ -5,7 +5,7 @@ import { OfflineBanner } from './components/states/OfflineBanner'
 import { TabBar, type TabId } from './components/TabBar'
 import { VoiceProvider } from './components/voice/VoiceProvider'
 import { NOTIFICATIONS } from './data/notifications'
-import { NavigateContext } from './hooks/navigation'
+import { EntryRoutesContext, NavigateContext } from './hooks/navigation'
 import { useHashRoute } from './hooks/useHashRoute'
 import { CreateTripRoutes } from './pages/CreateTrip/CreateTripRoutes'
 import { ExpensesPage } from './pages/Expenses/ExpensesPage'
@@ -23,6 +23,7 @@ import { displayName, useProfileStore } from './pages/Profile/profileStore'
 import { QuizFlow } from './pages/Quiz/QuizFlow'
 import { parseQuizRoute } from './pages/Quiz/quizData'
 import { StatesPage } from './pages/States/StatesPage'
+import { rememberTripTab } from './pages/Trip/lastTab'
 import { TripDetailRoutes } from './pages/Trip/TripDetailRoutes'
 import { getProfileName, hasOnboarded, markOnboarded } from './services/onboardingStorage'
 import './App.css'
@@ -53,7 +54,8 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/<step>           Any onboarding step (welcome, sign-in, verify, …)
  */
 function App() {
-  const [route, navigate] = useHashRoute()
+  // `entries` remembers where each section was opened from, so back buttons and "done" return there
+  const [route, navigate, entries] = useHashRoute()
   // Read on every render (i.e. every route change) so signing out from Settings takes effect
   const onboarded = hasOnboarded()
   const profile = useProfileStore()
@@ -68,7 +70,9 @@ function App() {
   const [section, sub] = segments
   // Any onboarding or quiz screen can be opened directly; otherwise new users start at welcome
   const quizRoute = parseQuizRoute(route)
-  const onboardingStep = isOnboardingStep(route) ? route : onboarded || quizRoute ? null : 'welcome'
+  // Help & FAQ is also reachable from sign-in, before the user has an account
+  const openBeforeSignUp = quizRoute || route === 'profile/help'
+  const onboardingStep = isOnboardingStep(route) ? route : onboarded || openBeforeSignUp ? null : 'welcome'
   const goHome = () => navigate('')
   // Detail screens inside the trip (stop, add expense, photo viewer, members, …). TripDetailRoutes
   // is hook-free and returns null for paths it doesn't handle, which then fall back to a tab.
@@ -94,16 +98,19 @@ function App() {
       />
     )
   } else if (quizRoute) {
-    screen = <QuizFlow route={quizRoute} go={navigate} onDone={goHome} />
+    // Retaking the quiz from Profile returns there; after onboarding it goes Home
+    const fromProfile = (entries.quiz ?? '').startsWith('profile')
+    screen = <QuizFlow route={quizRoute} go={navigate} onDone={() => navigate(fromProfile ? 'profile' : '')} />
   } else if (pastTrip) {
     screen = pastTrip
   } else if (tripDetail) {
     screen = tripDetail
   } else if (section === 'trip') {
     const tab = isTab(sub) ? sub : 'itinerary'
+    rememberTripTab(tab)
     const Page = PAGES[tab]
     screen = (
-      <ScreenBackContext.Provider value={goHome}>
+      <ScreenBackContext.Provider value={() => navigate(entries.trip ?? '')}>
         <Page />
         <TabBar active={tab} onSelect={(t) => navigate(`trip/${t}`, { replace: true })} />
         <GhoomMateFab />
@@ -139,7 +146,9 @@ function App() {
     <div className="app">
       <div className="device">
         <NavigateContext.Provider value={navigate}>
-          <VoiceProvider>{screen}</VoiceProvider>
+          <EntryRoutesContext.Provider value={entries}>
+            <VoiceProvider>{screen}</VoiceProvider>
+          </EntryRoutesContext.Provider>
         </NavigateContext.Provider>
         <OfflineBanner />
       </div>

@@ -8,7 +8,7 @@ import { ErrorState } from '../../components/states/ErrorState'
 import { OfflineBanner } from '../../components/states/OfflineBanner'
 import { Skeleton } from '../../components/states/Skeleton'
 import { UPCOMING_TRIPS } from '../../data/trips'
-import { useNavigate } from '../../hooks/navigation'
+import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import './StatesPage.css'
 
 const DEMOS = [
@@ -25,6 +25,8 @@ const RETRY_MS = 1000
 /** Gallery of the shared system states, each shown in context. */
 export function StatesPage() {
   const navigate = useNavigate()
+  // Opened from Settings for the team; back returns there
+  const backTo = useEntryRoute('states')
   const [demo, setDemo] = useState<DemoId>('loading')
 
   return (
@@ -32,7 +34,7 @@ export function StatesPage() {
       eyebrow="Design system"
       title="System states"
       subtitle="Loading, empty, error and offline, in context."
-      onBack={() => navigate('')}
+      onBack={() => navigate(backTo)}
       bodyClassName="states-page"
     >
       <div className="states-page__tabs no-scrollbar" role="group" aria-label="Show state">
