@@ -42,13 +42,16 @@ export function useFacePolling(pending: number) {
   }, [active])
 }
 
-/** Shrinks the profile selfie to a 640px JPEG data URL so the search request stays small. */
-export async function downscaleSelfie(src: string): Promise<string> {
+/**
+ * Resizes the selfie to a 640px JPEG data URL: big camera shots shrink so the request stays small, and the
+ * small saved profile photo grows so the face detector can still find the face in it.
+ */
+export async function sizeSelfie(src: string): Promise<string> {
   try {
     const img = new Image()
     img.src = src
     await img.decode()
-    const scale = Math.min(1, SELFIE_EDGE / Math.max(img.naturalWidth, img.naturalHeight))
+    const scale = SELFIE_EDGE / Math.max(img.naturalWidth, img.naturalHeight)
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
     canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))

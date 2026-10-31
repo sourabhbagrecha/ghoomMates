@@ -2,83 +2,81 @@
   padding-top: 14px;
 }
 
-/* Face filter (sits on the blue header) */
+/* Find-me panel: one frosted row on the blue header */
 .face-filter {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-glass);
 }
 
-.face-filter__header {
+.face-filter__face {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 2px;
-  white-space: nowrap;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-surface);
+}
+
+.face-filter__selfie {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.face-filter--active .face-filter__face {
+  border-color: var(--color-yellow);
+}
+
+.face-filter__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .face-filter__title {
   font-weight: 800;
-  font-size: 15px;
-  line-height: 23px;
+  font-size: 14px;
+  line-height: 21px;
   color: #fff;
 }
 
-.face-filter__status {
-  font-weight: 700;
+.face-filter__hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-on-brand-muted);
+}
+
+.face-filter__action {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--color-yellow);
+  font-weight: 800;
   font-size: 12px;
   line-height: 18px;
-  color: var(--color-yellow);
-}
-
-.face-filter__faces {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.face {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  width: 54px;
-}
-
-.face__add,
-.face__ring {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-}
-
-.face__add {
-  border: 2px dashed var(--color-sky);
-  background: var(--color-surface);
-}
-
-.face--selected .face__ring {
-  border: 3px solid var(--color-yellow);
-}
-
-.face__label {
-  font-weight: 600;
-  font-size: 10.5px;
-  line-height: 16px;
-  color: #fff;
+  color: var(--color-primary);
   white-space: nowrap;
 }
 
-.face__label--bold {
-  font-weight: 700;
+/* Once the filter is on, the button steps back to a quiet "Show all" */
+.face-filter--active .face-filter__action {
+  background: var(--color-glass-strong);
+  color: #fff;
 }
 
-.face--selected .face__label {
-  font-weight: 800;
-  color: var(--color-yellow);
+.face-filter__action:disabled {
+  opacity: 0.6;
 }
 
 /* Upload + AI pipeline card */
@@ -361,20 +359,40 @@
   background: var(--color-glass-strong);
 }
 
-/* Photo grid: 3 columns, 116 × 110 tiles at 393px */
+/* Photo gallery: header + 3-column grid of square tiles */
+.photo-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.photo-gallery__count {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
 }
 
-.photo-grid img {
-  width: 100%;
-  height: auto;
-}
-
-/* Tappable grid photo: a bare block button around the image, so the tile size is unchanged */
 .photo-grid__item {
   display: block;
   width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--color-tint-cool);
+}
+
+/* Every photo fills its square, cropped from the centre, whatever its original shape */
+.photo-grid img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }

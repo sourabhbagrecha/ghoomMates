@@ -1,28 +1,27 @@
 import { useState } from 'react'
 import headerBg from '../../assets/figma/photos-header-bg.svg'
-import iconCameraSky from '../../assets/figma/icon-camera-sky.svg'
 import iconCheck from '../../assets/figma/icon-check.svg'
 import iconFilm from '../../assets/figma/icon-film.svg'
 import iconMicWhite from '../../assets/figma/icon-mic-white.svg'
 import iconPlay from '../../assets/figma/icon-play.svg'
+import iconScanFace from '../../assets/figma/icon-scan-face-primary-20.svg'
 import iconUpload from '../../assets/figma/icon-upload.svg'
 import photoReel from '../../assets/figma/photo-reel.svg'
 import reelGlow from '../../assets/figma/reel-glow.svg'
-import { Avatar } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
+import { SectionHeader } from '../../components/SectionHeader'
 import { EmptyState } from '../../components/states/EmptyState'
 import { Skeleton } from '../../components/states/Skeleton'
 import { useVoice } from '../../components/voice/voiceContext'
 import { Toast } from '../../components/Toast'
 import { useActiveTrip } from '../../data/activeTrip'
-import { personOf, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { ApiRequestError, tripsApi, type FaceSummary } from '../../services/tripsService'
 import { useProfileStore } from '../Profile/profileStore'
-import { downscaleSelfie, faceSummaryOf, hasMatched, markMatched, useFacePolling } from './faceSearch'
+import { faceSummaryOf, hasMatched, markMatched, sizeSelfie, useFacePolling } from './faceSearch'
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
@@ -50,10 +49,9 @@ export function PhotosPage() {
       >
         <main className="screen__body photos__body">
           <FaceFilter
-            squad={trip?.members.map((m) => m.memberId) ?? []}
-            meId={trip?.memberId ?? null}
             tripId={trip?.id ?? null}
-            active={!!matchedIds}
+            total={total}
+            matchCount={matchedIds ? visible.length : null}
             searching={searching}
             onSearching={setSearching}
             onMatches={setMatchedIds}
@@ -77,13 +75,27 @@ export function PhotosPage() {
               action={{ label: 'Show all photos', onClick: () => setMatchedIds(null) }}
             />
           ) : photos.items.length ? (
-            <div className="photo-grid" aria-busy={searching}>
-              {visible.map(({ photo, index: i }) => (
-                <button key={photo.id} type="button" className="photo-grid__item" onClick={() => navigate(`trip/photos/view/${i}`)}>
-                  <img src={photo.url} alt={`Trip photo ${i + 1}, from ${photo.uploadedBy.name}`} width={116} height={110} loading="lazy" />
-                </button>
-              ))}
-            </div>
+            <section className="photo-gallery">
+              <SectionHeader
+                title={matchedIds ? 'Photos of you' : 'All photos'}
+                action={
+                  matchedIds ? (
+                    <button type="button" className="text-link" onClick={() => setMatchedIds(null)}>
+                      Show all {total}
+                    </button>
+                  ) : (
+                    <span className="photo-gallery__count">{total}</span>
+                  )
+                }
+              />
+              <div className="photo-grid" aria-busy={searching}>
+                {visible.map(({ photo, index: i }) => (
+                  <button key={photo.id} type="button" className="photo-grid__item" onClick={() => navigate(`trip/photos/view/${i}`)}>
+                    <img src={photo.url} alt={`Trip photo ${i + 1}, from ${photo.uploadedBy.name}`} width={116} height={116} loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            </section>
           ) : (
             <EmptyState
               size="compact"
@@ -102,10 +114,10 @@ export function PhotosPage() {
 }
 
 type FaceFilterProps = {
-  squad: PersonId[]
-  meId: string | null
   tripId: string | null
-  active: boolean
+  total: number
+  /** Photos you were found in, or null while the filter is off */
+  matchCount: number | null
   searching: boolean
   onSearching: (searching: boolean) => void
   onMatches: (ids: Set<string> | null) => void
@@ -120,11 +132,12 @@ const SEARCH_ERRORS: Record<string, string> = {
   FACE_SEARCH_UNAVAILABLE: 'Face search is busy right now, try again in a minute',
 }
 
-function FaceFilter({ squad, meId, tripId, active, searching, onSearching, onMatches, showToast }: FaceFilterProps) {
+function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatches, showToast }: FaceFilterProps) {
   const navigate = useNavigate()
   const profile = useProfileStore()
   // Only your own selfie is ever sent to the server, so only you can be matched
   const selfie = profile.selfie ?? (profile.photo?.startsWith('data:') ? profile.photo : null)
+  const active = matchCount !== null
 
   const findMe = async () => {
     if (searching) return
@@ -132,16 +145,10 @@ function FaceFilter({ squad, meId, tripId, active, searching, onSearching, onMat
       onMatches(null)
       return
     }
-    if (!tripId) return
-    if (!selfie) {
-      showToast('Add a selfie first so we can find you')
-      navigate('profile/edit')
-      return
-    }
+    if (!tripId || !selfie) return
     onSearching(true)
     try {
-      const small = await downscaleSelfie(selfie)
-      const { matches } = await tripsApi.findMe(tripId, [small])
+      const { matches } = await tripsApi.findMe(tripId, [await sizeSelfie(selfie)])
       markMatched(tripId)
       onMatches(new Set(matches.map((m) => m.photoId)))
     } catch (err) {
@@ -152,46 +159,34 @@ function FaceFilter({ squad, meId, tripId, active, searching, onSearching, onMat
     }
   }
 
+  const photosLabel = `${total} ${total === 1 ? 'photo' : 'photos'}`
+  const [title, text, action] = searching
+    ? ['Finding you…', `Checking every face in ${photosLabel}`, 'Searching…']
+    : active
+      ? [matchCount ? `You’re in ${matchCount} of ${photosLabel}` : 'Couldn’t spot you yet', 'Showing only photos with you', 'Show all']
+      : selfie
+        ? ['Find photos of you', total ? `We’ll match your selfie to every face in ${photosLabel}` : 'Works once the squad adds photos', 'Find me']
+        : ['Find photos of you', 'Add a selfie and we’ll spot you in the album', 'Add selfie']
+
   return (
-    <section className="face-filter">
-      <div className="face-filter__header">
-        <h2 className="face-filter__title">Who’s in it?</h2>
-        {searching ? (
-          <span className="face-filter__status" role="status">
-            Finding you in the photos…
-          </span>
-        ) : (
-          active && <span className="face-filter__status">Face filter on</span>
-        )}
+    <section className={`face-filter${active ? ' face-filter--active' : ''}`} aria-busy={searching}>
+      {/* Your face-match selfie lives in Edit profile */}
+      <span className="face-filter__face">
+        {selfie ? <img className="face-filter__selfie" src={selfie} alt="Your selfie" width={44} height={44} /> : <img src={iconScanFace} alt="" width={20} height={20} />}
+      </span>
+      <div className="face-filter__text" role="status">
+        <h2 className="face-filter__title">{title}</h2>
+        <p className="face-filter__hint">{text}</p>
       </div>
-      <div className="face-filter__faces" aria-busy={searching}>
-        {/* Your face-match selfie lives in Edit profile */}
-        <button type="button" className="face" onClick={() => navigate('profile/edit')}>
-          <span className="face__add">
-            <img src={iconCameraSky} alt="" width={20} height={20} />
-          </span>
-          <span className="face__label face__label--bold">+ Selfie</span>
-        </button>
-        {squad.map((id) => {
-          const isMe = id === meId
-          const isSelected = isMe && active
-          return (
-            <button
-              key={id}
-              type="button"
-              className={`face${isSelected ? ' face--selected' : ''}`}
-              aria-pressed={isSelected}
-              aria-busy={isMe && searching}
-              onClick={() => (isMe ? void findMe() : showToast(`${personOf(id).name} can find themselves with their own selfie`))}
-            >
-              <span className="face__ring">
-                <Avatar person={id} size={isSelected ? 44 : 52} />
-              </span>
-              <span className="face__label">{personOf(id).name}</span>
-            </button>
-          )
-        })}
-      </div>
+      <button
+        type="button"
+        className="face-filter__action"
+        aria-pressed={selfie ? active : undefined}
+        disabled={searching || (!!selfie && !active && !total)}
+        onClick={() => (selfie ? void findMe() : navigate('profile/edit'))}
+      >
+        {action}
+      </button>
     </section>
   )
 }

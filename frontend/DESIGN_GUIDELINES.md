@@ -161,7 +161,7 @@ Ghoomate is designed for a **393 × 852 pt** iPhone frame. On desktop the app re
 | Screen | Header SVG height |
 |---|---|
 | Itinerary | 190 |
-| Photos & Reels | 262 (the face filter sits on the blue) |
+| Photos & Reels | 262 (the find-me panel sits on the blue) |
 | Split Expenses | 210 |
 | Explore | 170 |
 
@@ -223,7 +223,6 @@ A circle in the person's colour with a white initial. The border (5%) and initia
 | 26 | Group pill, guide host | 9 |
 | 34 | Settlement rows | – |
 | 40 | Profile-sized | – |
-| 44 / 52 | Face filter (44 inside the selected ring) | – |
 
 ### `Chip`: [`src/components/Chip.tsx`](src/components/Chip.tsx)
 Toggleable pill used for filters and multi-select answers.
