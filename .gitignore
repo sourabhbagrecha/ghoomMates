@@ -32,3 +32,4 @@ pnpm-debug.log*
 !.vscode/extensions.json
 *.sw?
 
+.local/

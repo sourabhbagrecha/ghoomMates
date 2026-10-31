@@ -3,6 +3,13 @@
   gap: 18px;
 }
 
+.profile__username-hint {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 600;
+}
+
 .profile__photo-picker {
   display: flex;
   flex-direction: column;

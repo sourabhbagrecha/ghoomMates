@@ -47,10 +47,32 @@
   right: 92px;
   bottom: 118px;
   z-index: 20;
-  padding: 10px 14px;
+  padding: 10px 36px 10px 14px;
   border-radius: 18px 18px 4px 18px;
   background: var(--color-ink);
   filter: drop-shadow(0 8px 10px rgba(11, 23, 71, 0.25));
+}
+
+.ghoommate-says__close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-tile);
+  background: transparent;
+  color: var(--color-surface);
+  font-size: 20px;
+  line-height: 30px;
+  cursor: pointer;
+}
+
+.ghoommate-says__close:focus-visible {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: -4px;
 }
 
 .ghoommate-avatar {

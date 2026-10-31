@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import octopus from '../assets/figma/ghoommate-octopus.png'
 import iconMic from '../assets/figma/icon-mic.svg'
 import { useVoice } from './voice/voiceContext'
@@ -22,8 +22,19 @@ export function GhoomMateFab() {
 
 /** Contextual tip from GhoomMate, shown next to the FAB. */
 export function GhoomMateSays({ children }: { children: ReactNode }) {
+  const [minimized, setMinimized] = useState(false)
+  if (minimized) return null
+
   return (
     <div className="ghoommate-says" role="status">
+      <button
+        type="button"
+        className="ghoommate-says__close"
+        aria-label="Minimize GhoomMate tip"
+        onClick={() => setMinimized(true)}
+      >
+        ×
+      </button>
       <p>{children}</p>
     </div>
   )

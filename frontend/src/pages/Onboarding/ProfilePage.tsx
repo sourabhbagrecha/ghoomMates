@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useId, type CSSProperties } from 'react'
 import iconCamera from '../../assets/figma/icon-camera-white.svg'
 import iconCheck from '../../assets/figma/icon-check-white-bold.svg'
 import { Button } from '../../components/Button'
@@ -18,6 +18,9 @@ type ProfilePageProps = {
 
 export function ProfilePage({ details, onChange, onBack, onContinue, error, saving }: ProfilePageProps) {
   const initial = details.name.trim().charAt(0).toUpperCase() || '?'
+  const usernameHintId = useId()
+  const handle = details.username.replace(/^@/, '').toLowerCase().trim()
+  const validUsername = /^[a-z0-9._]{3,64}$/.test(handle)
 
   return (
     <OnboardingLayout
@@ -29,8 +32,8 @@ export function ProfilePage({ details, onChange, onBack, onContinue, error, savi
       onBack={onBack}
       bodyClassName="profile__body"
       actions={
-        <Button variant="primary" disabled={saving || !details.name.trim() || !details.username.trim()} onClick={onContinue}>
-          Let’s go
+        <Button variant="primary" disabled={saving || !details.name.trim() || !validUsername} onClick={onContinue}>
+          {saving ? 'Saving…' : 'Let’s go'}
         </Button>
       }
     >
@@ -68,12 +71,22 @@ export function ProfilePage({ details, onChange, onBack, onContinue, error, savi
         label="Username"
         placeholder="@aditi.travels"
         autoComplete="username"
+        maxLength={65}
+        autoCapitalize="none"
+        spellCheck={false}
+        aria-describedby={usernameHintId}
+        aria-invalid={!!handle && !validUsername}
         value={details.username}
         onChange={(e) => {
           const handle = e.target.value.replace(/[^a-z0-9._]/gi, '').toLowerCase()
           onChange({ username: handle ? `@${handle}` : '' })
         }}
       />
+      <p id={usernameHintId} className="profile__username-hint" aria-live="polite">
+        {handle && handle.length < 3
+          ? 'Add more characters: your username needs at least 3, excluding @.'
+          : 'Use 3–64 letters, numbers, dots or underscores, excluding @.'}
+      </p>
 
       <fieldset className="colour-picker">
         <legend className="colour-picker__label">

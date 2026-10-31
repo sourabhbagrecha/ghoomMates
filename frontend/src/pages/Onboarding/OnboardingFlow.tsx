@@ -32,7 +32,10 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
   }))
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const update = (patch: Partial<SignUpDetails>) => setDetails((d) => ({ ...d, ...patch }))
+  const update = (patch: Partial<SignUpDetails>) => {
+    setDetails((d) => ({ ...d, ...patch }))
+    setSaveError(null)
+  }
 
   // Synchronize Google user information when session hydrates
   useEffect(() => {
