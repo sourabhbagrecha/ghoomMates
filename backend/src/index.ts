@@ -6,6 +6,7 @@ import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth
 import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
+import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { logger } from './logger.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
@@ -66,6 +67,9 @@ const authService = new OAuthService(authDb, authConfig);
 
 const authenticate = async (token: string) => (await authService.verifySessionToken(token)).user;
 
+// One Gemini client for every AI feature; each feature falls back to hand-written content when it is off.
+const gemini = createGemini();
+
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
 if (db) {
@@ -114,6 +118,7 @@ const server = app.listen(port, hostname, (err?: Error) => {
 │  Trips:       ${(trips ? 'Enabled' : 'Disabled (needs DB)').padEnd(41)}│
 │  Voice:       ${(voice && liveKitConfig() ? 'Enabled (LiveKit)' : voice ? 'Disabled (needs LIVEKIT_* keys)' : 'Disabled (needs DB)').padEnd(41)}│
 │  Media:       ${storage.description.slice(0, 41).padEnd(41)}│
+│  Gemini:      ${(gemini.enabled ? `Enabled (${gemini.models.lite})` : 'Disabled (needs GEMINI_API_KEY)').slice(0, 41).padEnd(41)}│
 │  Ledger API:  ${(expenses ? 'Enabled' : 'Disabled (needs DB + API_KEY)').padEnd(41)}│
 └────────────────────────────────────────────────────────┘
 `);
