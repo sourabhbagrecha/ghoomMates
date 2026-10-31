@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
+import { ApiError } from '../http.ts';
 import type { User } from './types.ts';
 import type { Database, Pool } from '../db.ts';
 
-export type ProfilePatch = { picture?: string; name?: string };
+export type ProfilePatch = { picture?: string; name?: string; username?: string; preferences?: Record<string, unknown> };
 
 export interface OAuthDatabase {
   findUserById(id: string): Promise<User | null>;
@@ -63,7 +64,7 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
         googleId: profile.googleId,
         email: profile.email,
         emailVerified: profile.emailVerified ?? existing.emailVerified,
-        name: profile.name || existing.name,
+        name: existing.name,
         givenName: profile.givenName || existing.givenName,
         familyName: profile.familyName || existing.familyName,
         picture: existing.picture, // Retain selfie picture, never overwrite with Google
@@ -77,6 +78,8 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
 
     const newUser: User = {
       id: `usr_${randomBytes(8).toString('hex')}`,
+      username: `user_${randomBytes(8).toString('hex')}`,
+      preferences: {},
       googleId: profile.googleId,
       email: profile.email,
       emailVerified: profile.emailVerified ?? true,
@@ -97,7 +100,10 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
   async updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null> {
     const user = this.users.get(id);
     if (!user) return null;
-    const updated = { ...user, ...patch, updatedAt: new Date().toISOString() };
+    if (patch.username && [...this.users.values()].some(u => u.id !== id && u.username === patch.username)) {
+      throw new ApiError(409, 'USERNAME_TAKEN', 'This username is already taken');
+    }
+    const updated = { ...user, ...patch, preferences: { ...user.preferences, ...patch.preferences }, updatedAt: new Date().toISOString() };
     this.users.set(id, updated);
     return updated;
   }
@@ -107,11 +113,13 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
   }
 }
 
-const USER_COLUMNS = 'id, google_id, email, email_verified, name, given_name, family_name, picture, locale, created_at, updated_at, last_login_at';
+const USER_COLUMNS = 'id, username, preferences, google_id, email, email_verified, name, given_name, family_name, picture, locale, created_at, updated_at, last_login_at';
 
 function toUser(row: Record<string, any>): User {
   return {
     id: row.id,
+    username: row.username,
+    preferences: row.preferences,
     googleId: row.google_id,
     email: row.email,
     emailVerified: row.email_verified,
@@ -170,7 +178,7 @@ class PostgresOAuthDatabase implements OAuthDatabase {
            google_id = $2,
            email = $3,
            email_verified = COALESCE($4, email_verified),
-           name = COALESCE(NULLIF($5, ''), name),
+           name = COALESCE(NULLIF(name, ''), $5),
            given_name = COALESCE(NULLIF($6, ''), given_name),
            family_name = COALESCE(NULLIF($7, ''), family_name),
            locale = COALESCE(NULLIF($8, ''), locale),
@@ -184,8 +192,8 @@ class PostgresOAuthDatabase implements OAuthDatabase {
     }
 
     const { rows: [row] } = await this.pool.query(
-      `INSERT INTO users (id, google_id, email, email_verified, name, given_name, family_name, locale)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO users (id, username, google_id, email, email_verified, name, given_name, family_name, locale)
+       VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING ${USER_COLUMNS}`,
       [`usr_${randomBytes(8).toString('hex')}`, profile.googleId, email, profile.emailVerified ?? true, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
     );
@@ -197,11 +205,16 @@ class PostgresOAuthDatabase implements OAuthDatabase {
       `UPDATE users SET
          picture = CASE WHEN $2 THEN $3 ELSE picture END,
          name = COALESCE($4, name),
+         username = COALESCE($5, username),
+         preferences = preferences || COALESCE($6::jsonb, '{}'::jsonb),
          updated_at = now()
        WHERE id = $1
        RETURNING ${USER_COLUMNS}`,
-      [id, patch.picture !== undefined, patch.picture ?? null, patch.name ?? null]
-    );
+      [id, patch.picture !== undefined, patch.picture ?? null, patch.name ?? null, patch.username ?? null, patch.preferences ? JSON.stringify(patch.preferences) : null]
+    ).catch((error) => {
+      if (error.code === '23505') throw new ApiError(409, 'USERNAME_TAKEN', 'This username is already taken');
+      throw error;
+    });
     return row ? toUser(row) : null;
   }
 

@@ -1,5 +1,7 @@
 export interface AuthUser {
   id: string;
+  username?: string;
+  preferences?: Record<string, unknown>;
   googleId?: string;
   email: string;
   emailVerified?: boolean;
@@ -242,38 +244,23 @@ async function toUploadablePicture(src: string): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.8);
 }
 
-export async function updateUserProfile(patch: { picture?: string; name?: string }): Promise<AuthUser | null> {
+export async function updateUserProfile(patch: { picture?: string; name?: string; username?: string; preferences?: Record<string, unknown> }): Promise<AuthUser | null> {
   const token = getToken();
   if (!token) return null;
 
-  try {
-    if (patch.picture) patch = { ...patch, picture: await toUploadablePicture(patch.picture) };
-    const res = await fetch('/auth/profile', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.user) {
-        saveAuthSession(token, data.user);
-        return data.user;
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to update remote profile:', err);
+  if (patch.picture) patch = { ...patch, picture: await toUploadablePicture(patch.picture) };
+  const res = await fetch('/auth/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error?.message || 'Could not save profile');
   }
-
-  const user = getStoredUser();
-  if (user) {
-    const updated = { ...user, ...patch };
-    saveAuthSession(token, updated);
-    return updated;
-  }
-  return null;
+  const data = await res.json();
+  saveAuthSession(token, data.user);
+  return data.user;
 }
 
 export async function logoutUser(): Promise<void> {

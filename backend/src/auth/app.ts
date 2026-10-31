@@ -3,7 +3,7 @@ import type { Request, RequestHandler } from 'express';
 import { ApiError } from './types.ts';
 import { OAuthService } from './service.ts';
 import { jsonBody, optionalJsonBody } from '../http.ts';
-import type { OAuthDatabase } from './database.ts';
+import type { ProfilePatch, OAuthDatabase } from './database.ts';
 import type { OAuthServiceConfig } from './service.ts';
 
 function getBearerToken(req: Request): string {
@@ -144,7 +144,22 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
   // Update user profile (e.g. selfie photo)
   const updateProfile: RequestHandler = async (req, res) => {
     // Only fields present in the body change
-    const patch: { picture?: string; name?: string } = {};
+    const patch: ProfilePatch = {};
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw new ApiError(400, 'INVALID_PROFILE', 'Profile must be an object');
+    }
+    if ('username' in req.body) {
+      if (typeof req.body.username !== 'string') throw new ApiError(400, 'INVALID_USERNAME', 'Username must be a string');
+      const username = req.body.username.replace(/^@/, '').toLowerCase().trim();
+      if (!/^[a-z0-9._]{3,64}$/.test(username)) throw new ApiError(400, 'INVALID_USERNAME', 'Use 3–64 letters, numbers, dots or underscores');
+      patch.username = username;
+    }
+    if ('preferences' in req.body) {
+      if (!req.body.preferences || typeof req.body.preferences !== 'object' || Array.isArray(req.body.preferences)) {
+        throw new ApiError(400, 'INVALID_PREFERENCES', 'Preferences must be a JSON object');
+      }
+      patch.preferences = req.body.preferences;
+    }
     if (typeof req.body.picture === 'string') patch.picture = req.body.picture;
     if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim();
     const updated = await service.updateProfile(res.locals.user.id, patch);

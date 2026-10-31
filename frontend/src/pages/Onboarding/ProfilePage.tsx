@@ -11,10 +11,12 @@ type ProfilePageProps = {
   details: SignUpDetails
   onChange: (patch: Partial<SignUpDetails>) => void
   onBack: () => void
+  error?: string | null
+  saving?: boolean
   onContinue: () => void
 }
 
-export function ProfilePage({ details, onChange, onBack, onContinue }: ProfilePageProps) {
+export function ProfilePage({ details, onChange, onBack, onContinue, error, saving }: ProfilePageProps) {
   const initial = details.name.trim().charAt(0).toUpperCase() || '?'
 
   return (
@@ -27,11 +29,12 @@ export function ProfilePage({ details, onChange, onBack, onContinue }: ProfilePa
       onBack={onBack}
       bodyClassName="profile__body"
       actions={
-        <Button variant="primary" disabled={!details.name.trim()} onClick={onContinue}>
+        <Button variant="primary" disabled={saving || !details.name.trim() || !details.username.trim()} onClick={onContinue}>
           Let’s go
         </Button>
       }
     >
+      {error && <p role="alert">{error}</p>}
       <label className="profile__photo-picker">
         <input
           type="file"

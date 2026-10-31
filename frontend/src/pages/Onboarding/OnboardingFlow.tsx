@@ -24,12 +24,14 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
   const [details, setDetails] = useState<SignUpDetails>(() => ({
     email: initialUser?.email || '',
     name: initialUser?.name || '',
-    username: initialUser?.name ? initialUser.name.toLowerCase().replace(/\s+/g, '') : '',
+    username: initialUser?.username || '',
     colour: COLOURS[0].value,
     photo: null,
     selfie: null,
     googleId: initialUser?.googleId,
   }))
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const [fromInvite, setFromInvite] = useState(false)
   const update = (patch: Partial<SignUpDetails>) => setDetails((d) => ({ ...d, ...patch }))
 
@@ -41,7 +43,7 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
         ...prev,
         email: prev.email || u.email || '',
         name: prev.name || u.name || '',
-        username: prev.username || (u.name ? u.name.toLowerCase().replace(/\s+/g, '') : ''),
+        username: prev.username || u.username || '',
         googleId: prev.googleId || u.googleId,
       }))
     }
@@ -70,6 +72,7 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
               ...details,
               name: result.user.name || details.name,
               email: result.user.email,
+              username: result.user.username || details.username,
               photo: null, // No profile photo from Google; only name & email
               googleId: result.user.googleId,
             }
@@ -87,7 +90,7 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
           onSelfie={(selfieUrl) => {
             update({ selfie: selfieUrl, photo: selfieUrl })
             if (selfieUrl) {
-              updateUserProfile({ picture: selfieUrl })
+              void updateUserProfile({ picture: selfieUrl }).catch(() => setSaveError('Photo will be saved when you finish your profile'))
             }
           }}
           onBack={() => go('sign-in')}
@@ -100,7 +103,19 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
           details={details}
           onChange={update}
           onBack={() => go('selfie')}
-          onContinue={() => onDone(details)}
+          error={saveError}
+          saving={saving}
+          onContinue={async () => {
+            setSaving(true)
+            setSaveError(null)
+            try {
+              await updateUserProfile({ name: details.name, username: details.username,
+                picture: details.photo || undefined, preferences: { colour: details.colour } })
+              onDone(details)
+            } catch (error) {
+              setSaveError(error instanceof Error ? error.message : 'Could not save profile')
+            } finally { setSaving(false) }
+          }}
         />
       )
     case 'permissions':

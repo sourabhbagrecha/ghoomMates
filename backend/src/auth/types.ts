@@ -1,5 +1,7 @@
 export interface User {
   id: string; // e.g. usr_1234567890
+  username: string; // Public user ID; internal id remains stable.
+  preferences: Record<string, unknown>;
   googleId: string;
   email: string;
   emailVerified: boolean;

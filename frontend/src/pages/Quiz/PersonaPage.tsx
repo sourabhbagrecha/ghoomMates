@@ -19,24 +19,9 @@ type PersonaPageProps = {
 
 export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
   const [compare, setCompare] = useState(false)
-  const [shareStatus, setShareStatus] = useState<string | null>(null)
   const persona = personaFor(scores)
   const match = vibeMatch(scores, SQUAD_VIBE)
   const label = (id: string) => VIBE_AXES.find((a) => a.id === id)?.label
-
-  const share = async () => {
-    const text = `I’m ${persona.name} on Ghoomate! ${persona.tagline}`
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'My travel persona', text })
-      } else {
-        await navigator.clipboard.writeText(text)
-        setShareStatus('Copied! Paste it in the squad chat.')
-      }
-    } catch {
-      // Share sheet dismissed or clipboard blocked: nothing to undo
-    }
-  }
 
   return (
     <OnboardingLayout
@@ -45,23 +30,13 @@ export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
       onBack={onBack}
       bodyClassName="quiz__body"
       actions={
-        <>
-          <Button variant="primary" onClick={share}>
-            Share my vibe
-          </Button>
-          <Button variant="outline" onClick={onDone}>
-            Go to my trips
-          </Button>
-          {shareStatus && (
-            <p className="onboarding__footnote" role="status">
-              {shareStatus}
-            </p>
-          )}
-        </>
+        <Button variant="primary" onClick={onDone}>
+          Continue
+        </Button>
       }
     >
       <section className="card persona">
-        <p className="overline">You’re</p>
+        <p className="overline">You're</p>
         <h2 className="persona__name">{persona.name}</h2>
         <p className="persona__tagline">{persona.tagline}</p>
         <VibeChart
