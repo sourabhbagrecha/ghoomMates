@@ -4,8 +4,6 @@ import iconPlus from '../../assets/figma/icon-plus.svg'
 import iconStarOutline from '../../assets/figma/icon-star-outline.svg'
 import iconStar from '../../assets/figma/icon-star.svg'
 import { AvatarStack } from '../../components/Avatar'
-import { Chip } from '../../components/Chip'
-import { Flashcard } from '../../components/Flashcard'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
@@ -18,7 +16,6 @@ import { useNavigate } from '../../hooks/navigation'
 import { loadVibe } from '../../services/vibeStorage'
 import type { ItineraryDay, ItineraryStop, TripDetail } from '../../services/tripsService'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
-import { VIBE_CHECK } from './itineraryData'
 import './ItineraryPage.css'
 
 export function ItineraryPage() {
@@ -47,7 +44,6 @@ export function ItineraryPage() {
 
         <main className="screen__body">
           {trip && <VibeCard trip={trip} />}
-          <VibeCheckFlashcards />
           {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
         </main>
       </ScreenLayout>
@@ -113,34 +109,6 @@ function VibeCard({ trip }: { trip: TripDetail }) {
         </div>
       </div>
     </section>
-  )
-}
-
-function VibeCheckFlashcards() {
-  const [selected, setSelected] = useState(
-    () => new Set(VIBE_CHECK.options.filter((o) => o.selected).map((o) => o.id)),
-  )
-
-  const toggle = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-
-  return (
-    <Flashcard
-      overline={`Vibe check · Card ${VIBE_CHECK.card} of ${VIBE_CHECK.totalCards}`}
-      question={VIBE_CHECK.question}
-      hint="Select all that apply to you"
-    >
-      {VIBE_CHECK.options.map((option) => (
-        <Chip key={option.id} selected={selected.has(option.id)} onClick={() => toggle(option.id)}>
-          {option.label}
-        </Chip>
-      ))}
-    </Flashcard>
   )
 }
 

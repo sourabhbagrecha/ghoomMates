@@ -28,18 +28,6 @@ export const TRIP = {
   totalDays: 4,
 }
 
-export const VIBE_CHECK = {
-  card: 3,
-  totalCards: 8,
-  question: 'Your perfect evening looks like…',
-  options: [
-    { id: 'street-food', label: 'Street food crawl', selected: true },
-    { id: 'sunset-cruise', label: 'Sunset boat ride', selected: true },
-    { id: 'beach-club', label: 'Rooftop bar', selected: false },
-    { id: 'live-gig', label: 'Live gig', selected: false },
-  ],
-}
-
 export const DAYS: TripDay[] = [
   {
     id: 'd2',
