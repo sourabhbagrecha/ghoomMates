@@ -5,7 +5,10 @@ export type QuizRoute = { screen: 'intro' } | { screen: 'card'; index: number } 
 
 export type QuizOption = {
   id: string
+  /** 1–3 words; the icon carries the rest */
   label: string
+  /** Name of an icon in src/assets/icons */
+  icon: string
   /** How much picking this nudges each axis of the vibe chart */
   vibe: Partial<VibeScores>
 }
@@ -25,93 +28,93 @@ export const QUIZ_CARDS: QuizCard[] = [
   {
     id: 'pace',
     topic: 'Pace',
-    question: 'Your ideal trip day is…',
+    question: 'Your trip pace?',
     multi: false,
     options: [
-      { id: 'packed', label: 'Packed, sunrise to midnight', vibe: { adventure: 0.25, nightlife: 0.15, culture: 0.1 } },
-      { id: 'balanced', label: 'A bit of both', vibe: { culture: 0.1, chill: 0.1, food: 0.1 } },
-      { id: 'slow', label: 'Slow, lazy, zero alarms', vibe: { chill: 0.35 } },
+      { id: 'packed', label: 'Non-stop', icon: 'rocket', vibe: { adventure: 0.25, nightlife: 0.15, culture: 0.1 } },
+      { id: 'balanced', label: 'Balanced', icon: 'scale', vibe: { culture: 0.1, chill: 0.1, food: 0.1 } },
+      { id: 'slow', label: 'Slow and lazy', icon: 'bed', vibe: { chill: 0.35 } },
     ],
   },
   {
     id: 'budget',
     topic: 'Budget',
-    question: 'Your budget style is…',
+    question: 'Your budget style?',
     multi: false,
     options: [
-      { id: 'shoestring', label: 'Every rupee counts', vibe: { adventure: 0.1, food: 0.05 } },
-      { id: 'smart', label: 'Smart splurges', vibe: { food: 0.15, shops: 0.1 } },
-      { id: 'treat', label: 'Treat yourself', vibe: { shops: 0.3, nightlife: 0.1 } },
+      { id: 'shoestring', label: 'Thrifty', icon: 'piggy-bank', vibe: { adventure: 0.1, food: 0.05 } },
+      { id: 'smart', label: 'Smart spends', icon: 'wallet', vibe: { food: 0.15, shops: 0.1 } },
+      { id: 'treat', label: 'Splurge', icon: 'gem', vibe: { shops: 0.3, nightlife: 0.1 } },
     ],
   },
   {
     id: 'food',
     topic: 'Food',
-    question: 'You’d queue 30 minutes for…',
+    question: 'Worth the queue?',
     multi: true,
     options: [
-      { id: 'street-food', label: 'Street food', vibe: { food: 0.25 } },
-      { id: 'seafood', label: 'Beach-shack seafood', vibe: { food: 0.2, chill: 0.05 } },
-      { id: 'tasting-menu', label: 'Fancy tasting menu', vibe: { food: 0.15, shops: 0.05 } },
-      { id: 'home-kitchen', label: 'Local home kitchen', vibe: { food: 0.15, culture: 0.15 } },
+      { id: 'street-food', label: 'Street food', icon: 'sandwich', vibe: { food: 0.25 } },
+      { id: 'seafood', label: 'Seafood shacks', icon: 'fish', vibe: { food: 0.2, chill: 0.05 } },
+      { id: 'tasting-menu', label: 'Fine dining', icon: 'wine', vibe: { food: 0.15, shops: 0.05 } },
+      { id: 'home-kitchen', label: 'Home-cooked', icon: 'soup', vibe: { food: 0.15, culture: 0.15 } },
     ],
   },
   {
     id: 'nightlife',
     topic: 'Nightlife',
-    question: 'Your perfect evening looks like…',
+    question: 'Your perfect evening?',
     multi: true,
     options: [
-      { id: 'street-food', label: 'Street food crawl', vibe: { food: 0.15 } },
-      { id: 'sunset-cruise', label: 'Sunset cruise', vibe: { chill: 0.2 } },
-      { id: 'beach-club', label: 'Beach club', vibe: { nightlife: 0.3 } },
-      { id: 'live-gig', label: 'Live gig', vibe: { nightlife: 0.25, culture: 0.05 } },
+      { id: 'street-food', label: 'Food crawl', icon: 'utensils', vibe: { food: 0.15 } },
+      { id: 'sunset-cruise', label: 'Sunset cruise', icon: 'sailboat', vibe: { chill: 0.2 } },
+      { id: 'beach-club', label: 'Beach club', icon: 'martini', vibe: { nightlife: 0.3 } },
+      { id: 'live-gig', label: 'Live gig', icon: 'guitar', vibe: { nightlife: 0.25, culture: 0.05 } },
     ],
   },
   {
     id: 'adventure',
     topic: 'Adventure',
-    question: 'Scuba, paragliding, cliff jumps?',
+    question: 'Scuba? Paragliding?',
     multi: false,
     options: [
-      { id: 'all', label: 'Sign me up for all', vibe: { adventure: 0.45 } },
-      { id: 'one', label: 'Maybe one, for the reel', vibe: { adventure: 0.2 } },
-      { id: 'none', label: 'I’ll hold the bags', vibe: { chill: 0.2 } },
+      { id: 'all', label: 'All in', icon: 'mountain', vibe: { adventure: 0.45 } },
+      { id: 'one', label: 'Just one', icon: 'camera', vibe: { adventure: 0.2 } },
+      { id: 'none', label: 'I’ll watch', icon: 'backpack', vibe: { chill: 0.2 } },
     ],
   },
   {
     id: 'mornings',
     topic: 'Mornings',
-    question: '5 AM sunrise trek. You’re…',
+    question: '5 AM sunrise trek?',
     multi: false,
     options: [
-      { id: 'early', label: 'Up before the alarm', vibe: { adventure: 0.15, culture: 0.1 } },
-      { id: 'coffee', label: 'In, if there’s coffee', vibe: { adventure: 0.05 } },
-      { id: 'asleep', label: 'Asleep. See you at brunch', vibe: { nightlife: 0.15, chill: 0.1 } },
+      { id: 'early', label: 'I’m up', icon: 'sunrise', vibe: { adventure: 0.15, culture: 0.1 } },
+      { id: 'coffee', label: 'With coffee', icon: 'coffee', vibe: { adventure: 0.05 } },
+      { id: 'asleep', label: 'Hard pass', icon: 'moon', vibe: { nightlife: 0.15, chill: 0.1 } },
     ],
   },
   {
     id: 'culture',
     topic: 'Culture',
-    question: 'You’d skip a nap for…',
+    question: 'Worth skipping a nap?',
     multi: true,
     options: [
-      { id: 'forts', label: 'Old forts', vibe: { culture: 0.2, adventure: 0.05 } },
-      { id: 'museums', label: 'Museums and art', vibe: { culture: 0.25 } },
-      { id: 'festivals', label: 'Local festivals', vibe: { culture: 0.15, nightlife: 0.1 } },
-      { id: 'flea-markets', label: 'Flea markets', vibe: { shops: 0.25, culture: 0.05 } },
+      { id: 'forts', label: 'Old forts', icon: 'castle', vibe: { culture: 0.2, adventure: 0.05 } },
+      { id: 'museums', label: 'Museums', icon: 'landmark', vibe: { culture: 0.25 } },
+      { id: 'festivals', label: 'Festivals', icon: 'party-popper', vibe: { culture: 0.15, nightlife: 0.1 } },
+      { id: 'flea-markets', label: 'Flea markets', icon: 'shopping-bag', vibe: { shops: 0.25, culture: 0.05 } },
     ],
   },
   {
     id: 'souvenirs',
     topic: 'Souvenirs',
-    question: 'What you actually bring home…',
+    question: 'You bring home…',
     multi: true,
     options: [
-      { id: 'tan', label: 'A tan', vibe: { chill: 0.25 } },
-      { id: 'snacks', label: 'Bags of local snacks', vibe: { food: 0.15, shops: 0.1 } },
-      { id: 'outfits', label: 'New outfits', vibe: { shops: 0.3 } },
-      { id: 'photos', label: 'A thousand photos', vibe: { adventure: 0.1, culture: 0.1 } },
+      { id: 'tan', label: 'A tan', icon: 'sun', vibe: { chill: 0.25 } },
+      { id: 'snacks', label: 'Snacks', icon: 'cookie', vibe: { food: 0.15, shops: 0.1 } },
+      { id: 'outfits', label: 'New outfits', icon: 'shirt', vibe: { shops: 0.3 } },
+      { id: 'photos', label: 'Photos', icon: 'image', vibe: { adventure: 0.1, culture: 0.1 } },
     ],
   },
 ]
@@ -126,6 +129,10 @@ export const parseQuizRoute = (route: string): QuizRoute | null => {
 }
 
 export const cardRoute = (index: number) => `quiz/${index + 1}`
+
+/** Single choice replaces the pick; multi choice toggles it */
+export const togglePick = (card: QuizCard, picked: string[], id: string) =>
+  !card.multi ? [id] : picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id]
 
 // Everyone starts with a little of every vibe, so skipped cards don't flatten the chart
 const BASE_SCORE = 0.2

@@ -262,10 +262,11 @@ Used by the Itinerary vibe card and the personality quiz in [`src/pages/Quiz/`](
 
 | Component | What it is |
 |---|---|
-| [`Flashcard`](src/components/Flashcard.tsx) | Amber question card with a sky card peeking out behind it at −3°: overline ("Vibe check · Card 3 of 8"), Skip, a 15 px question, a hint and a row of `Chip` answers |
+| [`Flashcard`](src/components/Flashcard.tsx) | Amber question card with a sky card peeking out behind it at −3°: overline ("Vibe check · Card 3 of 8"), Skip, a 15 px question, a hint and the answers (`Chip`s on the Itinerary, `OptionTile`s in the quiz) |
 | [`VibeChart`](src/components/VibeChart.tsx) | The hexagonal “spiderweb” across the six axes in [`src/data/vibe.ts`](src/data/vibe.ts). Draw the squad in sky (28% fill) and You in amber (15% fill, with dots), You on top. `variant="compact"` is the 176 × 140 Itinerary chart; the default is for bigger charts |
+| [`OptionGrid` / `OptionTile`](src/components/OptionTile.tsx) | Answer tiles on a quiz flashcard: a 28 px primary line icon over a 1–3 word label. Three options sit in one row, four in a 2 × 2 grid. Picked tiles turn primary blue with a white icon and check |
 
-**Personality quiz:** after Permissions, onboarding continues to the quiz intro (`#/quiz`), eight cards (`#/quiz/1` … `#/quiz/8`) and your travel persona (`#/quiz/persona`). Single-choice cards say “Pick one”, multi-choice cards “Select all that apply to you”. The result is saved on the device and replaces the sample “You” shape on the Itinerary vibe card.
+**Personality quiz:** after Permissions, onboarding continues to the quiz intro (`#/quiz`), eight cards (`#/quiz/1` … `#/quiz/8`) and your travel persona (`#/quiz/persona`). Keep questions to a few words (“Your trip pace?”) and let the icon carry the meaning of each option. Single-choice cards say “Pick one”, multi-choice cards “Pick any”. The result is saved on the device and replaces the sample “You” shape on the Itinerary vibe card.
 
 ### Utility classes: [`src/styles/ui.css`](src/styles/ui.css)
 
@@ -300,6 +301,7 @@ Every tappable element must be a `<button>` (or `<a>`), never a clickable `<div>
 ## 9. Iconography and imagery
 
 - Icons are **2 px stroke, rounded caps and joins**, exported from Figma as SVGs into [`src/assets/figma/`](src/assets/figma/).
+- The Figma icons are [Lucide](https://lucide.dev). Icons the design doesn't have yet (the quiz answer tiles) are taken straight from Lucide into [`src/assets/icons/`](src/assets/icons/), one file per colour, and looked up by name with `iconUrl(name, colour)`. Keep its `LICENSE` file next to them.
 - Sizes: **12, 14, 16, 18, 20, 22** px. Tab icons are 22, header and banner icons 20, inline icons 12–18.
 - **Colour is baked into the SVG.** Each colour variant is its own file, named `icon-<name>-<colour>.svg` (e.g. `icon-arrow-sky.svg`, `icon-mic-white.svg`). Don't recolour with CSS filters. Export a new variant from Figma instead.
 - Always pass `width` and `height` and `alt=""` for decorative icons. Put the accessible name on the button (`aria-label`).

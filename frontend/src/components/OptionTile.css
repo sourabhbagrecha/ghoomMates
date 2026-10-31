@@ -1,0 +1,60 @@
+.option-grid {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.option-grid--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.option-grid--three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.option-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 84px;
+  padding: 14px 6px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+  transition: transform 120ms ease-out;
+}
+
+.option-tile:active {
+  transform: scale(0.96);
+}
+
+.option-tile--selected {
+  background: var(--color-primary);
+}
+
+.option-tile__label {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+.option-tile--selected .option-tile__label {
+  color: #fff;
+}
+
+.option-tile__check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .option-tile {
+    transition: none;
+  }
+}

@@ -1,7 +1,7 @@
 import { Button } from '../../components/Button'
-import { Chip } from '../../components/Chip'
 import { Flashcard } from '../../components/Flashcard'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { OptionGrid, OptionTile } from '../../components/OptionTile'
 import { VibeChart } from '../../components/VibeChart'
 import type { VibeScores } from '../../data/vibe'
 import { QUIZ_CARDS } from './quizData'
@@ -12,20 +12,15 @@ type QuizCardPageProps = {
   picked: string[]
   /** Vibe so far, including this card's picks */
   scores: VibeScores
-  onPick: (picked: string[]) => void
+  onToggle: (optionId: string) => void
   onBack: () => void
   onNext: () => void
   onSkipQuiz: () => void
 }
 
-export function QuizCardPage({ index, picked, scores, onPick, onBack, onNext, onSkipQuiz }: QuizCardPageProps) {
+export function QuizCardPage({ index, picked, scores, onToggle, onBack, onNext, onSkipQuiz }: QuizCardPageProps) {
   const card = QUIZ_CARDS[index]
   const isLast = index === QUIZ_CARDS.length - 1
-
-  const toggle = (id: string) => {
-    if (!card.multi) onPick([id])
-    else onPick(picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id])
-  }
 
   return (
     <OnboardingLayout
@@ -62,14 +57,21 @@ export function QuizCardPage({ index, picked, scores, onPick, onBack, onNext, on
         className="quiz-card__flashcard"
         overline={`Vibe check · Card ${index + 1} of ${QUIZ_CARDS.length}`}
         question={card.question}
-        hint={card.multi ? 'Select all that apply to you' : 'Pick one'}
+        hint={card.multi ? 'Pick any' : 'Pick one'}
         onSkip={onNext}
       >
-        {card.options.map((option) => (
-          <Chip key={option.id} selected={picked.includes(option.id)} onClick={() => toggle(option.id)}>
-            {option.label}
-          </Chip>
-        ))}
+        <OptionGrid count={card.options.length} multi={card.multi} label={card.question}>
+          {card.options.map((option) => (
+            <OptionTile
+              key={option.id}
+              icon={option.icon}
+              label={option.label}
+              multi={card.multi}
+              selected={picked.includes(option.id)}
+              onClick={() => onToggle(option.id)}
+            />
+          ))}
+        </OptionGrid>
       </Flashcard>
 
       <section className="card quiz-card__so-far">

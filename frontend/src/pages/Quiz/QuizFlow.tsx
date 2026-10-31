@@ -3,7 +3,7 @@ import { saveVibe } from '../../services/vibeStorage'
 import { PersonaPage } from './PersonaPage'
 import { QuizCardPage } from './QuizCardPage'
 import { QuizIntroPage } from './QuizIntroPage'
-import { QUIZ_CARDS, cardRoute, scoreQuiz, type QuizAnswers, type QuizRoute } from './quizData'
+import { QUIZ_CARDS, cardRoute, scoreQuiz, togglePick, type QuizAnswers, type QuizRoute } from './quizData'
 
 type QuizFlowProps = {
   route: QuizRoute
@@ -34,7 +34,12 @@ export function QuizFlow({ route, go, onDone }: QuizFlowProps) {
           index={route.index}
           picked={answers[QUIZ_CARDS[route.index].id] ?? []}
           scores={scoreQuiz(answers)}
-          onPick={(picked) => setAnswers((a) => ({ ...a, [QUIZ_CARDS[route.index].id]: picked }))}
+          onToggle={(id) =>
+            setAnswers((a) => {
+              const card = QUIZ_CARDS[route.index]
+              return { ...a, [card.id]: togglePick(card, a[card.id] ?? [], id) }
+            })
+          }
           onBack={() => go(route.index > 0 ? cardRoute(route.index - 1) : 'quiz')}
           onNext={() => next(route.index)}
           onSkipQuiz={onDone}
