@@ -7,9 +7,10 @@
   "scripts": {
     "share": "./.local/bin/ngrok http http://127.0.0.1:5173 --host-header=localhost:5173",
     "postinstall": "npm --prefix backend install && npm --prefix frontend install",
-    "dev": "concurrently --kill-others-on-fail -n api,web -c blue,magenta \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev": "concurrently --kill-others-on-fail -n api,web,agent -c blue,magenta,green \"npm:dev:backend\" \"npm:dev:frontend\" \"npm:dev:agent\"",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
+    "dev:agent": "npm --prefix backend run agent || echo \"GhoomMate agent stopped; API and web keep running\"",
     "start": "npm --prefix backend start",
     "test": "npm --prefix backend test",
     "typecheck": "npm --prefix backend run typecheck",

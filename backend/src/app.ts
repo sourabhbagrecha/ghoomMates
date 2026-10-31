@@ -10,11 +10,13 @@ export interface ServerModules {
   expenses?: Router;
   // Trip groups for signed-in users, mounted under /api/trips. Omitted without a database.
   trips?: Router;
+  // GhoomMate voice sessions (LiveKit tokens), mounted under /api/voice. Omitted without a database.
+  voice?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
 }
 
-export function createServer({ auth, expenses, trips, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, media }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -32,13 +34,16 @@ export function createServer({ auth, expenses, trips, media }: ServerModules) {
       service: 'ghoomates-backend',
       version: '0.1.0',
       modules: { auth: 'enabled', trips: trips ? 'enabled' : 'disabled', expenses: expenses ? 'enabled' : 'disabled' },
-      endpoints: ['/health', '/auth/*', '/api/trips/*', '/api/groups/*'],
+      endpoints: ['/health', '/auth/*', '/api/trips/*', '/api/voice/session', '/api/groups/*'],
     });
   });
 
   // Mounted before the internal /api ledger, whose service-token check would reject user requests.
   app.use('/api/trips', trips ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Trips need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+  }));
+  app.use('/api/voice', voice ?? (() => {
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (media) app.use('/api/media', media);
   app.use('/api', expenses ?? (() => {
