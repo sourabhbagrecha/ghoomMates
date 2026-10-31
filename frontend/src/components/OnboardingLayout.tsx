@@ -19,12 +19,15 @@ type OnboardingLayoutProps = {
   bodyClassName?: string
   children: ReactNode
   /** Buttons pinned to the bottom of the screen */
-  actions: ReactNode
+  actions?: ReactNode
 }
 
 const TOTAL_STEPS = 4
 
-/** Shell for sign-up and setup screens: blue header with back button, scrolling body, pinned actions. */
+/**
+ * Shell for sign-up, setup and other pushed screens (e.g. Notifications):
+ * blue header with back button, scrolling body, optional pinned actions.
+ */
 export function OnboardingLayout({
   eyebrow,
   title,
@@ -74,10 +77,14 @@ export function OnboardingLayout({
           <main className={`onboarding__body${bodyClassName ? ` ${bodyClassName}` : ''}`}>{children}</main>
         </div>
       </div>
-      <footer className="onboarding__actions">
-        {actions}
+      {actions ? (
+        <footer className="onboarding__actions">
+          {actions}
+          <span className="home-indicator" aria-hidden="true" />
+        </footer>
+      ) : (
         <span className="home-indicator" aria-hidden="true" />
-      </footer>
+      )}
     </div>
   )
 }

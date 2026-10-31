@@ -11,7 +11,7 @@ import { WelcomePage } from './WelcomePage'
 type OnboardingFlowProps = {
   step: OnboardingStep
   go: (step: OnboardingStep) => void
-  onDone: () => void
+  onDone: (details: SignUpDetails) => void
 }
 
 /**
@@ -75,6 +75,6 @@ export function OnboardingFlow({ step, go, onDone }: OnboardingFlowProps) {
         />
       )
     case 'permissions':
-      return <PermissionsPage onBack={() => go('selfie')} onDone={onDone} />
+      return <PermissionsPage onBack={() => go('selfie')} onDone={() => onDone(details)} />
   }
 }

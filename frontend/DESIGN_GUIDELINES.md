@@ -257,6 +257,12 @@ Used by the sign-up flow in [`src/pages/Onboarding/`](src/pages/Onboarding/) (Fi
 
 Every onboarding screen can be opened directly at `#/welcome`, `#/sign-in`, `#/verify`, `#/profile`, `#/selfie`, `#/permissions` or `#/invite`.
 
+### App structure and navigation
+**Home** (`#/`) is the top level: a GhoomMate briefing, the live trip card (with shortcuts into each trip tab), upcoming trips, past trips and a pinned "Plan a new trip" button. Opening a trip goes to `#/trip/<tab>`, where the four tab screens show a back button to Home (`ScreenBackContext`). **Notifications** (`#/notifications`) open from the bell, which shows the unread count. `#/home/empty` previews the first-run Home with no trips.
+
+- Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot.
+- Something that needs the user ("2 votes need you", "Pay ₹450") is sky blue or a `.pill-button`, never red.
+
 ### Utility classes: [`src/styles/ui.css`](src/styles/ui.css)
 
 | Class | What it is |
