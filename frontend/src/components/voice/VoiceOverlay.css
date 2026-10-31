@@ -1,0 +1,391 @@
+/* Covers the whole device frame, above the tab bar, FAB and toasts */
+.voice-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Ink-to-blue scrim (one-off translucent values, see DESIGN_GUIDELINES.md section 2) */
+.voice-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 42, 200, 0.45) 0%, rgba(11, 23, 71, 0.72) 100%);
+  cursor: default;
+  animation: voice-fade-in 0.2s ease-out;
+}
+
+.voice-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-height: calc(100% - 54px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 8px 20px 34px;
+  border-radius: 26px 26px 0 0;
+  background: var(--color-surface);
+  filter: drop-shadow(0 -6px 12px rgba(7, 42, 200, 0.1));
+  animation: voice-sheet-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.voice-sheet::-webkit-scrollbar {
+  display: none;
+}
+
+.voice-sheet__grabber {
+  flex-shrink: 0;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-track-muted);
+}
+
+.voice-sheet__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+}
+
+.voice-sheet__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.voice-sheet__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.voice-sheet__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-tint);
+}
+
+/* Mascot with two rings pulsing out while listening */
+.voice-sheet__hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 132px;
+  height: 132px;
+}
+
+.voice-sheet__ring {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background: var(--color-sky-light);
+  opacity: 0;
+}
+
+.voice-overlay--listening .voice-sheet__ring {
+  animation: voice-ring 1.8s ease-out infinite;
+}
+
+.voice-overlay--listening .voice-sheet__ring--late {
+  animation-delay: 0.9s;
+}
+
+.voice-sheet__status {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 27px;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+/* Waveform: bars bounce while listening, rest as dots otherwise */
+.voice-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+}
+
+.voice-wave span {
+  width: 4px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--color-sky);
+  transform: scaleY(0.18);
+  transition: transform 0.2s ease-out;
+}
+
+.voice-wave span:nth-child(odd) {
+  background: var(--color-primary);
+}
+
+.voice-overlay--listening .voice-wave span {
+  animation: voice-wave 0.9s ease-in-out infinite;
+}
+
+.voice-overlay--listening .voice-wave span:nth-child(2) { animation-duration: 0.7s; animation-delay: -0.2s; }
+.voice-overlay--listening .voice-wave span:nth-child(3) { animation-duration: 1.1s; animation-delay: -0.5s; }
+.voice-overlay--listening .voice-wave span:nth-child(4) { animation-duration: 0.8s; animation-delay: -0.3s; }
+.voice-overlay--listening .voice-wave span:nth-child(5) { animation-duration: 1s; animation-delay: -0.7s; }
+.voice-overlay--listening .voice-wave span:nth-child(6) { animation-duration: 0.75s; animation-delay: -0.1s; }
+.voice-overlay--listening .voice-wave span:nth-child(7) { animation-duration: 1.05s; animation-delay: -0.4s; }
+.voice-overlay--listening .voice-wave span:nth-child(8) { animation-duration: 0.85s; animation-delay: -0.6s; }
+.voice-overlay--listening .voice-wave span:nth-child(9) { animation-duration: 0.95s; animation-delay: -0.25s; }
+
+.voice-overlay--thinking .voice-wave span {
+  animation: voice-think 1s ease-in-out infinite;
+}
+
+.voice-overlay--thinking .voice-wave span:nth-child(even) {
+  animation-delay: -0.5s;
+}
+
+.voice-transcript {
+  align-self: stretch;
+  min-height: 52px;
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+.voice-transcript--empty {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+.voice-transcript__caret {
+  display: inline-block;
+  width: 2px;
+  height: 20px;
+  margin-left: 2px;
+  vertical-align: -3px;
+  background: var(--color-primary);
+  animation: voice-caret 0.8s steps(1) infinite;
+}
+
+/* GhoomMate's understanding */
+.voice-card {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-tint);
+  animation: voice-card-in 0.22s ease-out;
+}
+
+.voice-card__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.voice-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+}
+
+.voice-card__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.voice-card__overline {
+  color: var(--color-primary);
+}
+
+.voice-card__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.voice-card__details {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.voice-card__text {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.voice-card__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.voice-suggestions {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 6px;
+}
+
+/* Bleeds to the sheet edge like the other chip carousels */
+.voice-suggestions__row {
+  display: flex;
+  gap: 6px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.voice-sheet__type {
+  padding: 4px 8px;
+}
+
+.voice-type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  gap: 8px;
+}
+
+.voice-type__row {
+  display: flex;
+  align-items: flex-end;
+  align-self: stretch;
+  gap: 8px;
+}
+
+.voice-type__field {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-type__send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: var(--color-primary);
+}
+
+.voice-type__send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@keyframes voice-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes voice-sheet-in {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+}
+
+@keyframes voice-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes voice-ring {
+  from {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+@keyframes voice-wave {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes voice-think {
+  0%,
+  100% {
+    transform: scaleY(0.18);
+  }
+  50% {
+    transform: scaleY(0.4);
+  }
+}
+
+@keyframes voice-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-overlay__scrim,
+  .voice-sheet,
+  .voice-card,
+  .voice-transcript__caret,
+  .voice-overlay--listening .voice-sheet__ring,
+  .voice-overlay--thinking .voice-wave span {
+    animation: none;
+  }
+
+  /* A still, full waveform still says “listening” without the motion */
+  .voice-overlay--listening .voice-wave span {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+
+  .voice-overlay--listening .voice-sheet__ring {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+
+  .voice-overlay--listening .voice-sheet__ring--late {
+    opacity: 0;
+  }
+}

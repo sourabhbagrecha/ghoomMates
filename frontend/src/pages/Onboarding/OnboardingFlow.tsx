@@ -51,7 +51,7 @@ export function OnboardingFlow({ step, go, onDone }: OnboardingFlowProps) {
           onPhoneChange={(phone) => update({ phone })}
           onBack={() => go(fromInvite ? 'invite' : 'welcome')}
           onSendCode={() => go('verify')}
-          onSocialSignIn={() => go('profile')}
+          onSocialSignIn={() => go('about-you')}
         />
       )
     case 'verify':
@@ -60,17 +60,17 @@ export function OnboardingFlow({ step, go, onDone }: OnboardingFlowProps) {
           phone={details.phone}
           onBack={() => go('sign-in')}
           onEditNumber={() => go('sign-in')}
-          onVerified={() => go('profile')}
+          onVerified={() => go('about-you')}
         />
       )
-    case 'profile':
+    case 'about-you':
       return <ProfilePage details={details} onChange={update} onBack={() => go('verify')} onContinue={() => go('selfie')} />
     case 'selfie':
       return (
         <SelfiePage
           selfie={details.selfie}
           onSelfie={(selfie) => update({ selfie })}
-          onBack={() => go('profile')}
+          onBack={() => go('about-you')}
           onContinue={() => go('permissions')}
         />
       )

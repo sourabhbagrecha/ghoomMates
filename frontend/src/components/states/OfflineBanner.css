@@ -1,0 +1,48 @@
+/* Same spot as the Toast: just under the status bar */
+.offline-banner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 58px;
+  z-index: 35;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.offline-banner--inline {
+  position: static;
+}
+
+.offline-banner__pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 10px 16px 10px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  filter: var(--shadow-float);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: #fff;
+  animation: offline-banner-in 0.2s ease-out;
+}
+
+.offline-banner__pill img {
+  flex-shrink: 0;
+}
+
+@keyframes offline-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offline-banner__pill {
+    animation: none;
+  }
+}

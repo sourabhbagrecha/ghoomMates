@@ -255,7 +255,7 @@ Used by the sign-up flow in [`src/pages/Onboarding/`](src/pages/Onboarding/) (Fi
 | [`PermissionRow`](src/components/PermissionRow.tsx) | Icon tile, title, reason, and an "Allow" pill that becomes a green "Allowed" |
 | [`GhoomMateAvatar` / `GhoomMateTip`](src/components/GhoomMate.tsx) | The mascot in its ringed circle at any size; a white tip card with a 36 px mascot |
 
-Every onboarding screen can be opened directly at `#/welcome`, `#/sign-in`, `#/verify`, `#/profile`, `#/selfie`, `#/permissions` or `#/invite`.
+Every onboarding screen can be opened directly at `#/welcome`, `#/sign-in`, `#/verify`, `#/about-you`, `#/selfie`, `#/permissions` or `#/invite`.
 
 ### Vibe components
 Used by the Itinerary vibe card and the personality quiz in [`src/pages/Quiz/`](src/pages/Quiz/).
@@ -266,7 +266,7 @@ Used by the Itinerary vibe card and the personality quiz in [`src/pages/Quiz/`](
 | [`VibeChart`](src/components/VibeChart.tsx) | The hexagonal “spiderweb” across the six axes in [`src/data/vibe.ts`](src/data/vibe.ts). Draw the squad in sky (28% fill) and You in amber (15% fill, with dots), You on top. `variant="compact"` is the 176 × 140 Itinerary chart; the default is for bigger charts |
 | [`OptionGrid` / `OptionTile`](src/components/OptionTile.tsx) | Answer tiles on a quiz flashcard: a 28 px primary line icon over a 1–3 word label. Three options sit in one row, four in a 2 × 2 grid. Picked tiles turn primary blue with a white icon and check |
 
-**Personality quiz:** after Permissions, onboarding continues to the quiz intro (`#/quiz`), eight cards (`#/quiz/1` … `#/quiz/8`) and your travel persona (`#/quiz/persona`). Keep questions to a few words (“Your trip pace?”) and let the icon carry the meaning of each option. Single-choice cards say “Pick one”, multi-choice cards “Pick any”. The result is saved on the device and replaces the sample “You” shape on the Itinerary vibe card.
+**Personality quiz:** after Permissions, onboarding continues to the quiz intro (`#/quiz`), eight cards (`#/quiz/1` … `#/quiz/8`) and your travel persona (`#/quiz/persona`). Keep questions to a few words (“Your trip pace?”) and let the icon carry the meaning of each option. Single-choice cards say “Pick one”, multi-choice cards “Pick any”. The result is saved on the device and drives the “You” shape on the Itinerary vibe card and your persona, spiderweb and traits in Profile, where “Retake vibe quiz” opens it again.
 
 ### App structure and navigation
 **Home** (`#/`) is the top level: a GhoomMate briefing, the live trip card (with shortcuts into each trip tab), upcoming trips, past trips and a pinned "Plan a new trip" button. Opening a trip goes to `#/trip/<tab>`, where the four tab screens show a back button to Home (`ScreenBackContext`). **Notifications** (`#/notifications`) open from the bell, which shows the unread count. `#/home/empty` previews the first-run Home with no trips.
@@ -278,9 +278,13 @@ The rest of the app hangs off those screens:
 | Create a trip | `#/create/destination` → `dates` → `squad` → `vibe` → `generating` → `draft` | `src/pages/CreateTrip/` |
 | Before the trip (planning mode) | `#/plan`, `#/plan/vote/<id>`, `#/plan/bookings`, `#/plan/checklist`, `#/plan/budget` | `src/pages/Plan/` |
 | During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
+| Profile and account | `#/profile`, `…/edit`, `…/settings`, `…/help` ("Retake vibe quiz" opens `#/quiz`) | `src/pages/Profile/` |
+| System states gallery | `#/states` (loading, empty, error, offline) | `src/pages/States/` |
 | After the trip | `#/past/<id>` (recap), `…/album`, `…/days`, `…/expenses` (final tally + settle up), `…/rate[/<stars>]` | `src/pages/PastTrip/` |
 
-Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. `CoverLayout` (full-bleed photo header with a sheet body: stop, guide trip, trip recap) and `Toast` + `useToast` (feedback for stubbed actions) are shared. Still local and worth promoting once a second screen needs them: toggle switch, segmented control, progress bar, status tag, person toggle and star rating. The spiderweb on the Create-trip vibe step is still the static `spiderweb.svg`; switch it to the shared `VibeChart` (see Vibe components).
+Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. **Runs on every screen:** the GhoomMate FAB opens the voice overlay (`src/components/voice/`, `useVoice().open(prompt?)`), and `OfflineBanner` shows under the status bar when the connection drops. For loading, empty and error moments use `Skeleton`, `EmptyState` and `ErrorState` from `src/components/states/`; never ship a blank screen.
+
+`CoverLayout` (full-bleed photo header with a sheet body: stop, guide trip, trip recap) and `Toast` + `useToast` (feedback for stubbed actions) are shared. Still local and worth promoting once a second screen needs them: toggle switch, segmented control, progress bar, status tag, person toggle and star rating. Profile still draws your vibe with its own `VibeWeb` and the Create-trip vibe step with the static `spiderweb.svg`; both could switch to the shared `VibeChart` (see Vibe components).
 
 - Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot.
 - Something that needs the user ("2 votes need you", "Pay ₹450") is sky blue or a `.pill-button`, never red.

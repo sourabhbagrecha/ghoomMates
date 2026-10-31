@@ -1,12 +1,15 @@
 import type { CSSProperties, ReactNode } from 'react'
 import octopus from '../assets/figma/ghoommate-octopus.png'
 import iconMic from '../assets/figma/icon-mic.svg'
+import { useVoice } from './voice/voiceContext'
 import './GhoomMate.css'
 
 /** Voice-first AI travel buddy. Floats bottom-right on every screen above the tab bar. */
 export function GhoomMateFab() {
+  const { open } = useVoice()
+
   return (
-    <button type="button" className="ghoommate-fab" aria-label="Talk to GhoomMate">
+    <button type="button" className="ghoommate-fab" aria-label="Talk to GhoomMate" aria-haspopup="dialog" onClick={() => open()}>
       <span className="ghoommate-fab__bubble">
         <img className="ghoommate-fab__mascot" src={octopus} alt="" width={64} height={64} />
       </span>

@@ -1,0 +1,170 @@
+/* Search on the blue header, as on Explore */
+.help__search-row {
+  display: flex;
+  padding: 14px 20px 0;
+}
+
+.help__search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--color-surface);
+  filter: var(--shadow-float);
+  cursor: text;
+}
+
+.help__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.help__search input::placeholder {
+  color: var(--color-subtle);
+}
+
+.help__search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.help__body {
+  padding-top: 22px;
+  gap: 10px;
+}
+
+.help__count {
+  /* Cancels the gap above, so the empty live region takes no space */
+  margin-top: -10px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Accordion */
+.help__faqs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+  list-style: none;
+}
+
+.help__faq {
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.help__question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  text-align: left;
+  color: var(--color-ink);
+}
+
+.help__chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.help__faq--open .help__chevron {
+  transform: rotate(180deg);
+}
+
+.help__answer {
+  margin: 0 14px;
+  padding: 10px 0 14px;
+  border-top: 1px solid var(--color-divider);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.help__empty {
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.help__empty-title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.help__empty-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* Contact options */
+.help__contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  list-style: none;
+}
+
+.help__contact {
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px 10px 10px;
+  text-align: left;
+}
+
+.help__contact-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.help__contact-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.help__contact-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.help__contact-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

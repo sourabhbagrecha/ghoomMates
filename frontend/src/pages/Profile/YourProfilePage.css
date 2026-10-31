@@ -1,0 +1,317 @@
+/* The profile card rides up over the blue header */
+.your-profile__body {
+  padding-top: 22px;
+  gap: 14px;
+}
+
+/* Frosted header button, same as the back button */
+.your-profile__header-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-glass-strong);
+}
+
+/* Profile card */
+.your-profile__card {
+  align-items: center;
+  gap: 10px;
+  padding-top: 20px;
+  text-align: center;
+}
+
+.your-profile__identity {
+  display: flex;
+  flex-direction: column;
+}
+
+.your-profile__name {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.your-profile__handle {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-primary);
+}
+
+.your-profile__since {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.your-profile__persona {
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.your-profile__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-self: stretch;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.your-profile__stats div {
+  display: flex;
+  flex-direction: column-reverse;
+  min-width: 0;
+}
+
+.your-profile__stats div + div {
+  border-left: 1px solid var(--color-divider);
+}
+
+.your-profile__stats dd {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+}
+
+.your-profile__stats dt {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.your-profile__edit {
+  margin-top: 4px;
+}
+
+.your-profile__section-meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* Vibe card */
+.your-profile__vibe {
+  gap: 8px;
+}
+
+.your-profile__vibe-main {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.your-profile__vibe-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.your-profile__vibe-info .overline {
+  font-weight: 700;
+}
+
+.your-profile__vibe-persona {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.your-profile__traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+/* Places carousel, bleeding to the screen edge */
+.your-profile__places {
+  display: flex;
+  gap: 10px;
+  margin: 0 -20px;
+  padding: 0 20px 8px;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.your-profile__place {
+  display: flex;
+  flex-direction: column;
+  width: 128px;
+  overflow: hidden;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-cover-card);
+  text-align: left;
+}
+
+.your-profile__place-photo {
+  width: 128px;
+  height: 84px;
+  object-fit: cover;
+  background: var(--color-sky-light);
+}
+
+.your-profile__place-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px 10px;
+}
+
+.your-profile__place-name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.your-profile__place-meta {
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Same yellow as the live trip badge */
+.your-profile__now {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* Badges */
+.your-profile__badges {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  list-style: none;
+}
+
+.your-profile__badge {
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.your-profile__badge-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-sky-light);
+}
+
+.your-profile__badge-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.your-profile__badge-text strong {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.your-profile__badge-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.your-profile__badge--locked .your-profile__badge-icon {
+  background: var(--color-tint-cool);
+}
+
+.your-profile__badge--locked .your-profile__badge-icon img {
+  opacity: 0.45;
+}
+
+.your-profile__badge--locked strong {
+  color: var(--color-muted);
+}
+
+/* Squads and menu rows */
+.your-profile__squads,
+.your-profile__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.your-profile__squad {
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.your-profile__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.your-profile__row-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.your-profile__row-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.your-profile__menu-row {
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px 10px 10px;
+}
+
+.your-profile__menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}

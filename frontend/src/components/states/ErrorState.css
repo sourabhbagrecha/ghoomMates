@@ -1,0 +1,53 @@
+.error-state {
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.error-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-tint);
+}
+
+.error-state__title {
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--color-ink);
+}
+
+.error-state__text {
+  max-width: 260px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+.error-state__retry {
+  margin-top: 4px;
+}
+
+.error-state__detail {
+  align-self: stretch;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: left;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.error-state__detail[hidden] {
+  display: none;
+}

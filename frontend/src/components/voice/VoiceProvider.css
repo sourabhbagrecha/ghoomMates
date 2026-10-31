@@ -1,0 +1,56 @@
+/* Ink pill under the status bar after a voice action, with an optional follow-up (“View”) */
+.voice-notice {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 58px;
+  z-index: 45;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.voice-notice__pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  filter: var(--shadow-float);
+  pointer-events: auto;
+  animation: voice-notice-in 0.2s ease-out;
+}
+
+.voice-notice__message {
+  min-width: 0;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: #fff;
+}
+
+.voice-notice__action {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+@keyframes voice-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-notice__pill {
+    animation: none;
+  }
+}

@@ -1,0 +1,105 @@
+/* Drawn version of spiderweb.svg: same grid, shapes and colours */
+.vibe-web {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.vibe-web--small {
+  width: 176px;
+  height: 140px;
+}
+
+.vibe-web--large {
+  width: 264px;
+  height: 210px;
+}
+
+.vibe-web svg {
+  display: block;
+  overflow: visible;
+}
+
+.vibe-web__grid {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.vibe-web__shape {
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.vibe-web__shape--squad {
+  fill: var(--color-sky);
+  fill-opacity: 0.28;
+  stroke: var(--color-sky);
+}
+
+.vibe-web__shape--you {
+  fill: var(--color-amber);
+  fill-opacity: 0.15;
+  stroke: var(--color-amber);
+}
+
+.vibe-web__dot {
+  fill: var(--color-amber);
+  stroke: #fff;
+  stroke-width: 1;
+}
+
+.vibe-web__label {
+  position: absolute;
+  font-weight: 700;
+  font-size: 8.5px;
+  line-height: 13px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.vibe-web--large .vibe-web__label {
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.vibe-web__label--middle {
+  transform: translate(-50%, -50%);
+}
+
+.vibe-web__label--start {
+  transform: translateY(-50%);
+}
+
+.vibe-web__label--end {
+  transform: translate(-100%, -50%);
+}
+
+.vibe-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vibe-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.vibe-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.vibe-legend__swatch--squad {
+  background: var(--color-sky);
+}
+
+.vibe-legend__swatch--you {
+  background: var(--color-amber);
+}

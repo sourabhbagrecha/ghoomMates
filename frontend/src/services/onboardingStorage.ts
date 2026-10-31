@@ -27,3 +27,13 @@ export function markOnboarded(name: string): void {
 }
 
 export const getProfileName = (): string | null => read(NAME_KEY)
+
+/** Forgets this device's sign-up, so the next launch starts at Welcome. */
+export function signOut(): void {
+  try {
+    localStorage.removeItem(ONBOARDED_KEY)
+    localStorage.removeItem(NAME_KEY)
+  } catch {
+    // Blocked storage: nothing was saved in the first place
+  }
+}

@@ -1,0 +1,115 @@
+.states-page {
+  gap: 14px;
+}
+
+/* Segmented chips bleed to the screen edge like other chip rows */
+.states-page__tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.states-page__caption {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.states-page__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+/* Announced to screen readers only */
+.states-page__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.states-page__reset {
+  align-self: center;
+}
+
+/* Skeleton of Home’s live trip card */
+.states-skeleton__live {
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.states-skeleton__shortcuts {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 12px 0;
+}
+
+/* Trip row, as on Home */
+.states-row {
+  gap: 12px;
+  padding: 10px 12px 10px 10px;
+}
+
+.states-row__cover {
+  flex-shrink: 0;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+}
+
+.states-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.states-row__name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.states-row__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Blue strip standing in for the header the banner floats over */
+.states-offline__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+  border-radius: var(--radius-card);
+  background: var(--gradient-sky);
+}
+
+.states-offline__try {
+  gap: 8px;
+}
+
+.states-offline__text {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.states-offline__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 4px;
+}

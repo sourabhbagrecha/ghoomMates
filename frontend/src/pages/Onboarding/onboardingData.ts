@@ -4,9 +4,9 @@ import iconMapPin from '../../assets/figma/icon-perm-map-pin.svg'
 import iconMic from '../../assets/figma/icon-perm-mic.svg'
 import type { PersonId } from '../../data/people'
 
-export type OnboardingStep = 'welcome' | 'sign-in' | 'verify' | 'profile' | 'selfie' | 'permissions' | 'invite'
+export type OnboardingStep = 'welcome' | 'sign-in' | 'verify' | 'about-you' | 'selfie' | 'permissions' | 'invite'
 
-export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'sign-in', 'verify', 'profile', 'selfie', 'permissions', 'invite']
+export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'sign-in', 'verify', 'about-you', 'selfie', 'permissions', 'invite']
 
 export const isOnboardingStep = (route: string): route is OnboardingStep =>
   (ONBOARDING_STEPS as string[]).includes(route)
