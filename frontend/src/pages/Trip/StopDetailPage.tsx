@@ -14,6 +14,9 @@ import { Toast } from '../../components/Toast'
 import { CoverLayout } from '../../components/CoverLayout'
 import { tripsApi, type Rsvp } from '../../services/tripsService'
 import { RSVP_OPTIONS, TAG_PHOTOS } from './tripDetailData'
+import { CrowdBars, CrowdChip } from '../../components/crowd/Crowd'
+import { CROWD_LABELS, SITE_PHOTOS, applySuggestion } from '../../components/crowd/crowdData'
+import type { StopCrowd } from '../../services/heritageService'
 import { useToast } from '../../hooks/useToast'
 import './StopDetailPage.css'
 
@@ -57,11 +60,12 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
   return (
     <>
       <CoverLayout
-        cover={TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill}
+        cover={(stop.crowd && SITE_PHOTOS[stop.crowd.siteId]) ?? TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill}
         onBack={() => navigate('trip/itinerary')}
         overlay={
           <>
             {stop.tag && <span className="tag">{stop.tag}</span>}
+            {stop.crowd?.gem && <span className="tag stop-detail__gem">Hidden gem</span>}
           </>
         }
         bodyClassName="stop-detail__body"
@@ -85,6 +89,29 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
             </p>
           )}
         </section>
+
+        {stop.crowd && (
+          <CrowdCard
+            crowd={stop.crowd}
+            minutes={minutesOf(stop.time)}
+            onApply={async () => {
+              await applySuggestion(trip.id, stop)
+              await activeTrip.loadItinerary()
+              showToast(stop.crowd?.suggestion?.type === 'swap' ? 'Swapped to a quieter spot' : 'Moved to a quieter time')
+            }}
+          />
+        )}
+
+        {stop.crowd && (
+          <section className="card stop-detail__story">
+            <h2 className="overline">The story</h2>
+            <p className="stop-detail__story-text">{stop.crowd.story}</p>
+            <p className="stop-detail__care">
+              <strong>Visit lightly</strong>
+              {stop.crowd.care}
+            </p>
+          </section>
+        )}
 
         <section className="card stop-detail__map-card">
           <div className="stop-detail__map" aria-hidden="true">
@@ -149,5 +176,63 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
       </CoverLayout>
       <Toast message={toast} />
     </>
+  )
+}
+
+const TIME = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i
+
+function minutesOf(time: string) {
+  const match = TIME.exec(time.trim())
+  if (!match) return null
+  return ((Number(match[1]) % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0)) * 60 + Number(match[2])
+}
+
+/** How busy the site is at the stop's time, the day's curve, and GhoomMate's nudge off-peak */
+function CrowdCard({ crowd, minutes, onApply }: { crowd: StopCrowd; minutes: number | null; onApply: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  const nudge = crowd.suggestion
+  const apply = async () => {
+    setBusy(true)
+    try {
+      await onApply()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card stop-detail__crowd">
+      <div className="stop-detail__squad-header">
+        <h2 className="overline">Crowd forecast · {crowd.siteName}</h2>
+        {crowd.label && <CrowdChip label={crowd.label} size="large" />}
+      </div>
+      <CrowdBars crowd={crowd} selectedMinutes={minutes} />
+      <p className="stop-detail__crowd-facts">
+        {crowd.label === 'closed'
+          ? 'Closed at your time. '
+          : crowd.waitMinutes > 0
+            ? `About ${crowd.waitMinutes} min of queues at your time. `
+            : crowd.label
+              ? 'Hardly any queue at your time. '
+              : ''}
+        {crowd.best && (
+          <>
+            Quietest around <strong>{crowd.best.time}</strong>.
+          </>
+        )}
+        {crowd.dayNote && ` ${crowd.dayNote}.`}
+      </p>
+      {nudge && (
+        <div className="stop-detail__nudge">
+          <p className="stop-detail__nudge-text">
+            <strong>{nudge.type === 'shift' ? `Go at ${nudge.time} instead` : `Swap to ${nudge.siteName}`}</strong>
+            {nudge.reason} ({CROWD_LABELS[nudge.label].toLowerCase()} then).
+          </p>
+          <button type="button" className="pill-button" disabled={busy} onClick={() => void apply()}>
+            {busy ? 'Moving…' : nudge.type === 'shift' ? 'Move' : 'Swap'}
+          </button>
+        </div>
+      )}
+    </section>
   )
 }

@@ -28,6 +28,17 @@
   --color-success: #16a34a;
   --color-success-tint: #e7f6ec;
 
+  /* Crowd levels at heritage sites: a dot or bar colour plus a soft chip fill */
+  --color-crowd-quiet: var(--color-success);
+  --color-crowd-quiet-tint: var(--color-success-tint);
+  --color-crowd-moderate: var(--color-sky);
+  --color-crowd-moderate-tint: var(--color-tint);
+  --color-crowd-busy: var(--color-amber);
+  --color-crowd-busy-tint: #fff5d1;
+  --color-crowd-packed: #ef4f6b;
+  --color-crowd-packed-tint: #fdeaee;
+  --color-crowd-closed: var(--color-disabled);
+
   /* People */
   --color-person-you: #ffc600;
   --color-person-riya: #1e96fc;

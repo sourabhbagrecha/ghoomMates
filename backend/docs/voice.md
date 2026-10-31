@@ -1,6 +1,6 @@
 # Voice module (GhoomMate)
 
-A real-time voice agent on LiveKit Cloud. The user talks to GhoomMate (the octopus FAB). It drafts expenses on screen, writes them after a spoken "yes" or a tapped Confirm, reads balances, recommends local guide experiences that fit the user's personality, plans a day out of them (added to the itinerary after a yes), and opens screens. The model is speech-to-speech `google/gemini-3.8-live` through LiveKit Inference, billed to the LiveKit project, so no Google key is needed.
+A real-time voice agent on LiveKit Cloud. The user talks to GhoomMate (the octopus FAB). It drafts expenses on screen, writes them after a spoken "yes" or a tapped Confirm, reads balances, recommends local guide experiences that fit the user's personality, plans a day out of them (added to the itinerary after a yes), tells them how crowded Udaipur's heritage sites are and when they're quiet, and opens screens. The model is speech-to-speech `google/gemini-3.8-live` through LiveKit Inference, billed to the LiveKit project, so no Google key is needed.
 
 ## Flow
 

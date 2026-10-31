@@ -1,4 +1,5 @@
 import { getToken } from './authService'
+import type { StopCrowd } from './heritageService'
 
 /* Types mirror backend/src/trips/service.ts. Money is integer paise. */
 
@@ -136,6 +137,8 @@ export type ItineraryStop = {
   /** Member ids of everyone going */
   going: string[]
   myRsvp: Rsvp | null
+  /** Crowd forecast when the stop is a known heritage site */
+  crowd?: StopCrowd | null
 }
 
 export type ItineraryDay = { number: number; title: string; stops: ItineraryStop[] }

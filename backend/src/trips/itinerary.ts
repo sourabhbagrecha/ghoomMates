@@ -2,10 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { ApiError, integer, object, requireThat, text } from '../expenses/domain.ts';
 import { transaction, type Database, type Pool } from '../db.ts';
 import { logger } from '../logger.ts';
+import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { TripAccess } from './service.ts';
 
 export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel'] as const;
 const RSVPS = ['going', 'maybe', 'skip'] as const;
+// A meal or a check-in near a ghat isn't a visit to it, so these stops get no crowd meter
+const CROWDLESS_TAGS = new Set(['Food', 'Stay', 'Travel']);
 const VIBE_AXES = ['adventure', 'food', 'nightlife', 'culture', 'chill', 'shops'] as const;
 const MAX_DAYS = 14;
 const TIME = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
@@ -43,6 +46,14 @@ function stopInput(value: unknown) {
 }
 
 const parseDate = (value: string) => new Date(`${value}T00:00:00Z`);
+
+/** "2026-11-12" for day 3 of a trip starting 2026-11-10; null without dates */
+export function dateOfDay(startDate: string | null, day: number) {
+  if (!startDate) return null;
+  const date = parseDate(startDate);
+  date.setUTCDate(date.getUTCDate() + day - 1);
+  return date.toISOString().slice(0, 10);
+}
 
 /** Number of days in the trip: its date range, the flexible length picked when creating it, or 3. */
 export function tripLength(trip: TripAccess['trip']) {
@@ -83,19 +94,28 @@ export class ItineraryService {
     const { rows: [row] } = await this.pool.query<{ day_titles: string[] }>('SELECT day_titles FROM trips WHERE id = $1', [trip.id]);
     const titles = row?.day_titles ?? [];
     const length = Math.max(tripLength(trip), titles.length, ...stops.map(s => s.day_number));
+    const city = cityOf(trip.destination || trip.name);
     return {
-      days: Array.from({ length }, (_, i) => ({
-        number: i + 1,
-        title: titles[i] ?? '',
-        stops: stops.filter(s => s.day_number === i + 1).map(s => {
-          const rsvps = s.rsvps as { memberId: string; userId: string; rsvp: string }[];
-          return {
-            id: s.id, dayNumber: s.day_number, time: s.time, title: s.title, tag: s.tag, place: s.place, notes: s.notes,
-            going: rsvps.filter(r => r.rsvp === 'going').map(r => r.memberId),
-            myRsvp: rsvps.find(r => r.userId === userId)?.rsvp ?? null,
-          };
-        }),
-      })),
+      days: Array.from({ length }, (_, i) => {
+        const dayStops = stops.filter(s => s.day_number === i + 1);
+        const date = dateOfDay(trip.start_date, i + 1);
+        return {
+          number: i + 1,
+          title: titles[i] ?? '',
+          stops: dayStops.map(s => {
+            const rsvps = s.rsvps as { memberId: string; userId: string; rsvp: string }[];
+            const minutes = s.time ? minutesOf(s.time) : null;
+            const taken = dayStops.filter(o => o.id !== s.id && o.time).map(o => minutesOf(o.time));
+            return {
+              id: s.id, dayNumber: s.day_number, time: s.time, title: s.title, tag: s.tag, place: s.place, notes: s.notes,
+              going: rsvps.filter(r => r.rsvp === 'going').map(r => r.memberId),
+              myRsvp: rsvps.find(r => r.userId === userId)?.rsvp ?? null,
+              // How busy the heritage site is at that time, and a nudge off-peak
+              crowd: CROWDLESS_TAGS.has(s.tag) ? null : crowdForStop({ title: s.title, place: s.place, minutes }, { city, date, taken }),
+            };
+          }),
+        };
+      }),
     };
   }
 
@@ -215,7 +235,7 @@ export class ItineraryService {
         logger.warn('Itinerary', `Gemini draft failed (${err.message}); using the template plan`);
       }
     }
-    return templateDraft(place, onlyDay ? 1 : days);
+    return cityOf(place) === 'Udaipur' ? udaipurDraft(onlyDay ? 1 : days, onlyDay) : templateDraft(place, onlyDay ? 1 : days);
   }
 
   private async generate(args: {
@@ -223,6 +243,7 @@ export class ItineraryService {
     squad: Awaited<ReturnType<ItineraryService['squadVibe']>>; onlyDay: number | null;
   }): Promise<Omit<Draft, 'source'>> {
     const { place, days, startDate, budget, tweaks, squad, onlyDay } = args;
+    const city = cityOf(place);
     const people = squad.vibes.map(v => `${v.name}: ${VIBE_AXES.map(a => `${a} ${v.vibe![a]}`).join(', ')}`).join('\n');
     const prompt = [
       `Plan a ${days}-day group trip to ${place}${startDate ? ` starting ${startDate}` : ''} for ${squad.size} friend${squad.size === 1 ? '' : 's'} from India.`,
@@ -235,6 +256,9 @@ export class ItineraryService {
       'Each day: a short catchy title and 3 to 5 time slots in order. Each slot has 2 options: the best pick first, then a good alternative at the same time.',
       `Use real, specific places in ${place}. Times in 12-hour format like "09:30 AM". Tags: ${STOP_TAGS.join(', ')}.`,
       'notes: one practical tip (timing, cost in ₹, what to carry). Also give one overall tip for the group.',
+      'Travel responsibly: popular heritage sites get overcrowded, so visit them in their quiet windows, not at peak. Every day include at least one lesser-known gem, and favour local family-run eateries and artisans over chains.',
+      'Group nearby stops so the squad can walk or take a shared e-rickshaw between them.',
+      city && `Crowd forecast for ${city}'s heritage sites${startDate ? ' around the trip dates' : ''}:\n${crowdBrief(city, startDate)}\nSchedule each site you use inside its quiet window, and use the site names above so the app can track crowds.`,
     ].filter(Boolean).join('\n');
 
     const stop = {
@@ -357,4 +381,84 @@ export function templateDraft(place: string, days: number): Draft {
     };
   };
   return { days: Array.from({ length: Math.max(1, days) }, (_, i) => day(i)), tip: 'Tell me what to change and I’ll rework the plan.', source: 'template' };
+}
+
+// Udaipur without Gemini: heritage sites in their quiet windows, a lesser-known gem every day, local kitchens and makers.
+export function udaipurDraft(days: number, onlyDay: number | null = null): Draft {
+  const s = (time: string, title: string, tag: string, place: string, notes: string): DraftStop => ({ time, title, tag, place, notes });
+  const arrive: DraftDay = {
+    title: 'Hello, City of Lakes',
+    slots: [
+      [s('12:00 PM', 'Check in at a lakeside haveli homestay', 'Stay', 'Lal Ghat, old city', 'Family-run havelis keep the money in the old city. Refill bottles at the host’s RO tap.')],
+      [
+        s('01:30 PM', 'Dal baati churma at a family kitchen', 'Food', 'Jagdish Chowk', 'Around ₹250 a head. Ask for the ghee on the side.'),
+        s('01:30 PM', 'Kachori and chaat crawl', 'Food', 'Bada Bazaar', 'Carry small change for the stalls.'),
+      ],
+      [
+        s('04:00 PM', 'Bagore ki Haveli rooms by daylight', 'Culture', 'Bagore ki Haveli, Gangaur Ghat', 'Quiet before the evening show crowd arrives.'),
+        s('04:00 PM', 'Gulab Bagh garden walk', 'Chill', 'Gulab Bagh', 'Shady and almost empty on weekday afternoons.'),
+      ],
+      [
+        s('05:30 PM', 'Sunset hike to Neemach Mata', 'Adventure', 'Neemach Mata hilltop, Fateh Sagar', 'A 20-minute climb. The sunset crowd is at Sajjangarh; you’ll have the view to yourselves.'),
+        s('05:30 PM', 'Sunset at Moti Magri', 'Culture', 'Moti Magri', 'Maharana Pratap’s memorial with a lake view and few people.'),
+      ],
+      [s('08:00 PM', 'Rooftop thali by Lal Ghat', 'Food', 'Lal Ghat rooftops', 'Book ahead for the squad; seasonal Mewari sabzis.')],
+    ],
+  };
+  const heritage: DraftDay = {
+    title: 'Palaces before the rush',
+    slots: [
+      [
+        s('07:00 AM', 'Jagdish Temple at morning aarti', 'Culture', 'Jagdish Temple', 'Locals only at this hour. Shoes off, shoulders covered.'),
+        s('07:00 AM', 'Gangaur Ghat at sunrise', 'Chill', 'Gangaur Ghat', 'Washermen and pigeons, no tour groups yet.'),
+      ],
+      [s('09:30 AM', 'City Palace museum at opening', 'Culture', 'City Palace', 'Tour buses land around 11. Book online and be at the gate by 9:20 AM.')],
+      [
+        s('12:00 PM', 'Lake Pichola boat ride', 'Chill', 'Lake Pichola, Rameshwar Ghat jetty', 'Noon boats are half empty; the 5 PM sunset boats are packed.'),
+        s('12:00 PM', 'Vintage car collection', 'Culture', 'Vintage car collection', 'The Maharanas’ Rolls-Royces, rarely busy.'),
+      ],
+      [s('01:30 PM', 'Mewari lunch at a local bhojanalaya', 'Food', 'Old city', 'Unlimited thali around ₹200.')],
+      [
+        s('06:00 PM', 'Puppet show at Bhartiya Lok Kala Mandal', 'Culture', 'Bhartiya Lok Kala Mandal', 'Kathputli by third-generation puppeteers. Tip them directly.'),
+        s('06:00 PM', 'Dharohar folk dance', 'Culture', 'Bagore ki Haveli', 'Popular. Queue by 6:15 PM or you’ll be standing.'),
+      ],
+    ],
+  };
+  const gems: DraftDay = {
+    title: 'Hidden Udaipur',
+    slots: [
+      [s('06:30 AM', 'Sunrise cycle along Fateh Sagar', 'Adventure', 'Fateh Sagar Lake', 'Rent cycles at the pal, ₹100 an hour.')],
+      [
+        s('09:00 AM', 'Moti Magri and the Maharana Pratap memorial', 'Culture', 'Moti Magri', 'Ask a gate guide for the Haldighati story.'),
+        s('09:00 AM', 'Saheliyon ki Bari at opening', 'Culture', 'Saheliyon ki Bari', 'Gets busy from 11; go now.'),
+      ],
+      [s('11:30 AM', 'Ahar royal cenotaphs and museum', 'Culture', 'Ahar cenotaphs', '250 royal chhatris and a 4,000-year-old dig. Almost no one comes here.')],
+      [s('01:30 PM', 'Lunch at a village dhaba', 'Food', 'Ahar', 'Makki ki roti and lassi from the farms around the city.')],
+      [
+        s('03:00 PM', 'Meet the makers at Shilpgram', 'Shops', 'Shilpgram crafts village', 'Buy straight from potters and weavers at their huts.'),
+        s('03:00 PM', 'Miniature painters of Hathi Pol', 'Shops', 'Hathi Pol Bazaar', 'Watch a squirrel-hair brush at work; buy from the painter.'),
+      ],
+      [s('05:30 PM', 'Badi Lake at golden hour', 'Chill', 'Badi Lake', 'Quieter than Fateh Sagar. No snacks by the water: it’s a reservoir.')],
+    ],
+  };
+  const leave: DraftDay = {
+    title: 'Last chai, then home',
+    slots: [
+      [
+        s('08:00 AM', 'Chai and poha by Gangaur Ghat', 'Food', 'Gangaur Ghat', 'Quiet mornings on the ghat.'),
+        s('08:00 AM', 'Morning walk in Gulab Bagh', 'Chill', 'Gulab Bagh', 'Join the locals on their rounds.'),
+      ],
+      [s('10:30 AM', 'Pick up a miniature painting in Hathi Pol', 'Shops', 'Hathi Pol Bazaar', 'Before the evening crowd. Ask who painted it.')],
+      [s('12:00 PM', 'Check out', 'Stay', '', 'Settle up in Ghoomates before you leave!')],
+      [s('03:00 PM', 'Head home', 'Travel', '', 'Share one cab to the airport or station.')],
+    ],
+  };
+  const middle = [heritage, gems];
+  const plan = (i: number, total: number) => (i === 0 ? arrive : i === total - 1 && total > 1 ? leave : middle[(i - 1) % middle.length]);
+  const planned = onlyDay ? [middle[(onlyDay - 1) % middle.length]] : Array.from({ length: Math.max(1, days) }, (_, i) => plan(i, days));
+  return {
+    days: planned,
+    tip: 'Every heritage stop sits in its quiet window. Watch the crowd meter on each stop as the day goes.',
+    source: 'template',
+  };
 }

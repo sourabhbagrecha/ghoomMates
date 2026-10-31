@@ -12,11 +12,13 @@ export interface ServerModules {
   trips?: Router;
   // GhoomMate voice sessions (LiveKit tokens), mounted under /api/voice. Omitted without a database.
   voice?: Router;
+  // Live crowd levels at heritage sites, mounted under /api/heritage. Needs no database.
+  heritage?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -34,7 +36,7 @@ export function createServer({ auth, expenses, trips, voice, media }: ServerModu
       service: 'ghoomates-backend',
       version: '0.1.0',
       modules: { auth: 'enabled', trips: trips ? 'enabled' : 'disabled', expenses: expenses ? 'enabled' : 'disabled' },
-      endpoints: ['/health', '/auth/*', '/api/trips/*', '/api/voice/session', '/api/groups/*'],
+      endpoints: ['/health', '/auth/*', '/api/trips/*', '/api/voice/session', '/api/heritage/:city/live', '/api/groups/*'],
     });
   });
 
@@ -45,6 +47,7 @@ export function createServer({ auth, expenses, trips, voice, media }: ServerModu
   app.use('/api/voice', voice ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
+  if (heritage) app.use('/api/heritage', heritage);
   if (media) app.use('/api/media', media);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');

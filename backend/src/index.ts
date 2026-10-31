@@ -6,6 +6,7 @@ import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth
 import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
+import { createHeritageApp } from './heritage/app.ts';
 import { logger } from './logger.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
@@ -95,6 +96,7 @@ const app = createServer({
   expenses,
   trips,
   voice,
+  heritage: createHeritageApp(),
   media: createMediaRouter(storage),
 });
 

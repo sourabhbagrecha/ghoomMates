@@ -1,0 +1,101 @@
+/* Crowd chip: soft fill in the crowd colour, a dot and ink text so contrast holds on every level */
+.crowd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 7px 1px 6px;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.crowd-chip--large {
+  padding: 3px 10px 3px 8px;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.crowd-chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.crowd-chip__detail {
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.crowd-chip--quiet { background: var(--color-crowd-quiet-tint); }
+.crowd-chip--quiet .crowd-chip__dot { background: var(--color-crowd-quiet); }
+.crowd-chip--moderate { background: var(--color-crowd-moderate-tint); }
+.crowd-chip--moderate .crowd-chip__dot { background: var(--color-crowd-moderate); }
+.crowd-chip--busy { background: var(--color-crowd-busy-tint); }
+.crowd-chip--busy .crowd-chip__dot { background: var(--color-crowd-busy); }
+.crowd-chip--packed { background: var(--color-crowd-packed-tint); }
+.crowd-chip--packed .crowd-chip__dot { background: var(--color-crowd-packed); }
+.crowd-chip--closed { background: var(--color-tint-cool); }
+.crowd-chip--closed .crowd-chip__dot { background: var(--color-crowd-closed); }
+
+/* Hourly forecast bars */
+.crowd-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 92px;
+}
+
+.crowd-bars__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.crowd-bars__track {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 6px;
+  background: var(--color-tint-cool);
+}
+
+.crowd-bars__bar {
+  width: 100%;
+  border-radius: 6px;
+}
+
+.crowd-bars__bar--quiet { background: var(--color-crowd-quiet); }
+.crowd-bars__bar--moderate { background: var(--color-crowd-moderate); }
+.crowd-bars__bar--busy { background: var(--color-crowd-busy); }
+.crowd-bars__bar--packed { background: var(--color-crowd-packed); }
+.crowd-bars__bar--closed { background: var(--color-track-muted); }
+
+.crowd-bars__hour {
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 14px;
+  color: var(--color-muted);
+}
+
+.crowd-bars__col--you .crowd-bars__track {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.crowd-bars__col--you .crowd-bars__hour {
+  color: var(--color-primary);
+}
+
+.crowd-bars__col--best .crowd-bars__hour {
+  color: var(--color-success);
+}

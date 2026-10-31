@@ -288,6 +288,17 @@ Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts
 - Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot.
 - Something that needs the user ("2 votes need you", "Pay ₹450") is sky blue or a `.pill-button`, never red.
 
+### Crowd components
+Used by the Itinerary, Stop detail and Explore screens for heritage-site crowds (see `backend/docs/heritage.md`).
+
+| Component | What it is |
+|---|---|
+| [`CrowdChip`](src/components/crowd/Crowd.tsx) | Pill with a dot in the crowd colour and ink text: Quiet, Moderate, Busy, Packed, Closed. The colour is never the only signal |
+| [`CrowdBars`](src/components/crowd/Crowd.tsx) | Hour-by-hour forecast bars; the stop's hour is outlined in primary, the quietest hour's label is green |
+| [`CrowdPulse`](src/pages/Explore/CrowdPulse.tsx) | Explore's live map of the old city with site dots coloured by crowd, an hour scrubber and quiet gems |
+
+Crowd colours are tokens (`--color-crowd-{quiet,moderate,busy,packed,closed}` plus `-tint` fills). Packed uses a coral, not red, to show status rather than an error.
+
 ### Utility classes: [`src/styles/ui.css`](src/styles/ui.css)
 
 | Class | What it is |

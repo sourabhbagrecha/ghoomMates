@@ -16,6 +16,7 @@ import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { formatINR } from '../Trip/tripFormat'
+import { CrowdPulse } from './CrowdPulse'
 import { CATEGORIES, TRENDING } from './exploreData'
 import { nextRunLabel } from './experienceSchedule'
 import { EXPERIENCES, experienceCityFor, type Experience, type ExperienceCity } from './experiencesData'
@@ -60,6 +61,8 @@ export function ExplorePage() {
             </Chip>
           ))}
         </div>
+
+        {city === 'Udaipur' && <CrowdPulse city={city} />}
 
         <SectionHeader
           title="Trending this weekend"

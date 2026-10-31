@@ -9,12 +9,15 @@ import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { VibeChart } from '../../components/VibeChart'
+import { CrowdChip } from '../../components/crowd/Crowd'
+import { SITE_PHOTOS, applySuggestion, formatDuration, isOffPeak, waitMinutes } from '../../components/crowd/crowdData'
 import { EmptyState } from '../../components/states/EmptyState'
 import { Skeleton } from '../../components/states/Skeleton'
 import { activeTrip, formatTripDates, tripDay, tripDayLabel, tripPhase, useActiveTrip } from '../../data/activeTrip'
 import { blendVibes, personaFor, vibeMatch } from '../../data/vibe'
 import { useNavigate } from '../../hooks/navigation'
 import { loadVibe } from '../../services/vibeStorage'
+import type { CrowdLabel } from '../../services/heritageService'
 import { tripsApi, type ItineraryDay, type ItineraryStop, type TripDetail } from '../../services/tripsService'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './ItineraryPage.css'
@@ -45,10 +48,11 @@ export function ItineraryPage() {
 
         <main className="screen__body">
           {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={!!live} />}
+          {trip && itinerary && <CrowdPlanCard trip={trip} days={itinerary} />}
           {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
         </main>
       </ScreenLayout>
-      <GhoomMateSays>Tap a stop to RSVP, or add your own to the plan!</GhoomMateSays>
+      <GhoomMateSays>Ask me “When is City Palace quietest?”</GhoomMateSays>
     </>
   )
 }
@@ -222,7 +226,7 @@ function DayPlan({ trip, days, today }: { trip: TripDetail; days: ItineraryDay[]
         <>
           <ol className="timeline">
             {day.stops.map((stop) => (
-              <TimelineStop key={stop.id} stop={stop} squadSize={trip.members.length} done={today !== null && day.number < today} />
+              <TimelineStop key={stop.id} tripId={trip.id} stop={stop} squadSize={trip.members.length} done={today !== null && day.number < today} />
             ))}
           </ol>
           <button type="button" className="pill-button itinerary__add" onClick={() => navigate(`trip/itinerary/add?day=${day.number}`)}>
@@ -243,9 +247,23 @@ function DayPlan({ trip, days, today }: { trip: TripDetail; days: ItineraryDay[]
   )
 }
 
-function TimelineStop({ stop, squadSize, done }: { stop: ItineraryStop; squadSize: number; done: boolean }) {
+function TimelineStop({ tripId, stop, squadSize, done }: { tripId: string; stop: ItineraryStop; squadSize: number; done: boolean }) {
   const navigate = useNavigate()
+  const [moving, setMoving] = useState(false)
   const reaction = stop.going.length === 0 ? 'No RSVPs yet' : stop.going.length === squadSize && squadSize > 1 ? 'Whole squad' : `${stop.going.length}/${squadSize} going`
+  const crowd = stop.crowd
+  const nudge = !done ? crowd?.suggestion : null
+  const photo = (crowd && SITE_PHOTOS[crowd.siteId]) ?? TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill
+
+  const move = async () => {
+    setMoving(true)
+    try {
+      await applySuggestion(tripId, stop)
+      await activeTrip.loadItinerary()
+    } finally {
+      setMoving(false)
+    }
+  }
 
   return (
     <li className="timeline__stop">
@@ -253,24 +271,107 @@ function TimelineStop({ stop, squadSize, done }: { stop: ItineraryStop; squadSiz
         <span className={`timeline__dot${done ? ' timeline__dot--done' : ''}`} />
         <span className="timeline__line" />
       </div>
-      <article className="list-card stop-card">
-        <img className="stop-card__photo" src={TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill} alt="" width={52} height={52} />
-        <div className="stop-card__info">
-          <p className="stop-card__time">{stop.time || 'Anytime'}</p>
-          <h3 className="stop-card__title">{stop.title}</h3>
-          <div className="stop-card__people">
-            <AvatarStack people={stop.going} size={18} overlap={6} />
-            <span>{reaction}</span>
+      <div className="timeline__body">
+        <article className="list-card stop-card">
+          <img className="stop-card__photo" src={photo} alt="" width={52} height={52} />
+          <div className="stop-card__info">
+            <p className="stop-card__time">
+              {stop.time || 'Anytime'}
+              {crowd?.label && <CrowdChip label={crowd.label} />}
+              {crowd?.gem && <span className="stop-card__gem">Hidden gem</span>}
+            </p>
+            <h3 className="stop-card__title">{stop.title}</h3>
+            <div className="stop-card__people">
+              <AvatarStack people={stop.going} size={18} overlap={6} />
+              <span>{reaction}</span>
+            </div>
           </div>
-        </div>
-        {stop.tag && <span className="tag">{stop.tag}</span>}
-        <button
-          type="button"
-          className="stop-card__open"
-          aria-label={`Open ${stop.title}`}
-          onClick={() => navigate(`trip/itinerary/stop/${stop.id}`)}
-        />
-      </article>
+          {stop.tag && <span className="tag">{stop.tag}</span>}
+          <button
+            type="button"
+            className="stop-card__open"
+            aria-label={`Open ${stop.title}`}
+            onClick={() => navigate(`trip/itinerary/stop/${stop.id}`)}
+          />
+        </article>
+        {nudge && (
+          <div className={`crowd-nudge crowd-nudge--${crowd!.label ?? 'moderate'}`}>
+            <p className="crowd-nudge__text">
+              <strong>
+                {nudge.type === 'shift' ? `Go at ${nudge.time}` : `Try ${nudge.siteName}`}
+              </strong>
+              {nudge.reason}
+            </p>
+            <button type="button" className="pill-button crowd-nudge__action" disabled={moving} onClick={() => void move()}>
+              {moving ? 'Moving…' : nudge.type === 'shift' ? 'Move' : 'Swap'}
+            </button>
+          </div>
+        )}
+      </div>
     </li>
+  )
+}
+
+/** Points per stop towards the crowd-smart score */
+const STOP_SCORE: Record<CrowdLabel, number> = { quiet: 100, moderate: 80, busy: 35, packed: 10, closed: 0 }
+
+/**
+ * How crowd-smart the plan is: heritage stops off-peak, gems, queue time dodged. Udaipur's old city takes millions of
+ * visitors a year, so every squad that visits off-peak takes pressure off its lanes, ghats and the families who live there.
+ */
+function CrowdPlanCard({ trip, days }: { trip: TripDetail; days: ItineraryDay[] }) {
+  const [fixing, setFixing] = useState(false)
+  const heritage = days.flatMap((d) => d.stops).filter((s) => s.crowd && s.time)
+  if (!heritage.length) return null
+
+  const offPeak = heritage.filter((s) => isOffPeak(s.crowd!))
+  const gems = heritage.filter((s) => s.crowd!.gem).length
+  const fixable = heritage.filter((s) => s.crowd!.suggestion)
+  const score = Math.round(heritage.reduce((sum, s) => sum + STOP_SCORE[s.crowd!.label ?? 'closed'], 0) / heritage.length)
+  // Queue time each mate skips compared with visiting the same sites at their busiest hour
+  const dodged = heritage.reduce((sum, s) => {
+    const peak = Math.max(...s.crowd!.forecast.map((p) => p.level ?? 0))
+    return sum + Math.max(0, waitMinutes(peak) - s.crowd!.waitMinutes)
+  }, 0)
+  const squad = trip.members.length
+
+  const fixAll = async () => {
+    setFixing(true)
+    try {
+      // One at a time so each nudge sees the stops already moved
+      for (const stop of fixable) await applySuggestion(trip.id, stop)
+    } finally {
+      await activeTrip.loadItinerary()
+      setFixing(false)
+    }
+  }
+
+  return (
+    <section className="card crowd-plan">
+      <div className="crowd-plan__head">
+        <div className="crowd-plan__score" aria-label={`Crowd-smart score ${score} out of 100`}>
+          <span className="crowd-plan__score-value">{score}</span>
+          <span className="crowd-plan__score-max">/100</span>
+        </div>
+        <div className="crowd-plan__text">
+          <p className="overline crowd-plan__overline">Crowd-smart plan</p>
+          <h2 className="crowd-plan__title">
+            {offPeak.length} of {heritage.length} heritage stops off-peak
+          </h2>
+          <p className="crowd-plan__meta">
+            {gems > 0 && `${gems} hidden ${gems === 1 ? 'gem' : 'gems'} · `}
+            {dodged > 0 ? `~${formatDuration(dodged)} of queues dodged each` : 'Timed around the crowds'}
+          </p>
+        </div>
+      </div>
+      <p className="crowd-plan__impact">
+        {offPeak.length * squad} squad visits moved out of rush hour, easing the strain on the old city’s lanes and ghats.
+      </p>
+      {fixable.length > 0 && (
+        <Button variant="primary" onClick={() => void fixAll()} disabled={fixing}>
+          {fixing ? 'Moving the squad off-peak…' : `Dodge the crowds at ${fixable.length} ${fixable.length === 1 ? 'stop' : 'stops'}`}
+        </Button>
+      )}
+    </section>
   )
 }
