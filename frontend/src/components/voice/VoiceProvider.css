@@ -4,7 +4,7 @@
   left: 16px;
   right: 16px;
   top: calc(var(--top-inset) + 4px);
-  z-index: 45;
+  z-index: 55;
   display: flex;
   justify-content: center;
   pointer-events: none;

@@ -1,153 +1,139 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
+import {
+  useAudioPlayback,
+  useLocalParticipant,
+  useMultibandTrackVolume,
+  useRoomContext,
+  useTranscriptions,
+  useVoiceAssistant,
+} from '@livekit/components-react'
+import { LocalAudioTrack } from 'livekit-client'
 import iconSend from '../../assets/figma/icon-arrow-white.svg'
 import iconClose from '../../assets/figma/icon-x-ink.svg'
+import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
-import { tripActions } from '../../pages/Trip/tripStore'
-import { formatINR } from '../../pages/Trip/tripFormat'
 import { Button, LinkButton } from '../Button'
 import { GhoomMateAvatar } from '../GhoomMate'
+import { ErrorState } from '../states/ErrorState'
 import { TextField } from '../TextField'
-import { parseIntent, summarise, SUGGESTIONS, type VoiceIntent } from './intents'
+import { GhoomMateCard } from './GhoomMateCard'
+import { useGhoomMateUi } from './useGhoomMateUi'
+import type { VoiceConnection, VoiceErrorKind, VoicePrompt } from './VoiceProvider'
 import '../Chip.css'
 import './VoiceOverlay.css'
 
-type Phase = 'listening' | 'thinking' | 'understood' | 'unknown' | 'typing'
+type Phase = 'no-trip' | 'waking' | 'listening' | 'thinking' | 'speaking' | 'error'
 
 const STATUS: Record<Phase, string> = {
+  'no-trip': 'Open a trip first',
+  waking: 'Waking GhoomMate…',
   listening: 'Listening…',
   thinking: 'Thinking…',
-  understood: 'Got it! Is this right?',
-  unknown: 'Hmm, I didn’t catch that',
-  typing: 'Type it to me',
+  speaking: 'GhoomMate’s talking…',
+  error: 'Uh-oh',
 }
 
-// Mock timings for the simulated recogniser
-const FIRST_LISTEN_MS = 1400
-const LISTEN_MS = 400
-const CHAR_MS = 35
-const THINK_MS = 600
-const WAVE_BARS = 9
+const ERRORS: Record<VoiceErrorKind, { title: string; text: string }> = {
+  disabled: {
+    title: 'Voice isn’t set up on the server',
+    text: 'GhoomMate needs the LiveKit keys on the backend. Everything else still works, mate.',
+  },
+  network: { title: 'Can’t reach GhoomMate', text: 'Check your connection and give it another go.' },
+  napping: { title: 'GhoomMate is napping', text: 'Is the agent worker running? Give it a nudge, then try again.' },
+  dropped: { title: 'Lost GhoomMate', text: 'The call dropped. Want to reconnect?' },
+  failed: { title: 'GhoomMate tripped up', text: 'Something went wrong starting the chat. Give it another go?' },
+}
 
-const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+const SUGGESTIONS = ['Add ₹250 lunch, split with everyone', 'Who owes what?', 'Make a reel', 'Plan my free day']
+
+const WAVE_BARS = 9
+const QUIET = 0.18
+const CHAT_TOPIC = 'lk.chat'
 
 type VoiceOverlayProps = {
-  /** Phrase to "hear" straight away; without it GhoomMate pretends to hear the first suggestion */
-  prompt?: string
+  conn: VoiceConnection
+  micBlocked: boolean
+  /** Asked through `useVoice().open(prompt)`; sent once GhoomMate is listening */
+  prompt: VoicePrompt | null
   onClose: () => void
-  onNotify: (notice: { message: string; action?: { label: string; route: string } }) => void
+  onRetry: () => void
+  onRetryMic: () => void
+  onOpenTrips: () => void
 }
 
-/** GhoomMate's voice sheet: listen → live transcript → confirmation card. */
-export function VoiceOverlay({ prompt, onClose, onNotify }: VoiceOverlayProps) {
+/** GhoomMate’s voice sheet: live agent state, transcript, and whatever card the agent puts on screen. */
+export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRetryMic, onOpenTrips }: VoiceOverlayProps) {
+  const room = useRoomContext()
   const navigate = useNavigate()
-  const [phase, setPhase] = useState<Phase>('listening')
-  // What GhoomMate "heard"; empty while waiting for a chip or typed text
-  const [heard, setHeard] = useState(prompt ?? SUGGESTIONS[0])
-  const [shown, setShown] = useState(0)
-  const [run, setRun] = useState(0)
+  const { trip } = useActiveTrip()
+  const { state: agentState, audioTrack, agent } = useVoiceAssistant()
+  const { microphoneTrack, localParticipant } = useLocalParticipant()
+  const transcriptions = useTranscriptions()
+  const { canPlayAudio, startAudio } = useAudioPlayback(room)
+  const ui = useGhoomMateUi(room, agent?.identity)
+
+  const micTrack = microphoneTrack?.track instanceof LocalAudioTrack ? microphoneTrack.track : undefined
+  const agentLevels = useMultibandTrackVolume(audioTrack, { bands: WAVE_BARS, updateInterval: 60 })
+  const micLevels = useMultibandTrackVolume(micTrack, { bands: WAVE_BARS, updateInterval: 60 })
+
+  const [typingChosen, setTyping] = useState(false)
   const [draft, setDraft] = useState('')
+  const [typed, setTyped] = useState<{ text: string; at: number } | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
   const sheetRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const sentPrompt = useRef(0)
 
-  const intent = useMemo(() => parseIntent(heard), [heard])
-  const summary = summarise(intent)
-  const listenDelay = run === 0 && !prompt ? FIRST_LISTEN_MS : LISTEN_MS
+  const live = conn.status === 'live' && !!agent
+  const phase: Phase =
+    conn.status === 'no-trip'
+      ? 'no-trip'
+      : conn.status === 'error'
+        ? 'error'
+        : !live
+          ? 'waking'
+          : agentState === 'speaking'
+            ? 'speaking'
+            : agentState === 'thinking'
+              ? 'thinking'
+              : agentState === 'listening' || agentState === 'idle'
+                ? 'listening'
+                : 'waking'
+  const typing = typingChosen || micBlocked
+  const error = conn.status === 'error' ? conn.error : null
 
   useEffect(() => closeRef.current?.focus(), [])
 
-  // TODO: replace the simulated recogniser with real speech-to-text (Web Speech API where
-  // available, or streaming audio to the voice service), feeding interim results into `shown`.
   useEffect(() => {
-    if (phase !== 'listening' || !heard) return
-    let tick: number | undefined
-    const start = window.setTimeout(() => {
-      if (reducedMotion()) {
-        setShown(heard.length)
-        setPhase('thinking')
-        return
+    if (typingChosen) sheetRef.current?.querySelector<HTMLInputElement>('.voice-type input')?.focus()
+  }, [typingChosen])
+
+  const send = useCallback(
+    async (text: string) => {
+      setSendError(null)
+      setTyped({ text, at: Date.now() })
+      try {
+        await room.localParticipant.sendText(text, { topic: CHAT_TOPIC })
+      } catch {
+        setSendError('Couldn’t send that. Try again?')
       }
-      let count = 0
-      tick = window.setInterval(() => {
-        count += 1
-        setShown(count)
-        if (count >= heard.length) {
-          window.clearInterval(tick)
-          setPhase('thinking')
-        }
-      }, CHAR_MS)
-    }, listenDelay)
-    return () => {
-      window.clearTimeout(start)
-      window.clearInterval(tick)
-    }
-  }, [phase, heard, run, listenDelay])
+    },
+    [room],
+  )
 
+  // A prompt from a screen’s voice button goes out once GhoomMate is ready to hear it
   useEffect(() => {
-    if (phase !== 'thinking') return
-    const timer = window.setTimeout(() => setPhase(intent.kind === 'unknown' ? 'unknown' : 'understood'), THINK_MS)
-    return () => window.clearTimeout(timer)
-  }, [phase, intent])
-
-  useEffect(() => {
-    if (phase === 'typing') sheetRef.current?.querySelector('input')?.focus()
-  }, [phase])
-
-  const listen = (phrase: string) => {
-    setHeard(phrase)
-    setShown(0)
-    setPhase('listening')
-    setRun((r) => r + 1)
-  }
+    if (!prompt || prompt.n <= sentPrompt.current || phase !== 'listening') return
+    sentPrompt.current = prompt.n
+    void send(prompt.text)
+  }, [prompt, phase, send])
 
   const submitTyped = (event: FormEvent) => {
     event.preventDefault()
     const text = draft.trim()
-    if (!text) return
-    setHeard(text)
-    setShown(text.length)
-    setPhase('thinking')
-  }
-
-  const edit = () => {
-    setDraft(heard)
-    setPhase('typing')
-  }
-
-  const accept = (action: VoiceIntent) => {
-    // TODO: hand confirmed intents to the assistant service instead of acting locally
-    switch (action.kind) {
-      case 'expense': {
-        const { title, amount, paidBy, category, splitWith } = action.expense
-        const share = Math.round(amount / splitWith.length)
-        tripActions.addExpense({
-          id: `expense-${Date.now().toString(36)}`,
-          title,
-          amount,
-          paidBy,
-          category,
-          shares: Object.fromEntries(splitWith.map((id) => [id, share])),
-          receipt: null,
-        })
-        onClose()
-        onNotify({
-          message: `Added ${formatINR(amount)} for ${title}, split ${splitWith.length} ways`,
-          action: { label: 'View', route: 'trip/expenses' },
-        })
-        return
-      }
-      case 'plan-day':
-        onClose()
-        navigate('trip/itinerary')
-        return
-      case 'food':
-        onClose()
-        navigate('trip/explore')
-        return
-      case 'reel':
-        onClose()
-        navigate('trip/photos/reel')
-        return
-    }
+    if (!text || !live) return
+    setDraft('')
+    void send(text)
   }
 
   // Esc closes; Tab stays inside the sheet
@@ -170,9 +156,20 @@ export function VoiceOverlay({ prompt, onClose, onNotify }: VoiceOverlayProps) {
     }
   }
 
-  const listening = phase === 'listening'
-  const transcript = phase === 'typing' ? '' : heard.slice(0, listening ? shown : heard.length)
-  const typingOut = listening && shown > 0 && shown < heard.length
+  // Latest line each side said. Typed messages don’t come back as transcriptions, so they count too.
+  const me = localParticipant.identity
+  const heard = transcriptions.findLast((t) => t.participantInfo.identity === me)
+  const said = transcriptions.findLast((t) => t.participantInfo.identity !== me)
+  const userLine = typed && typed.at >= (heard?.streamInfo.timestamp ?? 0) ? typed.text : heard?.text.trim()
+  const mateLine = said?.text.trim()
+
+  // Bars follow GhoomMate’s voice while it talks and yours while it listens
+  const levels = phase === 'speaking' ? agentLevels : phase === 'listening' && !micBlocked ? micLevels : null
+  const bar = (i: number) =>
+    levels ? ({ '--level': Math.max(QUIET, Math.min(1, levels[i] ?? 0)) } as CSSProperties) : undefined
+
+  const groupName = trip?.groupName || trip?.name
+  const statusText = phase === 'listening' && micBlocked ? 'Type it to me' : STATUS[phase]
 
   return (
     <div className={`voice-overlay voice-overlay--${phase}`} onKeyDown={onKeyDown}>
@@ -184,7 +181,7 @@ export function VoiceOverlay({ prompt, onClose, onNotify }: VoiceOverlayProps) {
             <h2 id="voice-sheet-title" className="voice-sheet__title">
               GhoomMate
             </h2>
-            <p className="voice-sheet__meta">Your Goa Gang buddy</p>
+            <p className="voice-sheet__meta">{groupName && phase !== 'no-trip' ? `Your ${groupName} buddy` : 'Your travel buddy'}</p>
           </div>
           <button ref={closeRef} type="button" className="voice-sheet__close" aria-label="Close GhoomMate" onClick={onClose}>
             <img src={iconClose} alt="" width={20} height={20} />
@@ -198,96 +195,130 @@ export function VoiceOverlay({ prompt, onClose, onNotify }: VoiceOverlayProps) {
         </div>
 
         <p className="voice-sheet__status" role="status">
-          {STATUS[phase]}
+          {statusText}
         </p>
 
-        <div className="voice-wave" aria-hidden="true">
-          {Array.from({ length: WAVE_BARS }, (_, i) => (
-            <span key={i} />
-          ))}
-        </div>
-
-        {phase !== 'typing' && (
-          <p className={`voice-transcript${transcript ? '' : ' voice-transcript--empty'}`}>
-            {transcript ? (
-              <>
-                “{transcript}
-                {typingOut ? <span className="voice-transcript__caret" aria-hidden="true" /> : '”'}
-              </>
-            ) : (
-              'Tap a phrase below, or just say it'
-            )}
-          </p>
-        )}
-
-        {phase === 'understood' && summary && (
-          <div className="voice-card">
-            <div className="voice-card__main">
-              <span className="voice-card__icon">
-                <img src={summary.icon} alt="" width={20} height={20} />
-              </span>
-              <div className="voice-card__info">
-                <p className="overline voice-card__overline">{summary.overline}</p>
-                <p className="voice-card__title">{summary.title}</p>
-                <p className="voice-card__details">{summary.details.join(' · ')}</p>
-              </div>
-            </div>
-            <div className="voice-card__actions">
-              <Button variant="primary" onClick={() => accept(intent)}>
-                Confirm
-              </Button>
-              <Button variant="outline" onClick={edit}>
-                Edit
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {phase === 'unknown' && (
-          <div className="voice-card">
+        {phase === 'no-trip' && (
+          <div className="voice-card voice-card--center">
             <p className="voice-card__text">
-              I’m still learning! Try one of the phrases below, or type it out for me.
+              Open a trip first and I’ll help out: split a bill, check who owes what, or plan your day.
             </p>
-            <Button variant="primary" onClick={() => listen('')}>
-              Try again
+            <Button variant="primary" onClick={onOpenTrips}>
+              See my trips
             </Button>
           </div>
         )}
 
-        <div className="voice-suggestions">
-          <p className="overline">Try saying</p>
-          <div className="voice-suggestions__row no-scrollbar">
-            {SUGGESTIONS.map((s) => (
-              <button key={s} type="button" className="chip" onClick={() => listen(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
+        {error && (
+          <ErrorState
+            headingLevel={3}
+            className="voice-sheet__error"
+            title={ERRORS[error.kind].title}
+            text={ERRORS[error.kind].text}
+            detail={error.detail}
+            onRetry={onRetry}
+          />
+        )}
 
-        {phase === 'typing' ? (
-          <form className="voice-type" onSubmit={submitTyped}>
-            <div className="voice-type__row">
-              <div className="voice-type__field">
-                <TextField
-                  label="Type to GhoomMate"
-                  placeholder="e.g. I paid 800 for the cab"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  enterKeyHint="send"
-                  autoComplete="off"
-                />
-              </div>
-              <button type="submit" className="voice-type__send" aria-label="Send" disabled={!draft.trim()}>
-                <img src={iconSend} alt="" width={18} height={18} />
-              </button>
+        {phase !== 'no-trip' && !error && (
+          <>
+            <div className="voice-wave" aria-hidden="true">
+              {Array.from({ length: WAVE_BARS }, (_, i) => (
+                <span key={i} style={bar(i)} />
+              ))}
             </div>
-            <LinkButton onClick={() => listen('')}>Speak instead</LinkButton>
-          </form>
-        ) : (
-          <LinkButton className="voice-sheet__type" onClick={() => setPhase('typing')}>
-            Type instead
-          </LinkButton>
+
+            {conn.status === 'live' && !canPlayAudio && (
+              <button type="button" className="pill-button voice-sheet__audio" onClick={() => void startAudio()}>
+                Tap to hear GhoomMate
+              </button>
+            )}
+
+            <div className="voice-transcript" aria-live="polite">
+              {userLine || mateLine ? (
+                <>
+                  {userLine && (
+                    <p className="voice-transcript__line voice-transcript__line--you">
+                      <span className="voice-transcript__who">You</span>“{userLine}”
+                    </p>
+                  )}
+                  {mateLine && (
+                    <p className="voice-transcript__line voice-transcript__line--mate">
+                      <span className="voice-transcript__who">GhoomMate</span>
+                      {mateLine}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="voice-transcript--empty">
+                  {live ? 'Tap a phrase below, or just say it' : 'Hang on, GhoomMate’s on the way…'}
+                </p>
+              )}
+            </div>
+
+            {micBlocked && (
+              <ErrorState
+                headingLevel={3}
+                className="voice-sheet__error"
+                title="I can’t hear you"
+                text="Allow the mic for this site, or type to me below. That works too!"
+                retryLabel="Try the mic again"
+                onRetry={onRetryMic}
+              />
+            )}
+
+            {ui.card && (
+              <GhoomMateCard
+                card={ui.card}
+                pending={ui.pending}
+                error={ui.actionError}
+                onAction={(type, id) => void ui.act(type, id)}
+                onNavigate={(route) => navigate(route)}
+              />
+            )}
+
+            <div className="voice-suggestions">
+              <p className="overline">Try saying</p>
+              <div className="voice-suggestions__row no-scrollbar">
+                {SUGGESTIONS.map((s) => (
+                  <button key={s} type="button" className="chip" disabled={!live} onClick={() => void send(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {sendError && (
+              <p className="voice-card__error" role="alert">
+                {sendError}
+              </p>
+            )}
+
+            {typing ? (
+              <form className="voice-type" onSubmit={submitTyped}>
+                <div className="voice-type__row">
+                  <div className="voice-type__field">
+                    <TextField
+                      label="Type to GhoomMate"
+                      placeholder="e.g. I paid 800 for the cab"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      enterKeyHint="send"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <button type="submit" className="voice-type__send" aria-label="Send" disabled={!draft.trim() || !live}>
+                    <img src={iconSend} alt="" width={18} height={18} />
+                  </button>
+                </div>
+                {!micBlocked && <LinkButton onClick={() => setTyping(false)}>Speak instead</LinkButton>}
+              </form>
+            ) : (
+              <LinkButton className="voice-sheet__type" onClick={() => setTyping(true)}>
+                Type instead
+              </LinkButton>
+            )}
+          </>
         )}
 
         <span className="home-indicator" aria-hidden="true" />

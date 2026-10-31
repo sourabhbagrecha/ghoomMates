@@ -165,7 +165,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init: { method?: string; body?: unknown; idempotencyKey?: string } = {}): Promise<T> {
+export async function request<T>(path: string, init: { method?: string; body?: unknown; idempotencyKey?: string } = {}): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {}
   if (token) headers.Authorization = `Bearer ${token}`

@@ -3,11 +3,14 @@ import { isDatabaseConfigured, openDatabase } from './db.ts';
 import { loadEnv } from './env.ts';
 import { createApp as createAuthApp } from './auth/app.ts';
 import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth/database.ts';
+import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { logger } from './logger.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
+import { createVoiceApp } from './voice/app.ts';
+import { liveKitConfig } from './voice/session.ts';
 
 loadEnv();
 
@@ -60,11 +63,21 @@ const authConfig = {
 const storage = createMediaStorage(jwtSecret);
 const authService = new OAuthService(authDb, authConfig);
 
+const authenticate = async (token: string) => (await authService.verifySessionToken(token)).user;
+
 let trips: ReturnType<typeof createTripsApp> | undefined;
+let voice: ReturnType<typeof createVoiceApp> | undefined;
 if (db) {
-  trips = createTripsApp(db, storage, async (token) => (await authService.verifySessionToken(token)).user, clientOrigin);
+  trips = createTripsApp(db, storage, authenticate, clientOrigin);
+  voice = createVoiceApp({
+    db,
+    authenticate,
+    // A separate 2-hour token for the agent, so the user's 7-day session JWT never leaves the browser.
+    agentToken: (user) => signJwt({ userId: user.id, email: user.email, name: user.name }, jwtSecret, 2 * 60 * 60),
+    env: process.env,
+  });
 } else {
-  logger.warn('Server', 'Trips API (/api/trips/*) is disabled: requires a database');
+  logger.warn('Server', 'Trips API (/api/trips/*) and voice (/api/voice/*) are disabled: requires a database');
 }
 
 const app = createServer({
@@ -81,6 +94,7 @@ const app = createServer({
   }),
   expenses,
   trips,
+  voice,
   media: createMediaRouter(storage),
 });
 
@@ -96,6 +110,7 @@ const server = app.listen(port, hostname, (err?: Error) => {
 │  Database:    ${dbMode.slice(0, 41).padEnd(41)}│
 │  Auth:        ${isGoogleConfigured ? 'Google OAuth 2.0 (configured)          ' : 'Dev Mock Mode (no Google keys)       '} │
 │  Trips:       ${(trips ? 'Enabled' : 'Disabled (needs DB)').padEnd(41)}│
+│  Voice:       ${(voice && liveKitConfig() ? 'Enabled (LiveKit)' : voice ? 'Disabled (needs LIVEKIT_* keys)' : 'Disabled (needs DB)').padEnd(41)}│
 │  Media:       ${storage.description.slice(0, 41).padEnd(41)}│
 │  Ledger API:  ${(expenses ? 'Enabled' : 'Disabled (needs DB + API_KEY)').padEnd(41)}│
 └────────────────────────────────────────────────────────┘
