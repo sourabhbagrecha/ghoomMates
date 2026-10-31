@@ -25,6 +25,9 @@ import { faceSummaryOf, hasMatched, markMatched, sizeSelfie, useFacePolling } fr
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
+// Reel studio only shows once the album has enough photos to cut a reel from
+const REEL_MIN_PHOTOS = 9
+
 export function PhotosPage() {
   const navigate = useNavigate()
   const { trip, photos } = useActiveTrip()
@@ -63,7 +66,6 @@ export function PhotosPage() {
             summary={summary}
             matched={hasMatched(trip?.id ?? null)}
           />
-          <ReelStudio />
           {!photos ? (
             <Skeleton variant="card" height={230} />
           ) : matchedIds && !visible.length ? (
@@ -105,6 +107,7 @@ export function PhotosPage() {
               action={{ label: 'Upload photos', icon: iconUpload, onClick: () => navigate('trip/photos/upload') }}
             />
           )}
+          {total > REEL_MIN_PHOTOS && <ReelStudio />}
         </main>
       </ScreenLayout>
       <Toast message={toast} />
