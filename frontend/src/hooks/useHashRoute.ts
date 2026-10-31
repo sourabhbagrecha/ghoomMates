@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 const readRoute = () => window.location.hash.replace(/^#\/?/, '')
 
-type Navigate = (route: string, options?: { replace?: boolean }) => void
+export type Navigate = (route: string, options?: { replace?: boolean }) => void
 
 /** Minimal hash router: `#/sign-in` → "sign-in". Browser back/forward work for free. */
 export function useHashRoute(): [string, Navigate] {

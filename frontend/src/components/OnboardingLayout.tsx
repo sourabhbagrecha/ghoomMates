@@ -8,8 +8,10 @@ type OnboardingLayoutProps = {
   eyebrow: string
   title: string
   subtitle?: ReactNode
-  /** 1–4 shows the sign-up progress bar */
+  /** 1-based step; shows the progress bar */
   step?: number
+  /** Number of segments in the progress bar */
+  totalSteps?: number
   onBack: () => void
   headerRight?: ReactNode
   /** Extra row on the blue header under the title (e.g. the squad on the invite screen) */
@@ -22,8 +24,6 @@ type OnboardingLayoutProps = {
   actions?: ReactNode
 }
 
-const TOTAL_STEPS = 4
-
 /**
  * Shell for sign-up, setup and other pushed screens (e.g. Notifications):
  * blue header with back button, scrolling body, optional pinned actions.
@@ -33,6 +33,7 @@ export function OnboardingLayout({
   title,
   subtitle,
   step,
+  totalSteps = 4,
   onBack,
   headerRight,
   headerExtra,
@@ -64,12 +65,12 @@ export function OnboardingLayout({
             <div
               className="onboarding__progress"
               role="progressbar"
-              aria-label={`Step ${step} of ${TOTAL_STEPS}`}
+              aria-label={`Step ${step} of ${totalSteps}`}
               aria-valuenow={step}
               aria-valuemin={1}
-              aria-valuemax={TOTAL_STEPS}
+              aria-valuemax={totalSteps}
             >
-              {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+              {Array.from({ length: totalSteps }, (_, i) => (
                 <span key={i} className={i < step ? 'onboarding__segment--done' : undefined} />
               ))}
             </div>

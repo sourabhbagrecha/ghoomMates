@@ -1,0 +1,408 @@
+/* No tab bar here, so GhoomMate sits just above the home indicator… */
+.plan-overview .ghoommate-fab {
+  bottom: 30px;
+}
+
+/* …and the last card can scroll clear of it */
+.plan-overview .screen__content {
+  padding-bottom: 124px;
+}
+
+/* Long trip names truncate rather than run off the header */
+.plan-overview .screen__heading {
+  min-width: 0;
+}
+
+.plan-overview .screen__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* GhoomMate's briefing on the blue header */
+.plan-overview__briefing {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 16px;
+  background: var(--color-glass);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 17px;
+  color: #fff;
+}
+
+/* Needs you */
+.plan-needs {
+  gap: 4px;
+}
+
+.plan-needs__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-needs__overline {
+  color: var(--color-sky);
+}
+
+.plan-needs__count {
+  min-width: 18px;
+  padding: 1.5px 5px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+  color: #fff;
+}
+
+.plan-needs__list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.plan-needs__list li + li {
+  border-top: 1px solid var(--color-divider);
+}
+
+.plan-needs__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0;
+  text-align: left;
+}
+
+.plan-needs__list li:last-child .plan-needs__item {
+  padding-bottom: 0;
+}
+
+.plan-needs__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.plan-needs__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.plan-needs__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.plan-needs__done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+/* Squad readiness */
+.plan-squad {
+  gap: 12px;
+}
+
+.plan-squad__summary {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.plan-squad__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  list-style: none;
+}
+
+.plan-squad__member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.plan-squad__member .avatar {
+  margin-bottom: 4px;
+}
+
+.plan-squad__name {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.plan-squad__status {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.plan-squad__status--paid {
+  color: var(--color-ink);
+}
+
+.plan-squad__status--due {
+  color: var(--color-sky);
+}
+
+/* Day switcher */
+.plan-days {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-days__day {
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.plan-days__day--active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* One day of the draft plan */
+.plan-day {
+  gap: 4px;
+}
+
+.plan-day__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.plan-day__heading .overline {
+  color: var(--color-sky);
+}
+
+.plan-day__title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-day__stops {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.plan-stop + .plan-stop {
+  border-top: 1px solid var(--color-divider);
+}
+
+.plan-stop__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.plan-stop:last-child .plan-stop__row {
+  padding-bottom: 0;
+}
+
+.plan-stop__row--button {
+  width: 100%;
+  text-align: left;
+}
+
+.plan-stop__time {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 56px;
+  padding-top: 1px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+  white-space: nowrap;
+}
+
+.plan-stop__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.plan-stop__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.plan-stop__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* Rows of icon + text + status, shared by the bookings summary */
+.plan-rows {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.plan-row:first-child {
+  padding-top: 0;
+}
+
+.plan-row:last-child {
+  padding-bottom: 0;
+}
+
+.plan-row + .plan-row {
+  border-top: 1px solid var(--color-divider);
+}
+
+.plan-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.plan-row__title {
+  overflow: hidden;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-row__meta {
+  overflow: hidden;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Checklist progress */
+.plan-checklist-summary {
+  gap: 12px;
+}
+
+.plan-checklist-summary__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plan-checklist-summary__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.plan-checklist-summary__label span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Budget */
+.plan-budget-summary {
+  gap: 6px;
+}
+
+.plan-budget-summary__pool {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.plan-budget-summary__pool span {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+.plan-budget-summary__split {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.plan-budget-summary__split span {
+  flex-basis: 0;
+}
+
+.plan-budget-summary__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

@@ -1,0 +1,237 @@
+.create-draft__body {
+  gap: 12px;
+}
+
+.create-draft__share {
+  gap: 8px;
+}
+
+/* Day selector: five equal pills */
+.create-draft__days {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.create-draft__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.create-draft__day--active {
+  background: var(--color-primary);
+}
+
+.create-draft__day-number {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.create-draft__day-date {
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.create-draft__day--active .create-draft__day-number {
+  color: #fff;
+}
+
+.create-draft__day--active .create-draft__day-date {
+  color: var(--color-on-brand-muted);
+}
+
+/* Day heading + regenerate */
+.create-draft__day-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 2px 0;
+}
+
+.create-draft__day-heading {
+  min-width: 0;
+}
+
+.create-draft__day-title {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--color-ink);
+}
+
+.create-draft__regenerate {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  min-height: 32px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+  white-space: nowrap;
+}
+
+.create-draft__regenerate:disabled {
+  cursor: default;
+}
+
+.create-draft__spin {
+  animation: create-draft-spin 0.8s linear infinite;
+}
+
+.create-draft__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.create-draft__status:empty {
+  display: none;
+}
+
+/* Stops */
+.create-draft__stops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  transition: opacity 0.2s;
+}
+
+.create-draft__stops--loading {
+  opacity: 0.45;
+}
+
+.create-stop {
+  gap: 10px;
+  padding: 8px;
+}
+
+.create-stop__photo {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.create-stop__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.create-stop__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.create-stop__meta .tag {
+  padding: 1px 6px;
+}
+
+.create-stop__time {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+  white-space: nowrap;
+}
+
+.create-stop__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.create-stop__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.create-stop__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-tint);
+}
+
+.create-stop__action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.create-draft__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 20px 14px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-list-card);
+  text-align: center;
+}
+
+.create-draft__empty-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.create-draft__empty-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@keyframes create-draft-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-draft__spin {
+    animation: none;
+  }
+
+  .create-draft__stops {
+    transition: none;
+  }
+}
+
+/* User-chosen trip names can be long; the shared title doesn't wrap */
+.onboarding:has(.create-draft__body) .onboarding__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

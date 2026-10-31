@@ -1,0 +1,194 @@
+/* Stay not decided yet */
+.card.bookings-pending {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.bookings-pending__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bookings-pending__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.bookings-pending__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Stay card */
+.bookings-stay {
+  gap: 6px;
+}
+
+.bookings-stay__cover {
+  height: 120px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--color-sky-light);
+}
+
+.bookings-stay__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bookings-stay__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bookings-stay__name {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+/* Shared meta lines */
+.bookings-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.bookings-meta img {
+  flex-shrink: 0;
+}
+
+/* PNR / hold reference */
+.bookings-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--color-tint);
+}
+
+.bookings-code__value {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  letter-spacing: 0.6px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* Transport and extras */
+.bookings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.booking {
+  gap: 8px;
+}
+
+.booking__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.booking__head .plan-status {
+  align-self: flex-start;
+}
+
+.booking__title-group {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.booking__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.booking__details {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.booking__payment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.booking__payment-text {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.booking__upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.booking__file {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Add booking form */
+.bookings-add {
+  gap: 12px;
+}
+
+.bookings-add .link-button {
+  align-self: center;
+}
+
+.bookings-add__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

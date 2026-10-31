@@ -1,0 +1,31 @@
+.trip-toast {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 58px;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.trip-toast__message {
+  max-width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  filter: var(--shadow-float);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: #fff;
+  animation: trip-toast-in 0.2s ease-out;
+}
+
+@keyframes trip-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

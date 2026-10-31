@@ -260,6 +260,16 @@ Every onboarding screen can be opened directly at `#/welcome`, `#/sign-in`, `#/v
 ### App structure and navigation
 **Home** (`#/`) is the top level: a GhoomMate briefing, the live trip card (with shortcuts into each trip tab), upcoming trips, past trips and a pinned "Plan a new trip" button. Opening a trip goes to `#/trip/<tab>`, where the four tab screens show a back button to Home (`ScreenBackContext`). **Notifications** (`#/notifications`) open from the bell, which shows the unread count. `#/home/empty` previews the first-run Home with no trips.
 
+The rest of the app hangs off those screens:
+
+| Area | Routes | Folder |
+|---|---|---|
+| Create a trip | `#/create/destination` → `dates` → `squad` → `vibe` → `generating` → `draft` | `src/pages/CreateTrip/` |
+| Before the trip (planning mode) | `#/plan`, `#/plan/vote/<id>`, `#/plan/bookings`, `#/plan/checklist`, `#/plan/budget` | `src/pages/Plan/` |
+| During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
+
+Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. Several pieces were built locally in those folders and are good candidates to move into `src/components/` once a second screen needs them: toggle switch, segmented control, toast, progress bar, status tag, person toggle, photo-cover layout and the spiderweb chart.
+
 - Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot.
 - Something that needs the user ("2 votes need you", "Pay ₹450") is sky blue or a `.pill-button`, never red.
 

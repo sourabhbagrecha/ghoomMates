@@ -1,0 +1,204 @@
+.create-dates__body {
+  gap: 14px;
+}
+
+/* Month calendar */
+.create-calendar {
+  gap: 8px;
+  padding: 14px 10px;
+}
+
+.create-calendar--flexible .create-calendar__grid {
+  opacity: 0.45;
+}
+
+.create-calendar__month {
+  padding: 0 4px;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.create-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 4px;
+}
+
+.create-calendar__weekday {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+/* The button is the full cell so the range band joins up; the circle is the span */
+.create-calendar__day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.create-calendar__day:disabled {
+  cursor: default;
+}
+
+.create-calendar__day span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.create-calendar__day--in-range {
+  background: var(--color-tint);
+  color: var(--color-primary);
+}
+
+.create-calendar__day--start {
+  background: linear-gradient(to right, transparent 50%, var(--color-tint) 50%);
+}
+
+.create-calendar__day--end {
+  background: linear-gradient(to left, transparent 50%, var(--color-tint) 50%);
+}
+
+.create-calendar__day--edge span {
+  background: var(--color-primary);
+  font-weight: 800;
+  color: #fff;
+}
+
+/* Flexible dates toggle */
+.create-flexible {
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px 10px 10px;
+  text-align: left;
+}
+
+.create-flexible__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.create-flexible__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.create-flexible__text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.create-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  background: var(--color-track-muted);
+  transition: background 0.2s;
+}
+
+.create-switch::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: 0 2px 4px rgba(7, 42, 200, 0.18);
+  transition: transform 0.2s;
+}
+
+.create-switch--on {
+  background: var(--color-primary);
+}
+
+.create-switch--on::after {
+  transform: translateX(18px);
+}
+
+.create-dates__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Trip length summary */
+.create-dates__summary {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.create-dates__summary-value {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.create-dates__summary-detail {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* Budget */
+.create-dates__budget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.create-dates__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.create-dates__hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-switch,
+  .create-switch::after {
+    transition: none;
+  }
+}

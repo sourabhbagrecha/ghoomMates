@@ -17,6 +17,7 @@ import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import type { TabId } from '../../components/TabBar'
 import { LIVE_TRIP, PAST_TRIPS, TODAY, UPCOMING_TRIPS, type Trip } from '../../data/trips'
+import { useNavigate } from '../../hooks/navigation'
 import { DAYS } from '../Itinerary/itineraryData'
 import './HomePage.css'
 
@@ -46,8 +47,8 @@ type HomePageProps = {
 }
 
 export function HomePage({ name, unread, empty, onOpenNotifications, onOpenTrip, onHaveInvite }: HomePageProps) {
-  // TODO: open the create-trip flow once it exists
-  const planTrip = () => {}
+  const navigate = useNavigate()
+  const planTrip = () => navigate('create')
 
   return (
     <>
@@ -68,7 +69,7 @@ export function HomePage({ name, unread, empty, onOpenNotifications, onOpenTrip,
         </div>
 
         <main className="screen__body">
-          {empty ? <EmptyHome onPlanTrip={planTrip} onHaveInvite={onHaveInvite} /> : <Trips onOpenTrip={onOpenTrip} />}
+          {empty ? <EmptyHome onPlanTrip={planTrip} onHaveInvite={onHaveInvite} /> : <Trips onOpenTrip={onOpenTrip} onOpenPlan={() => navigate('plan')} />}
         </main>
       </ScreenLayout>
 
@@ -87,7 +88,7 @@ export function HomePage({ name, unread, empty, onOpenNotifications, onOpenTrip,
   )
 }
 
-function Trips({ onOpenTrip }: { onOpenTrip: (tab: TabId) => void }) {
+function Trips({ onOpenTrip, onOpenPlan }: { onOpenTrip: (tab: TabId) => void; onOpenPlan: () => void }) {
   return (
     <>
       <section className="card live-trip" aria-label={`${LIVE_TRIP.name}, happening now`}>
@@ -133,7 +134,8 @@ function Trips({ onOpenTrip }: { onOpenTrip: (tab: TabId) => void }) {
       <SectionHeader title="Coming up" />
       <ul className="trip-list">
         {UPCOMING_TRIPS.map((t) => (
-          <UpcomingTrip key={t.id} trip={t} />
+          // Only the Manali trip has planning screens so far
+          <UpcomingTrip key={t.id} trip={t} onOpen={t.id === 'manali' ? onOpenPlan : undefined} />
         ))}
       </ul>
 
@@ -163,10 +165,10 @@ function Trips({ onOpenTrip }: { onOpenTrip: (tab: TabId) => void }) {
   )
 }
 
-function UpcomingTrip({ trip }: { trip: Trip }) {
+function UpcomingTrip({ trip, onOpen }: { trip: Trip; onOpen?: () => void }) {
   const planning = trip.status === 'planning'
-  return (
-    <li className="list-card trip-row">
+  const content = (
+    <>
       <img className="trip-row__cover" src={trip.cover} alt="" width={116} height={110} />
       <div className="trip-row__info">
         <p className="trip-row__name">{trip.name}</p>
@@ -179,6 +181,17 @@ function UpcomingTrip({ trip }: { trip: Trip }) {
         </p>
       </div>
       <AvatarStack people={trip.members} size={18} overlap={6} />
+    </>
+  )
+  return (
+    <li>
+      {onOpen ? (
+        <button type="button" className="list-card trip-row trip-row--button" onClick={onOpen}>
+          {content}
+        </button>
+      ) : (
+        <div className="list-card trip-row">{content}</div>
+      )}
     </li>
   )
 }

@@ -1,0 +1,71 @@
+/* Shared by the plan/* screens */
+
+/* Body of the pushed plan screens (OnboardingLayout with the 170 header) */
+.onboarding__body.plan-page__body {
+  gap: 14px;
+  padding: 20px 16px 24px;
+}
+
+/* Square icon tile on white cards: bed, bus, vote… */
+.plan-icon-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-tint);
+}
+
+.plan-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-track);
+}
+
+.plan-progress--thin {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.plan-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+/* Status tags build on .tag (primary on tint = needs someone) */
+.plan-status {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.plan-status--done {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+
+.plan-status--waiting {
+  background: var(--color-tint-cool);
+  color: var(--color-muted);
+}
+
+/* Inline feedback line, e.g. “Ticket added” */
+.plan-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.plan-feedback img {
+  flex-shrink: 0;
+}

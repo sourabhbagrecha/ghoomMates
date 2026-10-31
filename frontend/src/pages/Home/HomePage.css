@@ -320,3 +320,8 @@
 .home-empty .button {
   gap: 8px;
 }
+
+.trip-row--button {
+  width: 100%;
+  text-align: left;
+}

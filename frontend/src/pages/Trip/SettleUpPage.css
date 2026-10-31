@@ -1,0 +1,189 @@
+.settle__body {
+  padding-top: 40px;
+}
+
+.settle__dues ul {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.settle__due {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.settle__due + .settle__due {
+  border-top: 1px solid var(--color-tint-cool);
+}
+
+.settle__pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settle__due-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.settle__due-title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.settle__due-note {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.settle__due-amount {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.settle__due-amount--incoming {
+  color: var(--color-success);
+}
+
+/* Net payment: the sunshine treatment from the Expenses CTA, as a static panel */
+.settle__net {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 4px solid var(--color-yellow);
+  border-radius: var(--radius-card);
+  background: var(--gradient-sunshine);
+}
+
+.settle__net-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-tile);
+  background: var(--color-primary);
+}
+
+.settle__net-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settle__net-overline {
+  color: var(--color-primary);
+}
+
+.settle__net-amount {
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 39px;
+  color: var(--color-primary);
+}
+
+.settle__net-note {
+  font-weight: 700;
+  font-size: 11.5px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* UPI apps: initial tiles, no brand logos */
+.settle__apps-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settle__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.settle__apps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.settle__app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.settle__app--selected {
+  border-color: var(--color-primary);
+}
+
+.settle__app:disabled {
+  cursor: default;
+}
+
+.settle__app-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+}
+
+.settle__app--selected .settle__app-tile {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.settle__app-check {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-sky);
+}
+
+.settle__app-name {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}

@@ -1,0 +1,161 @@
+.create-generating {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: var(--gradient-deep);
+}
+
+.create-generating::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fills the frame; on short frames the content scrolls instead of squashing */
+.create-generating__canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.create-generating__ellipse {
+  position: absolute;
+}
+
+.create-generating__hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px 0;
+  text-align: center;
+}
+
+/* Soft yellow ring that breathes while GhoomMate works */
+.create-generating__mascot {
+  position: relative;
+  display: flex;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  box-shadow: 0 14px 32px rgba(7, 42, 200, 0.45);
+}
+
+.create-generating__mascot::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border: 2px solid var(--color-yellow);
+  border-radius: 50%;
+  opacity: 0;
+  animation: create-generating-pulse 1.6s ease-out infinite;
+}
+
+.create-generating__title {
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #fff;
+}
+
+.create-generating__subtitle {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-on-brand-muted);
+}
+
+/* Checklist */
+.create-generating__steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 28px 20px 0;
+  padding: 16px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-glass);
+  list-style: none;
+}
+
+.create-generating__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: #fff;
+  transition: opacity 0.3s;
+}
+
+.create-generating__step--pending {
+  opacity: 0.55;
+}
+
+.create-generating__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+}
+
+.create-generating__step--done .create-generating__status {
+  border-color: var(--color-surface);
+  background: var(--color-surface);
+}
+
+.create-generating__step--active .create-generating__status {
+  border-top-color: var(--color-yellow);
+  animation: create-generating-spin 0.8s linear infinite;
+}
+
+.create-generating__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.create-generating__actions {
+  position: relative;
+  margin-top: auto;
+  padding: 24px 20px 34px;
+}
+
+@keyframes create-generating-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes create-generating-pulse {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.92);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-generating__mascot::before,
+  .create-generating__step--active .create-generating__status {
+    animation: none;
+  }
+
+  .create-generating__step {
+    transition: none;
+  }
+}

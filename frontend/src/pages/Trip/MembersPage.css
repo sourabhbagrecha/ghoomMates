@@ -1,0 +1,189 @@
+.members__invite {
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px 0;
+}
+
+.members__invite-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border-radius: var(--radius-tile);
+  background: var(--color-glass-strong);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.members__invite-button--on {
+  background: var(--color-primary);
+}
+
+.members__body {
+  padding-top: 20px;
+  gap: 14px;
+}
+
+/* QR */
+.members__qr {
+  align-items: center;
+  gap: 4px;
+}
+
+.members__qr-code {
+  margin-bottom: 8px;
+}
+
+.members__qr-ink {
+  fill: var(--color-ink);
+}
+
+.members__qr-paper {
+  fill: var(--color-surface);
+}
+
+.members__qr-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.members__qr-link {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Squad list */
+.members__list {
+  gap: 4px;
+}
+
+.members__list ul {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.member + .member {
+  border-top: 1px solid var(--color-tint-cool);
+}
+
+.member__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.member__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.member__name .tag {
+  padding: 1px 6px;
+}
+
+.member__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.member__pending {
+  font-weight: 700;
+  color: var(--color-sky);
+}
+
+.member__balance {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.member__balance--neutral {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.member__balance--settled {
+  color: var(--color-muted);
+}
+
+.member__balance--incoming {
+  color: var(--color-success);
+}
+
+.member__balance--due {
+  color: var(--color-sky);
+}
+
+/* Trip settings link */
+.members__settings {
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px 12px 12px;
+  text-align: left;
+}
+
+.members__settings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-sky-light);
+}
+
+.members__settings-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.members__settings-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.members__settings-note {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

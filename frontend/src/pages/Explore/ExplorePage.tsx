@@ -10,11 +10,14 @@ import { Avatar, AvatarStack } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
+import { useNavigate } from '../../hooks/navigation'
 import { CATEGORIES, GUIDE_TRIP, TRENDING } from './exploreData'
 import './ExplorePage.css'
 
 export function ExplorePage() {
   const [category, setCategory] = useState(CATEGORIES[0])
+  const navigate = useNavigate()
+  const openGuideTrip = () => navigate('trip/explore/guide')
 
   return (
     <ScreenLayout headerBg={headerBg} headerHeight={170} eyebrow="Trending near your squad" title="Explore Goa">
@@ -75,6 +78,7 @@ export function ExplorePage() {
           }
         />
         <article className="list-card guide-trip">
+          <button type="button" className="guide-trip__open" aria-label={`Open ${GUIDE_TRIP.title}`} onClick={openGuideTrip} />
           <div className="guide-trip__cover">
             <img src={GUIDE_TRIP.photo} alt="" width={78} height={86} />
             <span className="guide-trip__host-avatar">
@@ -95,7 +99,7 @@ export function ExplorePage() {
                 {GUIDE_TRIP.price}
                 <span> /person · {GUIDE_TRIP.seatsLeft} seats left</span>
               </p>
-              <button type="button" className="guide-trip__join">
+              <button type="button" className="guide-trip__join" onClick={openGuideTrip}>
                 Join
               </button>
             </div>

@@ -9,6 +9,7 @@ import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { SQUAD } from '../../data/people'
+import { useNavigate } from '../../hooks/navigation'
 import { DAYS, TRIP, VIBE_CHECK, type Stop } from './itineraryData'
 import './ItineraryPage.css'
 
@@ -22,6 +23,8 @@ const SPIDERWEB_LABELS = [
 ]
 
 export function ItineraryPage() {
+  const navigate = useNavigate()
+
   return (
     <>
       <ScreenLayout
@@ -39,7 +42,7 @@ export function ItineraryPage() {
                 {TRIP.group} · {SQUAD.length} mates
               </span>
             </div>
-            <button type="button" className="group-pill__invite">
+            <button type="button" className="group-pill__invite" onClick={() => navigate('trip/members')}>
               + Invite
             </button>
           </div>
@@ -182,6 +185,8 @@ function DayPlan() {
 }
 
 function TimelineStop({ stop }: { stop: Stop }) {
+  const navigate = useNavigate()
+
   return (
     <li className="timeline__stop">
       <div className="timeline__rail" aria-hidden="true">
@@ -199,6 +204,12 @@ function TimelineStop({ stop }: { stop: Stop }) {
           </div>
         </div>
         <span className="tag">{stop.tag}</span>
+        <button
+          type="button"
+          className="stop-card__open"
+          aria-label={`Open ${stop.title}`}
+          onClick={() => navigate(`trip/itinerary/stop/${stop.id}`)}
+        />
       </article>
     </li>
   )
