@@ -1,0 +1,34 @@
+# What `gcloud builds submit` uploads to Cloud Build. With a .gcloudignore present gcloud ignores .gitignore,
+# so the important rules are repeated here (secrets, dependencies, other worktrees). Mirrors .dockerignore.
+
+# Dependencies and build output are rebuilt inside the image
+**/node_modules/
+**/dist/
+**/coverage/
+**/*.tsbuildinfo
+
+# Secrets: never uploaded
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/service-account*.json
+
+# Repo and tooling (.claude holds other agents' worktrees)
+.git/
+.gitignore
+.claude/
+.local/
+.vscode/
+.idea/
+.DS_Store
+graphify-out/
+
+# Not needed to run the server or build the web app
+cloud/
+deploy/
+backend/tests/
+backend/scripts/
+backend/uploads/
+backend/Dockerfile
+**/*.log

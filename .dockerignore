@@ -1,0 +1,36 @@
+# Keeps the Docker build context small and secrets out of the image. Mirrors .gcloudignore (Cloud Build upload).
+
+# Dependencies and build output are rebuilt inside the image
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+
+# Secrets: never part of an image
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/service-account*.json
+
+# Repo and tooling
+.git
+.gitignore
+.claude
+.local
+.vscode
+.idea
+.DS_Store
+graphify-out
+
+# Not needed to run the server or build the web app
+cloud
+deploy
+backend/tests
+backend/scripts
+backend/uploads
+backend/Dockerfile
+**/*.log
+Dockerfile
+.dockerignore
+.gcloudignore
