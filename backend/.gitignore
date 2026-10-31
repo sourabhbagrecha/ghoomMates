@@ -15,3 +15,6 @@ dist/
 build/
 coverage/
 *.log
+
+# Local media fallback (when GCS is not configured)
+uploads/

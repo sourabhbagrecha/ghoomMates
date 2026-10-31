@@ -4,19 +4,6 @@ import grid3 from '../../assets/figma/photo-grid-3.svg'
 import grid4 from '../../assets/figma/photo-grid-4.svg'
 import grid5 from '../../assets/figma/photo-grid-5.svg'
 import grid6 from '../../assets/figma/photo-grid-6.svg'
-import type { PersonId } from '../../data/people'
-
-export const LIBRARY = {
-  photos: '1,284',
-  videos: 46,
-}
-
-export const UPLOAD = {
-  uploaded: 248,
-  total: 312,
-}
-
-export const FACE_MATCH: { person: PersonId; count: number } = { person: 'kabir', count: 186 }
 
 export type PipelineStep = {
   label: string
@@ -24,10 +11,10 @@ export type PipelineStep = {
 }
 
 export const PIPELINE: PipelineStep[] = [
-  { label: 'Ingest', status: 'done' },
-  { label: 'Faces', status: 'done' },
-  { label: 'Embed', status: 'done' },
-  { label: 'Match', status: 'current' },
+  { label: 'Ingest', status: 'pending' },
+  { label: 'Faces', status: 'pending' },
+  { label: 'Embed', status: 'pending' },
+  { label: 'Match', status: 'pending' },
   { label: 'Reel', status: 'pending' },
 ]
 

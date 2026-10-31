@@ -6,7 +6,8 @@ Single Node.js + TypeScript server for every Ghoomates backend module. One proce
 | --- | --- | --- | --- |
 | `/health`, `/` | Server health and enabled modules | `src/app.ts` | — |
 | `/auth/*` | Google OAuth login, JWT sessions, user profile | `src/auth/` | [docs/auth.md](docs/auth.md) |
-| `/api/*` | Expense groups, splits, balances, settlements | `src/expenses/` | [docs/expenses.md](docs/expenses.md), [architecture](docs/expenses-architecture.md) |
+| `/api/trips/*` | Trips for signed-in users: create, invite/join, expenses, settle up, photo uploads, itinerary | `src/trips/` | [docs/trips.md](docs/trips.md) |
+| `/api/*` | Internal expense ledger (service token): groups, splits, balances, settlements | `src/expenses/` | [docs/expenses.md](docs/expenses.md), [architecture](docs/expenses-architecture.md) |
 
 ## Configuration
 

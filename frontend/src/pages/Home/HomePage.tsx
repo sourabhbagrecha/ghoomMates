@@ -16,11 +16,14 @@ import { HeaderActions, NotificationsButton } from '../../components/HeaderActio
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import type { TabId } from '../../components/TabBar'
+import { daysUntil, formatTripDates, tripDay, tripPhase, useMyTrips } from '../../data/activeTrip'
 import { usePastTrips } from '../../data/pastTripStore'
-import { LIVE_TRIP, PAST_TRIPS, TODAY, UPCOMING_TRIPS, type Trip } from '../../data/trips'
+import { tripCover } from '../../data/tripCover'
+import { PAST_TRIPS, UPCOMING_TRIPS } from '../../data/trips'
 import { useNavigate } from '../../hooks/navigation'
-import { DAYS } from '../Itinerary/itineraryData'
 import type { AuthUser } from '../../services/authService'
+import type { TripListItem } from '../../services/tripsService'
+import { formatINR } from '../Trip/tripFormat'
 import './HomePage.css'
 
 const SHORTCUTS: { tab: TabId; label: string; icon: string }[] = [
@@ -36,7 +39,7 @@ const IDEAS = [
   { name: 'Rishikesh rafting', details: '3 days · from ₹9k', photo: grid3 },
 ]
 
-const nextStop = DAYS.flatMap((d) => d.stops).find((s) => s.id === LIVE_TRIP.nextStopId)
+const todayLabel = () => new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
 type HomePageProps = {
   name: string | null
@@ -45,7 +48,7 @@ type HomePageProps = {
   empty?: boolean
   user?: AuthUser | null
   onOpenNotifications: () => void
-  onOpenTrip: (tab: TabId) => void
+  onOpenTrip: (tripId: string, tab: TabId) => void
   onHaveInvite: () => void
 }
 
@@ -60,15 +63,30 @@ export function HomePage({
 }: HomePageProps) {
   const navigate = useNavigate()
   const planTrip = () => navigate('create')
+  const { trips, error } = useMyTrips(!!user)
+  // #/home/empty previews the first-run state; otherwise it follows your real trips
+  const noTrips = empty || (trips !== null && trips.length === 0)
+  const live = trips?.find((t) => tripPhase(t) === 'live')
 
-  const displayName = user?.name || name || 'there'
+  const displayName = user?.name?.split(' ')[0] || name || 'there'
+  let greeting = 'I’m GhoomMate! Tell me where you want to go and I’ll draft a plan for your squad.'
+  if (!noTrips && live) {
+    const day = tripDay(live)
+    greeting = `Day ${day?.day} of ${live.name}! Add today’s spends and photos as you go.`
+  } else if (!noTrips && trips?.length) {
+    const next = trips.filter((t) => tripPhase(t) === 'upcoming')[0]
+    const days = next ? daysUntil(next.startDate) : null
+    greeting = next
+      ? `${next.name} ${days !== null ? `is ${days === 1 ? 'tomorrow' : `in ${days} days`}` : 'is coming up'}. Invite the squad and start planning!`
+      : 'Welcome back! Plan the next one whenever you’re ready.'
+  }
 
   return (
     <>
       <ScreenLayout
         headerBg={headerBg}
         headerHeight={210}
-        eyebrow={TODAY}
+        eyebrow={todayLabel()}
         title={`Hey ${displayName}`}
         actions={
           <HeaderActions leading={<NotificationsButton unread={unread} onClick={onOpenNotifications} />} />
@@ -77,18 +95,21 @@ export function HomePage({
         <div className="screen__header-row">
           <p className="home__greeting">
             <GhoomMateAvatar size={32} ring={2} />
-            {empty
-              ? 'I’m GhoomMate! Tell me where you want to go and I’ll draft a plan for your squad.'
-              : `Day ${LIVE_TRIP.day} in Goa! Next up: ${nextStop?.title} at ${nextStop?.time}.`}
+            {greeting}
           </p>
         </div>
 
         <main className="screen__body">
-          {empty ? <EmptyHome onPlanTrip={planTrip} onHaveInvite={onHaveInvite} /> : <Trips onOpenTrip={onOpenTrip} onOpenPlan={() => navigate('plan')} />}
+          {error && !trips && <p className="home__error" role="alert">{error}</p>}
+          {noTrips ? (
+            <EmptyHome onPlanTrip={planTrip} onHaveInvite={onHaveInvite} />
+          ) : (
+            <Trips trips={trips ?? []} onOpenTrip={onOpenTrip} onOpenPlan={() => navigate('plan')} />
+          )}
         </main>
       </ScreenLayout>
 
-      {empty ? (
+      {noTrips ? (
         <span className="home-indicator" aria-hidden="true" />
       ) : (
         <div className="home__actions">
@@ -103,67 +124,80 @@ export function HomePage({
   )
 }
 
-function Trips({ onOpenTrip, onOpenPlan }: { onOpenTrip: (tab: TabId) => void; onOpenPlan: () => void }) {
+type TripsProps = {
+  trips: TripListItem[]
+  onOpenTrip: (tripId: string, tab: TabId) => void
+  onOpenPlan: () => void
+}
+
+function Trips({ trips, onOpenTrip, onOpenPlan }: TripsProps) {
   const navigate = useNavigate()
   const { settled } = usePastTrips()
+  const live = trips.filter((t) => tripPhase(t) === 'live')
+  const upcoming = trips.filter((t) => tripPhase(t) === 'upcoming').reverse()
+  const past = trips.filter((t) => tripPhase(t) === 'past')
+
   return (
     <>
-      <section className="card live-trip" aria-label={`${LIVE_TRIP.name}, happening now`}>
-        {/* Whole card opens the trip; the shortcuts sit above this and open a specific tab */}
-        <button
-          type="button"
-          className="live-trip__open"
-          aria-label={`Open ${LIVE_TRIP.name}`}
-          onClick={() => onOpenTrip('itinerary')}
-        />
-        <div className="live-trip__cover">
-          <img src={LIVE_TRIP.cover} alt="" width={220} height={118} />
-          <span className="live-trip__badge">
-            <span className="live-trip__pulse" />
-            Live · Day {LIVE_TRIP.day} of {LIVE_TRIP.totalDays}
-          </span>
-        </div>
-        <div className="live-trip__title-row">
-          <div>
-            <h2 className="live-trip__name">{LIVE_TRIP.name}</h2>
-            <p className="live-trip__meta">
-              <img src={iconCalendar} alt="" width={14} height={14} />
-              {LIVE_TRIP.dates}
-            </p>
-          </div>
-          <AvatarStack people={LIVE_TRIP.members} size={26} overlap={9} />
-        </div>
-        {nextStop && (
-          <div className="live-trip__next">
-            <img src={nextStop.photo} alt="" width={40} height={40} />
-            <div className="live-trip__next-info">
-              <p className="overline">Next up · {nextStop.time}</p>
-              <p className="live-trip__next-title">{nextStop.title}</p>
-            </div>
-            <span className="tag">{nextStop.tag}</span>
-          </div>
-        )}
-        <nav className="live-trip__shortcuts" aria-label="Open trip">
-          {SHORTCUTS.map((s) => (
-            <button key={s.tab} type="button" onClick={() => onOpenTrip(s.tab)}>
-              <span className="live-trip__shortcut-icon">
-                <img src={s.icon} alt="" width={22} height={22} />
-              </span>
-              {s.label}
-            </button>
-          ))}
-        </nav>
-      </section>
+      {live.map((t) => (
+        <LiveTrip key={t.id} trip={t} onOpenTrip={(tab) => onOpenTrip(t.id, tab)} />
+      ))}
 
-      <SectionHeader title="Coming up" />
+      {upcoming.length > 0 && (
+        <>
+          <SectionHeader title="Coming up" />
+          <ul className="trip-list">
+            {upcoming.map((t) => (
+              <UpcomingTrip key={t.id} trip={t} onOpen={() => onOpenTrip(t.id, 'itinerary')} />
+            ))}
+          </ul>
+        </>
+      )}
+
+      {past.length > 0 && (
+        <>
+          <SectionHeader title="Past trips" />
+          <ul className="past-trips no-scrollbar">
+            {past.map((t) => (
+              <li key={t.id}>
+                <button type="button" className="past-trip past-trip--button" onClick={() => onOpenTrip(t.id, 'expenses')}>
+                  <img className="past-trip__cover" src={tripCover(t)} alt="" width={116} height={110} />
+                  <div className="past-trip__body">
+                    <p className="past-trip__name">{t.name}</p>
+                    <p className="past-trip__meta">
+                      {formatTripDates(t)} · {t.photoCount} pics
+                    </p>
+                    <OwedLine balancePaise={t.myBalancePaise} />
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/* The sample trips show the planning and recap screens that aren't backed by real data yet */}
+      <SectionHeader title="Sample trips" />
       <ul className="trip-list">
-        {UPCOMING_TRIPS.map((t) => (
-          // Only the Manali trip has planning screens so far
-          <UpcomingTrip key={t.id} trip={t} onOpen={t.id === 'manali' ? onOpenPlan : undefined} />
+        {UPCOMING_TRIPS.filter((t) => t.id === 'manali').map((t) => (
+          <li key={t.id}>
+            <button type="button" className="list-card trip-row trip-row--button" onClick={onOpenPlan}>
+              <img className="trip-row__cover" src={t.cover} alt="" width={116} height={110} />
+              <div className="trip-row__info">
+                <p className="trip-row__name">{t.name}</p>
+                <p className="trip-row__meta">
+                  {t.dates} · {t.startsIn}
+                </p>
+                <p className="trip-row__status">
+                  <span className="tag">Planning</span>
+                  <span className="trip-row__note--action">{t.note}</span>
+                </p>
+              </div>
+              <AvatarStack people={t.members} size={18} overlap={6} />
+            </button>
+          </li>
         ))}
       </ul>
-
-      <SectionHeader title="Past trips" />
       <ul className="past-trips no-scrollbar">
         {PAST_TRIPS.map((t) => (
           <li key={t.id}>
@@ -191,33 +225,89 @@ function Trips({ onOpenTrip, onOpenPlan }: { onOpenTrip: (tab: TabId) => void; o
   )
 }
 
-function UpcomingTrip({ trip, onOpen }: { trip: Trip; onOpen?: () => void }) {
-  const planning = trip.status === 'planning'
-  const content = (
-    <>
-      <img className="trip-row__cover" src={trip.cover} alt="" width={116} height={110} />
-      <div className="trip-row__info">
-        <p className="trip-row__name">{trip.name}</p>
-        <p className="trip-row__meta">
-          {trip.dates} · {trip.startsIn}
-        </p>
-        <p className="trip-row__status">
-          <span className="tag">{planning ? 'Planning' : 'Booked'}</span>
-          <span className={planning ? 'trip-row__note--action' : undefined}>{trip.note}</span>
-        </p>
-      </div>
-      <AvatarStack people={trip.members} size={18} overlap={6} />
-    </>
+function OwedLine({ balancePaise }: { balancePaise: number }) {
+  if (balancePaise < 0) return <p className="past-trip__owed">{formatINR(-balancePaise / 100)} to settle</p>
+  if (balancePaise > 0) return <p className="past-trip__settled">{formatINR(balancePaise / 100)} owed to you</p>
+  return (
+    <p className="past-trip__settled">
+      <img src={iconCheck} alt="" width={12} height={12} />
+      All settled
+    </p>
   )
+}
+
+function LiveTrip({ trip, onOpenTrip }: { trip: TripListItem; onOpenTrip: (tab: TabId) => void }) {
+  const day = tripDay(trip)
+  const spent = trip.totalSpentPaise
+  return (
+    <section className="card live-trip" aria-label={`${trip.name}, happening now`}>
+      {/* Whole card opens the trip; the shortcuts sit above this and open a specific tab */}
+      <button type="button" className="live-trip__open" aria-label={`Open ${trip.name}`} onClick={() => onOpenTrip('itinerary')} />
+      <div className="live-trip__cover">
+        <img src={tripCover(trip)} alt="" width={220} height={118} />
+        <span className="live-trip__badge">
+          <span className="live-trip__pulse" />
+          Live · Day {day?.day} of {day?.total}
+        </span>
+      </div>
+      <div className="live-trip__title-row">
+        <div>
+          <h2 className="live-trip__name">{trip.name}</h2>
+          <p className="live-trip__meta">
+            <img src={iconCalendar} alt="" width={14} height={14} />
+            {formatTripDates(trip)}
+          </p>
+        </div>
+        <AvatarStack people={trip.members.map((m) => m.memberId)} size={26} overlap={9} />
+      </div>
+      <div className="live-trip__next">
+        <div className="live-trip__next-info">
+          <p className="overline">{trip.groupName} · {trip.memberCount} {trip.memberCount === 1 ? 'mate' : 'mates'}</p>
+          <p className="live-trip__next-title">
+            {spent ? `${formatINR(spent / 100)} spent so far` : 'No spends yet'} · {trip.photoCount} pics
+          </p>
+        </div>
+        {trip.myBalancePaise !== 0 && (
+          <span className="tag">
+            {trip.myBalancePaise < 0 ? `You owe ${formatINR(-trip.myBalancePaise / 100)}` : `${formatINR(trip.myBalancePaise / 100)} to you`}
+          </span>
+        )}
+      </div>
+      <nav className="live-trip__shortcuts" aria-label="Open trip">
+        {SHORTCUTS.map((s) => (
+          <button key={s.tab} type="button" onClick={() => onOpenTrip(s.tab)}>
+            <span className="live-trip__shortcut-icon">
+              <img src={s.icon} alt="" width={22} height={22} />
+            </span>
+            {s.label}
+          </button>
+        ))}
+      </nav>
+    </section>
+  )
+}
+
+function UpcomingTrip({ trip, onOpen }: { trip: TripListItem; onOpen: () => void }) {
+  const days = daysUntil(trip.startDate)
   return (
     <li>
-      {onOpen ? (
-        <button type="button" className="list-card trip-row trip-row--button" onClick={onOpen}>
-          {content}
-        </button>
-      ) : (
-        <div className="list-card trip-row">{content}</div>
-      )}
+      <button type="button" className="list-card trip-row trip-row--button" onClick={onOpen}>
+        <img className="trip-row__cover" src={tripCover(trip)} alt="" width={116} height={110} />
+        <div className="trip-row__info">
+          <p className="trip-row__name">{trip.name}</p>
+          <p className="trip-row__meta">
+            {formatTripDates(trip)}
+            {days !== null && ` · In ${days} ${days === 1 ? 'day' : 'days'}`}
+          </p>
+          <p className="trip-row__status">
+            <span className="tag">Planning</span>
+            <span className="trip-row__note--action">
+              {trip.memberCount === 1 ? 'Invite your squad' : `${trip.memberCount} mates in`}
+            </span>
+          </p>
+        </div>
+        <AvatarStack people={trip.members.map((m) => m.memberId)} size={18} overlap={6} />
+      </button>
     </li>
   )
 }

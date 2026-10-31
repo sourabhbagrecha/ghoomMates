@@ -6,10 +6,13 @@ import { AvatarStack } from '../../components/Avatar'
 import { Button, LinkButton } from '../../components/Button'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { TextField } from '../../components/TextField'
-import { SQUAD } from '../../data/people'
+import { useState } from 'react'
+import { activeTrip, formatTripDates, tripPhase, useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
-import { DUES, NOTIFICATION_SETTINGS, TRIP_INFO } from './tripDetailData'
+import { tripsApi } from '../../services/tripsService'
+import { myDues } from '../Expenses/expensesData'
+import { NOTIFICATION_SETTINGS } from './tripDetailData'
 import { formatINR } from './tripFormat'
 import { tripActions, useTripStore } from './tripStore'
 import { useToast } from '../../hooks/useToast'
@@ -17,14 +20,35 @@ import './TripSettingsPage.css'
 
 export function TripSettingsPage() {
   const navigate = useNavigate()
-  const { tripName, notifications, settledVia } = useTripStore()
+  const { notifications } = useTripStore()
+  const { trip, summary } = useActiveTrip()
   const [toast, showToast] = useToast(3000)
-  const owed = DUES.reduce((sum, d) => sum + d.value, 0)
+  // Edited locally, saved when the field loses focus
+  const [name, setName] = useState<string | null>(null)
+  const tripName = name ?? trip?.name ?? ''
+  const owed = summary ? myDues(summary).oweTotal : 0
+  const squad = trip?.members.map((m) => m.memberId) ?? []
+
+  const saveName = async () => {
+    const next = tripName.trim()
+    if (!trip || !next || next === trip.name) {
+      setName(null)
+      return
+    }
+    try {
+      activeTrip.setTrip(await tripsApi.update(trip.id, { name: next }))
+      void activeTrip.loadTrips()
+      showToast('Trip name saved')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save the name')
+    }
+    setName(null)
+  }
 
   return (
     <>
       <OnboardingLayout
-        eyebrow={`${tripName || TRIP_INFO.name} · ${TRIP_INFO.group}`}
+        eyebrow={`${trip?.name ?? 'Trip'} · ${trip?.groupName ?? ''}`}
         title="Trip settings"
         onBack={() => navigate('trip/members')}
         headerBg={headerBg}
@@ -33,19 +57,25 @@ export function TripSettingsPage() {
       >
         <section className="card trip-settings__card">
           <h2 className="overline">Trip details</h2>
-          {/* TODO: persist the name to the trips service */}
-          <TextField label="Trip name" value={tripName} onChange={(e) => tripActions.setTripName(e.target.value)} />
+          <TextField
+            label="Trip name"
+            value={tripName}
+            maxLength={100}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => void saveName()}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          />
           <div className="trip-settings__row">
             <img src={iconCalendar} alt="" width={14} height={14} />
             <span className="trip-settings__row-text">
               <span className="trip-settings__row-label">Dates</span>
-              <span className="trip-settings__row-value">{TRIP_INFO.dates}</span>
+              <span className="trip-settings__row-value">{trip ? formatTripDates(trip) : '…'}</span>
             </span>
             {/* TODO: date picker once trips can be extended mid-way */}
             <button
               type="button"
               className="text-link"
-              onClick={() => showToast('Dates are locked while the trip is live')}
+              onClick={() => showToast(trip && tripPhase(trip) === 'live' ? 'Dates are locked while the trip is live' : 'Changing dates is coming soon')}
             >
               Change
             </button>
@@ -54,7 +84,7 @@ export function TripSettingsPage() {
             <img src={iconLock} alt="" width={14} height={14} />
             <span className="trip-settings__row-text">
               <span className="trip-settings__row-label">Currency</span>
-              <span className="trip-settings__row-value">{TRIP_INFO.currency}</span>
+              <span className="trip-settings__row-value">₹ INR · Indian rupee</span>
             </span>
             <span className="trip-settings__locked">Locked after first expense</span>
           </div>
@@ -84,10 +114,10 @@ export function TripSettingsPage() {
         </section>
 
         <button type="button" className="list-card trip-settings__members" onClick={() => navigate('trip/members')}>
-          <AvatarStack people={SQUAD} size={26} overlap={9} />
+          <AvatarStack people={squad} size={26} overlap={9} />
           <span className="trip-settings__row-text">
             <span className="trip-settings__toggle-title">Members</span>
-            <span className="trip-settings__row-label">{SQUAD.length} mates · invite more</span>
+            <span className="trip-settings__row-label">{squad.length} {squad.length === 1 ? 'mate' : 'mates'} · invite more</span>
           </span>
           <img src={iconChevron} alt="" width={16} height={16} />
         </button>
@@ -97,12 +127,18 @@ export function TripSettingsPage() {
           <Button
             variant="outline"
             onClick={() =>
-              showToast(settledVia ? 'You’re the organiser. Hand over to Riya before you leave' : `Settle your ${formatINR(owed)} first, then you can leave`)
+              showToast(
+                owed > 0
+                  ? `Settle your ${formatINR(owed)} first, then you can leave`
+                  : trip?.role === 'organiser'
+                    ? 'You’re the organiser. Hand over to a mate before you leave'
+                    : 'Leaving trips is coming soon',
+              )
             }
           >
             Leave trip
           </Button>
-          <LinkButton onClick={() => showToast('Archive opens once the trip ends on Mon, 2 Nov')}>Archive trip</LinkButton>
+          <LinkButton onClick={() => showToast('Archive opens once the trip ends')}>Archive trip</LinkButton>
         </div>
       </OnboardingLayout>
       <Toast message={toast} />

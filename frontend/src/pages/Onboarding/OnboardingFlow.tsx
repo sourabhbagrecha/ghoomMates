@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { InvitePage } from './InvitePage'
+import { JoinTripPage } from './JoinTripPage'
 import { COLOURS, type OnboardingStep, type SignUpDetails } from './onboardingData'
 import { PermissionsPage } from './PermissionsPage'
 import { ProfilePage } from './ProfilePage'
@@ -32,7 +32,6 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
   }))
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [fromInvite, setFromInvite] = useState(false)
   const update = (patch: Partial<SignUpDetails>) => setDetails((d) => ({ ...d, ...patch }))
 
   // Synchronize Google user information when session hydrates
@@ -53,20 +52,12 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
     case 'welcome':
       return <WelcomePage onGetStarted={() => go('sign-in')} onHaveInvite={() => go('invite')} />
     case 'invite':
-      return (
-        <InvitePage
-          onBack={() => go('welcome')}
-          onJoin={() => {
-            setFromInvite(true)
-            go('sign-in')
-          }}
-          onDecline={() => go('welcome')}
-        />
-      )
+      // "I have an invite link": paste the link, preview the trip, then sign in to join
+      return <JoinTripPage />
     case 'sign-in':
       return (
         <SignInPage
-          onBack={() => go(fromInvite ? 'invite' : 'welcome')}
+          onBack={() => go('welcome')}
           onSuccess={(result) => {
             const updatedDetails: SignUpDetails = {
               ...details,

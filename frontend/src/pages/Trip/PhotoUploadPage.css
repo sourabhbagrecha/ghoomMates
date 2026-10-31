@@ -220,3 +220,10 @@
   line-height: 18px;
   color: var(--color-muted);
 }
+
+.upload__error {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}

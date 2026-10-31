@@ -13,13 +13,19 @@ const FINISH_MS = 500
 type GeneratingStepProps = {
   destination: string
   steps: string[]
+  /** The trip is saved and the draft plan is back */
+  ready: boolean
+  error: string | null
   onCancel: () => void
+  onRetry: () => void
   onDone: () => void
 }
 
-/** Full-screen loading state: ticks off each step, then moves on to the draft (~3s). */
-export function GeneratingStep({ destination, steps, onCancel, onDone }: GeneratingStepProps) {
-  const [done, setDone] = useState(0)
+/** Full-screen loading state: ticks off each step while the plan is generated, then moves on to the draft. */
+export function GeneratingStep({ destination, steps, ready, error, onCancel, onRetry, onDone }: GeneratingStepProps) {
+  const [ticked, setTicked] = useState(0)
+  // The last step stays in progress until the real request finishes
+  const done = ready ? ticked : Math.min(ticked, steps.length - 1)
   const finished = done >= steps.length
 
   // Keep the latest callback without restarting the timers
@@ -28,13 +34,13 @@ export function GeneratingStep({ destination, steps, onCancel, onDone }: Generat
     onDoneRef.current = onDone
   })
 
-  // TODO: drive this from the real plan-generation request instead of timers
   useEffect(() => {
+    if (error) return
     const timer = finished
       ? window.setTimeout(() => onDoneRef.current(), FINISH_MS)
-      : window.setTimeout(() => setDone((d) => d + 1), STEP_MS)
+      : window.setTimeout(() => setTicked((d) => Math.min(d + 1, steps.length)), STEP_MS)
     return () => window.clearTimeout(timer)
-  }, [done, finished])
+  }, [done, finished, error, steps.length])
 
   return (
     <div className="create-generating">
@@ -47,8 +53,10 @@ export function GeneratingStep({ destination, steps, onCancel, onDone }: Generat
           <span className="create-generating__mascot">
             <GhoomMateAvatar size={132} ring={5} />
           </span>
-          <h1 className="create-generating__title">{finished ? 'Your plan’s ready!' : `Planning ${destination}…`}</h1>
-          <p className="create-generating__subtitle">GhoomMate is mixing your squad’s vibe, dates and budget.</p>
+          <h1 className="create-generating__title">
+            {error ? 'That didn’t work' : finished ? 'Your plan’s ready!' : `Planning ${destination}…`}
+          </h1>
+          <p className="create-generating__subtitle">{error ?? 'GhoomMate is mixing your squad’s vibe, dates and budget.'}</p>
         </div>
 
         <ol className="create-generating__steps" aria-live="polite">
@@ -67,6 +75,11 @@ export function GeneratingStep({ destination, steps, onCancel, onDone }: Generat
         </ol>
 
         <div className="create-generating__actions">
+          {error && (
+            <Button variant="highlight" onClick={onRetry}>
+              Try again
+            </Button>
+          )}
           <Button variant="glass" onClick={onCancel}>
             Cancel
           </Button>

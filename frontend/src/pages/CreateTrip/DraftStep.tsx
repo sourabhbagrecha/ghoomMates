@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import iconRefresh from '../../assets/figma/icon-refresh-sky.svg'
 import iconShare from '../../assets/figma/icon-share-white.svg'
 import iconSwap from '../../assets/figma/icon-swap-primary.svg'
@@ -6,42 +6,50 @@ import iconTrash from '../../assets/figma/icon-trash-muted.svg'
 import { Button, LinkButton } from '../../components/Button'
 import { GhoomMateTip } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
-import { DRAFT, DRAFT_DAYS, formatDay, formatDayShort, type DraftStop } from './createTripData'
+import { tripDayLabel } from '../../data/activeTrip'
+import type { DraftPlan, DraftStop } from '../../services/tripsService'
+import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './DraftStep.css'
 
-const REGENERATE_MS = 900
+type DraftDay = DraftPlan['days'][number]
 
 type DraftStepProps = {
   tripName: string
+  /** e.g. "Sat 12 – Wed 16 Dec" */
+  dates: string
+  startDate: string | null
   /** e.g. "4 mates · ₹10–20k each" */
   summary: string
+  plan: DraftPlan
+  sharing: boolean
+  error: string | null
   onBack: () => void
   onEditDetails: () => void
-  onShare: () => void
+  /** Asks GhoomMate for a fresh take on one day (0-based) */
+  onRegenerateDay: (index: number) => Promise<DraftDay | null>
+  /** The picked stops per day, saved as the trip's itinerary */
+  onShare: (days: { title: string; stops: DraftStop[] }[]) => void
 }
 
 /** Slot key for a stop: which day, which position in that day */
-const slotKey = (dayId: string, index: number) => `${dayId}-${index}`
+const slotKey = (day: number, index: number) => `${day}-${index}`
 
-export function DraftStep({ tripName, summary, onBack, onEditDetails, onShare }: DraftStepProps) {
-  const [dayId, setDayId] = useState(DRAFT_DAYS[0].id)
+/** "Sat, 12 Dec" → "Sat 12" for the day pills */
+const shortDay = (startDate: string | null, n: number) =>
+  startDate ? tripDayLabel(startDate, n).replace(',', '').replace(/ \w+$/, '') : `Day ${n}`
+
+export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, error, onBack, onEditDetails, onRegenerateDay, onShare }: DraftStepProps) {
+  const [days, setDays] = useState(plan.days)
+  const [dayIndex, setDayIndex] = useState(0)
   // How many times each slot has been swapped, and which slots were removed
   const [swaps, setSwaps] = useState<Record<string, number>>({})
   const [removed, setRemoved] = useState<string[]>([])
   const [lastRemoved, setLastRemoved] = useState<{ key: string; title: string } | null>(null)
-  const [regenerating, setRegenerating] = useState<string | null>(null)
-  const regenerateTimer = useRef<number>(undefined)
+  const [regenerating, setRegenerating] = useState<number | null>(null)
 
-  useEffect(() => () => window.clearTimeout(regenerateTimer.current), [])
-
-  const day = DRAFT_DAYS.find((d) => d.id === dayId) ?? DRAFT_DAYS[0]
-  const dayIndex = DRAFT_DAYS.indexOf(day)
-
+  const day = days[dayIndex] ?? days[0]
   const pick = (key: string, options: DraftStop[]) => options[(swaps[key] ?? 0) % options.length]
-
-  const stops = day.stops
-    .map((options, i) => ({ key: slotKey(day.id, i), options }))
-    .filter(({ key }) => !removed.includes(key))
+  const stops = day.slots.map((options, i) => ({ key: slotKey(dayIndex, i), options })).filter(({ key }) => !removed.includes(key))
 
   const swap = (key: string) => setSwaps((s) => ({ ...s, [key]: (s[key] ?? 0) + 1 }))
 
@@ -56,56 +64,64 @@ export function DraftStep({ tripName, summary, onBack, onEditDetails, onShare }:
     setLastRemoved(null)
   }
 
-  // TODO: ask GhoomMate for a fresh day; for now every slot moves on to its next option
-  const regenerate = () => {
-    const id = day.id
-    setRegenerating(id)
+  const regenerate = async () => {
+    const index = dayIndex
+    setRegenerating(index)
     setLastRemoved(null)
-    window.clearTimeout(regenerateTimer.current)
-    regenerateTimer.current = window.setTimeout(() => {
-      const keys = day.stops.map((_, i) => slotKey(id, i))
-      setSwaps((s) => Object.fromEntries([...Object.entries(s), ...keys.map((k) => [k, (s[k] ?? 0) + 1])]))
-      setRemoved((r) => r.filter((k) => !keys.includes(k)))
-      setRegenerating(null)
-    }, REGENERATE_MS)
+    const fresh = await onRegenerateDay(index)
+    if (fresh) {
+      const prefix = `${index}-`
+      setDays((all) => all.map((d, i) => (i === index ? fresh : d)))
+      setSwaps((s) => Object.fromEntries(Object.entries(s).filter(([k]) => !k.startsWith(prefix))))
+      setRemoved((r) => r.filter((k) => !k.startsWith(prefix)))
+    }
+    setRegenerating(null)
   }
 
-  const isRegenerating = regenerating === day.id
+  const share = () =>
+    onShare(
+      days.map((d, i) => ({
+        title: d.title,
+        stops: d.slots.flatMap((options, j) => (removed.includes(slotKey(i, j)) ? [] : [pick(slotKey(i, j), options)])),
+      })),
+    )
+
+  const isRegenerating = regenerating === dayIndex
 
   return (
     <OnboardingLayout
-      eyebrow={`Draft plan · ${DRAFT.dates}`}
+      eyebrow={`Draft plan · ${dates}`}
       title={tripName}
-      subtitle={`${DRAFT_DAYS.length} days · ${summary}`}
+      subtitle={`${days.length} ${days.length === 1 ? 'day' : 'days'} · ${summary}`}
       onBack={onBack}
       bodyClassName="create-draft__body"
       actions={
         <>
-          <Button variant="primary" className="create-draft__share" onClick={onShare}>
+          <Button variant="primary" className="create-draft__share" disabled={sharing} onClick={share}>
             <img src={iconShare} alt="" width={18} height={18} />
-            Share with squad
+            {sharing ? 'Saving the plan…' : 'Share with squad'}
           </Button>
           <LinkButton onClick={onEditDetails}>Edit details</LinkButton>
         </>
       }
     >
       <div className="create-draft__days" role="group" aria-label="Day">
-        {DRAFT_DAYS.map((d, i) => {
-          const active = d.id === day.id
+        {days.map((_, i) => {
+          const active = i === dayIndex
           return (
             <button
-              key={d.id}
+              key={i}
               type="button"
               className={`create-draft__day${active ? ' create-draft__day--active' : ''}`}
               aria-pressed={active}
-              aria-label={`Day ${i + 1}, ${formatDay(d.date)}`}
+              aria-label={`Day ${i + 1}, ${tripDayLabel(startDate, i + 1)}`}
               onClick={() => {
-                setDayId(d.id)
+                setDayIndex(i)
                 setLastRemoved(null)
               }}
             >
               <span className="create-draft__day-number">Day {i + 1}</span>
-              <span className="create-draft__day-date">{formatDayShort(d.date)}</span>
+              <span className="create-draft__day-date">{shortDay(startDate, i + 1)}</span>
             </button>
           )
         })}
@@ -114,18 +130,12 @@ export function DraftStep({ tripName, summary, onBack, onEditDetails, onShare }:
       <div className="create-draft__day-header">
         <div className="create-draft__day-heading">
           <p className="overline">
-            Day {dayIndex + 1} · {formatDay(day.date)}
+            Day {dayIndex + 1} · {tripDayLabel(startDate, dayIndex + 1)}
           </p>
           <h2 className="create-draft__day-title">{day.title}</h2>
         </div>
-        <button type="button" className="create-draft__regenerate" disabled={isRegenerating} onClick={regenerate}>
-          <img
-            className={isRegenerating ? 'create-draft__spin' : undefined}
-            src={iconRefresh}
-            alt=""
-            width={14}
-            height={14}
-          />
+        <button type="button" className="create-draft__regenerate" disabled={regenerating !== null} onClick={() => void regenerate()}>
+          <img className={isRegenerating ? 'create-draft__spin' : undefined} src={iconRefresh} alt="" width={14} height={14} />
           {isRegenerating ? 'Regenerating…' : 'Regenerate this day'}
         </button>
       </div>
@@ -139,6 +149,7 @@ export function DraftStep({ tripName, summary, onBack, onEditDetails, onShare }:
             </button>
           </>
         )}
+        {error}
       </div>
 
       {stops.length > 0 ? (
@@ -147,7 +158,7 @@ export function DraftStep({ tripName, summary, onBack, onEditDetails, onShare }:
             const stop = pick(key, options)
             return (
               <li key={key} className="list-card create-stop">
-                <img className="create-stop__photo" src={stop.photo} alt="" width={52} height={52} />
+                <img className="create-stop__photo" src={TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill} alt="" width={52} height={52} />
                 <div className="create-stop__info">
                   <p className="create-stop__meta">
                     <span className="create-stop__time">{stop.time}</span>
@@ -186,7 +197,7 @@ export function DraftStep({ tripName, summary, onBack, onEditDetails, onShare }:
         </div>
       )}
 
-      <GhoomMateTip>{DRAFT.tip}</GhoomMateTip>
+      <GhoomMateTip>{plan.tip || 'Swap or remove anything, then share it with the squad.'}</GhoomMateTip>
     </OnboardingLayout>
   )
 }

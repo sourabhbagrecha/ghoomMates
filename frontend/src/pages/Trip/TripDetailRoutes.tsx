@@ -9,11 +9,7 @@ import { SettleDonePage } from './SettleDonePage'
 import { SettleUpPage } from './SettleUpPage'
 import { StopDetailPage } from './StopDetailPage'
 import { StopFormPage } from './StopFormPage'
-import { VIEWER_PHOTOS } from './tripDetailData'
-import { getTripState } from './tripStore'
 import { TripSettingsPage } from './TripSettingsPage'
-
-const hasStop = (id: string | undefined) => !!id && getTripState().stops.some((s) => s.id === id)
 
 /**
  * Screens pushed from the trip tabs, rendered full-screen without the tab bar.
@@ -40,9 +36,10 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
 
   switch (section) {
     case 'itinerary':
-      if (page === 'stop' && hasStop(param)) return <StopDetailPage key={param} stopId={param} />
+      // Stop screens wait for the itinerary to load and handle unknown ids themselves
+      if (page === 'stop' && param) return <StopDetailPage key={param} stopId={param} />
       if (route === 'itinerary/add') return <StopFormPage key="new" />
-      if (page === 'edit' && hasStop(param)) return <StopFormPage key={param} stopId={param} />
+      if (page === 'edit' && param) return <StopFormPage key={param} stopId={param} />
       return null
     case 'expenses':
       if (route === 'expenses/add') return <AddExpensePage />
@@ -52,10 +49,8 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
     case 'photos': {
       if (route === 'photos/upload') return <PhotoUploadPage />
       if (route === 'photos/reel') return <ReelResultPage />
-      const index = Number(param)
-      if (page === 'view' && /^\d+$/.test(param ?? '') && index < VIEWER_PHOTOS.length) {
-        return <PhotoViewerPage index={index} />
-      }
+      // The viewer waits for the album to load, so any index is accepted here
+      if (page === 'view' && /^\d+$/.test(param ?? '')) return <PhotoViewerPage index={Number(param)} />
       return null
     }
     case 'explore':

@@ -147,6 +147,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  /* Long trips scroll sideways instead of squeezing the day title */
+  max-width: 160px;
+  overflow-x: auto;
+}
+
+.day-pills__day {
+  flex-shrink: 0;
 }
 
 .day-pills__day {
@@ -259,4 +266,16 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
+}
+
+.itinerary__add {
+  align-self: flex-start;
+}
+
+.itinerary__day-title {
+  margin-top: -6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-muted);
 }

@@ -7,12 +7,13 @@ import { Button } from '../../components/Button'
 import { Chip } from '../../components/Chip'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { TextField } from '../../components/TextField'
-import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
+import { activeTrip, useActiveTrip } from '../../data/activeTrip'
+import { personOf, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
+import { newIdempotencyKey, tripsApi, uploadImage, type NewExpense } from '../../services/tripsService'
 import { PersonToggle } from './PersonToggle'
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from './tripDetailData'
 import { formatINR } from './tripFormat'
-import { tripActions } from './tripStore'
 import './AddExpensePage.css'
 
 type SplitMode = 'equal' | 'amount'
@@ -27,51 +28,86 @@ const grouped = (value: string) => (value ? Number(value).toLocaleString('en-IN'
 
 export function AddExpensePage() {
   const navigate = useNavigate()
+  const { trip } = useActiveTrip()
+  const squad: PersonId[] = trip?.members.map((m) => m.memberId) ?? []
   const receiptInput = useRef<HTMLInputElement>(null)
   const [amount, setAmount] = useState('')
   const [title, setTitle] = useState('')
-  const [paidBy, setPaidBy] = useState<PersonId>('you')
+  const [paidBy, setPaidBy] = useState<PersonId | null>(null)
   const [mode, setMode] = useState<SplitMode>('equal')
-  const [included, setIncluded] = useState<PersonId[]>(SQUAD)
+  // null = everyone, so mates who join while the form is open are included too
+  const [included, setIncluded] = useState<PersonId[] | null>(null)
   const [custom, setCustom] = useState<Partial<Record<PersonId, string>>>({})
   const [category, setCategory] = useState<ExpenseCategory>('food')
   const [receipt, setReceipt] = useState<string | null>(null)
+  const [receiptKey, setReceiptKey] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // One key per form, so a retried save can't record the expense twice
+  const [idempotencyKey] = useState(newIdempotencyKey)
 
+  const payer = paidBy ?? trip?.memberId ?? null
+  const inSplit = included ?? squad
   const total = Number(amount) || 0
-  const equalShare = included.length ? total / included.length : 0
-  const assigned = SQUAD.reduce((sum, id) => sum + (Number(custom[id]) || 0), 0)
+  const equalShare = inSplit.length ? total / inSplit.length : 0
+  const assigned = squad.reduce((sum, id) => sum + (Number(custom[id]) || 0), 0)
   const remaining = total - assigned
-  const splitValid = mode === 'equal' ? included.length > 0 : remaining === 0
-  const canSave = total > 0 && title.trim().length > 0 && splitValid
+  const splitValid = mode === 'equal' ? inSplit.length > 0 : remaining === 0
+  const canSave = !!trip && !!payer && total > 0 && title.trim().length > 0 && splitValid && !uploading && !saving
 
   const back = () => navigate('trip/expenses')
 
   const toggleIncluded = (id: PersonId) =>
-    setIncluded((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : SQUAD.filter((p) => p === id || prev.includes(p))))
+    setIncluded(inSplit.includes(id) ? inSplit.filter((p) => p !== id) : squad.filter((p) => p === id || inSplit.includes(p)))
 
-  const save = () => {
-    const shares = Object.fromEntries(
+  // The receipt goes straight to the bucket as soon as it's picked; the expense only carries its key
+  const pickReceipt = async (file: File) => {
+    if (!trip) return
+    setReceipt(URL.createObjectURL(file))
+    setReceiptKey(null)
+    setUploading(true)
+    setError(null)
+    try {
+      setReceiptKey((await uploadImage(trip.id, 'receipt', file)).key)
+    } catch (err) {
+      setReceipt(null)
+      setError(err instanceof Error ? err.message : 'Receipt upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const save = async () => {
+    if (!trip || !payer) return
+    // Amounts are whole rupees on screen; the ledger works in paise and splits equally without losing any
+    const split: NewExpense['split'] =
       mode === 'equal'
-        ? included.map((id) => [id, Math.round(equalShare)])
-        : SQUAD.filter((id) => Number(custom[id])).map((id) => [id, Number(custom[id])]),
-    )
-    // TODO: sync to the expenses service and notify the squad
-    tripActions.addExpense({
-      id: `expense-${Date.now().toString(36)}`,
-      title: title.trim(),
-      amount: total,
-      paidBy,
-      category,
-      shares,
-      receipt,
-    })
-    back()
+        ? { type: 'equal', participants: inSplit.map((memberId) => ({ memberId })) }
+        : {
+            type: 'exact',
+            participants: squad.filter((id) => Number(custom[id])).map((memberId) => ({ memberId, value: Number(custom[memberId]) * 100 })),
+          }
+    setSaving(true)
+    setError(null)
+    try {
+      await tripsApi.addExpense(
+        trip.id,
+        { description: title.trim(), amountPaise: total * 100, payerMemberId: payer, category, split, receiptKey: receiptKey ?? undefined },
+        idempotencyKey,
+      )
+      void activeTrip.refreshMoney()
+      back()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save the expense')
+      setSaving(false)
+    }
   }
 
   let splitNote: string
   if (mode === 'equal') {
-    splitNote = included.length
-      ? `${formatINR(total)} ÷ ${included.length} = ${formatINR(equalShare)} each`
+    splitNote = inSplit.length
+      ? `${formatINR(total)} ÷ ${inSplit.length} = ${formatINR(equalShare)} each`
       : 'Pick at least one person'
   } else if (remaining > 0) {
     splitNote = `${formatINR(remaining)} left to assign`
@@ -83,7 +119,7 @@ export function AddExpensePage() {
 
   return (
     <OnboardingLayout
-      eyebrow="Goa Gang · Expenses"
+      eyebrow={`${trip?.groupName ?? 'Trip'} · Expenses`}
       title="Add expense"
       onBack={back}
       headerBg={headerBg}
@@ -91,7 +127,7 @@ export function AddExpensePage() {
       bodyClassName="add-expense__body"
       actions={
         <Button variant="primary" disabled={!canSave} onClick={save}>
-          Save expense
+          {saving ? 'Saving…' : uploading ? 'Uploading receipt…' : 'Save expense'}
         </Button>
       }
     >
@@ -111,9 +147,9 @@ export function AddExpensePage() {
           />
         </span>
         <span className="add-expense__amount-note">
-          {total > 0 && mode === 'equal' && included.length
-            ? `Split ${included.length} ways · ${formatINR(equalShare)} each`
-            : 'Goa Gang · 5 mates'}
+          {total > 0 && mode === 'equal' && inSplit.length
+            ? `Split ${inSplit.length} ways · ${formatINR(equalShare)} each`
+            : `${trip?.groupName ?? 'Trip'} · ${squad.length} ${squad.length === 1 ? 'mate' : 'mates'}`}
         </span>
       </label>
 
@@ -122,8 +158,8 @@ export function AddExpensePage() {
       <div className="add-expense__group">
         <p className="add-expense__label">Paid by</p>
         <div className="add-expense__people" role="group" aria-label="Paid by">
-          {SQUAD.map((id) => (
-            <PersonToggle key={id} person={id} label="Paid by" selected={paidBy === id} onClick={() => setPaidBy(id)} />
+          {squad.map((id) => (
+            <PersonToggle key={id} person={id} label="Paid by" selected={payer === id} onClick={() => setPaidBy(id)} />
           ))}
         </div>
       </div>
@@ -146,16 +182,17 @@ export function AddExpensePage() {
           </div>
         </div>
         <ul className="card add-expense__split">
-          {SQUAD.map((id) => {
-            const isIn = included.includes(id)
+          {squad.map((id) => {
+            const isIn = inSplit.includes(id)
+            const { name } = personOf(id)
             return (
               <li key={id} className="add-expense__share">
                 <Avatar person={id} size={34} />
                 <span className="add-expense__share-text">
-                  <span className="add-expense__share-name">{PEOPLE[id].name}</span>
+                  <span className="add-expense__share-name">{name}</span>
                   {mode === 'equal' && (
                     <span className="add-expense__share-note">
-                      {isIn ? `${id === paidBy ? 'Paid · share' : 'Owes'} ${formatINR(equalShare)}` : 'Not in this one'}
+                      {isIn ? `${id === payer ? 'Paid · share' : 'Owes'} ${formatINR(equalShare)}` : 'Not in this one'}
                     </span>
                   )}
                 </span>
@@ -164,7 +201,7 @@ export function AddExpensePage() {
                     type="button"
                     className={`add-expense__include${isIn ? ' add-expense__include--on' : ''}`}
                     aria-pressed={isIn}
-                    aria-label={`Include ${PEOPLE[id].name}`}
+                    aria-label={`Include ${name}`}
                     onClick={() => toggleIncluded(id)}
                   >
                     {isIn && <img src={iconCheck} alt="" width={12} height={12} />}
@@ -177,7 +214,7 @@ export function AddExpensePage() {
                       placeholder="0"
                       value={grouped(custom[id] ?? '')}
                       onChange={(e) => setCustom((prev) => ({ ...prev, [id]: digits(e.target.value) }))}
-                      aria-label={`${PEOPLE[id].name}’s share in rupees`}
+                      aria-label={`${name}’s share in rupees`}
                     />
                   </span>
                 )}
@@ -199,7 +236,7 @@ export function AddExpensePage() {
         </div>
       </div>
 
-      {/* TODO: upload the receipt and let GhoomMate read the total from it */}
+      {/* TODO: let GhoomMate read the total from the receipt */}
       <input
         ref={receiptInput}
         type="file"
@@ -208,7 +245,8 @@ export function AddExpensePage() {
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0]
-          if (file) setReceipt(URL.createObjectURL(file))
+          if (file) void pickReceipt(file)
+          e.target.value = ''
         }}
       />
       <button type="button" className="add-expense__receipt" onClick={() => receiptInput.current?.click()}>
@@ -220,10 +258,17 @@ export function AddExpensePage() {
           </span>
         )}
         <span className="add-expense__receipt-text">
-          <span className="add-expense__receipt-title">{receipt ? 'Receipt added' : 'Add receipt photo'}</span>
+          <span className="add-expense__receipt-title">
+            {uploading ? 'Uploading receipt…' : receipt ? 'Receipt added' : 'Add receipt photo'}
+          </span>
           <span className="add-expense__receipt-note">{receipt ? 'Tap to retake' : 'Optional · snap the bill'}</span>
         </span>
       </button>
+      {error && (
+        <p className="add-expense__error" role="alert">
+          {error}
+        </p>
+      )}
     </OnboardingLayout>
   )
 }

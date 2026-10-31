@@ -1,45 +1,47 @@
+import grid2 from '../../assets/figma/photo-grid-2.svg'
 import photoDinner from '../../assets/figma/photo-dinner.svg'
 import photoScooter from '../../assets/figma/photo-scooter.svg'
 import photoScuba from '../../assets/figma/photo-scuba.svg'
-import type { PersonId } from '../../data/people'
+import photoVagator from '../../assets/figma/photo-vagator.svg'
+import type { ExpenseCategory, TripSummary } from '../../services/tripsService'
 
-export const BALANCES = [
-  { id: 'owe', label: 'You owe', value: '₹2,340', highlight: false },
-  { id: 'owed', label: 'You’re owed', value: '₹1,150', highlight: true },
-  { id: 'total', label: 'Trip total', value: '₹48.6k', highlight: false },
-]
-
-export const SETTLE_ALL = {
-  dues: 3,
-  net: '₹1,190',
+export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  food: 'Food',
+  stays: 'Stays',
+  travel: 'Travel',
+  fun: 'Fun',
+  other: 'Other',
 }
 
-export type Settlement = {
-  id: string
-  from: PersonId
-  to: PersonId
-  note: string
-  amount: string
-  incoming: boolean
+export const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+  food: 'var(--color-primary)',
+  stays: 'var(--color-sky)',
+  travel: 'var(--color-amber)',
+  fun: 'var(--color-sky-light)',
+  other: 'var(--color-subtle)',
 }
 
-export const SETTLEMENTS: Settlement[] = [
-  { id: 'you-kabir', from: 'you', to: 'kabir', note: 'Auto-simplified', amount: '₹1,890', incoming: false },
-  { id: 'you-meera', from: 'you', to: 'meera', note: 'Auto-simplified', amount: '₹450', incoming: false },
-  { id: 'riya-you', from: 'riya', to: 'you', note: 'Incoming via UPI', amount: '+₹1,150', incoming: true },
-]
+/** Thumbnail for an expense without a receipt photo */
+export const CATEGORY_PHOTOS: Record<ExpenseCategory, string> = {
+  food: photoDinner,
+  stays: grid2,
+  travel: photoScooter,
+  fun: photoScuba,
+  other: photoVagator,
+}
 
-export const TRANSFERS_SAVED = 4
+/** ₹48,600 → "₹48.6k" for the compact header stats */
+export function compactINR(rupees: number) {
+  if (rupees >= 100_000) return `₹${(rupees / 100_000).toFixed(rupees >= 1_000_000 ? 0 : 1).replace(/\.0$/, '')}L`
+  if (rupees >= 10_000) return `₹${(rupees / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  return `₹${Math.round(rupees).toLocaleString('en-IN')}`
+}
 
-export const CATEGORIES = [
-  { id: 'food', label: 'Food', percent: 42, color: 'var(--color-primary)' },
-  { id: 'stays', label: 'Stays', percent: 30, color: 'var(--color-sky)' },
-  { id: 'travel', label: 'Travel', percent: 18, color: 'var(--color-amber)' },
-  { id: 'fun', label: 'Fun', percent: 10, color: 'var(--color-sky-light)' },
-]
-
-export const EXPENSES = [
-  { id: 'scuba', title: 'Scuba diving', detail: 'Kabir paid · split 4 ways · Fun', amount: '₹6,000', photo: photoScuba },
-  { id: 'dinner', title: 'Beach-shack dinner', detail: 'You paid · split 5 ways · Food', amount: '₹3,200', photo: photoDinner },
-  { id: 'scooter', title: 'Scooter rentals', detail: 'Dev paid · split 5 ways · Travel', amount: '₹1,500', photo: photoScooter },
-]
+/** Your outgoing and incoming suggested transfers, in rupees */
+export function myDues(summary: TripSummary) {
+  const me = summary.memberId
+  const owe = summary.transfers.filter((t) => t.fromMemberId === me)
+  const owed = summary.transfers.filter((t) => t.toMemberId === me)
+  const sum = (list: typeof owe) => list.reduce((total, t) => total + t.amountPaise, 0) / 100
+  return { owe, owed, oweTotal: sum(owe), owedTotal: sum(owed) }
+}

@@ -347,3 +347,12 @@
   height: 100%;
   text-align: left;
 }
+
+.home__error {
+  padding: 12px 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}

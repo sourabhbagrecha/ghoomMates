@@ -6,57 +6,77 @@ import iconLink from '../../assets/figma/icon-link-white.svg'
 import iconQr from '../../assets/figma/icon-qr.svg'
 import iconSettings from '../../assets/figma/icon-settings-primary.svg'
 import { Avatar } from '../../components/Avatar'
+import { InviteQr } from '../../components/InviteQr'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
-import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
-import { useNavigate } from '../../hooks/navigation'
+import { Skeleton } from '../../components/states/Skeleton'
 import { Toast } from '../../components/Toast'
-import { DUES, INCOMING, INVITE_LINK, MEMBERS, TRIP_DEPOSIT, TRIP_INFO } from './tripDetailData'
-import { lastTripTab } from './lastTab'
-import { useTripStore } from './tripStore'
+import { useActiveTrip } from '../../data/activeTrip'
+import { personOf } from '../../data/people'
+import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
+import type { TripSummary } from '../../services/tripsService'
+import { lastTripTab } from './lastTab'
+import { formatINR } from './tripFormat'
 import './MembersPage.css'
 
 type Balance = { label: string; tone: 'settled' | 'incoming' | 'due' | 'neutral' }
 
-function balanceFor(id: PersonId, settled: boolean): Balance {
-  if (id === 'you') return { label: 'That’s you', tone: 'neutral' }
-  const due = DUES.find((d) => d.to === id)
-  const incoming = INCOMING.find((d) => d.from === id)
-  if (settled || (!due && !incoming)) return { label: 'Settled', tone: 'settled' }
-  if (incoming) return { label: `${incoming.amount} to you`, tone: 'incoming' }
-  return { label: `You owe ${due?.amount}`, tone: 'due' }
+/** Where you stand with one mate, from the suggested transfers */
+function balanceFor(memberId: string, summary: TripSummary | null): Balance {
+  if (!summary) return { label: '…', tone: 'neutral' }
+  if (memberId === summary.memberId) return { label: 'That’s you', tone: 'neutral' }
+  const due = summary.transfers.find((t) => t.fromMemberId === summary.memberId && t.toMemberId === memberId)
+  const incoming = summary.transfers.find((t) => t.toMemberId === summary.memberId && t.fromMemberId === memberId)
+  if (incoming) return { label: `${formatINR(incoming.amountPaise / 100)} to you`, tone: 'incoming' }
+  if (due) return { label: `You owe ${formatINR(due.amountPaise / 100)}`, tone: 'due' }
+  return { label: 'Settled', tone: 'settled' }
 }
+
+const joinedOn = (iso?: string) =>
+  iso ? `Joined ${new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''
 
 export function MembersPage() {
   const navigate = useNavigate()
-  const { tripName, settledVia } = useTripStore()
+  const { trip, summary } = useActiveTrip()
   const [toast, showToast] = useToast()
   const [showQr, setShowQr] = useState(false)
+  const members = trip?.members ?? []
 
-  const copyLink = () => {
-    // TODO: generate a per-trip invite link on the server
-    navigator.clipboard?.writeText(INVITE_LINK).catch(() => {})
+  const shareLink = async () => {
+    if (!trip) return
+    const text = `Join ${trip.groupName} on Ghoomates for ${trip.name}!`
+    // The native share sheet on phones; copying works everywhere else
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: trip.name, text, url: trip.inviteUrl })
+        return
+      } catch (err) {
+        if ((err as DOMException)?.name === 'AbortError') return
+      }
+    }
+    navigator.clipboard?.writeText(trip.inviteUrl).catch(() => {})
     showToast('Invite link copied')
   }
 
   return (
     <>
       <OnboardingLayout
-        eyebrow={`${tripName} · ${SQUAD.length} mates`}
-        title={TRIP_INFO.group}
+        eyebrow={trip ? `${trip.name} · ${members.length} ${members.length === 1 ? 'mate' : 'mates'}` : 'Squad'}
+        title={trip?.groupName ?? 'Your squad'}
         onBack={() => navigate(`trip/${lastTripTab()}`)}
         headerBg={headerBg}
         headerHeight={262}
         headerExtra={
           <div className="members__invite">
-            <button type="button" className="members__invite-button" onClick={copyLink}>
+            <button type="button" className="members__invite-button" disabled={!trip} onClick={() => void shareLink()}>
               <img src={iconLink} alt="" width={18} height={18} />
-              Copy invite link
+              Share invite link
             </button>
             <button
               type="button"
               className={`members__invite-button${showQr ? ' members__invite-button--on' : ''}`}
               aria-pressed={showQr}
+              disabled={!trip}
               onClick={() => setShowQr((v) => !v)}
             >
               <img src={iconQr} alt="" width={18} height={18} />
@@ -66,44 +86,46 @@ export function MembersPage() {
         }
         bodyClassName="members__body"
       >
-        {showQr && (
+        {showQr && trip && (
           <section className="card members__qr">
-            <InviteQr />
-            <p className="members__qr-title">Scan to join the {TRIP_INFO.group}</p>
-            <p className="members__qr-link">{INVITE_LINK.replace('https://', '')}</p>
+            <InviteQr value={trip.inviteUrl} className="members__qr-code" inkClassName="members__qr-ink" />
+            <p className="members__qr-title">Scan to join the {trip.groupName}</p>
+            <p className="members__qr-link">{trip.inviteUrl.replace(/^https?:\/\//, '')}</p>
           </section>
         )}
 
         <section className="card members__list">
           <h2 className="overline">The squad</h2>
-          <ul>
-            {MEMBERS.map((m) => {
-              const balance = balanceFor(m.id, !!settledVia)
-              return (
-                <li key={m.id} className="member">
-                  <Avatar person={m.id} size={40} />
-                  <div className="member__text">
-                    <p className="member__name">
-                      {PEOPLE[m.id].name}
-                      <span className="tag">{m.role}</span>
-                    </p>
-                    <p className="member__meta">
-                      {m.vibe} ·{' '}
-                      {m.depositPaid ? (
-                        `${TRIP_DEPOSIT} deposit paid`
-                      ) : (
-                        <span className="member__pending">Deposit pending</span>
-                      )}
-                    </p>
-                  </div>
-                  <span className={`member__balance member__balance--${balance.tone}`}>
-                    {balance.tone === 'settled' && <img src={iconCheck} alt="" width={12} height={12} />}
-                    {balance.label}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
+          {!trip ? (
+            <Skeleton variant="card" height={120} />
+          ) : (
+            <ul>
+              {members.map((m) => {
+                const balance = balanceFor(m.memberId, summary)
+                return (
+                  <li key={m.memberId} className="member">
+                    <Avatar person={m.memberId} size={40} />
+                    <div className="member__text">
+                      <p className="member__name">
+                        {m.memberId === trip.memberId ? m.name : personOf(m.memberId).name}
+                        <span className="tag">{m.role === 'organiser' ? 'Organiser' : 'Mate'}</span>
+                      </p>
+                      <p className="member__meta">
+                        {[m.persona, joinedOn(m.joinedAt)].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    <span className={`member__balance member__balance--${balance.tone}`}>
+                      {balance.tone === 'settled' && <img src={iconCheck} alt="" width={12} height={12} />}
+                      {balance.label}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {trip && members.length === 1 && (
+            <p className="member__meta">Just you so far. Share the link or QR and mates join in one tap.</p>
+          )}
         </section>
 
         <button type="button" className="list-card members__settings" onClick={() => navigate('trip/settings')}>
@@ -119,38 +141,5 @@ export function MembersPage() {
       </OnboardingLayout>
       <Toast message={toast} />
     </>
-  )
-}
-
-const QR_SIZE = 25
-
-/** Placeholder QR: finder squares plus a fixed pseudo-random pattern. */
-function InviteQr() {
-  // TODO: render a real QR code for the invite link
-  const inFinder = (x: number, y: number) =>
-    (x < 8 && y < 8) || (x >= QR_SIZE - 8 && y < 8) || (x < 8 && y >= QR_SIZE - 8)
-  const cells: [number, number][] = []
-  for (let y = 0; y < QR_SIZE; y++) {
-    for (let x = 0; x < QR_SIZE; x++) {
-      if (!inFinder(x, y) && (x * 7 + y * 13 + ((x * y) % 5)) % 3 === 0) cells.push([x, y])
-    }
-  }
-  const finder = (x: number, y: number) => (
-    <g key={`${x}-${y}`}>
-      <rect x={x} y={y} width={7} height={7} rx={1.5} className="members__qr-ink" />
-      <rect x={x + 1} y={y + 1} width={5} height={5} rx={1} className="members__qr-paper" />
-      <rect x={x + 2} y={y + 2} width={3} height={3} rx={0.6} className="members__qr-ink" />
-    </g>
-  )
-
-  return (
-    <svg className="members__qr-code" viewBox={`0 0 ${QR_SIZE} ${QR_SIZE}`} width={168} height={168} role="img" aria-label="Invite QR code">
-      {cells.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} className="members__qr-ink" />
-      ))}
-      {finder(0, 0)}
-      {finder(QR_SIZE - 7, 0)}
-      {finder(0, QR_SIZE - 7)}
-    </svg>
   )
 }

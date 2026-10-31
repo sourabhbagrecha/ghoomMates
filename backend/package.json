@@ -14,7 +14,9 @@
     "test:connection": "node scripts/test-db-connection.ts",
     "test:flow": "node scripts/test-api.ts",
     "db:cli": "node scripts/db-cli.ts",
-    "psql": "node scripts/db-cli.ts"
+    "psql": "node scripts/db-cli.ts",
+    "test:trips": "node --test --test-timeout=120000 --test-concurrency=1 tests/trips",
+    "test:media": "node scripts/test-media.ts"
   },
   "engines": {
     "node": ">=22.18.0"
@@ -27,6 +29,7 @@
   },
   "dependencies": {
     "@google-cloud/cloud-sql-connector": "^1.12.1",
+    "@google-cloud/storage": "^7.22.0",
     "express": "^5",
     "pg": "^8.23.1"
   }

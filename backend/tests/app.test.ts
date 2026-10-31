@@ -19,7 +19,7 @@ test('routes /api/* to expenses and /auth/* to auth', async () => {
     assert.equal(health.headers.get('cache-control'), 'no-store');
     const body = await health.json();
     assert.equal(body.status, 'ok');
-    assert.deepEqual(body.modules, { auth: 'enabled', expenses: 'enabled' });
+    assert.deepEqual(body.modules, { auth: 'enabled', trips: 'disabled', expenses: 'enabled' });
 
     const missing = await server.request('/nope');
     assert.equal(missing.status, 404);

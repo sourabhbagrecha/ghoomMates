@@ -3,8 +3,19 @@ import { AvatarStack } from '../../components/Avatar'
 import { Button } from '../../components/Button'
 import { Chip } from '../../components/Chip'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { personaFor, VIBE_AXES, type VibeAxis } from '../../data/vibe'
+import { loadVibe } from '../../services/vibeStorage'
 import { SPIDERWEB_LABELS, VIBE, type TripDetails } from './createTripData'
 import './VibeStep.css'
+
+const PRIORITIES: Record<VibeAxis, { title: string; detail: string }> = {
+  adventure: { title: 'One big adventure a day', detail: 'Treks, water sports and the best viewpoints' },
+  food: { title: 'Local food over tourist traps', detail: 'Street food, regional thalis and cafés locals love' },
+  nightlife: { title: 'Fun nights out', detail: 'Live music and the liveliest spots after dark' },
+  culture: { title: 'History and local culture', detail: 'Forts, temples, museums and old-town walks' },
+  chill: { title: 'Easy, unhurried pacing', detail: 'Sunsets, cafés and slow mornings' },
+  shops: { title: 'Time for markets', detail: 'Local crafts and souvenir stops' },
+}
 
 type VibeStepProps = {
   trip: TripDetails
@@ -14,7 +25,10 @@ type VibeStepProps = {
 }
 
 export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
-  const squad = ['you' as const, ...trip.mates]
+  // Your quiz result shapes the first draft; mates' vibes blend in as they join
+  const vibe = loadVibe()
+  const top = vibe ? [...VIBE_AXES].sort((a, b) => vibe[b.id] - vibe[a.id]).slice(0, 3) : null
+  const priorities = top ? top.map((a) => PRIORITIES[a.id]) : VIBE.priorities
 
   const toggleTweak = (id: string) =>
     onChange({ tweaks: trip.tweaks.includes(id) ? trip.tweaks.filter((t) => t !== id) : [...trip.tweaks, id] })
@@ -23,7 +37,7 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
     <OnboardingLayout
       eyebrow="New trip · Step 4 of 4"
       title="Your squad’s vibe"
-      subtitle="I blended everyone’s vibe checks into one plan style."
+      subtitle="I’ll blend everyone’s vibe checks into one plan style."
       step={4}
       onBack={onBack}
       bodyClassName="create-vibe__body"
@@ -37,8 +51,8 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
         <div className="create-vibe-card__top">
           <p className="overline">Squad spiderweb</p>
           <span className="create-vibe-card__squad">
-            <AvatarStack people={squad} size={18} overlap={6} />
-            {squad.length} vibe checks
+            <AvatarStack people={['you']} size={18} overlap={6} />
+            {vibe ? 'Your vibe check' : 'Sample vibe'}
           </span>
         </div>
         <div
@@ -63,8 +77,10 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
             You
           </span>
         </div>
-        <h2 className="create-vibe-card__persona">{VIBE.persona}</h2>
-        <p className="create-vibe-card__summary">{VIBE.summary}</p>
+        <h2 className="create-vibe-card__persona">{vibe ? personaFor(vibe) : VIBE.persona}</h2>
+        <p className="create-vibe-card__summary">
+          {vibe ? 'Mates who join add their vibe, and the plan adapts to the whole squad.' : VIBE.summary}
+        </p>
       </section>
 
       <section className="card create-priorities" aria-labelledby="create-priorities-title">
@@ -72,7 +88,7 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
           GhoomMate will prioritise
         </h2>
         <ol className="create-priorities__list">
-          {VIBE.priorities.map((p, i) => (
+          {priorities.map((p, i) => (
             <li key={p.title} className="create-priorities__item">
               <span className="create-priorities__number" aria-hidden="true">
                 {i + 1}

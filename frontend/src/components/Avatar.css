@@ -24,3 +24,13 @@
 .avatar-stack > .avatar:not(:last-child) {
   margin-right: var(--avatar-overlap);
 }
+
+.avatar {
+  overflow: hidden;
+}
+
+.avatar__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

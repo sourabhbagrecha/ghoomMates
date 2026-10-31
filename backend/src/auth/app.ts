@@ -44,8 +44,13 @@ function cors(clientOrigin: string): RequestHandler {
   };
 }
 
+export type AuthAppConfig = OAuthServiceConfig & {
+  // Called after a profile update that changed the picture (e.g. to copy the selfie to media storage).
+  onPictureSaved?: (userId: string, picture: string) => void;
+};
+
 // Google OAuth and user profile routes. Mount under /auth.
-export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
+export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
   const service = new OAuthService(db, config);
   const clientOrigin = config.clientOrigin || 'http://localhost:5173';
   const router = Router();
@@ -181,6 +186,7 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
     if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim();
     logger.info('Auth', `Updating profile for user ${res.locals.user.email} (${res.locals.user.id}): keys=[${Object.keys(patch).join(', ')}]`);
     const updated = await service.updateProfile(res.locals.user.id, patch);
+    if (patch.picture) config.onPictureSaved?.(updated.id, patch.picture);
     logger.info('Auth', `Profile updated successfully for user ${res.locals.user.email}`);
     res.json({ user: updated });
   };

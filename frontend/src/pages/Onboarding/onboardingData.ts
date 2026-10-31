@@ -6,7 +6,6 @@ import iconMicPrimary from '../../assets/figma/icon-mic-primary.svg'
 import iconScanFace from '../../assets/figma/icon-scan-face-primary-20.svg'
 import iconVote from '../../assets/figma/icon-vote-primary.svg'
 import iconWallet from '../../assets/figma/icon-wallet-primary.svg'
-import type { PersonId } from '../../data/people'
 
 export type OnboardingStep = 'welcome' | 'sign-in' | 'selfie' | 'about-you' | 'permissions' | 'invite'
 
@@ -48,28 +47,6 @@ export const PERMISSIONS: { id: PermissionId; title: string; description: string
   { id: 'photos', title: 'Photos', description: 'Find and share your trip pics', icon: iconImage },
   { id: 'location', title: 'Location', description: 'Live trip map and spots nearby', icon: iconMapPin },
 ]
-
-export const INVITE: {
-  from: PersonId
-  group: string
-  members: PersonId[]
-  trip: string
-  dates: string
-  place: string
-  badge: string
-  vibe: string
-  match: number
-} = {
-  from: 'riya',
-  group: 'Goa Gang',
-  members: ['riya', 'kabir', 'meera', 'dev'],
-  trip: 'Goa Trip',
-  dates: 'Fri 30 Oct – Mon 2 Nov',
-  place: 'North Goa, India',
-  badge: '4 days · 5 mates',
-  vibe: 'The Thrill-Seeking Foodies',
-  match: 92,
-}
 
 /** "9876543210" → "98765 43210" */
 export const formatPhone = (digits: string) =>

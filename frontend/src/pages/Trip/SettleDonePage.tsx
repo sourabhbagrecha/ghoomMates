@@ -2,17 +2,17 @@ import iconCheckBig from '../../assets/figma/icon-check-big-primary.svg'
 import iconCheck from '../../assets/figma/icon-check-success.svg'
 import { Button } from '../../components/Button'
 import { TopSafeArea } from '../../components/TopSafeArea'
-import { PEOPLE } from '../../data/people'
+import { personOf } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { DUES, INCOMING, NET_PAYMENT, UPI_APPS } from './tripDetailData'
 import { formatINR } from './tripFormat'
-import { useTripStore } from './tripStore'
+import { lastSettlement } from './settleResult'
 import './SettleDonePage.css'
 
 export function SettleDonePage() {
   const navigate = useNavigate()
-  const { settledVia } = useTripStore()
-  const appName = UPI_APPS.find((a) => a.id === settledVia)?.name ?? 'UPI'
+  const result = lastSettlement()
+  const transfers = result?.transfers ?? []
+  const total = transfers.reduce((sum, t) => sum + t.amountPaise, 0) / 100
 
   return (
     <div className="settle-done">
@@ -22,27 +22,22 @@ export function SettleDonePage() {
           <span className="settle-done__check">
             <img src={iconCheckBig} alt="" width={44} height={44} />
           </span>
-          <p className="settle-done__eyebrow">Payment sent</p>
-          <h1 className="settle-done__amount">{formatINR(NET_PAYMENT)}</h1>
-          <p className="settle-done__via">via {appName} · You’re all squared up</p>
+          <p className="settle-done__eyebrow">Payment recorded</p>
+          <h1 className="settle-done__amount">{formatINR(total)}</h1>
+          <p className="settle-done__via">via {result?.via ?? 'UPI'} · You’re all squared up</p>
         </div>
 
-        <ul className="card settle-done__summary">
-          {DUES.map((d) => (
-            <li key={d.id}>
-              <img src={iconCheck} alt="" width={14} height={14} />
-              <span>{PEOPLE[d.to].name} settled</span>
-              <span className="settle-done__value">{d.amount}</span>
-            </li>
-          ))}
-          {INCOMING.map((d) => (
-            <li key={d.id}>
-              <img src={iconCheck} alt="" width={14} height={14} />
-              <span>{PEOPLE[d.from].name}’s share netted off</span>
-              <span className="settle-done__value settle-done__value--incoming">{d.amount}</span>
-            </li>
-          ))}
-        </ul>
+        {transfers.length > 0 && (
+          <ul className="card settle-done__summary">
+            {transfers.map((t) => (
+              <li key={t.toMemberId}>
+                <img src={iconCheck} alt="" width={14} height={14} />
+                <span>{personOf(t.toMemberId).name} settled</span>
+                <span className="settle-done__value">{formatINR(t.amountPaise / 100)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </main>
       <footer className="settle-done__actions">
         <Button variant="highlight" onClick={() => navigate('trip/expenses')}>

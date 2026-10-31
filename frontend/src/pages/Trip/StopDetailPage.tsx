@@ -2,38 +2,66 @@ import iconClock from '../../assets/figma/icon-clock-sky.svg'
 import iconMapPinSky from '../../assets/figma/icon-map-pin-sky.svg'
 import iconNavigation from '../../assets/figma/icon-navigation-white.svg'
 import iconMapPin from '../../assets/figma/icon-perm-map-pin.svg'
+import { useState } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/Button'
-import { PEOPLE, SQUAD } from '../../data/people'
+import { EmptyState } from '../../components/states/EmptyState'
+import { Skeleton } from '../../components/states/Skeleton'
+import { activeTrip, tripDayLabel, useActiveTrip } from '../../data/activeTrip'
+import { personOf } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { DAYS } from '../Itinerary/itineraryData'
 import { Toast } from '../../components/Toast'
 import { CoverLayout } from '../../components/CoverLayout'
-import { RSVP_OPTIONS } from './tripDetailData'
-import { tripActions, useTripStore } from './tripStore'
+import { tripsApi, type Rsvp } from '../../services/tripsService'
+import { RSVP_OPTIONS, TAG_PHOTOS } from './tripDetailData'
 import { useToast } from '../../hooks/useToast'
 import './StopDetailPage.css'
 
 export function StopDetailPage({ stopId }: { stopId: string }) {
   const navigate = useNavigate()
-  const { stops, rsvp } = useTripStore()
+  const { trip, itinerary } = useActiveTrip()
   const [toast, showToast] = useToast()
-  const stop = stops.find((s) => s.id === stopId)
-  if (!stop) return null
+  const [pending, setPending] = useState<Rsvp | null>(null)
+  const stop = itinerary?.flatMap((d) => d.stops).find((s) => s.id === stopId)
+  if (!trip || !itinerary) return <Skeleton variant="card" height={400} />
+  if (!stop) {
+    return (
+      <EmptyState
+        title="This stop isn’t in the plan anymore"
+        action={{ label: 'Back to itinerary', onClick: () => navigate('trip/itinerary', { replace: true }) }}
+      />
+    )
+  }
 
-  const day = DAYS.find((d) => d.id === stop.dayId)
-  const myRsvp = rsvp[stop.id] ?? 'maybe'
-  const going = stop.people
+  const day = itinerary.find((d) => d.number === stop.dayNumber)
+  const myRsvp = pending ?? stop.myRsvp
+  const going = stop.going
+  const squadSize = trip.members.length
+
+  const setRsvp = async (rsvp: Rsvp) => {
+    setPending(rsvp)
+    try {
+      await tripsApi.rsvp(trip.id, stop.id, rsvp)
+      await activeTrip.loadItinerary()
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save your RSVP')
+    }
+    setPending(null)
+  }
+
+  const directions = () => {
+    const query = [stop.place || stop.title, trip.destination].filter(Boolean).join(', ')
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank', 'noopener')
+  }
 
   return (
     <>
       <CoverLayout
-        cover={stop.photo}
+        cover={TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill}
         onBack={() => navigate('trip/itinerary')}
         overlay={
           <>
-            <span className="tag">{stop.tag}</span>
-            {stop.done && <span className="tag stop-detail__done">Done · {stop.reaction}</span>}
+            {stop.tag && <span className="tag">{stop.tag}</span>}
           </>
         }
         bodyClassName="stop-detail__body"
@@ -46,8 +74,8 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
         <section className="card stop-detail__summary">
           <p className="stop-detail__when">
             <img src={iconClock} alt="" width={14} height={14} />
-            <span className="stop-detail__time">{stop.time}</span>
-            {day && <span>· {day.title}</span>}
+            <span className="stop-detail__time">{stop.time || 'Anytime'}</span>
+            <span>· Day {stop.dayNumber}, {tripDayLabel(trip.startDate, stop.dayNumber)}{day?.title ? ` · ${day.title}` : ''}</span>
           </p>
           <h1 className="stop-detail__title">{stop.title}</h1>
           {stop.place && (
@@ -67,10 +95,9 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
           <div className="stop-detail__map-row">
             <div className="stop-detail__map-text">
               <p className="stop-detail__map-place">{stop.place || 'Location to be added'}</p>
-              {stop.away && <p className="stop-detail__map-away">{stop.away}</p>}
+              {trip.destination && <p className="stop-detail__map-away">{trip.destination}</p>}
             </div>
-            {/* TODO: open the place in Google/Apple Maps */}
-            <button type="button" className="pill-button" onClick={() => showToast('Opening directions in Maps…')}>
+            <button type="button" className="pill-button" onClick={directions}>
               <img src={iconNavigation} alt="" width={14} height={14} />
               Directions
             </button>
@@ -81,14 +108,14 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
           <div className="stop-detail__squad-header">
             <h2 className="overline">Who’s going</h2>
             <span className="stop-detail__count">
-              {going.length} of {SQUAD.length}
+              {going.length} of {squadSize}
             </span>
           </div>
           <ul className="stop-detail__people">
             {going.map((id) => (
               <li key={id}>
                 <Avatar person={id} size={34} />
-                <span>{PEOPLE[id].name}</span>
+                <span>{personOf(id).name}</span>
               </li>
             ))}
             {going.length === 0 && <li className="stop-detail__nobody">Nobody yet</li>}
@@ -103,7 +130,8 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
                   type="button"
                   className={`stop-detail__rsvp-option${myRsvp === option.id ? ' stop-detail__rsvp-option--selected' : ''}`}
                   aria-pressed={myRsvp === option.id}
-                  onClick={() => tripActions.setRsvp(stop.id, option.id)}
+                  disabled={pending !== null}
+                  onClick={() => void setRsvp(option.id)}
                 >
                   {option.label}
                 </button>

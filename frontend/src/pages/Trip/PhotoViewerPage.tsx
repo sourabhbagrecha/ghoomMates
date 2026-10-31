@@ -8,10 +8,9 @@ import iconFilm from '../../assets/figma/icon-film-white.svg'
 import iconShare from '../../assets/figma/icon-share-white.svg'
 import { Avatar } from '../../components/Avatar'
 import { TopSafeArea } from '../../components/TopSafeArea'
-import { PEOPLE } from '../../data/people'
+import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
-import { PHOTO_DETAILS, VIEWER_PHOTOS } from './tripDetailData'
 import { tripActions, useTripStore } from './tripStore'
 import { useToast } from '../../hooks/useToast'
 import './PhotoViewerPage.css'
@@ -19,10 +18,12 @@ import './PhotoViewerPage.css'
 export function PhotoViewerPage({ index }: { index: number }) {
   const navigate = useNavigate()
   const { reelPicks } = useTripStore()
+  const { trip, photos } = useActiveTrip()
   const [toast, showToast] = useToast()
   const touchX = useRef<number | null>(null)
-  const total = VIEWER_PHOTOS.length
-  const detail = PHOTO_DETAILS[index]
+  const total = photos?.items.length ?? 0
+  const photo = photos?.items[index]
+  const uploader = trip?.members.find((m) => m.userId === photo?.uploadedBy.userId)
   const inReel = reelPicks.includes(index)
   const hasPrev = index > 0
   const hasNext = index < total - 1
@@ -39,6 +40,41 @@ export function PhotoViewerPage({ index }: { index: number }) {
 
   // Replace, so Back leaves the viewer instead of stepping through every photo
   const go = (i: number) => navigate(`trip/photos/view/${i}`, { replace: true })
+
+  const share = async () => {
+    if (!photo) return
+    try {
+      // Share the image itself where the browser can (phones), so it doesn't depend on an expiring link
+      const blob = await fetch(photo.url).then((r) => r.blob())
+      const file = new File([blob], `ghoomates-${photo.id}.jpg`, { type: blob.type || 'image/jpeg' })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: trip?.name })
+        return
+      }
+    } catch (err) {
+      if ((err as DOMException)?.name === 'AbortError') return
+    }
+    await navigator.clipboard?.writeText(photo.url).catch(() => {})
+    showToast('Link copied · works for 12 hours')
+  }
+
+  const download = async () => {
+    if (!photo) return
+    try {
+      const blob = await fetch(photo.url).then((r) => r.blob())
+      const url = URL.createObjectURL(blob)
+      const a = Object.assign(document.createElement('a'), { href: url, download: `ghoomates-${photo.id}.${blob.type.split('/')[1] || 'jpg'}` })
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      showToast('Downloaded')
+    } catch {
+      showToast('Download failed. Try again.')
+    }
+  }
+
+  const when = photo
+    ? new Date(photo.createdAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : ''
 
   return (
     <div className="viewer">
@@ -64,7 +100,7 @@ export function PhotoViewerPage({ index }: { index: number }) {
           if (dx < -50 && hasNext) go(index + 1)
         }}
       >
-        <img className="viewer__photo" src={VIEWER_PHOTOS[index]} alt={`Trip photo ${index + 1}: ${detail.caption}`} />
+        {photo && <img className="viewer__photo" src={photo.url} alt={`Trip photo ${index + 1}${photo.caption ? `: ${photo.caption}` : ''}`} />}
         <button
           type="button"
           className="viewer__nav viewer__nav--prev"
@@ -87,28 +123,26 @@ export function PhotoViewerPage({ index }: { index: number }) {
 
       <div className="viewer__info">
         <div>
-          <h1 className="viewer__caption">{detail.caption}</h1>
-          <p className="viewer__time">{detail.time}</p>
+          <h1 className="viewer__caption">{photo?.caption || trip?.name || 'Trip photo'}</h1>
+          <p className="viewer__time">{when}</p>
         </div>
-        <div className="viewer__faces">
-          <p className="overline viewer__overline">In this photo</p>
-          <ul className="viewer__tags no-scrollbar">
-            {detail.people.map((id) => (
-              <li key={id} className="viewer__tag">
-                <Avatar person={id} size={24} />
-                {PEOPLE[id].name}
+        {photo && (
+          <div className="viewer__faces">
+            <p className="overline viewer__overline">Uploaded by</p>
+            <ul className="viewer__tags no-scrollbar">
+              <li className="viewer__tag">
+                {uploader && <Avatar person={uploader.memberId} size={24} />}
+                {uploader?.memberId === trip?.memberId ? 'You' : photo.uploadedBy.name.split(' ')[0]}
               </li>
-            ))}
-          </ul>
-        </div>
+            </ul>
+          </div>
+        )}
         <div className="viewer__actions">
-          {/* TODO: native share sheet */}
-          <button type="button" className="viewer__action" onClick={() => showToast('Share link copied')}>
+          <button type="button" className="viewer__action" disabled={!photo} onClick={() => void share()}>
             <img src={iconShare} alt="" width={20} height={20} />
             Share
           </button>
-          {/* TODO: download the original from storage */}
-          <button type="button" className="viewer__action" onClick={() => showToast('Saved to your phone')}>
+          <button type="button" className="viewer__action" disabled={!photo} onClick={() => void download()}>
             <img src={iconDownload} alt="" width={20} height={20} />
             Download
           </button>

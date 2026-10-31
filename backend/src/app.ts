@@ -8,9 +8,13 @@ export interface ServerModules {
   auth: Router;
   // Internal expense ledger routes, mounted under /api. Omitted when the database or API_KEY is not configured.
   expenses?: Router;
+  // Trip groups for signed-in users, mounted under /api/trips. Omitted without a database.
+  trips?: Router;
+  // Signed upload/download routes for the local media fallback, mounted under /api/media.
+  media?: Router;
 }
 
-export function createServer({ auth, expenses }: ServerModules) {
+export function createServer({ auth, expenses, trips, media }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -27,11 +31,16 @@ export function createServer({ auth, expenses }: ServerModules) {
       status: 'ok',
       service: 'ghoomates-backend',
       version: '0.1.0',
-      modules: { auth: 'enabled', expenses: expenses ? 'enabled' : 'disabled' },
-      endpoints: ['/health', '/auth/*', '/api/groups/*'],
+      modules: { auth: 'enabled', trips: trips ? 'enabled' : 'disabled', expenses: expenses ? 'enabled' : 'disabled' },
+      endpoints: ['/health', '/auth/*', '/api/trips/*', '/api/groups/*'],
     });
   });
 
+  // Mounted before the internal /api ledger, whose service-token check would reject user requests.
+  app.use('/api/trips', trips ?? (() => {
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Trips need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+  }));
+  if (media) app.use('/api/media', media);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));

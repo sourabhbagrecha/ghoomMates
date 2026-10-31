@@ -4,6 +4,8 @@ import { ScreenBackContext } from './components/screenBack'
 import { OfflineBanner } from './components/states/OfflineBanner'
 import { TabBar, type TabId } from './components/TabBar'
 import { VoiceProvider } from './components/voice/VoiceProvider'
+import { activeTrip } from './data/activeTrip'
+import { setYou } from './data/people'
 import { NOTIFICATIONS } from './data/notifications'
 import { EntryRoutesContext, NavigateContext } from './hooks/navigation'
 import { useHashRoute } from './hooks/useHashRoute'
@@ -12,6 +14,7 @@ import { ExpensesPage } from './pages/Expenses/ExpensesPage'
 import { ExplorePage } from './pages/Explore/ExplorePage'
 import { HomePage } from './pages/Home/HomePage'
 import { ItineraryPage } from './pages/Itinerary/ItineraryPage'
+import { JoinTripPage } from './pages/Onboarding/JoinTripPage'
 import { NotificationsPage } from './pages/Notifications/NotificationsPage'
 import { OnboardingFlow } from './pages/Onboarding/OnboardingFlow'
 import { isOnboardingStep } from './pages/Onboarding/onboardingData'
@@ -36,6 +39,7 @@ import {
   type AuthUser,
 } from './services/authService'
 import { getProfileName, hasOnboarded, markOnboarded } from './services/onboardingStorage'
+import { getPendingInvite } from './services/pendingInvite'
 import './App.css'
 
 const PAGES: Record<TabId, ComponentType> = {
@@ -61,12 +65,15 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/quiz[/…]         Personality quiz: intro, cards 1–8, persona (after onboarding; retaken from Profile)
  *   #/profile[/…]      Your profile: edit, settings, help
  *   #/states           Gallery of loading / empty / error / offline states
+ *   #/join[/<code>]    Join a trip from an invite link (works before signing in)
  *   #/auth/callback    OAuth callback redirect
  *   #/<step>           Any onboarding step (welcome, sign-in, selfie, about-you, permissions, invite)
  */
 function App() {
   const [route, navigate, entries] = useHashRoute()
   const [user, setUser] = useState<AuthUser | null>(getStoredUser)
+  // Idempotent: keeps the "you" avatar in step with the signed-in user before anything renders it
+  setYou(user)
   // Read on every render (i.e. every route change) so signing out from Settings takes effect
   const onboarded = hasOnboarded()
   const profile = useProfileStore()
@@ -80,7 +87,11 @@ function App() {
 
   useEffect(() => {
     const unsubscribe = subscribeAuth((u) => {
-      setUser(u)
+      setUser((prev) => {
+        // Signed out or switched accounts: drop the previous user's trips
+        if (!u || (prev && prev.id !== u.id)) activeTrip.reset()
+        return u
+      })
     })
     fetchCurrentUser().then((u) => {
       if (u) {
@@ -89,6 +100,12 @@ function App() {
     })
     return unsubscribe
   }, [])
+
+  // Signed in with an invite still pending (e.g. a returning user who signed in from the invite): open it
+  useEffect(() => {
+    const pending = getPendingInvite()
+    if (route === '' && user && hasOnboarded() && pending) navigate(`join/${pending}`, { replace: true })
+  }, [route, user, navigate])
 
   // Process OAuth callback from Google
   useEffect(() => {
@@ -153,13 +170,15 @@ function App() {
   const [section, sub] = segments
   // Any onboarding or quiz screen can be opened directly; otherwise new users start at welcome
   const quizRoute = parseQuizRoute(route)
-  // Help & FAQ is also reachable from sign-in, before the user has an account
-  const openBeforeSignUp = quizRoute || route === 'profile/help'
+  // Help & FAQ is also reachable from sign-in, before the user has an account, and so are invite links
+  const openBeforeSignUp = quizRoute || route === 'profile/help' || section === 'join'
   const onboardingStep = isOnboardingStep(route) ? route : onboarded || openBeforeSignUp ? null : 'welcome'
   const goHome = () => navigate('')
 
   // Detail screens inside the trip (stop, add expense, photo viewer, members, …). TripDetailRoutes
   // is hook-free and returns null for paths it doesn't handle, which then fall back to a tab.
+  // Trip screens need an open trip; without one they fall back to Home
+  const hasTrip = !!activeTrip.get().tripId
   const tripDetail =
     section === 'trip' && (segments.length > 2 || (sub && !isTab(sub))) ? TripDetailRoutes({ path: segments.slice(1) }) : null
 
@@ -196,12 +215,22 @@ function App() {
   } else if (quizRoute) {
     // Retaking the quiz from Profile returns there; after onboarding it goes Home
     const fromProfile = (entries.quiz ?? '').startsWith('profile')
-    screen = <QuizFlow route={quizRoute} go={navigate} onDone={() => navigate(fromProfile ? 'profile' : '')} />
+    // An invite opened before signing up is picked up again once the quiz is done
+    const pending = getPendingInvite()
+    screen = (
+      <QuizFlow
+        route={quizRoute}
+        go={navigate}
+        onDone={() => navigate(fromProfile ? 'profile' : pending ? `join/${pending}` : '')}
+      />
+    )
+  } else if (section === 'join') {
+    screen = <JoinTripPage key={sub ?? ''} code={sub} />
   } else if (pastTrip) {
     screen = pastTrip
-  } else if (tripDetail) {
+  } else if (tripDetail && hasTrip) {
     screen = tripDetail
-  } else if (section === 'trip') {
+  } else if (section === 'trip' && hasTrip) {
     const tab = isTab(sub) ? sub : 'itinerary'
     rememberTripTab(tab)
     const Page = PAGES[tab]
@@ -231,8 +260,11 @@ function App() {
           unread={unread}
           empty={route === 'home/empty'}
           onOpenNotifications={() => navigate('notifications')}
-          onOpenTrip={(tab) => navigate(`trip/${tab}`)}
-          onHaveInvite={() => navigate('invite')}
+          onOpenTrip={(tripId, tab) => {
+            activeTrip.open(tripId)
+            navigate(`trip/${tab}`)
+          }}
+          onHaveInvite={() => navigate('join')}
         />
         <GhoomMateFab />
       </>

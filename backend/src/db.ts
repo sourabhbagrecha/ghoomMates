@@ -16,9 +16,12 @@ const MIGRATIONS_DIR = resolve(import.meta.dirname, '../migrations');
 const MIGRATION_LOCK = 7_253_610;
 
 // int8 columns (balances, amounts, sequences) are kept within Number.MAX_SAFE_INTEGER by the services.
+// date columns stay plain YYYY-MM-DD strings instead of local-midnight Date objects.
 const types = {
   getTypeParser: ((oid: number, format?: 'text' | 'binary') =>
-    oid === pg.types.builtins.INT8 ? Number : pg.types.getTypeParser(oid, format as 'text')) as typeof pg.types.getTypeParser,
+    oid === pg.types.builtins.INT8 ? Number
+      : oid === pg.types.builtins.DATE ? (value: string) => value
+      : pg.types.getTypeParser(oid, format as 'text')) as typeof pg.types.getTypeParser,
 };
 
 export function isDatabaseConfigured(env = process.env) {

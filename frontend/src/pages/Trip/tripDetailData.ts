@@ -8,48 +8,10 @@ import photoSeafood from '../../assets/figma/photo-seafood.svg'
 import photoSunrise from '../../assets/figma/photo-sunrise.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
 import type { PersonId } from '../../data/people'
-import { LIVE_TRIP } from '../../data/trips'
-import { SETTLEMENTS } from '../Expenses/expensesData'
 import { GUIDE_TRIP } from '../Explore/exploreData'
-import { DAYS, type Stop } from '../Itinerary/itineraryData'
-import { PHOTOS, REEL } from '../Photos/photosData'
+import { REEL } from '../Photos/photosData'
 
-/** Stop with the extra detail the stop screen needs. Seeded from the itinerary data. */
-export type TripStop = Stop & {
-  dayId: string
-  place: string
-  notes: string
-  /** Travel time from where the squad is staying */
-  away: string
-}
-
-const STOP_EXTRAS: Record<string, Pick<TripStop, 'place' | 'notes' | 'away'>> = {
-  'chapora-sunrise': {
-    place: 'Chapora Fort, Vagator',
-    notes: 'Leave by 5:30 AM. Steep last stretch, wear proper shoes and carry water. Chai stall at the bottom opens at 7.',
-    away: '15 min by scooter',
-  },
-  'seafood-crawl': {
-    place: 'Baga beach shacks',
-    notes: 'Start at Britto’s, then Souza Lobo. Kabir wants the tiger prawns. Budget about ₹800 each.',
-    away: '10 min by scooter',
-  },
-  'mandovi-cruise': {
-    place: 'Santa Monica Jetty, Panaji',
-    notes: 'Boarding closes at 5:15 PM. Tickets are with Riya. Live Goan music on the top deck.',
-    away: '35 min by cab',
-  },
-}
-
-export const SEED_STOPS: TripStop[] = DAYS.flatMap((day) =>
-  day.stops.map((stop) => ({
-    ...stop,
-    dayId: day.id,
-    ...(STOP_EXTRAS[stop.id] ?? { place: '', notes: '', away: '' }),
-  })),
-)
-
-export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops']
+export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel']
 
 /** Placeholder photo for a new stop, by tag */
 export const TAG_PHOTOS: Record<string, string> = {
@@ -59,6 +21,8 @@ export const TAG_PHOTOS: Record<string, string> = {
   Culture: grid4,
   Nightlife: photoNightMarket,
   Shops: grid2,
+  Stay: photoVagator,
+  Travel: photoReel,
 }
 
 export const RSVP_OPTIONS = [
@@ -78,14 +42,6 @@ export const EXPENSE_CATEGORIES = [
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]['id']
 
-const amountOf = (value: string) => Number(value.replace(/[^\d]/g, ''))
-
-/** Your outgoing dues and incoming money, from the Expenses tab */
-export const DUES = SETTLEMENTS.filter((s) => s.from === 'you').map((s) => ({ ...s, value: amountOf(s.amount) }))
-export const INCOMING = SETTLEMENTS.filter((s) => s.to === 'you').map((s) => ({ ...s, value: amountOf(s.amount) }))
-export const NET_PAYMENT =
-  DUES.reduce((sum, d) => sum + d.value, 0) - INCOMING.reduce((sum, d) => sum + d.value, 0)
-
 export const UPI_APPS = [
   { id: 'gpay', name: 'GPay', initial: 'G' },
   { id: 'phonepe', name: 'PhonePe', initial: 'Pe' },
@@ -94,21 +50,6 @@ export const UPI_APPS = [
 ] as const
 
 export type UpiAppId = (typeof UPI_APPS)[number]['id']
-
-/** Who's in each of the 6 grid photos, and where it was taken */
-export const PHOTO_DETAILS: { people: PersonId[]; caption: string; time: string }[] = [
-  { people: ['you', 'riya', 'kabir'], caption: 'Chapora Fort', time: 'Sat, 31 Oct · 06:12 AM' },
-  { people: ['kabir', 'meera'], caption: 'Vagator beach', time: 'Sat, 31 Oct · 07:40 AM' },
-  { people: ['you', 'riya', 'kabir', 'meera', 'dev'], caption: 'Breakfast at Artjuna', time: 'Sat, 31 Oct · 09:05 AM' },
-  { people: ['dev', 'kabir'], caption: 'Scooter run to Anjuna', time: 'Fri, 30 Oct · 04:20 PM' },
-  { people: ['riya', 'meera'], caption: 'Anjuna flea market', time: 'Fri, 30 Oct · 05:45 PM' },
-  { people: ['you', 'kabir', 'dev'], caption: 'Curlies at sunset', time: 'Fri, 30 Oct · 06:30 PM' },
-]
-
-export const VIEWER_PHOTOS = PHOTOS
-
-/** Camera-roll photos offered on the upload screen */
-export const CAMERA_ROLL = [...PHOTOS, photoVagator, photoNightMarket, photoReel]
 
 export const UPLOAD_STEPS = ['Ingest', 'Faces', 'Embed', 'Match']
 
@@ -142,32 +83,6 @@ export const GUIDE_DETAIL = {
   ],
   included: ['Pickup and drop', 'Jeep safari permit', 'Breakfast and thali lunch', 'Life jackets and guide'],
   interested: ['riya', 'kabir', 'dev'] as PersonId[],
-}
-
-export type Member = {
-  id: PersonId
-  role: string
-  vibe: string
-  depositPaid: boolean
-}
-
-export const MEMBERS: Member[] = [
-  { id: 'you', role: 'Organiser', vibe: 'Thrill-seeker', depositPaid: true },
-  { id: 'riya', role: 'Co-organiser', vibe: 'Foodie', depositPaid: true },
-  { id: 'kabir', role: 'Treasurer', vibe: 'Night owl', depositPaid: true },
-  { id: 'meera', role: 'Mate', vibe: 'Culture buff', depositPaid: true },
-  { id: 'dev', role: 'Mate', vibe: 'Beach bum', depositPaid: false },
-]
-
-export const TRIP_DEPOSIT = '₹5,000'
-
-export const INVITE_LINK = 'https://ghoomate.app/j/goa-gang'
-
-export const TRIP_INFO = {
-  name: LIVE_TRIP.name,
-  group: LIVE_TRIP.group,
-  dates: LIVE_TRIP.dates,
-  currency: '₹ INR · Indian rupee',
 }
 
 export const NOTIFICATION_SETTINGS = [

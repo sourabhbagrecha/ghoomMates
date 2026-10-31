@@ -1,78 +1,92 @@
 import { useState } from 'react'
 import headerBg from '../../assets/figma/explore-header-bg.svg'
-import { Button } from '../../components/Button'
+import { Button, LinkButton } from '../../components/Button'
 import { Chip } from '../../components/Chip'
 import { GhoomMateTip } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { Skeleton } from '../../components/states/Skeleton'
 import { TextField } from '../../components/TextField'
-import { SQUAD, type PersonId } from '../../data/people'
+import { activeTrip, tripDayLabel, useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
-import { DAYS } from '../Itinerary/itineraryData'
-import { PersonToggle } from './PersonToggle'
-import { STOP_TAGS, TAG_PHOTOS, type TripStop } from './tripDetailData'
+import { tripsApi } from '../../services/tripsService'
+import { STOP_TAGS } from './tripDetailData'
 import { to12h, to24h } from './tripFormat'
-import { tripActions, useTripStore } from './tripStore'
 import './StopFormPage.css'
 
-export function StopFormPage({ stopId }: { stopId?: string }) {
-  const navigate = useNavigate()
-  const { stops } = useTripStore()
-  const existing = stopId ? stops.find((s) => s.id === stopId) : undefined
+/** Day to add to, from #/trip/itinerary/add?day=2 */
+const dayFromHash = () => Number(new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('day')) || 1
 
+export function StopFormPage({ stopId }: { stopId?: string }) {
+  const { trip, itinerary } = useActiveTrip()
+  if (!trip || !itinerary) return <Skeleton variant="card" height={400} />
+  const existing = stopId ? itinerary.flatMap((d) => d.stops).find((s) => s.id === stopId) : undefined
+  if (stopId && !existing) return null
+  return <StopForm key={stopId ?? 'new'} tripId={trip.id} tripName={trip.name} startDate={trip.startDate} dayCount={itinerary.length} existing={existing} />
+}
+
+type StopFormProps = {
+  tripId: string
+  tripName: string
+  startDate: string | null
+  dayCount: number
+  existing?: NonNullable<ReturnType<typeof useActiveTrip>['itinerary']>[number]['stops'][number]
+}
+
+function StopForm({ tripId, tripName, startDate, dayCount, existing }: StopFormProps) {
+  const navigate = useNavigate()
   const [title, setTitle] = useState(existing?.title ?? '')
   const [time, setTime] = useState(existing ? to24h(existing.time) : '')
   const [place, setPlace] = useState(existing?.place ?? '')
-  const [dayId, setDayId] = useState(existing?.dayId ?? DAYS[0].id)
-  const [tag, setTag] = useState(existing?.tag ?? STOP_TAGS[1])
-  const [people, setPeople] = useState<PersonId[]>(existing?.people ?? SQUAD)
+  const [dayNumber, setDayNumber] = useState(existing?.dayNumber ?? Math.min(dayFromHash(), dayCount))
+  const [tag, setTag] = useState(existing?.tag || STOP_TAGS[1])
   const [notes, setNotes] = useState(existing?.notes ?? '')
-
-  if (stopId && !existing) return null
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const back = () => navigate(existing ? `trip/itinerary/stop/${existing.id}` : 'trip/itinerary')
-  const canSave = title.trim().length > 0 && time.length > 0
-  const wholeSquad = people.length === SQUAD.length
+  const canSave = title.trim().length > 0 && time.length > 0 && !saving
 
-  const togglePerson = (id: PersonId) =>
-    setPeople((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : SQUAD.filter((p) => p === id || prev.includes(p))))
+  const run = async (action: () => Promise<unknown>, then: () => void) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await action()
+      await activeTrip.loadItinerary()
+      then()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save the stop')
+      setSaving(false)
+    }
+  }
 
   const save = () => {
-    const going = SQUAD.filter((p) => people.includes(p))
-    const stop: TripStop = {
-      id: existing?.id ?? `stop-${Date.now().toString(36)}`,
-      done: existing?.done ?? false,
-      away: existing?.away ?? '',
-      title: title.trim(),
-      time: to12h(time),
-      place: place.trim(),
-      notes: notes.trim(),
-      dayId,
-      tag,
-      people: going,
-      photo: existing && existing.tag === tag ? existing.photo : TAG_PHOTOS[tag],
-      reaction:
-        existing?.done ? existing.reaction : going.length === SQUAD.length ? 'Whole squad' : `${going.length}/${SQUAD.length} going`,
-    }
-    // TODO: sync to the trips service and notify the squad
-    tripActions.saveStop(stop)
-    back()
+    const stop = { dayNumber, time: to12h(time), title: title.trim(), tag, place: place.trim(), notes: notes.trim() }
+    void run(() => (existing ? tripsApi.updateStop(tripId, existing.id, stop) : tripsApi.addStop(tripId, stop)), back)
+  }
+
+  const remove = () => {
+    if (!existing) return
+    void run(() => tripsApi.deleteStop(tripId, existing.id), () => navigate('trip/itinerary', { replace: true }))
   }
 
   return (
     <OnboardingLayout
-      eyebrow="Goa Trip · Itinerary"
+      eyebrow={`${tripName} · Itinerary`}
       title={existing ? 'Edit stop' : 'Add a stop'}
       onBack={back}
       headerBg={headerBg}
       headerHeight={170}
       bodyClassName="stop-form__body"
       actions={
-        <Button variant="primary" disabled={!canSave} onClick={save}>
-          {existing ? 'Save changes' : 'Add to plan'}
-        </Button>
+        <>
+          <Button variant="primary" disabled={!canSave} onClick={save}>
+            {saving ? 'Saving…' : existing ? 'Save changes' : 'Add to plan'}
+          </Button>
+          {existing && <LinkButton onClick={remove}>Remove from plan</LinkButton>}
+        </>
       }
     >
-      {!existing && <GhoomMateTip>Or just say “Add dinner at Thalassa, 8 PM, whole squad”.</GhoomMateTip>}
+      {!existing && <GhoomMateTip>You’ll be marked as going. Mates RSVP from the stop.</GhoomMateTip>}
 
       <TextField label="What’s the plan?" placeholder="Sunset at Vagator" value={title} onChange={(e) => setTitle(e.target.value)} />
 
@@ -84,9 +98,9 @@ export function StopFormPage({ stopId }: { stopId?: string }) {
       <div className="stop-form__group">
         <p className="stop-form__label">Day</p>
         <div className="stop-form__chips">
-          {DAYS.map((d) => (
-            <Chip key={d.id} selected={d.id === dayId} onClick={() => setDayId(d.id)}>
-              {d.title}
+          {Array.from({ length: dayCount }, (_, i) => i + 1).map((n) => (
+            <Chip key={n} selected={n === dayNumber} onClick={() => setDayNumber(n)}>
+              Day {n} · {tripDayLabel(startDate, n)}
             </Chip>
           ))}
         </div>
@@ -103,20 +117,6 @@ export function StopFormPage({ stopId }: { stopId?: string }) {
         </div>
       </div>
 
-      <div className="stop-form__group">
-        <div className="stop-form__label-row">
-          <p className="stop-form__label">Who’s going</p>
-          <button type="button" className="text-link" onClick={() => setPeople(wholeSquad ? ['you'] : SQUAD)}>
-            {wholeSquad ? 'Just me' : 'Whole squad'}
-          </button>
-        </div>
-        <div className="stop-form__people">
-          {SQUAD.map((id) => (
-            <PersonToggle key={id} person={id} label="Going" selected={people.includes(id)} onClick={() => togglePerson(id)} />
-          ))}
-        </div>
-      </div>
-
       <label className="stop-form__group">
         <span className="stop-form__label">Notes for the squad</span>
         <textarea
@@ -127,6 +127,12 @@ export function StopFormPage({ stopId }: { stopId?: string }) {
           onChange={(e) => setNotes(e.target.value)}
         />
       </label>
+
+      {error && (
+        <p className="stop-form__label" role="alert">
+          {error}
+        </p>
+      )}
     </OnboardingLayout>
   )
 }

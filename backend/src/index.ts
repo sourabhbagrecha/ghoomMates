@@ -3,8 +3,11 @@ import { isDatabaseConfigured, openDatabase } from './db.ts';
 import { loadEnv } from './env.ts';
 import { createApp as createAuthApp } from './auth/app.ts';
 import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth/database.ts';
+import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { logger } from './logger.ts';
+import { createMediaRouter, createMediaStorage } from './storage.ts';
+import { createApp as createTripsApp } from './trips/app.ts';
 
 loadEnv();
 
@@ -45,15 +48,40 @@ if (db && apiKey) {
   logger.warn('Server', `Expense API (/api/*) is disabled: requires ${missing}`);
 }
 
+const authConfig = {
+  jwtSecret,
+  googleClientId: process.env.GOOGLE_CLIENT_ID,
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || `${clientOrigin}/auth/callback`,
+  clientOrigin,
+};
+
+// Photos and receipts: GCS with a service account key from .env, or local disk as a fallback.
+const storage = createMediaStorage(jwtSecret);
+const authService = new OAuthService(authDb, authConfig);
+
+let trips: ReturnType<typeof createTripsApp> | undefined;
+if (db) {
+  trips = createTripsApp(db, storage, async (token) => (await authService.verifySessionToken(token)).user, clientOrigin);
+} else {
+  logger.warn('Server', 'Trips API (/api/trips/*) is disabled: requires a database');
+}
+
 const app = createServer({
   auth: createAuthApp(authDb, {
-    jwtSecret,
-    googleClientId: process.env.GOOGLE_CLIENT_ID,
-    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || `${clientOrigin}/auth/callback`,
-    clientOrigin,
+    ...authConfig,
+    // Keep a copy of each new selfie in the media bucket for the face-matching pipeline
+    onPictureSaved: (userId, picture) => {
+      const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(picture);
+      if (!match) return;
+      const ext = match[1] === 'image/jpeg' ? 'jpg' : match[1].slice(6);
+      storage.put(`users/${userId}/selfie.${ext}`, Buffer.from(match[2], 'base64'), match[1])
+        .catch((err) => logger.warn('Storage', `Could not store selfie for ${userId}: ${err.message}`));
+    },
   }),
   expenses,
+  trips,
+  media: createMediaRouter(storage),
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {
@@ -67,7 +95,9 @@ const server = app.listen(port, hostname, (err?: Error) => {
 │  Frontend:    ${clientOrigin.padEnd(41)}│
 │  Database:    ${dbMode.slice(0, 41).padEnd(41)}│
 │  Auth:        ${isGoogleConfigured ? 'Google OAuth 2.0 (configured)          ' : 'Dev Mock Mode (no Google keys)       '} │
-│  Expenses:    ${expenses ? 'Enabled                                  ' : 'Disabled (needs DB + API_KEY)          '} │
+│  Trips:       ${(trips ? 'Enabled' : 'Disabled (needs DB)').padEnd(41)}│
+│  Media:       ${storage.description.slice(0, 41).padEnd(41)}│
+│  Ledger API:  ${(expenses ? 'Enabled' : 'Disabled (needs DB + API_KEY)').padEnd(41)}│
 └────────────────────────────────────────────────────────┘
 `);
   logger.info('Server', `Listening at http://${hostname}:${port}`);

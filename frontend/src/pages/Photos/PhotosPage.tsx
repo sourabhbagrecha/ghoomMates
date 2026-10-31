@@ -12,35 +12,52 @@ import { Avatar } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
+import { EmptyState } from '../../components/states/EmptyState'
+import { Skeleton } from '../../components/states/Skeleton'
 import { useVoice } from '../../components/voice/voiceContext'
-import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
+import { useActiveTrip } from '../../data/activeTrip'
+import { personOf, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
-import { FACE_MATCH, LIBRARY, PHOTOS, PIPELINE, REEL, UPLOAD } from './photosData'
+import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
 export function PhotosPage() {
   const navigate = useNavigate()
+  const { trip, photos } = useActiveTrip()
+  const total = photos?.total ?? 0
 
   return (
     <>
       <ScreenLayout
         headerBg={headerBg}
         headerHeight={262}
-        eyebrow={`${LIBRARY.photos} photos · ${LIBRARY.videos} videos`}
+        eyebrow={photos ? `${total.toLocaleString('en-IN')} ${total === 1 ? 'photo' : 'photos'} · ${trip?.groupName ?? ''}` : 'Loading photos…'}
         title="Trip Memories"
         withBubble
       >
         <main className="screen__body photos__body">
-          <FaceFilter />
-          <UploadCard />
+          <FaceFilter squad={trip?.members.map((m) => m.memberId) ?? []} />
+          <UploadCard total={total} uploaders={new Set(photos?.items.map((p) => p.uploadedBy.userId)).size} />
           <ReelStudio />
-          <div className="photo-grid">
-            {PHOTOS.map((src, i) => (
-              <button key={src} type="button" className="photo-grid__item" onClick={() => navigate(`trip/photos/view/${i}`)}>
-                <img src={src} alt={`Trip photo ${i + 1}`} width={116} height={110} />
-              </button>
-            ))}
-          </div>
+          {!photos ? (
+            <Skeleton variant="card" height={230} />
+          ) : photos.items.length ? (
+            <div className="photo-grid">
+              {photos.items.map((photo, i) => (
+                <button key={photo.id} type="button" className="photo-grid__item" onClick={() => navigate(`trip/photos/view/${i}`)}>
+                  <img src={photo.url} alt={`Trip photo ${i + 1}, from ${photo.uploadedBy.name}`} width={116} height={110} loading="lazy" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              size="compact"
+              headingLevel={3}
+              title="No photos yet"
+              text="Upload the first ones and the whole squad gets them."
+              action={{ label: 'Upload photos', icon: iconUpload, onClick: () => navigate('trip/photos/upload') }}
+            />
+          )}
         </main>
       </ScreenLayout>
       <GhoomMateSays>Say “make a reel” and I’ll cut one in seconds!</GhoomMateSays>
@@ -48,9 +65,10 @@ export function PhotosPage() {
   )
 }
 
-function FaceFilter() {
+// TODO: filter the grid once face matching runs on uploads
+function FaceFilter({ squad }: { squad: PersonId[] }) {
   const navigate = useNavigate()
-  const [selected, setSelected] = useState<PersonId | null>(FACE_MATCH.person)
+  const [selected, setSelected] = useState<PersonId | null>(null)
 
   return (
     <section className="face-filter">
@@ -66,7 +84,7 @@ function FaceFilter() {
           </span>
           <span className="face__label face__label--bold">+ Selfie</span>
         </button>
-        {SQUAD.map((id) => {
+        {squad.map((id) => {
           const isSelected = id === selected
           return (
             <button
@@ -79,7 +97,7 @@ function FaceFilter() {
               <span className="face__ring">
                 <Avatar person={id} size={isSelected ? 44 : 52} />
               </span>
-              <span className="face__label">{PEOPLE[id].name}</span>
+              <span className="face__label">{personOf(id).name}</span>
             </button>
           )
         })}
@@ -88,9 +106,10 @@ function FaceFilter() {
   )
 }
 
-function UploadCard() {
+function UploadCard({ total, uploaders }: { total: number; uploaders: number }) {
   const navigate = useNavigate()
-  const progress = (UPLOAD.uploaded / UPLOAD.total) * 100
+  // Uploads are ingested into the bucket; the face steps light up once the cloud pipeline lands
+  const steps: PipelineStep[] = PIPELINE.map((step, i) => ({ ...step, status: i === 0 && total ? 'done' : 'pending' }))
 
   return (
     <section className="card upload-card">
@@ -100,17 +119,11 @@ function UploadCard() {
         </span>
         <div className="upload-card__progress">
           <p className="upload-card__title">
-            Bulk upload · {UPLOAD.uploaded} of {UPLOAD.total}
+            Squad album · {total} {total === 1 ? 'photo' : 'photos'}
           </p>
-          <div
-            className="progress"
-            role="progressbar"
-            aria-valuenow={UPLOAD.uploaded}
-            aria-valuemin={0}
-            aria-valuemax={UPLOAD.total}
-          >
-            <span className="progress__fill" style={{ width: `${progress}%` }} />
-          </div>
+          <p className="upload-card__found">
+            {total ? `From ${uploaders} ${uploaders === 1 ? 'mate' : 'mates'} · stored in the cloud` : 'Add photos from your phone'}
+          </p>
         </div>
         <button type="button" className="upload-card__add" onClick={() => navigate('trip/photos/upload')}>
           Add
@@ -119,12 +132,10 @@ function UploadCard() {
       <hr className="upload-card__divider" />
       <div className="upload-card__pipeline-header">
         <p className="overline">AI face pipeline</p>
-        <p className="upload-card__found">
-          Found {PEOPLE[FACE_MATCH.person].name} in {FACE_MATCH.count} pics
-        </p>
+        <p className="upload-card__found">Face tagging coming soon</p>
       </div>
       <ol className="pipeline">
-        {PIPELINE.map((step, i) => (
+        {steps.map((step, i) => (
           <li key={step.label} className="pipeline__item">
             {i > 0 && (
               <span

@@ -112,3 +112,12 @@
   color: var(--color-primary);
   white-space: nowrap;
 }
+
+.invite__error {
+  padding: 12px 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}

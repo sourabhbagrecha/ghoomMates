@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { PEOPLE, type PersonId } from '../data/people'
+import { personOf, type PersonId } from '../data/people'
 import './Avatar.css'
 
 type AvatarProps = {
@@ -8,12 +8,12 @@ type AvatarProps = {
 }
 
 export function Avatar({ person, size = 40 }: AvatarProps) {
-  const { name, initial, color } = PEOPLE[person]
+  const { name, initial, color, picture } = personOf(person)
   const style = { '--avatar-size': `${size}px`, '--avatar-color': color } as CSSProperties
 
   return (
     <span className="avatar" style={style} title={name}>
-      {initial}
+      {picture ? <img className="avatar__photo" src={picture} alt="" /> : initial}
     </span>
   )
 }
