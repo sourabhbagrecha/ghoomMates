@@ -16,6 +16,7 @@ import { HeaderActions, NotificationsButton } from '../../components/HeaderActio
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import type { TabId } from '../../components/TabBar'
+import { usePastTrips } from '../../data/pastTripStore'
 import { LIVE_TRIP, PAST_TRIPS, TODAY, UPCOMING_TRIPS, type Trip } from '../../data/trips'
 import { useNavigate } from '../../hooks/navigation'
 import { DAYS } from '../Itinerary/itineraryData'
@@ -89,6 +90,8 @@ export function HomePage({ name, unread, empty, onOpenNotifications, onOpenTrip,
 }
 
 function Trips({ onOpenTrip, onOpenPlan }: { onOpenTrip: (tab: TabId) => void; onOpenPlan: () => void }) {
+  const navigate = useNavigate()
+  const { settled } = usePastTrips()
   return (
     <>
       <section className="card live-trip" aria-label={`${LIVE_TRIP.name}, happening now`}>
@@ -142,22 +145,24 @@ function Trips({ onOpenTrip, onOpenPlan }: { onOpenTrip: (tab: TabId) => void; o
       <SectionHeader title="Past trips" />
       <ul className="past-trips no-scrollbar">
         {PAST_TRIPS.map((t) => (
-          <li key={t.id} className="past-trip">
-            <img className="past-trip__cover" src={t.cover} alt="" width={116} height={110} />
-            <div className="past-trip__body">
-              <p className="past-trip__name">{t.name}</p>
-              <p className="past-trip__meta">
-                {t.dates} · {t.note}
-              </p>
-              {t.balance ? (
-                <p className="past-trip__owed">{t.balance} to settle</p>
-              ) : (
-                <p className="past-trip__settled">
-                  <img src={iconCheck} alt="" width={12} height={12} />
-                  All settled
+          <li key={t.id}>
+            <button type="button" className="past-trip past-trip--button" onClick={() => navigate(`past/${t.id}`)}>
+              <img className="past-trip__cover" src={t.cover} alt="" width={116} height={110} />
+              <div className="past-trip__body">
+                <p className="past-trip__name">{t.name}</p>
+                <p className="past-trip__meta">
+                  {t.dates} · {t.note}
                 </p>
-              )}
-            </div>
+                {t.balance && !settled.has(t.id) ? (
+                  <p className="past-trip__owed">{t.balance} to settle</p>
+                ) : (
+                  <p className="past-trip__settled">
+                    <img src={iconCheck} alt="" width={12} height={12} />
+                    All settled
+                  </p>
+                )}
+              </div>
+            </button>
           </li>
         ))}
       </ul>

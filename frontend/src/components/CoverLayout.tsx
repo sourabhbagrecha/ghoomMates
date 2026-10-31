@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
-import iconBack from '../../assets/figma/icon-back-white.svg'
-import { StatusBar } from '../../components/StatusBar'
-import './TripCoverLayout.css'
+import iconBack from '../assets/figma/icon-back-white.svg'
+import { StatusBar } from './StatusBar'
+import './CoverLayout.css'
 
-type TripCoverLayoutProps = {
+type CoverLayoutProps = {
   cover: string
   onBack: () => void
   /** Sits on the bottom of the photo, e.g. tags */
@@ -14,8 +14,8 @@ type TripCoverLayoutProps = {
   actions?: ReactNode
 }
 
-/** Pushed screen with a full-bleed photo header and a sheet-style body (stop and guide trip details). */
-export function TripCoverLayout({ cover, onBack, overlay, bodyClassName, children, actions }: TripCoverLayoutProps) {
+/** Pushed screen with a full-bleed photo header and a sheet-style body (stop, guide trip and trip recap). */
+export function CoverLayout({ cover, onBack, overlay, bodyClassName, children, actions }: CoverLayoutProps) {
   return (
     <div className="cover-layout">
       <div className="cover-layout__scroll">

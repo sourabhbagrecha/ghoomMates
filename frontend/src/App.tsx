@@ -13,6 +13,7 @@ import { ItineraryPage } from './pages/Itinerary/ItineraryPage'
 import { NotificationsPage } from './pages/Notifications/NotificationsPage'
 import { OnboardingFlow } from './pages/Onboarding/OnboardingFlow'
 import { isOnboardingStep } from './pages/Onboarding/onboardingData'
+import { PastTripRoutes } from './pages/PastTrip/PastTripRoutes'
 import { PhotosPage } from './pages/Photos/PhotosPage'
 import { PlanRoutes } from './pages/Plan/PlanRoutes'
 import { TripDetailRoutes } from './pages/Trip/TripDetailRoutes'
@@ -38,6 +39,7 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/trip/<tab>       Inside the live trip: itinerary | photos | expenses | explore
  *   #/trip/<tab>/…     Trip details: stop/<id>, add, expenses/add, expenses/settle, photos/view/<i>, …
  *   #/trip/members     Squad members (and #/trip/settings)
+ *   #/past/<id>[/…]    After the trip: recap, album, days, expenses, rate[/<stars>]
  *   #/<step>           Any onboarding step (welcome, sign-in, verify, …)
  */
 function App() {
@@ -58,6 +60,9 @@ function App() {
   const tripDetail =
     section === 'trip' && (segments.length > 2 || (sub && !isTab(sub))) ? TripDetailRoutes({ path: segments.slice(1) }) : null
 
+  // After the trip; unknown trips fall back to Home
+  const pastTrip = section === 'past' ? PastTripRoutes({ path: segments.slice(1) }) : null
+
   let screen
   if (onboardingStep) {
     screen = (
@@ -72,6 +77,8 @@ function App() {
         }}
       />
     )
+  } else if (pastTrip) {
+    screen = pastTrip
   } else if (tripDetail) {
     screen = tripDetail
   } else if (section === 'trip') {

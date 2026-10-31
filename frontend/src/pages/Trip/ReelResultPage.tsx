@@ -7,9 +7,9 @@ import iconPlay from '../../assets/figma/icon-play.svg'
 import iconRefresh from '../../assets/figma/icon-refresh-primary.svg'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { useNavigate } from '../../hooks/navigation'
-import { Toast } from './Toast'
+import { Toast } from '../../components/Toast'
 import { REEL_RESULT, SHARE_TARGETS } from './tripDetailData'
-import { useToast } from './useToast'
+import { useToast } from '../../hooks/useToast'
 import './ReelResultPage.css'
 
 export function ReelResultPage() {
