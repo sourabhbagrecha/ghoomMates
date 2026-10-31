@@ -1,0 +1,1002 @@
+import { registerPeople, type PersonId } from '../../data/people'
+import { EXPERIENCE_PHOTOS, type ExperiencePhoto } from './experiencePhotos'
+
+// Seed catalogue for "Trips by local guides": guided experiences around Goa and Udaipur, shaped like an
+// experience listing (host, photos, plan for the day, what's included, things to know, reviews).
+// Hosts, reviews and prices are made up for the demo; photos are real and credited.
+
+export const EXPERIENCE_TAGS = ['Food', 'Nightlife', 'Hidden gems', 'Culture', 'Adventure', 'Events'] as const
+export type ExperienceTag = (typeof EXPERIENCE_TAGS)[number]
+
+/** Cities with seeded guide trips. Explore shows the one matching the trip's destination. */
+export const EXPERIENCE_CITIES = ['Goa', 'Udaipur'] as const
+export type ExperienceCity = (typeof EXPERIENCE_CITIES)[number]
+
+export type ExperienceHost = {
+  id: PersonId
+  name: string
+  yearsHosting: number
+  trips: number
+  languages: string[]
+  about: string
+}
+
+export type ExperienceReview = {
+  name: string
+  when: string
+  rating: number
+  text: string
+}
+
+export type Experience = {
+  id: string
+  city: ExperienceCity
+  title: string
+  tags: ExperienceTag[]
+  /** Yellow GhoomMate badge on the card */
+  pick?: string
+  area: string
+  rating: number
+  reviewCount: number
+  /** ₹ per person */
+  price: number
+  date: string
+  startTime: string
+  duration: string
+  groupSize: number
+  seatsLeft: number
+  /** Short line for the facts row, e.g. "Pickup from Baga" */
+  pickup: string
+  meetingPoint: { name: string; details: string }
+  about: string
+  host: ExperienceHost
+  photos: ExperiencePhoto[]
+  timeline: { time: string; title: string; note: string }[]
+  included: string[]
+  bring: string[]
+  thingsToKnow: { guests: string; cancellation: string; accessibility: string }
+  reviews: ExperienceReview[]
+  /** Squad members who have tapped "keen" */
+  interested: PersonId[]
+}
+
+const host = (
+  id: string,
+  name: string,
+  colour: string,
+  details: Omit<ExperienceHost, 'id' | 'name'>,
+): ExperienceHost => {
+  registerPeople([{ memberId: id, name, colour }])
+  return { id, name, ...details }
+}
+
+const HOSTS = {
+  rohan: host('host-rohan', 'Rohan Naik', 'var(--color-person-dev)', {
+    yearsHosting: 6,
+    trips: 126,
+    languages: ['Konkani', 'Hindi', 'English'],
+    about: 'Grew up in Mollem at the edge of the sanctuary. Ex-forest-department trekker who knows every rock on the Dudhsagar trail.',
+  }),
+  lucia: host('host-lucia', 'Lucia Fernandes', 'var(--color-person-kabir)', {
+    yearsHosting: 4,
+    trips: 212,
+    languages: ['English', 'Konkani', 'Portuguese'],
+    about: 'Fourth-generation Fontainhas resident and architecture student. Knows which house has which story, and which aunty makes the best bebinca.',
+  }),
+  agnes: host('host-agnes', 'Agnes D’Souza', 'var(--color-person-meera)', {
+    yearsHosting: 5,
+    trips: 340,
+    languages: ['English', 'Konkani', 'Hindi'],
+    about: 'Home cook from Saligao who learnt the family recas from her grandmother. Runs her classes in the same kitchen she grew up in.',
+  }),
+  vishal: host('host-vishal', 'Vishal Gaonkar', 'var(--color-person-riya)', {
+    yearsHosting: 7,
+    trips: 410,
+    languages: ['Konkani', 'Marathi', 'Hindi', 'English'],
+    about: 'Naturalist and certified kayak instructor. Has logged over 180 bird species on Chorao island and will happily show you all of them.',
+  }),
+  tanya: host('host-tanya', 'Tanya Kamat', 'var(--color-person-kabir)', {
+    yearsHosting: 3,
+    trips: 158,
+    languages: ['English', 'Hindi', 'Konkani'],
+    about: 'Vintage collector and stylist from Assagao. Bargains in four languages and knows the stall owners by first name.',
+  }),
+  joel: host('host-joel', 'Joel Pereira', 'var(--color-person-riya)', {
+    yearsHosting: 8,
+    trips: 520,
+    languages: ['English', 'Konkani', 'Hindi'],
+    about: 'History graduate and licensed state guide. Spent five years cataloguing church archives in Old Goa.',
+  }),
+  mira: host('host-mira', 'Mira Sawant', 'var(--color-person-meera)', {
+    yearsHosting: 2,
+    trips: 96,
+    languages: ['English', 'Hindi'],
+    about: 'Percussionist who moved to Arambol in 2020. Hosts the drum circle every evening the tide allows.',
+  }),
+  sagar: host('host-sagar', 'Sagar Tari', 'var(--color-person-dev)', {
+    yearsHosting: 9,
+    trips: 880,
+    languages: ['Konkani', 'Hindi', 'English'],
+    about: 'Third-generation fisherman from Sinquerim. Switched from nets to dolphin trips and still knows where the pods feed every morning.',
+  }),
+  aditya: host('host-aditya', 'Aditya Salgaonkar', 'var(--color-person-riya)', {
+    yearsHosting: 4,
+    trips: 190,
+    languages: ['English', 'Hindi', 'Konkani'],
+    about: 'Photographer and sunset chaser. Has shot Chapora from every angle and will make sure the squad photo is the best one of the trip.',
+  }),
+  priya: host('host-priya', 'Priya Halarnkar', 'var(--color-person-meera)', {
+    yearsHosting: 3,
+    trips: 140,
+    languages: ['English', 'Konkani', 'Marathi'],
+    about: 'Grew up on Divar and cycles its lanes daily. Knows which aunty is frying fish for lunch on which day.',
+  }),
+  nikhil: host('host-nikhil', 'Nikhil Velip', 'var(--color-person-dev)', {
+    yearsHosting: 5,
+    trips: 275,
+    languages: ['Konkani', 'Hindi', 'English'],
+    about: 'Canacona boy with a wooden canoe and strong opinions on the best shack for kingfish thali.',
+  }),
+  kevin: host('host-kevin', 'Kevin Rodrigues', 'var(--color-person-kabir)', {
+    yearsHosting: 6,
+    trips: 610,
+    languages: ['English', 'Hindi', 'Konkani'],
+    about: 'Former bartender on Tito’s Lane. Knows the bouncers, the DJs and the best 3 AM bun-omelette stall.',
+  }),
+  francis: host('host-francis', 'Francis Gomes', 'var(--color-person-dev)', {
+    yearsHosting: 10,
+    trips: 300,
+    languages: ['Konkani', 'English'],
+    about: 'Runs his family’s 80-year-old cashew distillery in the hills above Bicholim. Still fires the copper pot the traditional way.',
+  }),
+  // Udaipur
+  devendra: host('host-devendra', 'Devendra Singh Rathore', 'var(--color-person-riya)', {
+    yearsHosting: 8,
+    trips: 640,
+    languages: ['Hindi', 'Mewari', 'English'],
+    about: 'Grew up in a haveli on Lal Ghat and has rowed Pichola since he was twelve. Knows every palace legend and the exact minute the light turns gold.',
+  }),
+  kavita: host('host-kavita', 'Kavita Paliwal', 'var(--color-person-kabir)', {
+    yearsHosting: 5,
+    trips: 380,
+    languages: ['Hindi', 'English'],
+    about: 'Old-city foodie and home chef. Has eaten at every kachori stall between Jagdish Chowk and Hathi Pol, and has opinions about all of them.',
+  }),
+  shanti: host('host-shanti', 'Shanti Kanwar', 'var(--color-person-meera)', {
+    yearsHosting: 6,
+    trips: 290,
+    languages: ['Hindi', 'Mewari', 'English'],
+    about: 'Cooks in her family’s 200-year-old haveli kitchen and teaches the recipes her mother-in-law taught her, including the secret to crumbly churma.',
+  }),
+  rajesh: host('host-rajesh', 'Rajesh Soni', 'var(--color-person-dev)', {
+    yearsHosting: 9,
+    trips: 450,
+    languages: ['Hindi', 'English', 'French'],
+    about: 'Fifth-generation miniature painter trained in the Mewar school. Grinds his own stone colours and paints with squirrel-hair brushes he makes himself.',
+  }),
+  arjun: host('host-arjun', 'Arjun Chundawat', 'var(--color-person-riya)', {
+    yearsHosting: 4,
+    trips: 210,
+    languages: ['Hindi', 'English'],
+    about: 'Cyclist and trail runner who knows every back road into the Aravallis. Leads the sunset ride to Sajjangarh most evenings.',
+  }),
+}
+
+const FREE_CANCEL_24H = 'Free cancellation up to 24 hours before the start time.'
+
+export const EXPERIENCES: Experience[] = [
+  {
+    id: 'dudhsagar-spice-trek',
+    city: 'Goa',
+    title: 'Spice farm + Dudhsagar waterfall trek',
+    tags: ['Adventure', 'Hidden gems', 'Food'],
+    pick: 'GhoomMate pick · fits your adventure vibe',
+    area: 'Mollem, South Goa',
+    rating: 4.9,
+    reviewCount: 418,
+    price: 1499,
+    date: 'Sun, 1 Nov',
+    startTime: '07:00 AM',
+    duration: '7 hrs',
+    groupSize: 14,
+    seatsLeft: 8,
+    pickup: 'Pickup from Baga',
+    meetingPoint: { name: 'Your stay in North Goa', details: 'Pickup from Baga, Calangute, Candolim or Anjuna in an AC tempo traveller.' },
+    about:
+      'Swap the beach for the Western Ghats. Start with a barefoot walk through a working spice plantation, then bounce through Bhagwan Mahaveer sanctuary in an open jeep to the foot of Dudhsagar, one of India’s tallest waterfalls. Swim in the plunge pool, eat a proper Goan thali, and nap all the way home.',
+    host: HOSTS.rohan,
+    photos: EXPERIENCE_PHOTOS.dudhsagar,
+    timeline: [
+      { time: '07:00 AM', title: 'Pickup from your stay', note: 'AC tempo traveller from Baga' },
+      { time: '08:30 AM', title: 'Sahakari spice farm walk', note: 'Tasting + Goan breakfast' },
+      { time: '10:30 AM', title: 'Jeep safari to Dudhsagar', note: 'Through Bhagwan Mahaveer sanctuary' },
+      { time: '11:30 AM', title: 'Waterfall trek and swim', note: 'Life jackets provided' },
+      { time: '01:00 PM', title: 'Goan thali lunch', note: 'Veg and fish options' },
+      { time: '02:00 PM', title: 'Drop back at Baga', note: 'Nap in the van, promise' },
+    ],
+    included: ['Pickup and drop', 'Jeep safari permit', 'Breakfast and thali lunch', 'Life jackets and guide'],
+    bring: ['Swimwear and a change of clothes', 'Shoes with grip', 'Waterproof pouch for your phone'],
+    thingsToKnow: {
+      guests: 'Ages 8 and up. Swimming is optional; the trek is about 1.5 km on rocky ground.',
+      cancellation: 'Free cancellation till Saturday 6 PM. Full refund if the sanctuary closes for rain.',
+      accessibility: 'Not suitable for wheelchairs. The last stretch to the falls is uneven and slippery.',
+    },
+    reviews: [
+      { name: 'Ananya', when: 'October 2026', rating: 5, text: 'Rohan timed it so we had the pool almost to ourselves. The thali after the swim was unreal.' },
+      { name: 'Marcus', when: 'October 2026', rating: 5, text: 'Bumpy jeep, huge waterfall, zero stress. Everything was sorted from pickup to drop.' },
+      { name: 'Ishita', when: 'September 2026', rating: 4, text: 'Long day but worth it. Carry dry clothes, you will get soaked.' },
+    ],
+    interested: ['riya', 'kabir', 'dev'],
+  },
+  {
+    id: 'fontainhas-heritage-walk',
+    city: 'Goa',
+    title: 'Fontainhas lanes and bakery walk',
+    tags: ['Culture', 'Hidden gems', 'Food'],
+    area: 'Fontainhas, Panaji',
+    rating: 4.95,
+    reviewCount: 287,
+    price: 899,
+    date: 'Sun, 1 Nov',
+    startTime: '04:30 PM',
+    duration: '2.5 hrs',
+    groupSize: 10,
+    seatsLeft: 4,
+    pickup: 'Meet at Maruti temple steps',
+    meetingPoint: { name: 'Maruti temple steps, Fontainhas', details: 'Bottom of the steps on 31st January Road. Look for the yellow umbrella.' },
+    about:
+      'Panjim’s Latin Quarter is all ochre walls, azulejo tiles and balcões where neighbours still gossip at sunset. Wander the lanes with a local, hear the stories behind the houses, and stop at family bakeries for poi, bebinca and a cup of something strong.',
+    host: HOSTS.lucia,
+    photos: EXPERIENCE_PHOTOS.fontainhas,
+    timeline: [
+      { time: '04:30 PM', title: 'Meet at the temple steps', note: 'Quick intro to Panjim’s history' },
+      { time: '04:50 PM', title: 'Lanes of Fontainhas', note: 'Azulejos, balcões and house stories' },
+      { time: '05:40 PM', title: 'Bakery stop', note: 'Poi, bebinca and serradura' },
+      { time: '06:15 PM', title: 'Chapel of St Sebastian', note: 'The square at golden hour' },
+      { time: '07:00 PM', title: 'Wrap-up over kokum soda', note: 'Plus a list of dinner spots' },
+    ],
+    included: ['Local guide', 'Bakery tastings', 'Kokum soda', 'Hand-drawn neighbourhood map'],
+    bring: ['Comfortable walking shoes', 'Cash for the bakeries if you want to take some home'],
+    thingsToKnow: {
+      guests: 'All ages welcome. Kids under 10 walk free with a paying adult.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Mostly flat with a few steps. Lanes are narrow; strollers work, wheelchairs are tricky in places.',
+    },
+    reviews: [
+      { name: 'Rhea', when: 'October 2026', rating: 5, text: 'Lucia made the houses come alive. We went back to the bakery the next morning.' },
+      { name: 'Sam', when: 'August 2026', rating: 5, text: 'Best two hours in Panjim. Do not skip the serradura.' },
+    ],
+    interested: ['meera'],
+  },
+  {
+    id: 'saligao-fish-curry-class',
+    city: 'Goa',
+    title: 'Cook Goan fish curry in a family kitchen',
+    tags: ['Food', 'Culture'],
+    pick: 'GhoomMate pick · Riya loves cooking classes',
+    area: 'Saligao, North Goa',
+    rating: 4.97,
+    reviewCount: 512,
+    price: 2199,
+    date: 'Mon, 2 Nov',
+    startTime: '10:30 AM',
+    duration: '3.5 hrs',
+    groupSize: 8,
+    seatsLeft: 3,
+    pickup: 'At Agnes’s home, Saligao',
+    meetingPoint: { name: 'Agnes’s home, Saligao', details: 'Next to the Mae de Deus church. Exact address shared after booking.' },
+    about:
+      'Grind your own recheado masala on a stone, temper a coconut curry the way Goan grandmothers do, and fry kingfish until the edges crackle. You cook, you eat, and you leave with the recipes and a jar of masala.',
+    host: HOSTS.agnes,
+    photos: EXPERIENCE_PHOTOS.fishCurry,
+    timeline: [
+      { time: '10:30 AM', title: 'Welcome and kokum cooler', note: 'Meet the family and the kitchen' },
+      { time: '10:45 AM', title: 'Spice garden pick', note: 'Curry leaves, chillies, kokum' },
+      { time: '11:15 AM', title: 'Grind the masala', note: 'On the traditional stone' },
+      { time: '12:00 PM', title: 'Cook three dishes', note: 'Fish curry, rava-fried kingfish, kismur' },
+      { time: '01:15 PM', title: 'Long lunch together', note: 'With red rice and sol kadhi' },
+    ],
+    included: ['All ingredients', 'Lunch you cook', 'Printed recipe cards', 'Jar of recheado masala to take home'],
+    bring: ['An appetite', 'Clothes you don’t mind getting turmeric on'],
+    thingsToKnow: {
+      guests: 'Ages 12 and up. Vegetarian version with jackfruit and veg on request.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Ground-floor kitchen, step-free entry. Seating available throughout.',
+    },
+    reviews: [
+      { name: 'Kavya', when: 'October 2026', rating: 5, text: 'Agnes is a gem. I have made the curry twice since getting home.' },
+      { name: 'Tom', when: 'September 2026', rating: 5, text: 'Felt like being adopted by a Goan aunty for the afternoon.' },
+      { name: 'Neha', when: 'July 2026', rating: 5, text: 'The veg version was just as good. Huge portions.' },
+    ],
+    interested: ['riya', 'meera'],
+  },
+  {
+    id: 'mapusa-market-food-trail',
+    city: 'Goa',
+    title: 'Mapusa Friday market food trail',
+    tags: ['Food', 'Events'],
+    area: 'Mapusa, North Goa',
+    rating: 4.88,
+    reviewCount: 193,
+    price: 1199,
+    date: 'Fri, 6 Nov',
+    startTime: '09:00 AM',
+    duration: '3 hrs',
+    groupSize: 10,
+    seatsLeft: 6,
+    pickup: 'Meet at Mapusa market gate',
+    meetingPoint: { name: 'Main gate, Mapusa municipal market', details: 'Opposite the taxi stand. Your host wears a GhoomMate cap.' },
+    about:
+      'Friday is when villages from all over North Goa come to sell at Mapusa. Eat your way through it: poee straight from the poder’s basket, chorizo from the sausage ladies, ros omelette, local sweets, and a feni-spiked lime soda to finish.',
+    host: HOSTS.agnes,
+    photos: EXPERIENCE_PHOTOS.mapusa,
+    timeline: [
+      { time: '09:00 AM', title: 'Meet at the market gate', note: 'How the Friday market works' },
+      { time: '09:15 AM', title: 'Bread lane', note: 'Poee, katre pao and undo' },
+      { time: '10:00 AM', title: 'Sausage and spice row', note: 'Goan chorizo and masalas' },
+      { time: '10:45 AM', title: 'Ros omelette breakfast', note: 'At a 40-year-old stall' },
+      { time: '11:30 AM', title: 'Sweets and soda', note: 'Doce, bebinca and lime soda' },
+    ],
+    included: ['All tastings (8+ stops)', 'Host who speaks Konkani to the vendors', 'Reusable market bag'],
+    bring: ['Cash for anything you want to buy', 'An empty stomach'],
+    thingsToKnow: {
+      guests: 'All ages. Mostly non-veg tastings; tell the host if you’re vegetarian.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Crowded and busy. Flat ground but tight lanes.',
+    },
+    reviews: [
+      { name: 'Arjun', when: 'October 2026', rating: 5, text: 'Never would have found half these stalls on my own.' },
+      { name: 'Lea', when: 'March 2026', rating: 4, text: 'So much food. Go hungry, seriously.' },
+    ],
+    interested: ['kabir'],
+  },
+  {
+    id: 'chorao-kayak-birding',
+    city: 'Goa',
+    title: 'Sunrise kayak through the Chorao mangroves',
+    tags: ['Adventure', 'Hidden gems'],
+    area: 'Chorao island, Mandovi river',
+    rating: 4.92,
+    reviewCount: 236,
+    price: 1799,
+    date: 'Tue, 3 Nov',
+    startTime: '06:15 AM',
+    duration: '3 hrs',
+    groupSize: 8,
+    seatsLeft: 5,
+    pickup: 'Ribandar ferry jetty',
+    meetingPoint: { name: 'Ribandar ferry jetty', details: 'Take the 6 AM ferry across with your host. Free parking by the jetty.' },
+    about:
+      'Paddle silently through the channels of Salim Ali Bird Sanctuary as the sun comes up. Kingfishers, egrets, ibis and, if you’re lucky, a crocodile sunning on the mud. No kayaking experience needed; it’s calm water the whole way.',
+    host: HOSTS.vishal,
+    photos: EXPERIENCE_PHOTOS.birding,
+    timeline: [
+      { time: '06:15 AM', title: 'Ferry to Chorao', note: 'Safety briefing on board' },
+      { time: '06:40 AM', title: 'Launch the kayaks', note: 'Double kayaks, all gear provided' },
+      { time: '07:00 AM', title: 'Mangrove channels', note: 'Binoculars and a bird checklist' },
+      { time: '08:15 AM', title: 'Island breakfast', note: 'Chai, bhaji-pao on the bank' },
+      { time: '09:00 AM', title: 'Walk the sanctuary boardwalk', note: 'Mudskippers and fiddler crabs' },
+    ],
+    included: ['Kayak, paddle and life jacket', 'Binoculars', 'Ferry tickets', 'Breakfast'],
+    bring: ['Hat and sunscreen', 'Clothes that can get wet', 'Quiet voices'],
+    thingsToKnow: {
+      guests: 'Ages 10 and up. You don’t need to know how to swim; life jackets are mandatory.',
+      cancellation: 'Free cancellation up to 24 hours before. Full refund if it’s called off for weather.',
+      accessibility: 'Getting in and out of the kayak needs some balance. Message Vishal to discuss.',
+    },
+    reviews: [
+      { name: 'Pooja', when: 'October 2026', rating: 5, text: 'Saw 30+ species and a crocodile. Vishal knows his birds.' },
+      { name: 'Daniel', when: 'February 2026', rating: 5, text: 'Totally peaceful. The best morning of our Goa trip.' },
+    ],
+    interested: ['dev'],
+  },
+  {
+    id: 'anjuna-flea-market-crawl',
+    city: 'Goa',
+    title: 'Anjuna Wednesday flea market crawl',
+    tags: ['Events', 'Culture'],
+    area: 'Anjuna, North Goa',
+    rating: 4.81,
+    reviewCount: 164,
+    price: 799,
+    date: 'Wed, 4 Nov',
+    startTime: '11:00 AM',
+    duration: '3 hrs',
+    groupSize: 10,
+    seatsLeft: 7,
+    pickup: 'Meet at Curlies, Anjuna',
+    meetingPoint: { name: 'Entrance by Curlies, south Anjuna beach', details: 'Next to the coconut stand at the top of the flea market lane.' },
+    about:
+      'The Anjuna flea has been running every Wednesday since the hippie days. Tanya walks you through the best stalls for silver, textiles and vintage, teaches you how to bargain without being rude, and ends at a beach shack with the sea in front of you.',
+    host: HOSTS.tanya,
+    photos: EXPERIENCE_PHOTOS.anjuna,
+    timeline: [
+      { time: '11:00 AM', title: 'Meet by the coconut stand', note: 'Bargaining 101' },
+      { time: '11:20 AM', title: 'Textiles and silver lanes', note: 'Kashmiri, Lambani and Tibetan stalls' },
+      { time: '12:30 PM', title: 'Spice and tea corner', note: 'Taste before you buy' },
+      { time: '01:15 PM', title: 'Vintage finds', note: 'Tanya’s favourite three stalls' },
+      { time: '01:45 PM', title: 'Shack lunch by the sea', note: 'One drink on the host' },
+    ],
+    included: ['Host and bargaining tips', 'One welcome drink at the shack', 'Spice tasting'],
+    bring: ['Cash in small notes', 'A tote bag', 'Sunglasses'],
+    thingsToKnow: {
+      guests: 'All ages. The market only runs on Wednesdays, roughly November to April.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Sandy and uneven in parts. Gets hot by noon.',
+    },
+    reviews: [
+      { name: 'Simran', when: 'October 2026', rating: 5, text: 'Saved a fortune with Tanya’s bargaining tips.' },
+      { name: 'Kenji', when: 'January 2026', rating: 4, text: 'Fun and chaotic. The shack lunch was the perfect ending.' },
+    ],
+    interested: ['riya', 'meera'],
+  },
+  {
+    id: 'old-goa-churches-walk',
+    city: 'Goa',
+    title: 'Old Goa churches and stories walk',
+    tags: ['Culture'],
+    area: 'Old Goa',
+    rating: 4.9,
+    reviewCount: 341,
+    price: 999,
+    date: 'Mon, 2 Nov',
+    startTime: '08:30 AM',
+    duration: '3 hrs',
+    groupSize: 12,
+    seatsLeft: 9,
+    pickup: 'Meet at Bom Jesus gate',
+    meetingPoint: { name: 'Main gate, Basilica of Bom Jesus', details: 'Parking across the road near the archaeological museum.' },
+    about:
+      'Old Goa was once bigger than Lisbon. Walk the UNESCO-listed churches with a historian: the Basilica of Bom Jesus, Se Cathedral and the ruins of St Augustine, with stories of plague, spice money and a saint who has been on display for 400 years.',
+    host: HOSTS.joel,
+    photos: EXPERIENCE_PHOTOS.oldGoa,
+    timeline: [
+      { time: '08:30 AM', title: 'Basilica of Bom Jesus', note: 'Before the tour buses arrive' },
+      { time: '09:15 AM', title: 'Se Cathedral', note: 'The Golden Bell and the gilded altar' },
+      { time: '10:00 AM', title: 'Church of St Francis of Assisi', note: 'Frescoes and the museum' },
+      { time: '10:40 AM', title: 'Ruins of St Augustine', note: 'The tower on Holy Hill' },
+      { time: '11:30 AM', title: 'Coffee and croquettes', note: 'At a café by the river' },
+    ],
+    included: ['Licensed historian guide', 'Museum entry', 'Coffee and snacks'],
+    bring: ['Clothes covering shoulders and knees', 'Water bottle'],
+    thingsToKnow: {
+      guests: 'All ages. Some churches close during Mass; the route adjusts around services.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Step-free at the main churches. The hill to St Augustine is steep.',
+    },
+    reviews: [
+      { name: 'Meghna', when: 'September 2026', rating: 5, text: 'Joel is a walking encyclopedia but never boring.' },
+      { name: 'Oliver', when: 'December 2025', rating: 5, text: 'Going early made all the difference. Very worth it.' },
+    ],
+    interested: [],
+  },
+  {
+    id: 'arambol-sunset-drum-circle',
+    city: 'Goa',
+    title: 'Arambol sunset drum circle and beach jam',
+    tags: ['Nightlife', 'Events'],
+    pick: 'GhoomMate pick · Kabir’s kind of evening',
+    area: 'Arambol, North Goa',
+    rating: 4.86,
+    reviewCount: 128,
+    price: 699,
+    date: 'Sat, 31 Oct',
+    startTime: '05:00 PM',
+    duration: '3 hrs',
+    groupSize: 20,
+    seatsLeft: 11,
+    pickup: 'Meet at Arambol beach entrance',
+    meetingPoint: { name: 'Main beach entrance, Arambol', details: 'Walk down from the market road; look for the djembe circle.' },
+    about:
+      'Every evening Arambol beach turns into an open stage: jugglers, fire dancers and a drum circle that keeps going after dark. Mira hands you a djembe, teaches you three rhythms, and brings the squad into the circle as the sun drops into the sea.',
+    host: HOSTS.mira,
+    photos: EXPERIENCE_PHOTOS.arambol,
+    timeline: [
+      { time: '05:00 PM', title: 'Drum basics', note: 'Three rhythms in 30 minutes' },
+      { time: '05:45 PM', title: 'Join the circle', note: 'Sunset jam on the sand' },
+      { time: '06:30 PM', title: 'Fire and flow show', note: 'Local performers' },
+      { time: '07:15 PM', title: 'Shack dinner', note: 'Optional, pay as you go' },
+    ],
+    included: ['Djembe to use', 'Percussion lesson', 'Chai and snacks'],
+    bring: ['Something to sit on', 'A light layer for after sunset'],
+    thingsToKnow: {
+      guests: 'All ages, though it gets lively after dark.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Soft sand the whole way. Not wheelchair friendly.',
+    },
+    reviews: [
+      { name: 'Zoya', when: 'October 2026', rating: 5, text: 'Goosebumps when the whole beach was drumming together.' },
+      { name: 'Felix', when: 'March 2026', rating: 4, text: 'Very chill, very Arambol. Mira is a great teacher.' },
+    ],
+    interested: ['kabir', 'dev'],
+  },
+  {
+    id: 'sinquerim-dolphin-cruise',
+    city: 'Goa',
+    title: 'Dolphin spotting boat ride + Fort Aguada',
+    tags: ['Adventure'],
+    area: 'Sinquerim, North Goa',
+    rating: 4.72,
+    reviewCount: 905,
+    price: 899,
+    date: 'Sun, 1 Nov',
+    startTime: '08:00 AM',
+    duration: '2.5 hrs',
+    groupSize: 12,
+    seatsLeft: 6,
+    pickup: 'Sinquerim jetty',
+    meetingPoint: { name: 'Sinquerim fishing jetty', details: 'Below Fort Aguada, next to the lifeguard tower.' },
+    about:
+      'Head out on a local fishing boat at the hour the dolphins feed, along the coast past Fort Aguada and Jail Island. Sagar has a 9-in-10 spotting rate. Afterwards, climb up to the 17th-century fort and lighthouse for the best view in North Goa.',
+    host: HOSTS.sagar,
+    photos: EXPERIENCE_PHOTOS.dolphins,
+    timeline: [
+      { time: '08:00 AM', title: 'Board at Sinquerim', note: 'Life jackets on' },
+      { time: '08:15 AM', title: 'Dolphin waters', note: 'Off Aguada and the Mandovi mouth' },
+      { time: '09:15 AM', title: 'Back to shore', note: 'Coconut water on the jetty' },
+      { time: '09:30 AM', title: 'Fort Aguada walk', note: 'Lighthouse and rampart views' },
+    ],
+    included: ['Boat ride with life jackets', 'Coconut water', 'Fort entry'],
+    bring: ['Sunscreen', 'Motion sickness tablet if you need one'],
+    thingsToKnow: {
+      guests: 'Ages 4 and up. Boats don’t run if the sea is rough.',
+      cancellation: 'Free cancellation up to 12 hours before. Full refund if the port closes.',
+      accessibility: 'Boarding from the jetty needs a step down. The fort walk is uphill.',
+    },
+    reviews: [
+      { name: 'Aditi', when: 'October 2026', rating: 5, text: 'Dolphins came right up to the boat. Kids lost their minds.' },
+      { name: 'Ravi', when: 'November 2025', rating: 4, text: 'Quick and fun. The fort view after was a bonus.' },
+    ],
+    interested: ['riya'],
+  },
+  {
+    id: 'chapora-fort-sunset',
+    city: 'Goa',
+    title: 'Chapora fort sunset hike and photo walk',
+    tags: ['Hidden gems', 'Adventure'],
+    area: 'Vagator, North Goa',
+    rating: 4.84,
+    reviewCount: 211,
+    price: 599,
+    date: 'Sat, 31 Oct',
+    startTime: '04:45 PM',
+    duration: '2 hrs',
+    groupSize: 12,
+    seatsLeft: 2,
+    pickup: 'Meet at Chapora village square',
+    meetingPoint: { name: 'Chapora village square', details: 'By the big banyan tree, opposite the juice centre.' },
+    about:
+      'Skip the crowded steps and take the back trail up to Chapora fort. Aditya shows you the best spots for the river mouth, Vagator bay and the sunset, then takes your squad photos with a proper camera. You’ll get the edited set the next day.',
+    host: HOSTS.aditya,
+    photos: EXPERIENCE_PHOTOS.chapora,
+    timeline: [
+      { time: '04:45 PM', title: 'Village square', note: 'Fresh lime juice to start' },
+      { time: '05:00 PM', title: 'Back trail to the fort', note: '20 min climb, mostly shade' },
+      { time: '05:30 PM', title: 'Golden-hour photos', note: 'Squad shots on the ramparts' },
+      { time: '06:15 PM', title: 'Sunset over Vagator', note: 'The best seat on the wall' },
+      { time: '06:45 PM', title: 'Walk down by torchlight', note: 'Ends near the Vagator shacks' },
+    ],
+    included: ['Photography guide', '20+ edited photos', 'Lime juice', 'Torches'],
+    bring: ['Shoes with grip', 'Your best outfit for the photos'],
+    thingsToKnow: {
+      guests: 'Ages 8 and up. Moderate climb.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Rocky trail with loose stones. Not suitable for wheelchairs.',
+    },
+    reviews: [
+      { name: 'Tara', when: 'October 2026', rating: 5, text: 'Our profile pictures are sorted for the next five years.' },
+      { name: 'Vikram', when: 'April 2026', rating: 5, text: 'The back trail was quiet and the view was ridiculous.' },
+    ],
+    interested: ['you', 'riya', 'kabir'],
+  },
+  {
+    id: 'divar-island-cycling',
+    city: 'Goa',
+    title: 'Cycle Divar island by ferry',
+    tags: ['Hidden gems', 'Culture'],
+    area: 'Divar island',
+    rating: 4.93,
+    reviewCount: 102,
+    price: 1299,
+    date: 'Tue, 3 Nov',
+    startTime: '07:30 AM',
+    duration: '4 hrs',
+    groupSize: 8,
+    seatsLeft: 6,
+    pickup: 'Old Goa ferry point',
+    meetingPoint: { name: 'Old Goa ferry point', details: 'Near the Viceroy’s Arch. Cycles are waiting on the Divar side.' },
+    about:
+      'Ten minutes by ferry and you’re in a different Goa: paddy fields, sleepy Portuguese villas, an ancient temple tank and hardly any traffic. Cycle the island’s lanes with Priya, climb to the Piedade church for the view, and stop for a home-cooked lunch.',
+    host: HOSTS.priya,
+    photos: EXPERIENCE_PHOTOS.divar,
+    timeline: [
+      { time: '07:30 AM', title: 'Ferry across the Mandovi', note: 'Free, and full of locals' },
+      { time: '07:50 AM', title: 'Pick up cycles', note: 'Helmets and a quick spin' },
+      { time: '08:15 AM', title: 'Paddy fields and villas', note: 'Flat lanes through Malar' },
+      { time: '09:30 AM', title: 'Piedade hilltop church', note: 'River views in every direction' },
+      { time: '10:30 AM', title: 'Temple tank and caves', note: 'Older than most of Old Goa' },
+      { time: '11:00 AM', title: 'Home-cooked lunch', note: 'At Priya’s aunt’s place' },
+    ],
+    included: ['Cycle and helmet', 'Ferry crossings', 'Home-cooked lunch', 'Water and snacks'],
+    bring: ['Comfortable clothes', 'Sunscreen'],
+    thingsToKnow: {
+      guests: 'Ages 12 and up. You should be comfortable on a cycle for about 15 km.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'E-bikes available on request for the uphill bits.',
+    },
+    reviews: [
+      { name: 'Nina', when: 'September 2026', rating: 5, text: 'Felt like we had the island to ourselves.' },
+      { name: 'Harsh', when: 'January 2026', rating: 5, text: 'The lunch alone is worth booking for.' },
+    ],
+    interested: ['meera', 'dev'],
+  },
+  {
+    id: 'palolem-butterfly-island',
+    city: 'Goa',
+    title: 'Canoe to Butterfly beach from Palolem',
+    tags: ['Hidden gems', 'Adventure'],
+    area: 'Palolem, South Goa',
+    rating: 4.79,
+    reviewCount: 388,
+    price: 1099,
+    date: 'Wed, 4 Nov',
+    startTime: '08:30 AM',
+    duration: '4 hrs',
+    groupSize: 10,
+    seatsLeft: 4,
+    pickup: 'North end of Palolem beach',
+    meetingPoint: { name: 'North end of Palolem beach', details: 'By the river mouth, at the blue wooden canoes.' },
+    about:
+      'Paddle a traditional wooden canoe around the headland to Butterfly beach, a tiny cove you can only reach by water. Snorkel off the rocks, look for dolphins on the way, and finish with a kingfish thali at Nikhil’s favourite shack.',
+    host: HOSTS.nikhil,
+    photos: EXPERIENCE_PHOTOS.palolem,
+    timeline: [
+      { time: '08:30 AM', title: 'Meet at the canoes', note: 'Paddling basics on the beach' },
+      { time: '09:00 AM', title: 'Paddle around the headland', note: 'Watch for dolphins' },
+      { time: '10:00 AM', title: 'Butterfly beach', note: 'Swim and snorkel' },
+      { time: '11:15 AM', title: 'Paddle back via Monkey island', note: 'Calmer side of the bay' },
+      { time: '12:00 PM', title: 'Shack lunch', note: 'Kingfish thali on Palolem' },
+    ],
+    included: ['Canoe and life jacket', 'Snorkel gear', 'Lunch', 'Dry bag'],
+    bring: ['Swimwear', 'Reef-safe sunscreen', 'Towel'],
+    thingsToKnow: {
+      guests: 'Ages 10 and up. Basic swimming helps for snorkelling.',
+      cancellation: 'Free cancellation up to 24 hours before. Full refund if the sea is too rough.',
+      accessibility: 'Needs moderate fitness for about 2 hours of paddling.',
+    },
+    reviews: [
+      { name: 'Ira', when: 'October 2026', rating: 5, text: 'Butterfly beach was empty when we got there. Magical.' },
+      { name: 'Ben', when: 'February 2026', rating: 4, text: 'Arms were dead by the end but the thali fixed everything.' },
+    ],
+    interested: ['kabir'],
+  },
+  {
+    id: 'baga-night-out',
+    city: 'Goa',
+    title: 'Baga night out with a local',
+    tags: ['Nightlife'],
+    area: 'Baga, North Goa',
+    rating: 4.68,
+    reviewCount: 274,
+    price: 1999,
+    date: 'Sat, 31 Oct',
+    startTime: '09:30 PM',
+    duration: '4 hrs',
+    groupSize: 12,
+    seatsLeft: 5,
+    pickup: 'Meet at Baga beach road',
+    meetingPoint: { name: 'Top of Tito’s Lane, Baga', details: 'Outside the ATM at the beach-road junction.' },
+    about:
+      'Skip the queues and the tourist traps. Kevin walks your squad through the best of Baga after dark: a live-music bar, a beach party, a club with guest-list entry, and the 3 AM street food that every local swears by.',
+    host: HOSTS.kevin,
+    photos: EXPERIENCE_PHOTOS.baga,
+    timeline: [
+      { time: '09:30 PM', title: 'Meet on Tito’s Lane', note: 'Welcome shot' },
+      { time: '10:00 PM', title: 'Live-music bar', note: 'Local band, Goan classics' },
+      { time: '11:15 PM', title: 'Beach party', note: 'Glow sticks and DJs on the sand' },
+      { time: '12:30 AM', title: 'Club with guest-list entry', note: 'No queue, no cover' },
+      { time: '01:30 AM', title: 'Bun-omelette stop', note: 'The famous late-night stall' },
+    ],
+    included: ['Guest-list entry at two venues', 'Welcome drink', 'Late-night snack', 'Cab back within 5 km'],
+    bring: ['Valid photo ID', 'Closed shoes for the club'],
+    thingsToKnow: {
+      guests: 'Ages 21 and up, ID checked at the door.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Crowded and loud venues. Some have stairs.',
+    },
+    reviews: [
+      { name: 'Rohit', when: 'October 2026', rating: 5, text: 'Kevin knows everyone. Walked straight in everywhere.' },
+      { name: 'Chloe', when: 'December 2025', rating: 4, text: 'Felt safe as a group of girls. Great energy.' },
+    ],
+    interested: ['kabir', 'dev'],
+  },
+  {
+    id: 'cashew-feni-distillery',
+    city: 'Goa',
+    title: 'Cashew feni distillery visit',
+    tags: ['Food', 'Culture', 'Hidden gems'],
+    area: 'Bicholim, North Goa',
+    rating: 4.91,
+    reviewCount: 156,
+    price: 1599,
+    date: 'Thu, 5 Nov',
+    startTime: '10:00 AM',
+    duration: '3 hrs',
+    groupSize: 10,
+    seatsLeft: 7,
+    pickup: 'Pickup from Panjim',
+    meetingPoint: { name: 'Panjim bus stand', details: 'Pickup in a jeep; drop back at the same spot.' },
+    about:
+      'See Goa’s own spirit made the old way. Walk the cashew orchard, watch the fruit crushed and the juice distilled in a copper pot over a wood fire, then taste urrack, feni and a few house infusions with Francis and his family.',
+    host: HOSTS.francis,
+    photos: EXPERIENCE_PHOTOS.feni,
+    timeline: [
+      { time: '10:00 AM', title: 'Pickup from Panjim', note: '40 minute drive into the hills' },
+      { time: '10:45 AM', title: 'Cashew orchard walk', note: 'From fruit to nut' },
+      { time: '11:15 AM', title: 'Crushing and fermenting', note: 'Try the fresh neero juice' },
+      { time: '11:45 AM', title: 'Copper pot distillation', note: 'Urrack, then feni' },
+      { time: '12:15 PM', title: 'Tasting and lunch', note: 'Feni cocktails and Goan snacks' },
+    ],
+    included: ['Return transport from Panjim', 'Guided distillery tour', 'Tasting of 5 spirits', 'Lunch'],
+    bring: ['Covered shoes', 'A designated non-drinker if you want to buy bottles'],
+    thingsToKnow: {
+      guests: 'Tastings are for guests of legal drinking age, ID checked. Non-alcoholic tasting available.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'The orchard walk is on a hillside. Seating at the distillery.',
+    },
+    reviews: [
+      { name: 'Siddharth', when: 'September 2026', rating: 5, text: 'Finally understood what real feni is. Francis is a legend.' },
+      { name: 'Maya', when: 'March 2026', rating: 5, text: 'Smoky, rustic and so much fun. Buy a bottle of the cashew urrack.' },
+    ],
+    interested: ['dev', 'kabir'],
+  },
+  {
+    id: 'pichola-sunset-boat',
+    city: 'Udaipur',
+    title: 'Lake Pichola sunset boat ride + Jag Mandir',
+    tags: ['Culture', 'Hidden gems'],
+    pick: 'GhoomMate pick · the squad’s sunset spot',
+    area: 'Lal Ghat, Udaipur',
+    rating: 4.94,
+    reviewCount: 702,
+    price: 1299,
+    date: 'Sun, 1 Nov',
+    startTime: '04:45 PM',
+    duration: '2 hrs',
+    groupSize: 10,
+    seatsLeft: 6,
+    pickup: 'Meet at Lal Ghat',
+    meetingPoint: { name: 'Lal Ghat steps, old city', details: 'Bottom of the ghat steps by the blue boat. Five minutes’ walk from Jagdish temple.' },
+    about:
+      'Skip the big ferry and glide across Pichola in a private wooden boat. Pass the Lake Palace and the bathing ghats, stop on Jag Mandir island to wander its pavilions, then drift by the City Palace as the whole lake turns gold.',
+    host: HOSTS.devendra,
+    photos: EXPERIENCE_PHOTOS.pichola,
+    timeline: [
+      { time: '04:45 PM', title: 'Meet at Lal Ghat', note: 'Chai on the steps' },
+      { time: '05:00 PM', title: 'Row past the ghats', note: 'Gangaur Ghat and Bagore ki Haveli' },
+      { time: '05:20 PM', title: 'Jag Mandir island', note: 'Elephant statues and the palace gardens' },
+      { time: '06:00 PM', title: 'Sunset on the water', note: 'Lake Palace and City Palace views' },
+      { time: '06:40 PM', title: 'Back at Lal Ghat', note: 'Dinner suggestions on rooftops nearby' },
+    ],
+    included: ['Private boat for the group', 'Jag Mandir landing fee', 'Masala chai and snacks', 'Life jackets'],
+    bring: ['A light shawl for after sunset', 'Camera with a charged battery'],
+    thingsToKnow: {
+      guests: 'All ages. Kids under 5 ride free.',
+      cancellation: 'Free cancellation up to 24 hours before. Full refund if the lake is closed for water levels.',
+      accessibility: 'A few steps down to the boat; the host can help with boarding.',
+    },
+    reviews: [
+      { name: 'Aisha', when: 'October 2026', rating: 5, text: 'Having the boat to ourselves at sunset was the highlight of Udaipur.' },
+      { name: 'Pierre', when: 'February 2026', rating: 5, text: 'Devendra’s stories about the palaces made it so much more than a boat ride.' },
+      { name: 'Karan', when: 'December 2025', rating: 4, text: 'Gorgeous. Book early in winter, it fills up.' },
+    ],
+    interested: ['riya', 'meera', 'kabir'],
+  },
+  {
+    id: 'udaipur-old-city-food-walk',
+    city: 'Udaipur',
+    title: 'Old city kachori and chaat walk',
+    tags: ['Food', 'Culture'],
+    area: 'Jagdish Chowk, Udaipur',
+    rating: 4.89,
+    reviewCount: 318,
+    price: 999,
+    date: 'Mon, 2 Nov',
+    startTime: '05:30 PM',
+    duration: '3 hrs',
+    groupSize: 10,
+    seatsLeft: 5,
+    pickup: 'Meet at Jagdish temple',
+    meetingPoint: { name: 'Jagdish temple steps', details: 'At the foot of the temple’s main stairs, next to the stone elephants.' },
+    about:
+      'Eat your way through the lanes behind the City Palace with Kavita: piping-hot pyaz kachori, mirchi vada, dal pakwan, kulhad lassi and jalebi fried in front of you. Between bites, browse the bazaars for block prints and silver.',
+    host: HOSTS.kavita,
+    photos: EXPERIENCE_PHOTOS.udaipurFood,
+    timeline: [
+      { time: '05:30 PM', title: 'Jagdish temple', note: 'Evening aarti if you’re lucky' },
+      { time: '05:50 PM', title: 'Kachori corner', note: 'Pyaz and dal kachori, fresh from the kadhai' },
+      { time: '06:30 PM', title: 'Bada Bazaar lanes', note: 'Mirchi vada and raj kachori chaat' },
+      { time: '07:15 PM', title: 'Hathi Pol', note: 'Kulhad lassi and a look at the miniature shops' },
+      { time: '08:00 PM', title: 'Sweet finish', note: 'Jalebi and rabri at a 60-year-old shop' },
+    ],
+    included: ['All tastings (8+ stops)', 'Bottled water', 'Host’s map of favourite food stalls'],
+    bring: ['An empty stomach', 'Cash for shopping'],
+    thingsToKnow: {
+      guests: 'All ages. Fully vegetarian; some dishes are spicy and can be made mild.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Busy lanes with traffic and some steps. Flat overall.',
+    },
+    reviews: [
+      { name: 'Sneha', when: 'October 2026', rating: 5, text: 'I didn’t need dinner for two days. Kavita’s kachori spot is unreal.' },
+      { name: 'Jake', when: 'January 2026', rating: 5, text: 'Great mix of food and wandering. Felt like a local by the end.' },
+    ],
+    interested: ['kabir', 'dev'],
+  },
+  {
+    id: 'haveli-rajasthani-cooking',
+    city: 'Udaipur',
+    title: 'Dal baati churma cooking class in a haveli',
+    tags: ['Food', 'Culture'],
+    area: 'Gangaur Ghat, Udaipur',
+    rating: 4.98,
+    reviewCount: 456,
+    price: 1899,
+    date: 'Tue, 3 Nov',
+    startTime: '11:00 AM',
+    duration: '3.5 hrs',
+    groupSize: 8,
+    seatsLeft: 4,
+    pickup: 'At the haveli, Gangaur Ghat',
+    meetingPoint: { name: 'Shanti’s haveli, near Gangaur Ghat', details: 'Blue door two lanes up from the ghat. Exact address shared after booking.' },
+    about:
+      'Learn Mewari home cooking in a family haveli overlooking the lake. Knead and bake baati, cook a five-dal dal, pound sweet churma, and make gatte ki sabzi and fresh rotis on the chulha. Then sit down together to the thali you made.',
+    host: HOSTS.shanti,
+    photos: EXPERIENCE_PHOTOS.rajasthaniCooking,
+    timeline: [
+      { time: '11:00 AM', title: 'Welcome with chaas', note: 'Tour of the haveli kitchen' },
+      { time: '11:20 AM', title: 'Knead and bake baati', note: 'In the clay oven' },
+      { time: '12:00 PM', title: 'Panchmel dal and gatte', note: 'Spices roasted and ground by hand' },
+      { time: '12:45 PM', title: 'Churma and rotis', note: 'Ghee, jaggery and a lot of laughing' },
+      { time: '01:30 PM', title: 'Rooftop thali lunch', note: 'With a lake view' },
+    ],
+    included: ['All ingredients', 'Lunch you cook', 'Recipe booklet', 'Spice kit to take home'],
+    bring: ['Comfortable clothes', 'An appetite for ghee'],
+    thingsToKnow: {
+      guests: 'Ages 10 and up. Fully vegetarian; Jain version on request.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'The kitchen is on the ground floor; lunch is on the rooftop up two flights of stairs.',
+    },
+    reviews: [
+      { name: 'Divya', when: 'October 2026', rating: 5, text: 'Shanti ji treated us like family. Best dal baati I’ve ever eaten.' },
+      { name: 'Emma', when: 'March 2026', rating: 5, text: 'Gorgeous haveli and a really hands-on class.' },
+      { name: 'Rahul', when: 'November 2025', rating: 5, text: 'The churma recipe alone was worth it.' },
+    ],
+    interested: ['riya', 'meera'],
+  },
+  {
+    id: 'mewar-miniature-painting',
+    city: 'Udaipur',
+    title: 'Mewar miniature painting workshop',
+    tags: ['Culture', 'Hidden gems'],
+    area: 'Hathi Pol, Udaipur',
+    rating: 4.93,
+    reviewCount: 187,
+    price: 1499,
+    date: 'Mon, 2 Nov',
+    startTime: '10:00 AM',
+    duration: '3 hrs',
+    groupSize: 6,
+    seatsLeft: 3,
+    pickup: 'Rajesh’s studio, Hathi Pol',
+    meetingPoint: { name: 'Rajesh’s studio, Hathi Pol', details: 'First floor above the frame shop. Look for the painted elephant on the door.' },
+    about:
+      'Udaipur has had court painters for 400 years. Spend a morning in a working studio learning the Mewar style: grind mineral colours on stone, sketch an elephant or a peacock with a single-hair brush, and take your finished painting home.',
+    host: HOSTS.rajesh,
+    photos: EXPERIENCE_PHOTOS.miniature,
+    timeline: [
+      { time: '10:00 AM', title: 'Studio welcome', note: 'Masala chai and the family’s old paintings' },
+      { time: '10:20 AM', title: 'Make your colours', note: 'Grinding stone pigments and gum arabic' },
+      { time: '10:50 AM', title: 'Sketch and outline', note: 'Elephant, peacock or a palace window' },
+      { time: '11:40 AM', title: 'Paint and gild', note: 'Fine brushwork and a touch of gold' },
+      { time: '12:45 PM', title: 'Frame and take home', note: 'Plus a walk through Bagore ki Haveli’s frescoes' },
+    ],
+    included: ['All paints, brushes and handmade paper', 'Your finished painting, framed', 'Chai and snacks'],
+    bring: ['Reading glasses if you use them', 'Patience'],
+    thingsToKnow: {
+      guests: 'Ages 8 and up. No art experience needed.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'The studio is up one flight of stairs. Seated activity throughout.',
+    },
+    reviews: [
+      { name: 'Ritika', when: 'September 2026', rating: 5, text: 'Never painted before and my elephant actually looks like an elephant.' },
+      { name: 'Lukas', when: 'February 2026', rating: 5, text: 'Rajesh is a true master and very patient. A really calm morning.' },
+    ],
+    interested: ['meera'],
+  },
+  {
+    id: 'sajjangarh-sunset-cycle',
+    city: 'Udaipur',
+    title: 'Cycle to Sajjangarh Monsoon Palace for sunset',
+    tags: ['Adventure', 'Hidden gems'],
+    area: 'Fateh Sagar, Udaipur',
+    rating: 4.85,
+    reviewCount: 142,
+    price: 1199,
+    date: 'Wed, 4 Nov',
+    startTime: '03:30 PM',
+    duration: '3.5 hrs',
+    groupSize: 10,
+    seatsLeft: 7,
+    pickup: 'Meet at Fateh Sagar',
+    meetingPoint: { name: 'Fateh Sagar lake, Moti Magri gate', details: 'By the boat jetty at the start of the lakeside promenade.' },
+    about:
+      'Ride along Fateh Sagar and out through village lanes to the foot of the Aravallis. A support jeep takes you and the bikes up the steep sanctuary road to Sajjangarh, the Monsoon Palace, for sunset over five lakes. Finish with corn and chai back by the lake.',
+    host: HOSTS.arjun,
+    photos: EXPERIENCE_PHOTOS.sajjangarh,
+    timeline: [
+      { time: '03:30 PM', title: 'Bikes and helmets', note: 'Safety briefing at Fateh Sagar' },
+      { time: '03:50 PM', title: 'Lakeside ride', note: 'Fateh Sagar promenade and Rani Road' },
+      { time: '04:40 PM', title: 'Village lanes', note: 'Up to the sanctuary gate' },
+      { time: '05:15 PM', title: 'Jeep to Sajjangarh', note: 'Through the wildlife sanctuary' },
+      { time: '05:45 PM', title: 'Sunset at the palace', note: 'Views over the city of lakes' },
+      { time: '06:45 PM', title: 'Corn and chai', note: 'Back at Fateh Sagar by night' },
+    ],
+    included: ['Hybrid bike and helmet', 'Sanctuary entry and jeep', 'Water and snacks', 'Corn and chai'],
+    bring: ['Trainers', 'Sunglasses', 'A light jacket for the ride back'],
+    thingsToKnow: {
+      guests: 'Ages 12 and up. About 18 km of mostly flat cycling; the climb is by jeep.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'E-bikes available on request.',
+    },
+    reviews: [
+      { name: 'Nikita', when: 'October 2026', rating: 5, text: 'The sunset from Sajjangarh was insane and the ride was easy.' },
+      { name: 'Omar', when: 'January 2026', rating: 4, text: 'Fun way to see a side of Udaipur most people miss.' },
+    ],
+    interested: ['dev', 'kabir'],
+  },
+  {
+    id: 'bagore-dharohar-folk-evening',
+    city: 'Udaipur',
+    title: 'Dharohar folk dance evening at Bagore ki Haveli',
+    tags: ['Events', 'Nightlife', 'Culture'],
+    area: 'Gangaur Ghat, Udaipur',
+    rating: 4.82,
+    reviewCount: 534,
+    price: 799,
+    date: 'Sat, 31 Oct',
+    startTime: '06:00 PM',
+    duration: '2.5 hrs',
+    groupSize: 15,
+    seatsLeft: 9,
+    pickup: 'Meet at Gangaur Ghat',
+    meetingPoint: { name: 'Gangaur Ghat archway', details: 'Under the triple-arched gate on the lake, next to Bagore ki Haveli.' },
+    about:
+      'Front-row seats for Dharohar, the nightly folk show in the courtyard of an 18th-century haveli: ghoomar, the pot-balancing bhavai dance and Mewari puppetry. Devendra gets you in early for the best seats, and afterwards you walk the lit-up ghats for dinner.',
+    host: HOSTS.devendra,
+    photos: EXPERIENCE_PHOTOS.dharohar,
+    timeline: [
+      { time: '06:00 PM', title: 'Gangaur Ghat at dusk', note: 'Watch the lake light up' },
+      { time: '06:30 PM', title: 'Into the haveli', note: 'Front-row seats in the courtyard' },
+      { time: '07:00 PM', title: 'Dharohar show', note: 'Ghoomar, bhavai and puppets' },
+      { time: '08:00 PM', title: 'Ghat walk', note: 'Ambrai ghat for the night view' },
+    ],
+    included: ['Reserved show tickets', 'Camera pass', 'Guide for the ghat walk'],
+    bring: ['A cushion if you like comfort', 'Small change for the musicians'],
+    thingsToKnow: {
+      guests: 'All ages. The show is about an hour; seating is on the courtyard floor and benches.',
+      cancellation: FREE_CANCEL_24H,
+      accessibility: 'Step-free courtyard. The ghat walk has some steps.',
+    },
+    reviews: [
+      { name: 'Ankita', when: 'October 2026', rating: 5, text: 'The woman dancing with nine pots on her head. I’m still thinking about it.' },
+      { name: 'Ben', when: 'March 2026', rating: 4, text: 'Great seats and a lovely walk after. Worth the small premium.' },
+    ],
+    interested: ['riya', 'kabir', 'dev'],
+  },
+]
+
+export const experienceById = (id: string) => EXPERIENCES.find((e) => e.id === id)
+
+/** The seeded city a trip destination like "Udaipur, Rajasthan" belongs to; Goa when there's no match */
+export const experienceCityFor = (destination: string | null | undefined): ExperienceCity =>
+  EXPERIENCE_CITIES.find((city) => destination?.toLowerCase().includes(city.toLowerCase())) ?? 'Goa'

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import headerBg from '../../assets/figma/explore-header-bg.svg'
 import iconArrowPrimary from '../../assets/figma/icon-arrow-primary.svg'
 import iconFlame from '../../assets/figma/icon-flame.svg'
@@ -12,25 +12,39 @@ import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
 import { useVoice } from '../../components/voice/voiceContext'
+import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
-import { CATEGORIES, GUIDE_TRIP, TRENDING } from './exploreData'
+import { formatINR } from '../Trip/tripFormat'
+import { CATEGORIES, TRENDING } from './exploreData'
+import { EXPERIENCES, experienceCityFor, type Experience, type ExperienceCity } from './experiencesData'
 import './ExplorePage.css'
 
 export function ExplorePage() {
   const [category, setCategory] = useState(CATEGORIES[0])
+  const [query, setQuery] = useState('')
   const navigate = useNavigate()
-  const openGuideTrip = () => navigate('trip/explore/guide')
+  const city = experienceCityFor(useActiveTrip().trip?.destination)
+  // "Explore Udaipur" overruns the header buttons on a phone, so longer city names stand alone
+  const title = city.length <= 5 ? `Explore ${city}` : city
+  const openGuideTrip = (id: string) => navigate(`trip/explore/guide/${id}`)
+  const guideTrips = useMemo(() => filterExperiences(city, category, query), [city, category, query])
   const voice = useVoice()
   const [toast, showToast] = useToast()
 
   return (
     <>
-    <ScreenLayout headerBg={headerBg} headerHeight={170} eyebrow="Trending near your squad" title="Explore Goa">
+    <ScreenLayout headerBg={headerBg} headerHeight={170} eyebrow="Trending near your squad" title={title}>
       <div className="screen__header-row">
         <label className="search">
           <img src={iconSearch} alt="" width={18} height={18} />
-          <input type="search" placeholder="Search spots, guides, vibes…" aria-label="Search" />
+          <input
+            type="search"
+            placeholder="Search spots, guides, vibes…"
+            aria-label="Search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
           <button type="button" className="search__voice" aria-label="Search by voice" onClick={() => voice.open('Find food nearby')}>
             <img src={iconMicPrimary} alt="" width={18} height={18} />
           </button>
@@ -46,35 +60,40 @@ export function ExplorePage() {
           ))}
         </div>
 
-        <SectionHeader
-          title="Trending this weekend"
-          action={
-            // TODO: full trending list once that screen exists
-            <button type="button" className="text-link" onClick={() => showToast('More trending spots are coming soon')}>
-              See all
-            </button>
-          }
-        />
-        <div className="trending no-scrollbar">
-          {TRENDING.map((t) => (
-            <article key={t.id} className="trend-card">
-              <div className="trend-card__cover">
-                <img src={t.photo} alt="" width={220} height={118} />
-                <span className="trend-card__badge">
-                  <img src={iconFlame} alt="" width={12} height={12} />
-                  {t.badge}
-                </span>
-              </div>
-              <div className="trend-card__body">
-                <h3 className="trend-card__title">{t.title}</h3>
-                <div className="trend-card__stats">
-                  <AvatarStack people={t.people} size={18} overlap={6} />
-                  <span>{t.stats}</span>
+        {/* The trending events are Goa-only sample data */}
+        {city === 'Goa' && (
+          <>
+          <SectionHeader
+            title="Trending this weekend"
+            action={
+              // TODO: full trending list once that screen exists
+              <button type="button" className="text-link" onClick={() => showToast('More trending spots are coming soon')}>
+                See all
+              </button>
+            }
+          />
+          <div className="trending no-scrollbar">
+            {TRENDING.map((t) => (
+              <article key={t.id} className="trend-card">
+                <div className="trend-card__cover">
+                  <img src={t.photo} alt="" width={220} height={118} />
+                  <span className="trend-card__badge">
+                    <img src={iconFlame} alt="" width={12} height={12} />
+                    {t.badge}
+                  </span>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
+                <div className="trend-card__body">
+                  <h3 className="trend-card__title">{t.title}</h3>
+                  <div className="trend-card__stats">
+                    <AvatarStack people={t.people} size={18} overlap={6} />
+                    <span>{t.stats}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+          </>
+        )}
 
         <SectionHeader
           title="Trips by local guides"
@@ -85,34 +104,12 @@ export function ExplorePage() {
             </button>
           }
         />
-        <article className="list-card guide-trip">
-          <button type="button" className="guide-trip__open" aria-label={`Open ${GUIDE_TRIP.title}`} onClick={openGuideTrip} />
-          <div className="guide-trip__cover">
-            <img src={GUIDE_TRIP.photo} alt="" width={78} height={86} />
-            <span className="guide-trip__host-avatar">
-              <Avatar person={GUIDE_TRIP.hostAvatar} size={26} />
-            </span>
-          </div>
-          <div className="guide-trip__info">
-            <span className="guide-trip__pick">{GUIDE_TRIP.pick}</span>
-            <p className="guide-trip__host">
-              Hosted by {GUIDE_TRIP.host} ·
-              <img src={iconStarSmall} alt="" width={11} height={11} />
-              {GUIDE_TRIP.rating}
-            </p>
-            <h3 className="guide-trip__title">{GUIDE_TRIP.title}</h3>
-            <p className="guide-trip__details">{GUIDE_TRIP.details}</p>
-            <div className="guide-trip__footer">
-              <p className="guide-trip__price">
-                {GUIDE_TRIP.price}
-                <span> /person · {GUIDE_TRIP.seatsLeft} seats left</span>
-              </p>
-              <button type="button" className="guide-trip__join" onClick={openGuideTrip}>
-                Join
-              </button>
-            </div>
-          </div>
-        </article>
+        {guideTrips.map((trip) => (
+          <GuideTripCard key={trip.id} trip={trip} onOpen={() => openGuideTrip(trip.id)} />
+        ))}
+        {guideTrips.length === 0 && (
+          <p className="guide-trips__empty">No guide trips match that yet. Try another vibe.</p>
+        )}
 
         {/* TODO: the host / local guide side of the app */}
         <button type="button" className="host-banner" onClick={() => showToast('Hosting your own trips is coming soon')}>
@@ -129,5 +126,51 @@ export function ExplorePage() {
     </ScreenLayout>
     <Toast message={toast} />
     </>
+  )
+}
+
+/** 'Trending' keeps every trip; a search matches title, area, host or tag */
+function filterExperiences(city: ExperienceCity, category: string, query: string) {
+  const q = query.trim().toLowerCase()
+  return EXPERIENCES.filter(
+    (e) =>
+      e.city === city &&
+      (category === CATEGORIES[0] || (e.tags as string[]).includes(category)) &&
+      (!q || [e.title, e.area, e.host.name, ...e.tags].some((text) => text.toLowerCase().includes(q))),
+  )
+}
+
+function GuideTripCard({ trip, onOpen }: { trip: Experience; onOpen: () => void }) {
+  return (
+    <article className="list-card guide-trip">
+      <button type="button" className="guide-trip__open" aria-label={`Open ${trip.title}`} onClick={onOpen} />
+      <div className="guide-trip__cover">
+        <img src={trip.photos[0].src} alt={trip.photos[0].alt} width={78} height={86} loading="lazy" />
+        <span className="guide-trip__host-avatar">
+          <Avatar person={trip.host.id} size={26} />
+        </span>
+      </div>
+      <div className="guide-trip__info">
+        {trip.pick && <span className="guide-trip__pick">{trip.pick}</span>}
+        <p className="guide-trip__host">
+          Hosted by {trip.host.name.split(' ')[0]} ·
+          <img src={iconStarSmall} alt="" width={11} height={11} />
+          {trip.rating} ({trip.reviewCount})
+        </p>
+        <h3 className="guide-trip__title">{trip.title}</h3>
+        <p className="guide-trip__details">
+          {trip.date} · {trip.duration} · {trip.area}
+        </p>
+        <div className="guide-trip__footer">
+          <p className="guide-trip__price">
+            {formatINR(trip.price)}
+            <span> /person · {trip.seatsLeft} seats left</span>
+          </p>
+          <button type="button" className="guide-trip__join" onClick={onOpen}>
+            Join
+          </button>
+        </div>
+      </div>
+    </article>
   )
 }

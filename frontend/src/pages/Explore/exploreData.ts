@@ -1,9 +1,10 @@
-import photoGuideTrip from '../../assets/figma/photo-guide-trip.svg'
 import photoNightMarket from '../../assets/figma/photo-night-market.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
 import type { PersonId } from '../../data/people'
+import { EXPERIENCE_TAGS } from './experiencesData'
 
-export const CATEGORIES = ['Trending', 'Food', 'Nightlife', 'Hidden gems', 'Events']
+/** 'Trending' shows every guide trip; the rest filter by tag */
+export const CATEGORIES = ['Trending', ...EXPERIENCE_TAGS]
 
 export const TRENDING: { id: string; title: string; badge: string; stats: string; people: PersonId[]; photo: string }[] = [
   {
@@ -23,16 +24,3 @@ export const TRENDING: { id: string; title: string; badge: string; stats: string
     photo: photoNightMarket,
   },
 ]
-
-export const GUIDE_TRIP = {
-  pick: 'GhoomMate pick · fits your adventure vibe',
-  host: 'Rohan',
-  /** Figma shows the Dev avatar on the cover */
-  hostAvatar: 'dev' as PersonId,
-  rating: 4.9,
-  title: 'Spice farm + Dudhsagar waterfall trek',
-  details: 'Sun, 2 Nov · 7 hrs · Pickup included',
-  price: '₹1,499',
-  seatsLeft: 8,
-  photo: photoGuideTrip,
-}

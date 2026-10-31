@@ -4,13 +4,14 @@ import { NOTIFICATION_SETTINGS, type NotificationSettingId } from './tripDetailD
 // Device-only UI state for the trip screens. Trip data itself (members, expenses, photos,
 // itinerary) comes from the backend through data/activeTrip.ts.
 type TripState = {
-  guideJoined: boolean
+  /** Guide experiences booked on this device */
+  joinedGuides: string[]
   reelPicks: number[]
   notifications: Record<NotificationSettingId, boolean>
 }
 
 let state: TripState = {
-  guideJoined: false,
+  joinedGuides: [],
   reelPicks: [],
   notifications: Object.fromEntries(NOTIFICATION_SETTINGS.map((n) => [n.id, n.id !== 'photos'])) as Record<
     NotificationSettingId,
@@ -33,7 +34,8 @@ const update = (patch: (s: TripState) => Partial<TripState>) => {
 export const useTripStore = () => useSyncExternalStore(subscribe, () => state)
 
 export const tripActions = {
-  joinGuide: () => update(() => ({ guideJoined: true })),
+  joinGuide: (id: string) =>
+    update((s) => ({ joinedGuides: s.joinedGuides.includes(id) ? s.joinedGuides : [...s.joinedGuides, id] })),
   toggleReelPick: (index: number) =>
     update((s) => ({
       reelPicks: s.reelPicks.includes(index) ? s.reelPicks.filter((i) => i !== index) : [...s.reelPicks, index],

@@ -221,3 +221,149 @@
   line-height: 18px;
   color: var(--color-success);
 }
+
+/* Rating line under the title */
+.guide__rating-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.guide__rating-line strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* Photo strip that bleeds to the screen edge */
+.guide__gallery {
+  display: flex;
+  gap: 10px;
+  margin: 0 -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
+.guide__gallery img {
+  flex-shrink: 0;
+  width: 220px;
+  height: 140px;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+  scroll-snap-align: start;
+}
+
+/* About + meeting point + things to know */
+.guide__about,
+.guide__meet,
+.guide__know,
+.guide__reviews {
+  gap: 10px;
+}
+
+.guide__about p,
+.guide__meet-details,
+.guide__know dd,
+.guide__review-text {
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.guide__host {
+  align-items: flex-start;
+}
+
+.guide__host-about {
+  margin-top: 4px;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.guide__meet-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.guide__know dl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guide__know dt {
+  margin-top: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.guide__know dt:first-child {
+  margin-top: 0;
+}
+
+.guide__know dd {
+  color: var(--color-muted);
+}
+
+/* Reviews */
+.guide__reviews-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+.guide__reviews ul {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.guide__review + .guide__review {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.guide__review-head {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.guide__review-head strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* Photo attribution */
+.guide__credits {
+  padding: 0 4px 8px;
+  font-weight: 500;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-subtle);
+}
+
+.guide__credits a {
+  color: inherit;
+  text-decoration: underline;
+}

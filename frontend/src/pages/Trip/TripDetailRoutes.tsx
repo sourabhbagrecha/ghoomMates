@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -25,7 +26,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   photos/view/<index>     Photo viewer (0-based)
  *   photos/upload           Upload photos
  *   photos/reel             Generated reel
- *   explore/guide           Guide trip detail
+ *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -53,8 +54,11 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
       if (page === 'view' && /^\d+$/.test(param ?? '')) return <PhotoViewerPage index={Number(param)} />
       return null
     }
-    case 'explore':
-      return route === 'explore/guide' ? <GuideTripPage /> : null
+    case 'explore': {
+      if (page !== 'guide') return null
+      const experience = param ? experienceById(param) : EXPERIENCES[0]
+      return experience ? <GuideTripPage key={experience.id} experience={experience} /> : null
+    }
     case 'members':
       return route === 'members' ? <MembersPage /> : null
     case 'settings':

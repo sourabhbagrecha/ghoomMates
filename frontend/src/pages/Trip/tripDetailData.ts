@@ -1,4 +1,3 @@
-import photoGuideTrip from '../../assets/figma/photo-guide-trip.svg'
 import grid2 from '../../assets/figma/photo-grid-2.svg'
 import grid4 from '../../assets/figma/photo-grid-4.svg'
 import photoCruise from '../../assets/figma/photo-cruise.svg'
@@ -7,8 +6,6 @@ import photoReel from '../../assets/figma/photo-reel.svg'
 import photoSeafood from '../../assets/figma/photo-seafood.svg'
 import photoSunrise from '../../assets/figma/photo-sunrise.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
-import type { PersonId } from '../../data/people'
-import { GUIDE_TRIP } from '../Explore/exploreData'
 import { REEL } from '../Photos/photosData'
 
 export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel']
@@ -65,25 +62,6 @@ export const SHARE_TARGETS = [
   { id: 'instagram', label: 'Instagram', initial: 'Ig' },
   { id: 'whatsapp', label: 'WhatsApp', initial: 'W' },
 ] as const
-
-export const GUIDE_DETAIL = {
-  ...GUIDE_TRIP,
-  cover: photoGuideTrip,
-  date: 'Sun, 2 Nov',
-  duration: '7 hrs',
-  pickup: 'Pickup from Baga',
-  hostBio: 'Local guide · 126 trips · Speaks Konkani, Hindi, English',
-  timeline: [
-    { time: '07:00 AM', title: 'Pickup from your stay', note: 'AC tempo traveller from Baga' },
-    { time: '08:30 AM', title: 'Sahakari spice farm walk', note: 'Tasting + Goan breakfast' },
-    { time: '10:30 AM', title: 'Jeep safari to Dudhsagar', note: 'Through Bhagwan Mahaveer sanctuary' },
-    { time: '11:30 AM', title: 'Waterfall trek and swim', note: 'Life jackets provided' },
-    { time: '01:00 PM', title: 'Goan thali lunch', note: 'Veg and fish options' },
-    { time: '02:00 PM', title: 'Drop back at Baga', note: 'Nap in the van, promise' },
-  ],
-  included: ['Pickup and drop', 'Jeep safari permit', 'Breakfast and thali lunch', 'Life jackets and guide'],
-  interested: ['riya', 'kabir', 'dev'] as PersonId[],
-}
 
 export const NOTIFICATION_SETTINGS = [
   { id: 'itinerary', title: 'Itinerary changes', description: 'New stops, time changes and votes' },
