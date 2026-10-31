@@ -1,0 +1,18 @@
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Firebase local state and credential files
+.firebase/
+*-service-account*.json
+service-account*.json
+
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+build/
+coverage/
+*.log
