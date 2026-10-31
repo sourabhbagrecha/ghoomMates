@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import { ApiError, integer } from '../expenses/domain.ts';
-import { jsonBody } from '../http.ts';
+import { jsonBody, largeJsonBody } from '../http.ts';
+import { faceSearchUrl } from '../env.ts';
 import { logger } from '../logger.ts';
 import type { Database } from '../db.ts';
 import type { MediaStorage } from '../storage.ts';
 import type { User } from '../auth/types.ts';
+import { createFaceSearch, type FaceSearch } from './faces.ts';
 import { ItineraryService } from './itinerary.ts';
 import { TripService, type TripAccess } from './service.ts';
 
@@ -22,7 +24,7 @@ function page(req: Request, max = 100) {
 }
 
 // Trip groups for signed-in users: create, invite, join, expenses, settlements and photo uploads. Mount under /api/trips.
-export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string) {
+export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string, faceSearch: FaceSearch = createFaceSearch({ url: faceSearchUrl() })) {
   const service = new TripService(db, storage, clientOrigin);
   const itinerary = new ItineraryService(db);
   const router = Router();
@@ -106,6 +108,14 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
   router.get('/:tripId/photos', async (req, res) => {
     const { limit, offset } = page(req, 500);
     res.json({ ...await service.photos(access(res), limit, offset), limit, offset });
+  });
+
+  // Selfies travel as base64 in the JSON body, so this route allows up to 25 MiB.
+  router.post('/:tripId/photos/find-me', largeJsonBody('25mb'), async (req, res) => {
+    const started = Date.now();
+    const result = await service.findMe(access(res), req.body, faceSearch);
+    logger.info('Trips', `${user(res).email} found ${result.matches.length} photo(s) of themselves in trip ${access(res).trip.id} (${Date.now() - started} ms)`);
+    res.json(result);
   });
 
   router.post('/:tripId/photos', jsonBody, async (req, res) => {

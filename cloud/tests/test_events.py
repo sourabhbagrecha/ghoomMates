@@ -1,0 +1,119 @@
+"""Event parsing, routing (what gets indexed), config, DSN handling and search request validation."""
+
+from __future__ import annotations
+
+import base64
+
+import pytest
+
+from faces.config import Settings
+from faces.db import normalize_dsn
+from faces.indexer import FINALIZED, parse_event, route
+from faces.search import InvalidRequest, decode_selfie, parse_request
+from tests.conftest import TRIP_A
+
+OBJECT = {"bucket": "ghoomates", "name": f"trips/{TRIP_A}/photos/a.jpg", "generation": "1730000000000001",
+          "contentType": "image/jpeg", "size": "12345"}
+
+
+def test_parse_binary_mode_event():
+    e = parse_event({"ce-id": "42", "ce-type": FINALIZED}, OBJECT)
+    assert (e.id, e.type, e.bucket, e.name, e.generation, e.content_type, e.size) == (
+        "42", FINALIZED, "ghoomates", OBJECT["name"], 1730000000000001, "image/jpeg", 12345)
+
+
+def test_parse_structured_mode_event():
+    e = parse_event({}, {"specversion": "1.0", "id": "7", "type": FINALIZED, "data": OBJECT})
+    assert e.id == "7" and e.generation == 1730000000000001
+
+
+def test_content_type_parameters_are_stripped():
+    e = parse_event({"ce-type": FINALIZED}, {**OBJECT, "contentType": "Image/JPEG; charset=binary"})
+    assert e.content_type == "image/jpeg"
+
+
+@pytest.mark.parametrize("body", [None, {}, {"bucket": "b"}, {"name": "n"}, "text"])
+def test_events_without_an_object_are_rejected(body):
+    with pytest.raises((ValueError, TypeError)):
+        parse_event({"ce-type": FINALIZED}, body)
+
+
+@pytest.mark.parametrize(
+    "name,content_type,expected",
+    [
+        (f"trips/{TRIP_A}/photos/a.jpg", "image/jpeg", TRIP_A),
+        (f"trips/{TRIP_A.upper()}/photos/A.JPG", "image/jpeg", TRIP_A),
+        (f"trips/{TRIP_A}/photos/a.heic", "image/heic", TRIP_A),
+        (f"trips/{TRIP_A}/receipts/a.jpg", "image/jpeg", None),
+        (f"trips/{TRIP_A}/photos/thumbs/a.jpg", "image/jpeg", None),
+        (f"trips/{TRIP_A}/photos/a.pdf", "application/pdf", None),
+        (f"trips/{TRIP_A}/photos/a.jpg", "application/pdf", None),
+        (f"trips/{TRIP_A}/photos/a.pdf", "image/jpeg", None),
+        (f"trips/{TRIP_A}/photos/a.jpg", "", None),
+        ("users/u1/selfie.jpg", "image/jpeg", None),
+        ("selfies/x.jpg", "image/jpeg", None),
+        ("thumbnails/trips/x.jpg", "image/jpeg", None),
+        ("healthcheck/x.jpg", "image/jpeg", None),
+        ("trips/not-a-uuid/photos/a.jpg", "image/jpeg", None),
+    ],
+)
+def test_route_only_indexes_trip_photos(name, content_type, expected):
+    trip_id, reason = route(name, content_type, Settings())
+    assert trip_id == expected
+    assert (reason is None) == (expected is not None)
+
+
+def test_skip_prefixes_win_over_the_include_pattern():
+    s = Settings.from_env({"SKIP_PREFIXES": "trips/", "INCLUDE_PATTERN": r"^trips/(?P<scope>[0-9a-f-]{36})/photos/[^/]+$"})
+    assert route(f"trips/{TRIP_A}/photos/a.jpg", "image/jpeg", s) == (None, "skip prefix trips/")
+
+
+def test_settings_from_env_overrides_defaults():
+    s = Settings.from_env({"MATCH_THRESHOLD": "0.35", "MIN_FACE_PX": "48", "ALIGN": "false",
+                           "SKIP_PREFIXES": " Selfies/ , tmp/ ", "SERVICE": "Search", "MAX_IMAGE_SIDE": ""})
+    assert (s.match_threshold, s.min_face_px, s.align, s.service) == (0.35, 48, False, "search")
+    assert s.skip_prefixes == ("selfies/", "tmp/")
+    assert s.max_image_side == 1600
+
+
+def test_defaults_match_the_notebook():
+    s = Settings()
+    assert (s.model_name, s.detector_backend, s.align, s.enforce_detection) == ("Facenet512", "retinaface", True, True)
+    assert (s.max_image_side, s.min_face_px, s.min_face_confidence, s.match_threshold) == (1600, 40, 0.90, 0.40)
+
+
+def test_node_style_no_verify_becomes_libpq_require():
+    url = "postgres://u:p%40ss@1.2.3.4:5432/db?sslmode=no-verify&application_name=x"
+    assert normalize_dsn(url) == "postgres://u:p%40ss@1.2.3.4:5432/db?sslmode=require&application_name=x"
+    assert normalize_dsn("postgresql://u@h/db") == "postgresql://u@h/db"
+
+
+def test_selfies_accept_base64_and_data_urls(settings):
+    raw = b"\xff\xd8\xff selfie"
+    b64 = base64.b64encode(raw).decode()
+    assert decode_selfie(b64, 0, settings) == raw
+    assert decode_selfie(f"data:image/jpeg;base64,{b64}", 0, settings) == raw
+
+
+@pytest.mark.parametrize(
+    "body,code",
+    [
+        (None, "VALIDATION_ERROR"),
+        ({"trip_id": "nope", "selfies": ["aGk="]}, "VALIDATION_ERROR"),
+        ({"trip_id": TRIP_A, "selfies": []}, "VALIDATION_ERROR"),
+        ({"trip_id": TRIP_A, "selfies": ["aGk="] * 4}, "VALIDATION_ERROR"),
+        ({"trip_id": TRIP_A, "selfies": ["%%%"]}, "VALIDATION_ERROR"),
+        ({"trip_id": TRIP_A, "selfies": ["data:image/jpeg,abc"]}, "VALIDATION_ERROR"),
+    ],
+)
+def test_invalid_search_requests(body, code, settings):
+    with pytest.raises(InvalidRequest) as err:
+        parse_request(body, settings)
+    assert err.value.code == code
+
+
+def test_oversized_selfies_are_rejected():
+    s = Settings.from_env({"MAX_SELFIE_BYTES": "30"})
+    with pytest.raises(InvalidRequest) as err:
+        decode_selfie(base64.b64encode(b"x" * 100).decode(), 0, s)
+    assert err.value.status == 413

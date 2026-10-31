@@ -25,6 +25,17 @@ export const jsonBody: RequestHandler = (req, res, next) => {
   parseJson(req, res, next);
 };
 
+// Same as jsonBody with a larger limit, for routes that carry images (e.g. face-match selfies).
+export function largeJsonBody(limit: string): RequestHandler {
+  const parse = express.json({ limit, type: () => true });
+  return (req, res, next) => {
+    if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
+      throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Use Content-Type: application/json');
+    }
+    parse(req, res, next);
+  };
+}
+
 // Best-effort JSON parsing: a missing, oversized, or malformed body leaves req.body as {}.
 export const optionalJsonBody: RequestHandler = (req, res, next) => {
   parseOptionalJson(req, res, (err?: unknown) => {
@@ -46,8 +57,9 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
     return;
   }
   if (err?.type === 'entity.too.large') {
-    logger.warn('HTTP', `${req.method} ${req.originalUrl || req.path} -> 413 [BODY_TOO_LARGE] Request body exceeds 64 KiB`);
-    res.status(413).json({ error: { code: 'BODY_TOO_LARGE', message: 'Request body exceeds 64 KiB' } });
+    const max = Number(err.limit) >= 1024 * 1024 ? `${Math.round(err.limit / 1024 / 1024)} MiB` : `${Math.round((Number(err.limit) || 65536) / 1024)} KiB`;
+    logger.warn('HTTP', `${req.method} ${req.originalUrl || req.path} -> 413 [BODY_TOO_LARGE] Request body exceeds ${max}`);
+    res.status(413).json({ error: { code: 'BODY_TOO_LARGE', message: `Request body exceeds ${max}` } });
     return;
   }
   if (err?.type === 'entity.parse.failed') {

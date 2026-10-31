@@ -1,0 +1,11 @@
+# Builds the runtime stage of the Dockerfile (not the test stage) and pushes it to Artifact Registry.
+# Used by deploy.sh build: gcloud builds submit --config cloudbuild.yaml --substitutions _IMAGE=...
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "--target", "runtime", "--tag", "${_IMAGE}", "."]
+images:
+  - "${_IMAGE}"
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+timeout: 3600s

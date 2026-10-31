@@ -5,7 +5,7 @@ import {
   type ItineraryDay,
   type TripDetail,
   type TripListItem,
-  type TripPhoto,
+  type TripPhotos,
   type TripSummary,
 } from '../services/tripsService'
 import { registerPeople } from './people'
@@ -25,7 +25,7 @@ type State = {
   trip: Loadable<TripDetail>
   summary: Loadable<TripSummary>
   expenses: Loadable<Expense[]>
-  photos: Loadable<{ items: TripPhoto[]; total: number }>
+  photos: Loadable<TripPhotos>
   itinerary: Loadable<ItineraryDay[]>
   error: string | null
   trips: Loadable<TripListItem[]>
@@ -143,7 +143,7 @@ export const activeTrip = {
     return once(`photos:${id}`, () =>
       tripsApi
         .photos(id)
-        .then(forCurrent(id, (photos: { items: TripPhoto[]; total: number }) => ({ photos })))
+        .then(forCurrent(id, (photos: TripPhotos) => ({ photos })))
         .catch((err) => state.tripId === id && set({ error: message(err) })),
     )
   },

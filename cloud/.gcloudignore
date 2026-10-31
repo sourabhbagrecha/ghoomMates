@@ -1,0 +1,11 @@
+# Files Cloud Build never receives (gcloud builds submit). Keeps the DB URL in .env off Google's build bucket.
+.gcloudignore
+.git
+.gitignore
+.env
+.env.*
+.venv/
+**/__pycache__/
+.pytest_cache/
+local-bucket/
+test-images/
