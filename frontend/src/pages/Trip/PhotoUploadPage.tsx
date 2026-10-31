@@ -7,7 +7,7 @@ import { Button, LinkButton } from '../../components/Button'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { activeTrip, useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
-import { tripsApi, uploadImage } from '../../services/tripsService'
+import { isHeicFile, toJpegIfHeic, tripsApi, uploadImage } from '../../services/tripsService'
 import { UPLOAD_STEPS } from './tripDetailData'
 import './PhotoUploadPage.css'
 
@@ -17,6 +17,7 @@ type Picked = { file: File; preview: string }
 /** Uploads in flight at once */
 const PARALLEL = 3
 
+
 export function PhotoUploadPage() {
   const navigate = useNavigate()
   const { trip } = useActiveTrip()
@@ -24,6 +25,7 @@ export function PhotoUploadPage() {
   const [photos, setPhotos] = useState<Picked[]>([])
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
   const [phase, setPhase] = useState<Phase>('pick')
+  const [preparing, setPreparing] = useState(false)
   const [uploaded, setUploaded] = useState(0)
   const [failed, setFailed] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -44,10 +46,13 @@ export function PhotoUploadPage() {
       return next
     })
 
-  const addFiles = (files: File[]) => {
-    const images = files.filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name))
+  const addFiles = async (files: File[]) => {
+    const images = files.filter((f) => f.type.startsWith('image/') || isHeicFile(f))
     if (!images.length) return
-    const picked = images.map((file) => ({ file, preview: URL.createObjectURL(file) }))
+    setPreparing(true)
+    const converted = await Promise.all(images.map(toJpegIfHeic))
+    setPreparing(false)
+    const picked = converted.map((file) => ({ file, preview: URL.createObjectURL(file) }))
     previews.current.push(...picked.map((p) => p.preview))
     setSelected((prev) => new Set([...prev, ...picked.map((_, i) => photos.length + i)]))
     setPhotos((prev) => [...prev, ...picked])
@@ -100,7 +105,11 @@ export function PhotoUploadPage() {
       bodyClassName="upload__body"
       actions={
         phase === 'pick' ? (
-          count ? (
+          preparing ? (
+            <Button variant="outline" disabled>
+              Preparing photos…
+            </Button>
+          ) : count ? (
             <>
               <Button variant="primary" disabled={!trip} onClick={() => void upload()}>
                 Upload {label}
@@ -130,7 +139,7 @@ export function PhotoUploadPage() {
         multiple
         hidden
         onChange={(e) => {
-          addFiles([...(e.target.files ?? [])])
+          void addFiles([...(e.target.files ?? [])])
           e.target.value = ''
         }}
       />

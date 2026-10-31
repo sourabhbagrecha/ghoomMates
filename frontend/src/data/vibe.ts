@@ -13,7 +13,7 @@ export type VibeAxis = (typeof VIBE_AXES)[number]['id']
 /** 0–1 per axis */
 export type VibeScores = Record<VibeAxis, number>
 
-/** The Goa Gang's blended vibe, read off the squad shape in the Itinerary spiderweb */
+/** The Lake City Squad's blended vibe, read off the squad shape in the Itinerary spiderweb */
 export const SQUAD_VIBE: VibeScores = {
   adventure: 0.9,
   food: 0.85,

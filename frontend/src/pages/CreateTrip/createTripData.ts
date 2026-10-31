@@ -4,6 +4,7 @@ import grid3 from '../../assets/figma/photo-grid-3.svg'
 import grid4 from '../../assets/figma/photo-grid-4.svg'
 import grid6 from '../../assets/figma/photo-grid-6.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
+import { UDAIPUR_COVER } from '../Explore/experiencePhotos'
 
 export const CREATE_STEPS = ['destination', 'dates', 'squad', 'vibe', 'generating', 'draft'] as const
 export type CreateStep = (typeof CREATE_STEPS)[number]
@@ -29,6 +30,16 @@ export type Destination = {
 
 export const DESTINATIONS: Destination[] = [
   {
+    id: 'udaipur',
+    name: 'Udaipur',
+    region: 'Rajasthan',
+    details: '4 days · from ₹14k',
+    tag: 'Lakes',
+    photo: UDAIPUR_COVER,
+    tripName: 'Udaipur Lake Escape',
+    badge: 'Squad pick',
+  },
+  {
     id: 'manali',
     name: 'Manali',
     region: 'Himachal Pradesh',
@@ -36,7 +47,6 @@ export const DESTINATIONS: Destination[] = [
     tag: 'Snow',
     photo: grid1,
     tripName: 'Manali Snow Escape',
-    badge: 'Squad pick',
   },
   {
     id: 'rishikesh',
@@ -85,11 +95,12 @@ export const DESTINATIONS: Destination[] = [
   },
 ]
 
-export const DEFAULT_DESTINATION = 'manali'
+export const DEFAULT_DESTINATION = 'udaipur'
 
 // What “Surprise us” cycles through, best fit for the squad's vibe first
 export const SURPRISES = [
-  { destination: 'manali', reason: 'Snow at Solang, cosy Old Manali cafés and one big adventure a day. Very you lot.' },
+  { destination: 'udaipur', reason: 'Sunset boats on Pichola, pottery and folk nights in the old city, and a horse ride into the Aravallis. Very you lot.' },
+  { destination: 'manali', reason: 'Snow at Solang, cosy Old Manali cafés and one big adventure a day.' },
   { destination: 'rishikesh', reason: 'Rafting by day, riverside cafés by night. Adventure and food, sorted.' },
   { destination: 'coorg', reason: 'Waterfall hikes and coffee estates, with a slower pace for the chill ones.' },
 ]
@@ -135,11 +146,11 @@ export const budgetLabel = (id: BudgetId) => BUDGETS.find((b) => b.id === id)?.l
 
 export const VIBE = {
   persona: 'The Thrill-Seeking Foodies',
-  summary: 'Snow thrills by day, great food by night. Nobody’s fussed about clubbing.',
+  summary: 'Lake sunsets and hands-on culture by day, great food by night. Nobody’s fussed about clubbing.',
   priorities: [
-    { title: 'One big adventure a day', detail: 'Solang slopes, Sissu snow and the Jogini Falls trek' },
-    { title: 'Local food over tourist traps', detail: 'Old Manali cafés, momos and a proper Lahauli thali' },
-    { title: 'Easy evenings', detail: 'Bonfires and cafés, home before midnight' },
+    { title: 'One big adventure a day', detail: 'Aravalli horse safari, Badi lake kayaking and the Kumbhalgarh walls' },
+    { title: 'Local food over tourist traps', detail: 'Old-city kachori, a haveli cooking class and a proper Mewari thali' },
+    { title: 'Easy evenings', detail: 'Pichola sunsets and rooftop folk music, home before midnight' },
   ],
   tweaks: [
     { id: 'more-adventure', label: 'More adventure' },
@@ -188,8 +199,8 @@ export type TripDetails = {
 
 export const INITIAL_TRIP: TripDetails = {
   destination: null,
-  name: 'Manali Snow Escape',
-  group: 'Mountain Crew',
+  name: 'Udaipur Lake Escape',
+  group: 'Lake City Squad',
   start: 12,
   end: 16,
   flexible: false,
@@ -205,7 +216,7 @@ export const customDestinationId = (place: string) => `${CUSTOM_PREFIX}${place.t
 export const findDestination = (id: string | null) => DESTINATIONS.find((d) => d.id === id)
 
 export const destinationName = (id: string | null) =>
-  id?.startsWith(CUSTOM_PREFIX) ? id.slice(CUSTOM_PREFIX.length) : (findDestination(id)?.name ?? 'Manali')
+  id?.startsWith(CUSTOM_PREFIX) ? id.slice(CUSTOM_PREFIX.length) : (findDestination(id)?.name ?? 'Udaipur')
 
 export const suggestedTripName = (id: string | null) =>
   findDestination(id)?.tripName ?? `${destinationName(id)} Trip`

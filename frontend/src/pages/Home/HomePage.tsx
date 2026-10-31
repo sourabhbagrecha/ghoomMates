@@ -4,7 +4,6 @@ import iconCheck from '../../assets/figma/icon-check-success.svg'
 import iconPlus from '../../assets/figma/icon-plus.svg'
 import grid1 from '../../assets/figma/photo-grid-1.svg'
 import grid3 from '../../assets/figma/photo-grid-3.svg'
-import photoVagator from '../../assets/figma/photo-vagator.svg'
 import tabExpenses from '../../assets/figma/tab-expenses-active.svg'
 import tabExplore from '../../assets/figma/tab-explore-active.svg'
 import tabItinerary from '../../assets/figma/tab-itinerary-active.svg'
@@ -23,6 +22,7 @@ import { PAST_TRIPS, UPCOMING_TRIPS } from '../../data/trips'
 import { useNavigate } from '../../hooks/navigation'
 import type { AuthUser } from '../../services/authService'
 import type { TripListItem } from '../../services/tripsService'
+import { UDAIPUR_COVER } from '../Explore/experiencePhotos'
 import { formatINR } from '../Trip/tripFormat'
 import './HomePage.css'
 
@@ -34,7 +34,7 @@ const SHORTCUTS: { tab: TabId; label: string; icon: string }[] = [
 ]
 
 const IDEAS = [
-  { name: 'Goa beaches', details: '4 days · from ₹12k', photo: photoVagator },
+  { name: 'Udaipur lakes and palaces', details: '4 days · from ₹14k', photo: UDAIPUR_COVER },
   { name: 'Manali in the snow', details: '5 days · from ₹18k', photo: grid1 },
   { name: 'Rishikesh rafting', details: '3 days · from ₹9k', photo: grid3 },
 ]

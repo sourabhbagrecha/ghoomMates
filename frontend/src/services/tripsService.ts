@@ -238,8 +238,23 @@ export const tripsApi = {
 const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
 const MAX_EDGE = 2048
 
+export const isHeicFile = (f: File) => /^image\/hei[cf]/i.test(f.type) || /\.(heic|heif)$/i.test(f.name)
+
+/** iPhone HEIC photos don't render in Chrome, so they're turned into JPEGs before previewing or uploading */
+export async function toJpegIfHeic(file: File): Promise<File> {
+  if (!isHeicFile(file)) return file
+  try {
+    const { heicTo } = await import('heic-to')
+    const blob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.9 })
+    return new File([blob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
+
 /** Downscales big camera photos to a 2048px JPEG so uploads stay quick; small or unsupported files go as they are. */
-async function prepareImage(file: File): Promise<{ blob: Blob; type: string; width?: number; height?: number }> {
+async function prepareImage(original: File): Promise<{ blob: Blob; type: string; width?: number; height?: number }> {
+  const file = await toJpegIfHeic(original)
   try {
     const bitmap = await createImageBitmap(file)
     const { width, height } = bitmap
@@ -256,7 +271,7 @@ async function prepareImage(file: File): Promise<{ blob: Blob; type: string; wid
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
     if (blob) return { blob, type: 'image/jpeg', width: canvas.width, height: canvas.height }
   } catch {
-    // The browser can't decode it (e.g. HEIC on Chrome): upload the original
+    // The browser can't decode it: upload the original
   }
   return { blob: file, type: UPLOAD_TYPES.includes(file.type) ? file.type : 'image/jpeg' }
 }
