@@ -100,7 +100,7 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
           details={details}
           onChange={update}
           onBack={() => go('selfie')}
-          onContinue={() => go('permissions')}
+          onContinue={() => onDone(details)}
         />
       )
     case 'permissions':

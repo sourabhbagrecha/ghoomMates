@@ -5,38 +5,10 @@ import {
   fetchAuthConfig,
   fetchGoogleAuthUrl,
   loginWithDevMock,
-  loginWithGoogleCredential,
   type AuthConfig,
   type AuthResponse,
 } from '../../services/authService'
 import './SignInPage.css'
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string
-            callback: (response: { credential: string }) => void
-            auto_select?: boolean
-          }) => void
-          renderButton: (
-            parent: HTMLElement,
-            options: {
-              theme?: 'outline' | 'filled_blue' | 'filled_black'
-              size?: 'large' | 'medium' | 'small'
-              text?: 'signin_with' | 'signup_with' | 'continue_with'
-              shape?: 'pill' | 'rectangular'
-              width?: number
-            }
-          ) => void
-          prompt: () => void
-        }
-      }
-    }
-  }
-}
 
 type SignInPageProps = {
   onBack: () => void
@@ -52,49 +24,6 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
     fetchAuthConfig()
       .then((cfg) => {
         setConfig(cfg)
-
-        // If Google Client ID is configured, load GIS SDK script dynamically
-        if (cfg.googleClientId) {
-          const scriptId = 'google-jssdk'
-          if (!document.getElementById(scriptId)) {
-            const script = document.createElement('script')
-            script.id = scriptId
-            script.src = 'https://accounts.google.com/gsi/client'
-            script.async = true
-            script.defer = true
-            script.onload = () => {
-              if (window.google?.accounts?.id && cfg.googleClientId) {
-                window.google.accounts.id.initialize({
-                  client_id: cfg.googleClientId,
-                  callback: async (response) => {
-                    setLoading(true)
-                    setError(null)
-                    try {
-                      const res = await loginWithGoogleCredential(response.credential)
-                      onSuccess(res)
-                    } catch (err: any) {
-                      setError(err.message || 'Google sign-in failed')
-                    } finally {
-                      setLoading(false)
-                    }
-                  },
-                })
-
-                const btnContainer = document.getElementById('google-btn-slot')
-                if (btnContainer) {
-                  window.google.accounts.id.renderButton(btnContainer, {
-                    theme: 'outline',
-                    size: 'large',
-                    text: 'continue_with',
-                    shape: 'pill',
-                    width: 320,
-                  })
-                }
-              }
-            }
-            document.body.appendChild(script)
-          }
-        }
       })
       .catch(() => {
         // Fallback for offline dev
@@ -106,7 +35,7 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
           devModeEnabled: true,
         })
       })
-  }, [onSuccess])
+  }, [])
 
   const handleGoogleClick = async () => {
     setLoading(true)
@@ -145,10 +74,11 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
 
   return (
     <OnboardingLayout
-      eyebrow="Sign in · Google"
+      eyebrow="Step 1 of 3 · Sign in"
       title="Welcome to Ghoomate"
       subtitle="Sign in or create your account with Google to plan, split, and share with your squad."
       step={1}
+      totalSteps={3}
       onBack={onBack}
       actions={
         <p className="onboarding__footnote">
@@ -159,9 +89,6 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
       {error && <div className="sign-in__error">{error}</div>}
 
       <div className="sign-in__card">
-        {/* Render container for Google Identity Services if client_id exists */}
-        <div id="google-btn-slot" className="sign-in__gis-container" />
-
         {/* Primary Google Login Button */}
         <button
           type="button"

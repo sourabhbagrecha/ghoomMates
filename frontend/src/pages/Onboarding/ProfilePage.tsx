@@ -19,15 +19,16 @@ export function ProfilePage({ details, onChange, onBack, onContinue }: ProfilePa
 
   return (
     <OnboardingLayout
-      eyebrow="Step 3 of 4 · Profile"
+      eyebrow="Step 3 of 3 · Profile"
       title="Who’s travelling?"
       subtitle="This is how your squad will see you."
       step={3}
+      totalSteps={3}
       onBack={onBack}
       bodyClassName="profile__body"
       actions={
         <Button variant="primary" disabled={!details.name.trim()} onClick={onContinue}>
-          Continue
+          Let’s go
         </Button>
       }
     >
