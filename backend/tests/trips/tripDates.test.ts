@@ -2,8 +2,8 @@ import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 // The app's trip-date helpers are plain TypeScript with no imports, so the backend tests can run them too
 import {
-  addDays, addMonths, dayIndex, daysBetween, daysUntil, describeRange, formatDateRange, formatDay, monthGrid, monthLabel, todayISO,
-  tripDay, tripDayLabel, tripPhase,
+  addDays, addMonths, dayIndex, daysBetween, daysUntil, describeRange, formatDateRange, formatDay, monthGrid, monthLabel, pickDate, todayISO,
+  tripDay, tripDayLabel, tripPhase, unavailableReason,
 } from '../../../frontend/src/data/tripDates.ts';
 
 describe('today in India', () => {
@@ -111,5 +111,56 @@ describe('month calendars', () => {
     expect(addMonths({ year: 2026, month: 11 }, 1)).toEqual({ year: 2027, month: 0 });
     expect(addMonths({ year: 2026, month: 0 }, -1)).toEqual({ year: 2025, month: 11 });
     expect(monthLabel({ year: 2026, month: 10 })).toBe('November 2026');
+  });
+});
+
+describe('picking a range', () => {
+  const none = { start: null, end: null };
+
+  test('the first tap sets the start, the second the end, a third starts over', () => {
+    const first = pickDate(none, '2026-11-01');
+    expect(first).toEqual({ start: '2026-11-01', end: null });
+    const second = pickDate(first, '2026-11-04');
+    expect(second).toEqual({ start: '2026-11-01', end: '2026-11-04' });
+    expect(pickDate(second, '2026-11-10')).toEqual({ start: '2026-11-10', end: null });
+  });
+  test('tapping the same day again makes a one-day trip; an earlier day moves the start', () => {
+    expect(pickDate({ start: '2026-11-05', end: null }, '2026-11-05')).toEqual({ start: '2026-11-05', end: '2026-11-05' });
+    expect(pickDate({ start: '2026-11-05', end: null }, '2026-11-02')).toEqual({ start: '2026-11-02', end: null });
+  });
+  test('a locked start never moves: every tap sets the end', () => {
+    const live = { start: '2026-11-01', end: '2026-11-04' };
+    expect(pickDate(live, '2026-11-03', '2026-11-01')).toEqual({ start: '2026-11-01', end: '2026-11-03' });
+    expect(pickDate(live, '2026-11-09', '2026-11-01')).toEqual({ start: '2026-11-01', end: '2026-11-09' });
+  });
+});
+
+describe('days you cannot pick', () => {
+  const rules = { first: '2026-11-01', maxDays: 14 };
+
+  test('past days are out, today is in', () => {
+    expect(unavailableReason('2026-10-31', { start: null, end: null }, rules)).toBe('already passed');
+    expect(unavailableReason('2026-11-01', { start: null, end: null }, rules)).toBe(null);
+  });
+  test('while choosing the end, a trip cannot run past the itinerary limit, but days before the start are still fine', () => {
+    const choosing = { start: '2026-11-10', end: null };
+    expect(unavailableReason('2026-11-23', choosing, rules)).toBe(null);
+    expect(unavailableReason('2026-11-24', choosing, rules)).toBe('beyond the 14-day limit');
+    expect(unavailableReason('2026-11-03', choosing, rules)).toBe(null);
+  });
+  test('with a full range any day from today on starts a new one', () => {
+    expect(unavailableReason('2026-12-30', { start: '2026-11-10', end: '2026-11-12' }, rules)).toBe(null);
+  });
+  test('a locked start rules out the days before it and counts the limit from it', () => {
+    const locked = { ...rules, lockedStart: '2026-11-01' };
+    const live = { start: '2026-11-01', end: '2026-11-04' };
+    expect(unavailableReason('2026-11-14', live, locked)).toBe(null);
+    expect(unavailableReason('2026-11-15', live, locked)).toBe('beyond the 14-day limit');
+    // A trip that began on 28 Oct: its running days are behind us, so they can't be picked as the new last day
+    const began = { ...rules, lockedStart: '2026-10-28' };
+    expect(unavailableReason('2026-10-30', { start: '2026-10-28', end: '2026-11-03' }, began)).toBe('already passed');
+    expect(unavailableReason('2026-11-02', { start: '2026-10-28', end: '2026-11-03' }, began)).toBe(null);
+    // Before a locked start that is still ahead of us
+    expect(unavailableReason('2026-11-02', { start: '2026-11-04', end: '2026-11-06' }, { ...rules, lockedStart: '2026-11-04' })).toBe('before the first day');
   });
 });

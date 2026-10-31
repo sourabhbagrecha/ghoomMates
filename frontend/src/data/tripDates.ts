@@ -117,6 +117,29 @@ export function tripDay(trip: TripDates, today: IsoDate = todayISO()) {
 /** Whole days from today until `date`; null without a date */
 export const daysUntil = (date: IsoDate | null, today: IsoDate = todayISO()) => (date ? daysBetween(today, date) : null)
 
+/* Picking a range on a calendar */
+
+export type DateRange = { start: IsoDate | null; end: IsoDate | null }
+
+/** What tapping `date` does to a range: the first tap sets the start, the second the end, a third starts over. A locked start stays, and only the end moves. */
+export function pickDate(range: DateRange, date: IsoDate, lockedStart: IsoDate | null = null): DateRange {
+  if (lockedStart) return { start: lockedStart, end: date }
+  const { start, end } = range
+  if (!start || end || date < start) return { start: date, end: null }
+  return { start, end: date }
+}
+
+type PickRules = { first: IsoDate; maxDays: number; lockedStart?: IsoDate | null }
+
+/** Why a day can't be picked, or null when it can: it has passed, comes before a locked start, or would make the trip longer than `maxDays` */
+export function unavailableReason(date: IsoDate, range: DateRange, { first, maxDays, lockedStart = null }: PickRules): string | null {
+  if (date < first) return 'already passed'
+  if (lockedStart && date < lockedStart) return 'before the first day'
+  const from = lockedStart ?? (range.start && !range.end ? range.start : null)
+  if (from && daysBetween(from, date) >= maxDays) return `beyond the ${maxDays}-day limit`
+  return null
+}
+
 /* Month calendars */
 
 export type Month = { year: number; month: number }

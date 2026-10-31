@@ -3,19 +3,21 @@ import { iconUrl } from '../assets/icons'
 import {
   MAX_TRIP_DAYS,
   addMonths,
-  daysBetween,
   formatDay,
   isoOf,
   monthGrid,
   monthLabel,
   monthNumber,
   monthOf,
+  pickDate,
   todayISO,
+  unavailableReason,
+  type DateRange,
   type IsoDate,
 } from '../data/tripDates'
 import './DateRangeCalendar.css'
 
-export type DateRange = { start: IsoDate | null; end: IsoDate | null }
+export type { DateRange }
 
 type DateRangeCalendarProps = {
   start: IsoDate | null
@@ -49,21 +51,7 @@ export function DateRangeCalendar({ start, end, onChange, min, lockStart = false
   const canGoOn = monthNumber(shown) < monthNumber(earliest) + MONTHS_AHEAD
 
   const fixedStart = lockStart && start ? start : null
-
-  // Greyed out: the past, days before a locked start, and days that would make the trip longer than maxDays
-  const unavailable = (date: IsoDate) => {
-    if (date < first) return 'already passed'
-    if (fixedStart && date < fixedStart) return 'before the first day'
-    const from = fixedStart ?? (start && !end ? start : null)
-    if (from && daysBetween(from, date) >= maxDays) return `beyond the ${maxDays}-day limit`
-    return null
-  }
-
-  const pick = (date: IsoDate) => {
-    if (fixedStart) onChange({ start: fixedStart, end: date })
-    else if (!start || end || date < start) onChange({ start: date, end: null })
-    else onChange({ start, end: date })
-  }
+  const rules = { first, maxDays, lockedStart: fixedStart }
 
   return (
     <div className={`date-range${disabled ? ' date-range--disabled' : ''}`}>
@@ -106,7 +94,7 @@ export function DateRangeCalendar({ start, end, onChange, min, lockStart = false
           const isStart = date === start
           const isEnd = date === end
           const inRange = !!start && !!end && date > start && date < end
-          const why = unavailable(date)
+          const why = unavailableReason(date, { start, end }, rules)
           const off = why !== null
           const className = [
             'date-range__day',
@@ -129,7 +117,7 @@ export function DateRangeCalendar({ start, end, onChange, min, lockStart = false
               aria-pressed={isStart || isEnd || inRange}
               aria-current={date === today ? 'date' : undefined}
               aria-label={`${formatDay(date)}${date === today ? ', today' : ''}${isStart ? ', trip starts' : ''}${isEnd ? ', trip ends' : ''}${why ? `, ${why}` : ''}`}
-              onClick={() => pick(date)}
+              onClick={() => onChange(pickDate({ start, end }, date, fixedStart))}
             >
               <span>{i + 1}</span>
             </button>
