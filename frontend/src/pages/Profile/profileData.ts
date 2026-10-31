@@ -4,11 +4,11 @@ import iconSunrise from '../../assets/figma/icon-sunrise-primary.svg'
 import iconUsers from '../../assets/figma/icon-users-primary.svg'
 import iconUtensils from '../../assets/figma/icon-utensils-primary.svg'
 import iconWallet from '../../assets/figma/icon-wallet-primary.svg'
-import grid1 from '../../assets/figma/photo-grid-1.svg'
 import grid3 from '../../assets/figma/photo-grid-3.svg'
 import grid5 from '../../assets/figma/photo-grid-5.svg'
 import grid6 from '../../assets/figma/photo-grid-6.svg'
 import type { PersonId } from '../../data/people'
+import { UPCOMING_TRIPS } from '../../data/trips'
 import { VIBE_AXES, type VibeAxis, type VibeScores } from '../../data/vibe'
 import { UDAIPUR_COVER } from '../Explore/experiencePhotos'
 import { personaFor } from '../Quiz/quizData'
@@ -34,8 +34,7 @@ export const STATS = [
 export type PlaceStatus = 'now' | 'upcoming' | 'visited'
 
 export const PLACES: { id: string; name: string; when: string; status: PlaceStatus; photo: string; route: string }[] = [
-  { id: 'udaipur', name: 'Udaipur', when: 'Oct 2026', status: 'now', photo: UDAIPUR_COVER, route: 'trip/itinerary' },
-  { id: 'manali', name: 'Manali', when: 'Dec 2026', status: 'upcoming', photo: grid1, route: 'plan' },
+  { id: 'udaipur', name: 'Udaipur', when: 'Nov 2026', status: 'now', photo: UDAIPUR_COVER, route: 'trip/itinerary' },
   { id: 'rishikesh', name: 'Rishikesh', when: 'Aug 2026', status: 'visited', photo: grid3, route: 'past/rishikesh' },
   { id: 'jaipur', name: 'Jaipur', when: 'Mar 2026', status: 'visited', photo: grid5, route: 'past/jaipur' },
   { id: 'hampi', name: 'Hampi', when: 'Dec 2025', status: 'visited', photo: grid6, route: 'past/hampi' },
@@ -58,7 +57,8 @@ export const BADGES: { id: string; title: string; detail: string; icon: string; 
 
 export const SQUADS: { id: string; name: string; members: PersonId[]; detail: string }[] = [
   { id: 'lake-city-squad', name: 'Lake City Squad', members: ['you', 'riya', 'kabir', 'meera', 'dev'], detail: '5 mates · Udaipur live now' },
-  { id: 'mountain-crew', name: 'Mountain Crew', members: ['you', 'riya', 'meera', 'dev'], detail: '4 mates · Manali in 42 days' },
+  // The squad planning the sample Udaipur weekend in src/pages/Plan
+  { id: 'mewar-mates', name: 'Mewar Mates', members: ['you', 'riya', 'meera', 'dev'], detail: `4 mates · Udaipur ${UPCOMING_TRIPS[0].startsIn?.toLowerCase() ?? 'soon'}` },
   { id: 'cafe-hoppers', name: 'Café Hoppers', members: ['you', 'kabir', 'riya'], detail: '3 mates · Pondicherry in Jan' },
 ]
 
@@ -137,7 +137,7 @@ export const FAQS: { id: string; question: string; answer: string }[] = [
     id: 'dates',
     question: 'How do I change trip dates?',
     answer:
-      'The trip organiser can change dates in Trip settings before the trip starts. GhoomMate moves the plan around and tells the squad what changed.',
+      'The trip organiser can change dates in Trip settings. Once the trip has started, only the last day can move. Stops on days that disappear move to the new last day, and GhoomMate tells you how many.',
   },
   {
     id: 'delete-data',

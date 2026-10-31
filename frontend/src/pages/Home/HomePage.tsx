@@ -2,8 +2,6 @@ import headerBg from '../../assets/figma/expenses-header-bg.svg'
 import iconCalendar from '../../assets/figma/icon-calendar-sky.svg'
 import iconCheck from '../../assets/figma/icon-check-success.svg'
 import iconPlus from '../../assets/figma/icon-plus.svg'
-import grid1 from '../../assets/figma/photo-grid-1.svg'
-import grid3 from '../../assets/figma/photo-grid-3.svg'
 import tabExpenses from '../../assets/figma/tab-expenses-active.svg'
 import tabExplore from '../../assets/figma/tab-explore-active.svg'
 import tabItinerary from '../../assets/figma/tab-itinerary-active.svg'
@@ -18,11 +16,12 @@ import type { TabId } from '../../components/TabBar'
 import { daysUntil, formatTripDates, tripDay, tripPhase, useMyTrips } from '../../data/activeTrip'
 import { usePastTrips } from '../../data/pastTripStore'
 import { tripCover } from '../../data/tripCover'
+import { formatDay, todayISO } from '../../data/tripDates'
 import { PAST_TRIPS, UPCOMING_TRIPS } from '../../data/trips'
 import { useNavigate } from '../../hooks/navigation'
 import type { AuthUser } from '../../services/authService'
 import type { TripListItem } from '../../services/tripsService'
-import { UDAIPUR_COVER } from '../Explore/experiencePhotos'
+import { EXPERIENCE_PHOTOS, UDAIPUR_COVER } from '../Explore/experiencePhotos'
 import { formatINR } from '../Trip/tripFormat'
 import './HomePage.css'
 
@@ -35,11 +34,12 @@ const SHORTCUTS: { tab: TabId; label: string; icon: string }[] = [
 
 const IDEAS = [
   { name: 'Udaipur lakes and palaces', details: '4 days · from ₹14k', photo: UDAIPUR_COVER },
-  { name: 'Manali in the snow', details: '5 days · from ₹18k', photo: grid1 },
-  { name: 'Rishikesh rafting', details: '3 days · from ₹9k', photo: grid3 },
+  { name: 'Kumbhalgarh and Ranakpur', details: '2 days · from ₹6k', photo: EXPERIENCE_PHOTOS.kumbhalgarh[0].src },
+  { name: 'Shilpgram and the makers trail', details: '3 days · from ₹9k', photo: EXPERIENCE_PHOTOS.shilpgram[0].src },
 ]
 
-const todayLabel = () => new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+/** "Sun, 1 Nov": today in India, whatever the device's own zone says */
+const todayLabel = () => formatDay(todayISO())
 
 type HomePageProps = {
   name: string | null
@@ -180,7 +180,7 @@ function Trips({ trips, onOpenTrip, onOpenPlan }: TripsProps) {
       {/* The sample trips show the planning and recap screens that aren't backed by real data yet */}
       <SectionHeader title="Sample trips" />
       <ul className="trip-list">
-        {UPCOMING_TRIPS.filter((t) => t.id === 'manali').map((t) => (
+        {UPCOMING_TRIPS.filter((t) => t.id === 'udaipur-heritage').map((t) => (
           <li key={t.id}>
             <button type="button" className="list-card trip-row trip-row--button" onClick={onOpenPlan}>
               <img className="trip-row__cover" src={t.cover} alt="" width={116} height={110} />
