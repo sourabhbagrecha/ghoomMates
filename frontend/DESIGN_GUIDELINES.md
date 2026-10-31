@@ -243,6 +243,20 @@ The FAB lives at app level and appears on every screen. `GhoomMateSays` is a dar
 ### `HeaderActions` and `StatusBar`
 Fixed header chrome: a QR invite button (frosted glass) and your profile avatar (amber with a yellow ring). The status bar is a static mock for the iOS frame.
 
+### Onboarding and form components
+Used by the sign-up flow in [`src/pages/Onboarding/`](src/pages/Onboarding/) (Figma: the **Onboarding** section and **Components · Onboarding**).
+
+| Component | What it is |
+|---|---|
+| [`OnboardingLayout`](src/components/OnboardingLayout.tsx) | Blue header with a back button, eyebrow, title, optional subtitle and a 4-step progress bar; a scrolling body; actions pinned to the bottom |
+| [`Button` / `LinkButton`](src/components/Button.tsx) | Full-width 52 px button: `highlight` (yellow, on blue), `primary` (blue, on light), `glass` (on blue), `outline` (on light). `LinkButton` is the 13 px sky text action under it ("Skip for now") |
+| [`TextField`](src/components/TextField.tsx) | Labelled 54 px input with a 2 px primary border on focus; `leading` slot for the country-code picker |
+| [`OtpInput`](src/components/OtpInput.tsx) | Six 48 × 58 boxes backed by one input, so paste and SMS autofill work |
+| [`PermissionRow`](src/components/PermissionRow.tsx) | Icon tile, title, reason, and an "Allow" pill that becomes a green "Allowed" |
+| [`GhoomMateAvatar` / `GhoomMateTip`](src/components/GhoomMate.tsx) | The mascot in its ringed circle at any size; a white tip card with a 36 px mascot |
+
+Every onboarding screen can be opened directly at `#/welcome`, `#/sign-in`, `#/verify`, `#/profile`, `#/selfie`, `#/permissions` or `#/invite`.
+
 ### Utility classes: [`src/styles/ui.css`](src/styles/ui.css)
 
 | Class | What it is |
@@ -253,6 +267,7 @@ Fixed header chrome: a QR invite button (frosted glass) and your profile avatar 
 | `.text-link` | 12 px sky-blue text action |
 | `.tag` | Tinted uppercase category label (ADVENTURE, FOOD) |
 | `.pill-button` | Small primary pill button, optionally with a 14 px icon |
+| `.home-indicator` | iOS home bar for screens without the tab bar (`--light` on blue) |
 | `.no-scrollbar` | Hides scrollbars on horizontal scrollers |
 
 ---

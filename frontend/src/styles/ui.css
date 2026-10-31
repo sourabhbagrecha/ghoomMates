@@ -69,6 +69,22 @@
   white-space: nowrap;
 }
 
+/* iOS home indicator for screens without the tab bar (it has its own) */
+.home-indicator {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  width: 135px;
+  height: 5px;
+  margin-left: -67.5px;
+  border-radius: 3px;
+  background: var(--color-ink);
+}
+
+.home-indicator--light {
+  background: #fff;
+}
+
 /* Hides scrollbars on horizontal carousels and chip rows */
 .no-scrollbar {
   scrollbar-width: none;

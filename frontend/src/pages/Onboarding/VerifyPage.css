@@ -1,0 +1,23 @@
+.verify__body {
+  gap: 18px;
+}
+
+.verify__edit {
+  font-weight: 800;
+  color: var(--color-yellow);
+}
+
+.verify__resend {
+  display: flex;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.verify__resend span,
+.verify__resend button {
+  font-weight: 700;
+  color: var(--color-sky);
+}

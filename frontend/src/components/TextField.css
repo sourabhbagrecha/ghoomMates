@@ -1,0 +1,51 @@
+.text-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.text-field__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.text-field__box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.text-field__box--prefixed {
+  padding-left: 8px;
+}
+
+/* 1.5px border + 0.5px inset ring = the 2px focused stroke from Figma, without shifting content */
+.text-field__box:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 0.5px var(--color-primary);
+}
+
+.text-field__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+  caret-color: var(--color-primary);
+}
+
+.text-field__input::placeholder {
+  color: var(--color-subtle);
+}

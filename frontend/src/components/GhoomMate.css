@@ -53,6 +53,46 @@
   filter: drop-shadow(0 8px 10px rgba(11, 23, 71, 0.25));
 }
 
+.ghoommate-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--size);
+  height: var(--size);
+  overflow: hidden;
+  border: var(--ring) solid var(--color-yellow);
+  border-radius: 50%;
+  background: var(--gradient-sky);
+}
+
+.ghoommate-avatar img {
+  position: absolute;
+  left: var(--image-left);
+  top: var(--image-top);
+  width: var(--image);
+  height: var(--image);
+  max-width: none;
+  object-fit: contain;
+}
+
+.ghoommate-tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.ghoommate-tip p {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
 .ghoommate-says p {
   width: 160px;
   font-weight: 600;

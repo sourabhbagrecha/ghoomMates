@@ -1,0 +1,91 @@
+.selfie__body {
+  align-items: center;
+  padding-top: 36px;
+  gap: 22px;
+}
+
+.selfie__camera {
+  position: relative;
+  width: 232px;
+  height: 244px;
+}
+
+.selfie__ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.selfie__viewfinder {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 208px;
+  height: 208px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: 0 6px 14px rgba(7, 42, 200, 0.08);
+}
+
+.selfie__preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.selfie__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: #fff;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.selfie__privacy {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.selfie__privacy h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.selfie__privacy ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.selfie__privacy li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}

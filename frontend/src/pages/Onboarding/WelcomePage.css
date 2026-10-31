@@ -1,0 +1,157 @@
+.welcome {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: linear-gradient(114.76deg, var(--color-primary) 8.33%, var(--color-sky) 91.67%);
+}
+
+.welcome::-webkit-scrollbar {
+  display: none;
+}
+
+/* Figma positions are absolute in an 852px frame; below 800px tall the canvas scrolls instead of overlapping */
+.welcome__canvas {
+  position: relative;
+  height: max(100%, 800px);
+  overflow: hidden;
+}
+
+.welcome__ellipse {
+  position: absolute;
+}
+
+.welcome__wordmark {
+  position: absolute;
+  left: 20px;
+  top: 62px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  letter-spacing: -0.4px;
+  color: #fff;
+}
+
+.welcome__mascot {
+  position: absolute;
+  left: calc(50% - 100px);
+  top: 168px;
+  box-shadow: 0 14px 32px rgba(7, 42, 200, 0.45);
+}
+
+.welcome__sticker-box {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome__sticker {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  box-shadow: 0 10px 20px rgba(7, 42, 200, 0.22);
+  transform: rotate(var(--rotate));
+  white-space: nowrap;
+}
+
+.welcome__sticker-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--tile);
+}
+
+.welcome__sticker-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome__sticker-text strong {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.welcome__sticker-text span {
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+.welcome__headline {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 456px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: #fff;
+}
+
+.welcome__headline h1 {
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: -0.8px;
+}
+
+.welcome__headline p {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-on-brand-muted);
+}
+
+.welcome__dots {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.welcome__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.welcome__dots .welcome__dot--active {
+  width: 20px;
+  background: var(--color-yellow);
+}
+
+.welcome__actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 34px;
+}
+
+.welcome__terms {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}

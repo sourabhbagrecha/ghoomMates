@@ -1,0 +1,108 @@
+.profile__body {
+  padding-top: 40px;
+  gap: 18px;
+}
+
+.profile__photo-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.profile__photo {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+.profile__avatar {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 8px 18px rgba(7, 42, 200, 0.12);
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 60px;
+  color: #fff;
+}
+
+.profile__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile__camera {
+  position: absolute;
+  left: 66px;
+  top: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.profile__photo-label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+}
+
+.colour-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 0;
+}
+
+.colour-picker__label {
+  float: left;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.colour-picker__label span {
+  margin-left: 2px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-subtle);
+}
+
+.colour-picker__swatches {
+  clear: both;
+  display: flex;
+  gap: 12px;
+}
+
+.colour-picker__swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--swatch);
+}
+
+/* Figma: 3px primary stroke outside the swatch */
+.colour-picker__swatch--selected {
+  box-shadow: 0 0 0 3px var(--color-primary);
+}

@@ -1,0 +1,9 @@
+.permissions__body {
+  padding-top: 40px;
+  gap: 12px;
+}
+
+/* Figma adds a 6px spacer (plus the 12px gap) before the tip */
+.permissions__tip {
+  padding-top: 18px;
+}

@@ -1,0 +1,135 @@
+.onboarding {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+.onboarding__scroll {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.onboarding__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* 393px wide in the design; stretches to fill wider phones */
+.onboarding__header-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+}
+
+.onboarding__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.onboarding__top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 4px 20px 0;
+}
+
+.onboarding__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-glass-strong);
+}
+
+/* Text action on the header's right, e.g. “Help” */
+.onboarding__header-link {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-yellow);
+}
+
+.onboarding__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 20px 0;
+}
+
+.onboarding__eyebrow {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-on-brand-muted);
+  white-space: nowrap;
+}
+
+.onboarding__title {
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.onboarding__subtitle {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-on-brand-muted);
+}
+
+.onboarding__progress {
+  display: flex;
+  gap: 6px;
+  padding: 16px 20px 0;
+}
+
+.onboarding__progress span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.onboarding__progress .onboarding__segment--done {
+  background: var(--color-yellow);
+}
+
+.onboarding__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 46px 20px 24px;
+}
+
+.onboarding__actions {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 34px;
+  background: var(--color-bg);
+}
+
+/* Small print under the actions */
+.onboarding__footnote {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
