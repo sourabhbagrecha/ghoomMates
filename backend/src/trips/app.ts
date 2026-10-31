@@ -74,7 +74,12 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
   });
 
   router.patch('/:tripId', jsonBody, async (req, res) => {
-    res.json(await service.update(access(res), req.body));
+    const before = access(res).trip;
+    const trip = await service.update(access(res), req.body);
+    if (trip.startDate !== before.start_date || trip.endDate !== before.end_date) {
+      logger.info('Trips', `${user(res).email} moved trip "${trip.name}" to ${trip.startDate ?? 'no date'} – ${trip.endDate ?? 'no date'}${trip.movedStops ? ` (${trip.movedStops} stop(s) moved to the new last day)` : ''}`);
+    }
+    res.json(trip);
   });
 
   router.get('/:tripId/summary', async (_req, res) => {

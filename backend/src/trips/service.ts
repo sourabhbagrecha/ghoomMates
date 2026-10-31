@@ -4,6 +4,7 @@ import { ExpenseService } from '../expenses/service.ts';
 import { transaction, type Database, type Pool, type Tx } from '../db.ts';
 import { IMAGE_TYPES, type MediaStorage } from '../storage.ts';
 import { mapMatches, parseSelfies, type FaceSearch } from './faces.ts';
+import { fitStopsToLength, tripLength } from './itinerary.ts';
 
 export const EXPENSE_CATEGORIES = ['food', 'stays', 'travel', 'fun', 'other'] as const;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -24,9 +25,15 @@ function inviteCode() {
   return Array.from(bytes, b => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
+// A real calendar day: Date.parse rolls 2026-02-31 over into March, and Postgres would then reject it with a 500
+function isCalendarDate(value: string) {
+  const at = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(at.getTime()) && at.toISOString().startsWith(value);
+}
+
 function optionalDate(value: unknown, field: string): string | null {
   if (value === undefined || value === null || value === '') return null;
-  requireThat(typeof value === 'string' && DATE.test(value) && !Number.isNaN(Date.parse(value)), `${field} must be a YYYY-MM-DD date`);
+  requireThat(typeof value === 'string' && DATE.test(value) && isCalendarDate(value), `${field} must be a YYYY-MM-DD date`);
   return value;
 }
 
@@ -172,7 +179,8 @@ export class TripService {
     return this.detail(await this.access(tripId, user.id));
   }
 
-  // Partial update; only fields present in the body change.
+  // Partial update; only fields present in the body change. Only the organiser can move the dates. If that makes the
+  // trip shorter, stops planned for days that no longer exist move to the new last day, and `movedStops` says how many.
   async update(access: TripAccess, input: unknown) {
     const body = object(input);
     const has = (key: string) => key in body;
@@ -189,12 +197,20 @@ export class TripService {
     };
     requireThat(!next.start_date || !next.end_date || next.end_date >= next.start_date, 'endDate must be on or after startDate');
     requireThat(JSON.stringify(next.details).length <= 8_000, 'details is too large');
-    await this.pool.query(
-      `UPDATE trips SET name = $2, group_name = $3, destination = $4, start_date = $5, end_date = $6, budget = $7, cover = $8, details = $9
-       WHERE id = $1`,
-      [trip.id, next.name, next.group_name, next.destination, next.start_date, next.end_date, next.budget, next.cover, JSON.stringify(next.details)],
-    );
-    return this.detail({ ...access, trip: { ...trip, ...next } });
+    if (next.start_date !== trip.start_date || next.end_date !== trip.end_date) {
+      if (access.role !== 'organiser') throw new ApiError(403, 'FORBIDDEN', 'Only the organiser can change the dates');
+    }
+    const updated = { ...trip, ...next };
+    const movedStops = await transaction(this.pool, async (tx) => {
+      await tx.query(
+        `UPDATE trips SET name = $2, group_name = $3, destination = $4, start_date = $5, end_date = $6, budget = $7, cover = $8, details = $9
+         WHERE id = $1`,
+        [trip.id, next.name, next.group_name, next.destination, next.start_date, next.end_date, next.budget, next.cover, JSON.stringify(next.details)],
+      );
+      const length = tripLength(updated);
+      return length < tripLength(trip) ? fitStopsToLength(tx, trip.id, length) : 0;
+    });
+    return { ...await this.detail({ ...access, trip: updated }), movedStops };
   }
 
   private async tripByCode(code: string, db: Pool | Tx = this.pool, forUpdate = false) {
