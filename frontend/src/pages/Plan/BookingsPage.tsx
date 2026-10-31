@@ -275,12 +275,12 @@ function AddBookingForm({ onAdd, onCancel }: AddBookingFormProps) {
       </div>
       <TextField
         label="What is it?"
-        placeholder="Paragliding at Solang"
+        placeholder="Puppet show at Lok Kala Mandal"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
       />
-      <TextField label="When?" placeholder="Mon 14 Dec, 10:00 AM" value={when} onChange={(e) => setWhen(e.target.value)} />
+      <TextField label="When?" placeholder="Sun 22 Nov, 10:00 AM" value={when} onChange={(e) => setWhen(e.target.value)} />
       <Button type="submit" variant="primary" disabled={!title.trim()}>
         Add booking
       </Button>

@@ -110,7 +110,7 @@ export function ChecklistPage({ plan, onBack }: ChecklistPageProps) {
           <p className="checklist-progress__note">{tab.note}</p>
         </div>
 
-        {tabId === 'bag' && <GhoomMateTip>Nights dip to −2°C in December. Pack an extra thermal layer!</GhoomMateTip>}
+        {tabId === 'bag' && <GhoomMateTip>Nights dip to about 12°C. Pack a shawl and temple-ready clothes!</GhoomMateTip>}
 
         <ul className="checklist-items">
           {items.map((item) => (

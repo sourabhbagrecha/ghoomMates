@@ -83,9 +83,9 @@ export function PlanOverviewPage({ plan }: PlanProps) {
 
 function briefing(plan: PlanState) {
   if (!plan.votes.stay) return 'It’s a three-way tie on the stay. Your vote decides it!'
-  if (!plan.votes.day3) return 'Riya and Dev want Solang on Day 3. Cast your vote?'
+  if (!plan.votes.sunset) return 'Riya and Dev want Ambrai Ghat for sunset. Cast your vote?'
   if (!plan.depositPaid) return `Votes are in! Pay your ${rupees(PLAN.depositPerPerson)} deposit to lock the trip.`
-  return 'You’re all set. Nights hit −2°C up there, so start packing!'
+  return 'You’re all set. The old city is quietest at opening time, so pack for early starts!'
 }
 
 function NeedsYou({ plan }: PlanProps) {
