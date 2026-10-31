@@ -1,0 +1,27 @@
+# Dependencies and build outputs
+node_modules/
+build/
+dist/
+coverage/
+target/
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets and local environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws/
+
+# Infrastructure state and local caches
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Local files
+.DS_Store
+*.log
