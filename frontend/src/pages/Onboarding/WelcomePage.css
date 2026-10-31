@@ -35,60 +35,49 @@
   color: #fff;
 }
 
+/* Top right on every slide but the last */
+.welcome__skip {
+  position: absolute;
+  right: 20px;
+  top: calc(var(--top-inset) + 8px);
+  padding: 0 4px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 30px;
+  color: var(--color-yellow);
+}
+
+/* One slide at a time between the header and the pinned actions; each new slide slides in */
+.welcome__slide {
+  position: absolute;
+  inset: 0 0 213px;
+  animation: welcome-slide-in 280ms ease-out;
+}
+
+@keyframes welcome-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome__slide {
+    animation: none;
+  }
+}
+
+/* Animated mascot (transparent WebP, ~4 s loop) on every slide */
 .welcome__mascot {
-  position: absolute;
-  left: calc(50% - 100px);
-  top: 168px;
-  box-shadow: 0 14px 32px rgba(7, 42, 200, 0.45);
-}
-
-.welcome__sticker-box {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.welcome__sticker {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px 8px 8px;
-  border-radius: var(--radius-tile);
-  background: var(--color-surface);
-  box-shadow: 0 10px 20px rgba(7, 42, 200, 0.22);
-  transform: rotate(var(--rotate));
-  white-space: nowrap;
+  filter: drop-shadow(0 14px 24px rgba(7, 42, 200, 0.35));
 }
 
-.welcome__sticker-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--tile);
-}
-
-.welcome__sticker-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.welcome__sticker-text strong {
-  font-weight: 800;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-ink);
-}
-
-.welcome__sticker-text span {
-  font-weight: 600;
-  font-size: 10px;
-  line-height: 15px;
-  color: var(--color-muted);
+/* Slide 1: the Figma welcome, mascot centred where the 200px avatar circle sat */
+.welcome__intro .welcome__mascot {
+  position: absolute;
+  left: calc(50% - 130px);
+  top: 148px;
 }
 
 .welcome__headline {
@@ -118,22 +107,196 @@
   color: var(--color-on-brand-muted);
 }
 
+/* Slides 2–4: mascot and heading side by side, then the slide's content */
+.welcome__panel {
+  position: absolute;
+  inset: calc(var(--top-inset) + 50px) 20px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+
+.welcome__panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome__heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #fff;
+}
+
+.welcome__heading h1 {
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 27px;
+  letter-spacing: -0.5px;
+}
+
+.welcome__heading p {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-on-brand-muted);
+}
+
+/* Slide 2: you ask, GhoomMate replies with a plan */
+.welcome__chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.welcome__ask {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 18px 18px 4px 18px;
+  background: var(--color-glass-strong);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: #fff;
+}
+
+.welcome__reply {
+  align-self: flex-start;
+  width: 92%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px 18px 18px 4px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-cover-card);
+}
+
+.welcome__reply-text {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.welcome__stops {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.welcome__stops li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.welcome__stop-time {
+  flex: none;
+  width: 58px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+}
+
+.welcome__stop-title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+/* Slides 3 and 4: white cards */
+.welcome__steps,
+.welcome__features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.welcome__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-cover-card);
+}
+
+.welcome__step-number {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+}
+
+.welcome__feature-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--color-tint);
+}
+
+.welcome__card-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome__card-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.welcome__card-text span {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* Progress dots: tap to jump; padding keeps the tap target taller than the dot */
 .welcome__dots {
   display: flex;
   gap: 6px;
-  padding-top: 8px;
 }
 
-.welcome__dots span {
+.welcome__dots button {
   width: 6px;
-  height: 6px;
+  height: 20px;
+  padding: 7px 0;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.4);
+  background-clip: content-box;
+  transition: width 200ms ease-out;
 }
 
 .welcome__dots .welcome__dot--active {
   width: 20px;
-  background: var(--color-yellow);
+  background-color: var(--color-yellow);
 }
 
 .welcome__actions {
