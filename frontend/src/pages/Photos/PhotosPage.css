@@ -372,3 +372,9 @@
   width: 100%;
   height: auto;
 }
+
+/* Tappable grid photo: a bare block button around the image, so the tile size is unchanged */
+.photo-grid__item {
+  display: block;
+  width: 100%;
+}

@@ -38,6 +38,25 @@
   padding: 4px 20px 0;
 }
 
+.screen__title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Same frosted button as the onboarding back button */
+.screen__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-glass-strong);
+}
+
 .screen__heading {
   display: flex;
   flex-direction: column;

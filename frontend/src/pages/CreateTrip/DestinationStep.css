@@ -1,0 +1,202 @@
+.create-destination__body {
+  gap: 14px;
+}
+
+.create-destination__search-icon {
+  margin-left: 4px;
+}
+
+/* GhoomMate “Surprise us” card */
+.create-surprise {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--gradient-deep);
+  filter: var(--shadow-list-card);
+}
+
+.create-surprise__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.create-surprise__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: #fff;
+}
+
+.create-surprise__detail {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-on-brand-muted);
+}
+
+.create-surprise__button {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* Searched place without a card */
+.create-destination__custom {
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  text-align: left;
+}
+
+.create-destination__custom--selected {
+  border-color: var(--color-primary);
+}
+
+.create-destination__custom-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.create-destination__custom-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.create-destination__custom-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.create-destination__empty {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* Destination cards */
+.create-destination__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  list-style: none;
+}
+
+.create-place {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 6px 10px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+  text-align: left;
+}
+
+.create-place--selected {
+  border-color: var(--color-primary);
+  filter: var(--shadow-card);
+}
+
+.create-place__cover {
+  position: relative;
+  display: block;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--color-sky-light);
+}
+
+.create-place__cover > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.create-place__badge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.create-place__check {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.create-place__info {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px;
+}
+
+.create-place__name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.create-place__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Same as Explore’s search: no native clear button */
+.create-destination__body input::-webkit-search-cancel-button {
+  display: none;
+}

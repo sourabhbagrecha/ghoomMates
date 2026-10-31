@@ -1,0 +1,187 @@
+.create-vibe__body {
+  gap: 14px;
+}
+
+/* Spiderweb card */
+.create-vibe-card {
+  align-items: center;
+  gap: 8px;
+}
+
+.create-vibe-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 8px;
+}
+
+.create-vibe-card__squad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* spiderweb.svg (176 × 140) at 1.5×; labels sit on the axis ends, anchored by side */
+.create-web {
+  position: relative;
+  flex-shrink: 0;
+  width: 264px;
+  height: 210px;
+}
+
+.create-web img {
+  width: 100%;
+  height: 100%;
+}
+
+.create-web__label {
+  position: absolute;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.create-web__label--middle {
+  transform: translate(-50%, -50%);
+}
+
+.create-web__label--start {
+  transform: translateY(-50%);
+}
+
+.create-web__label--end {
+  transform: translate(-100%, -50%);
+}
+
+.create-vibe-card__legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.create-vibe-card__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.create-vibe-card__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.create-vibe-card__swatch--squad {
+  background: var(--color-sky);
+}
+
+.create-vibe-card__swatch--you {
+  background: var(--color-amber);
+}
+
+.create-vibe-card__persona {
+  padding-top: 4px;
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+.create-vibe-card__summary {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+/* What GhoomMate will prioritise */
+.create-priorities {
+  gap: 10px;
+}
+
+.create-priorities__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.create-priorities__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.create-priorities__number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.create-priorities__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.create-priorities__text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Tweaks */
+.create-tweaks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.create-tweaks__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.create-tweaks__label span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-subtle);
+}
+
+.create-tweaks__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

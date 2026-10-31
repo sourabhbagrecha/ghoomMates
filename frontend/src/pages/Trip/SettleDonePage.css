@@ -1,0 +1,118 @@
+.settle-done {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--gradient-deep);
+}
+
+.settle-done__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 16px 20px;
+}
+
+/* Centred when there's room, scrolls from the top when there isn't */
+.settle-done__body > :first-child {
+  margin-top: auto;
+}
+
+.settle-done__body > :last-child {
+  margin-bottom: auto;
+}
+
+.settle-done__body::-webkit-scrollbar {
+  display: none;
+}
+
+.settle-done__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.settle-done__check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 16px;
+  border: 8px solid rgba(252, 243, 0, 0.35);
+  border-radius: 50%;
+  background: var(--color-yellow);
+  background-clip: padding-box;
+  animation: settle-done-pop 0.35s ease-out;
+}
+
+@keyframes settle-done-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.settle-done__eyebrow {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-on-brand-muted);
+}
+
+.settle-done__amount {
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 60px;
+  letter-spacing: -1px;
+  color: #fff;
+}
+
+.settle-done__via {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-on-brand-muted);
+}
+
+.settle-done__summary {
+  gap: 10px;
+  list-style: none;
+}
+
+.settle-done__summary li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.settle-done__summary li > span:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+
+.settle-done__value {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.settle-done__value--incoming {
+  color: var(--color-success);
+}
+
+.settle-done__actions {
+  position: relative;
+  flex: none;
+  padding: 16px 20px 34px;
+}

@@ -1,0 +1,102 @@
+.cover-layout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+.cover-layout__scroll {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.cover-layout__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.cover-layout__cover {
+  position: relative;
+  height: 280px;
+  overflow: hidden;
+  background: var(--color-sky-light);
+}
+
+.cover-layout__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Ink scrims keep the status bar, back button and overlay readable on any photo */
+.cover-layout__cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(11, 23, 71, 0.45), rgba(11, 23, 71, 0) 40%),
+    linear-gradient(to top, rgba(11, 23, 71, 0.4), rgba(11, 23, 71, 0) 45%);
+  pointer-events: none;
+}
+
+.cover-layout__chrome {
+  position: relative;
+  z-index: 1;
+}
+
+.cover-layout__top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 4px 20px 0;
+}
+
+.cover-layout__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-glass-strong);
+}
+
+.cover-layout__overlay {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 38px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Sheet that slides up over the photo */
+.cover-layout__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: -24px;
+  padding: 16px 16px 24px;
+  border-radius: 24px 24px 0 0;
+  background: var(--color-bg);
+}
+
+.cover-layout__actions {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 34px;
+  background: var(--color-bg);
+}

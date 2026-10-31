@@ -1,0 +1,116 @@
+.trip-settings__body {
+  padding-top: 20px;
+  gap: 14px;
+}
+
+.trip-settings__card {
+  gap: 12px;
+}
+
+.trip-settings__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.trip-settings__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.trip-settings__row-label {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.trip-settings__row-value {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.trip-settings__locked {
+  max-width: 96px;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  text-align: right;
+  color: var(--color-muted);
+}
+
+/* Notification switches */
+.trip-settings__toggles {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.trip-settings__toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.trip-settings__toggle-row + .trip-settings__toggle-row {
+  border-top: 1px solid var(--color-tint-cool);
+}
+
+.trip-settings__toggle-title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.trip-settings__switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--color-track-muted);
+  transition: background 0.15s;
+}
+
+.trip-settings__switch--on {
+  background: var(--color-primary);
+}
+
+.trip-settings__knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+  transition: transform 0.15s;
+}
+
+.trip-settings__switch--on .trip-settings__knob {
+  transform: translateX(18px);
+}
+
+.trip-settings__members {
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+}
+
+.trip-settings__exit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 6px;
+}

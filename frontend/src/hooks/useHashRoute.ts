@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 const readRoute = () => window.location.hash.replace(/^#\/?/, '')
 
+export type Navigate = (route: string, options?: { replace?: boolean }) => void
+
 /** Minimal hash router: `#/sign-in` → "sign-in". Browser back/forward work for free. */
-export function useHashRoute(): [string, (route: string) => void] {
+export function useHashRoute(): [string, Navigate] {
   const [route, setRoute] = useState(readRoute)
 
   useEffect(() => {
@@ -12,8 +14,14 @@ export function useHashRoute(): [string, (route: string) => void] {
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
 
-  const navigate = useCallback((next: string) => {
-    window.location.hash = `/${next}`
+  const navigate = useCallback<Navigate>((next, options) => {
+    if (options?.replace) {
+      // replaceState doesn't fire hashchange, so update state ourselves
+      window.history.replaceState(null, '', `#/${next}`)
+      setRoute(next)
+    } else {
+      window.location.hash = `/${next}`
+    }
   }, [])
 
   return [route, navigate]

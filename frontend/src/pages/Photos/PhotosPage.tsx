@@ -13,10 +13,13 @@ import { Chip } from '../../components/Chip'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { PEOPLE, SQUAD, type PersonId } from '../../data/people'
+import { useNavigate } from '../../hooks/navigation'
 import { FACE_MATCH, LIBRARY, PHOTOS, PIPELINE, REEL, UPLOAD } from './photosData'
 import './PhotosPage.css'
 
 export function PhotosPage() {
+  const navigate = useNavigate()
+
   return (
     <>
       <ScreenLayout
@@ -32,7 +35,9 @@ export function PhotosPage() {
           <ReelStudio />
           <div className="photo-grid">
             {PHOTOS.map((src, i) => (
-              <img key={src} src={src} alt={`Trip photo ${i + 1}`} width={116} height={110} />
+              <button key={src} type="button" className="photo-grid__item" onClick={() => navigate(`trip/photos/view/${i}`)}>
+                <img src={src} alt={`Trip photo ${i + 1}`} width={116} height={110} />
+              </button>
             ))}
           </div>
         </main>
@@ -81,6 +86,7 @@ function FaceFilter() {
 }
 
 function UploadCard() {
+  const navigate = useNavigate()
   const progress = (UPLOAD.uploaded / UPLOAD.total) * 100
 
   return (
@@ -103,7 +109,7 @@ function UploadCard() {
             <span className="progress__fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
-        <button type="button" className="upload-card__add">
+        <button type="button" className="upload-card__add" onClick={() => navigate('trip/photos/upload')}>
           Add
         </button>
       </div>
@@ -137,6 +143,7 @@ function UploadCard() {
 }
 
 function ReelStudio() {
+  const navigate = useNavigate()
   const [preset, setPreset] = useState<string | null>(null)
 
   return (
@@ -163,7 +170,7 @@ function ReelStudio() {
           ))}
         </div>
         <div className="reel-studio__actions">
-          <button type="button" className="reel-studio__generate">
+          <button type="button" className="reel-studio__generate" onClick={() => navigate('trip/photos/reel')}>
             Generate reel
           </button>
           <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice">

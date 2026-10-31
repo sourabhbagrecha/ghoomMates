@@ -260,3 +260,18 @@
   line-height: 17px;
   color: var(--color-primary);
 }
+
+/* Invisible tap target over the whole guide card (stretched-link pattern); Join stays on top of it */
+.guide-trip {
+  position: relative;
+}
+
+.guide-trip__open {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.guide-trip__join {
+  position: relative;
+}

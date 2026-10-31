@@ -1,0 +1,206 @@
+.stop-detail__done {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+
+.stop-detail__summary {
+  gap: 4px;
+}
+
+.stop-detail__when {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.stop-detail__time {
+  font-weight: 700;
+  color: var(--color-sky);
+}
+
+.stop-detail__title {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.stop-detail__place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* Map placeholder: a few "roads" over the tint, with a pin in the middle */
+.stop-detail__map-card {
+  gap: 12px;
+}
+
+.stop-detail__map {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 132px;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+  background:
+    linear-gradient(transparent 46%, var(--color-surface) 46%, var(--color-surface) 54%, transparent 54%),
+    linear-gradient(90deg, transparent 30%, var(--color-surface) 30%, var(--color-surface) 35%, transparent 35%),
+    linear-gradient(90deg, transparent 72%, var(--color-sky-light) 72%, var(--color-sky-light) 100%),
+    var(--color-tint);
+}
+
+.stop-detail__pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--color-yellow);
+  border-radius: 50%;
+  background: var(--color-surface);
+  filter: var(--shadow-float);
+}
+
+.stop-detail__map-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stop-detail__map-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.stop-detail__map-place {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.stop-detail__map-away {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Who's going */
+.stop-detail__squad {
+  gap: 10px;
+}
+
+.stop-detail__squad-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stop-detail__count {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+}
+
+.stop-detail__people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+}
+
+.stop-detail__people li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 44px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.stop-detail__people .stop-detail__nobody {
+  width: auto;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.stop-detail__divider {
+  height: 1px;
+  border: 0;
+  background: var(--color-divider);
+}
+
+.stop-detail__rsvp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stop-detail__rsvp-label {
+  flex: 1;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.stop-detail__rsvp {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+}
+
+.stop-detail__rsvp-option {
+  min-width: 58px;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.stop-detail__rsvp-option--selected {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Notes */
+.stop-detail__notes {
+  gap: 6px;
+}
+
+.stop-detail__notes-text,
+.stop-detail__notes-empty {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.stop-detail__notes-empty {
+  color: var(--color-muted);
+}

@@ -1,0 +1,83 @@
+.notifications__body {
+  padding-top: 20px;
+  gap: 20px;
+}
+
+.notifications__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notifications__group .overline {
+  padding: 0 2px;
+}
+
+.notifications__group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.notification {
+  position: relative;
+  gap: 10px;
+  padding: 12px 14px 12px 12px;
+}
+
+/* Leaves a lane for the unread dot so it never sits on the text */
+.notification--unread {
+  padding-right: 26px;
+}
+
+/* Read items sit back a little so new ones stand out */
+.notification:not(.notification--unread) {
+  background: rgba(255, 255, 255, 0.6);
+  filter: none;
+}
+
+.notification__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+}
+
+.notification__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notification__message {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.notification__message strong {
+  font-weight: 800;
+}
+
+.notification__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.notification__dot {
+  position: absolute;
+  top: 16px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-sky);
+}

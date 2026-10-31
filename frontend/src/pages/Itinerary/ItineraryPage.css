@@ -249,3 +249,14 @@
   color: var(--color-muted);
   white-space: nowrap;
 }
+
+/* Invisible tap target over the whole card (stretched-link pattern, so the card's markup and layout stay as in Figma) */
+.stop-card {
+  position: relative;
+}
+
+.stop-card__open {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}

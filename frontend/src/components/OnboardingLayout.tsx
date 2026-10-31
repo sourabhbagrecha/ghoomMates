@@ -8,8 +8,10 @@ type OnboardingLayoutProps = {
   eyebrow: string
   title: string
   subtitle?: ReactNode
-  /** 1–4 shows the sign-up progress bar */
+  /** 1-based step; shows the progress bar */
   step?: number
+  /** Number of segments in the progress bar */
+  totalSteps?: number
   onBack: () => void
   headerRight?: ReactNode
   /** Extra row on the blue header under the title (e.g. the squad on the invite screen) */
@@ -19,17 +21,19 @@ type OnboardingLayoutProps = {
   bodyClassName?: string
   children: ReactNode
   /** Buttons pinned to the bottom of the screen */
-  actions: ReactNode
+  actions?: ReactNode
 }
 
-const TOTAL_STEPS = 4
-
-/** Shell for sign-up and setup screens: blue header with back button, scrolling body, pinned actions. */
+/**
+ * Shell for sign-up, setup and other pushed screens (e.g. Notifications):
+ * blue header with back button, scrolling body, optional pinned actions.
+ */
 export function OnboardingLayout({
   eyebrow,
   title,
   subtitle,
   step,
+  totalSteps = 4,
   onBack,
   headerRight,
   headerExtra,
@@ -61,12 +65,12 @@ export function OnboardingLayout({
             <div
               className="onboarding__progress"
               role="progressbar"
-              aria-label={`Step ${step} of ${TOTAL_STEPS}`}
+              aria-label={`Step ${step} of ${totalSteps}`}
               aria-valuenow={step}
               aria-valuemin={1}
-              aria-valuemax={TOTAL_STEPS}
+              aria-valuemax={totalSteps}
             >
-              {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+              {Array.from({ length: totalSteps }, (_, i) => (
                 <span key={i} className={i < step ? 'onboarding__segment--done' : undefined} />
               ))}
             </div>
@@ -74,10 +78,14 @@ export function OnboardingLayout({
           <main className={`onboarding__body${bodyClassName ? ` ${bodyClassName}` : ''}`}>{children}</main>
         </div>
       </div>
-      <footer className="onboarding__actions">
-        {actions}
+      {actions ? (
+        <footer className="onboarding__actions">
+          {actions}
+          <span className="home-indicator" aria-hidden="true" />
+        </footer>
+      ) : (
         <span className="home-indicator" aria-hidden="true" />
-      </footer>
+      )}
     </div>
   )
 }

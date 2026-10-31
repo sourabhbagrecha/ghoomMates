@@ -9,10 +9,13 @@ import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { PEOPLE } from '../../data/people'
+import { useNavigate } from '../../hooks/navigation'
 import { BALANCES, CATEGORIES, EXPENSES, SETTLE_ALL, SETTLEMENTS, TRANSFERS_SAVED } from './expensesData'
 import './ExpensesPage.css'
 
 export function ExpensesPage() {
+  const navigate = useNavigate()
+
   return (
     <>
       <ScreenLayout headerBg={headerBg} headerHeight={210} eyebrow="Goa Gang · Expenses" title="Split & Settle" withBubble>
@@ -26,7 +29,7 @@ export function ExpensesPage() {
         </div>
 
         <main className="screen__body">
-          <button type="button" className="settle-cta">
+          <button type="button" className="settle-cta" onClick={() => navigate('trip/expenses/settle')}>
             <span className="settle-cta__inner">
               <span className="settle-cta__icon">
                 <img src={iconZap} alt="" width={22} height={22} />
@@ -48,7 +51,7 @@ export function ExpensesPage() {
           <SectionHeader
             title="Recent spends"
             action={
-              <button type="button" className="pill-button">
+              <button type="button" className="pill-button" onClick={() => navigate('trip/expenses/add')}>
                 <img src={iconPlus} alt="" width={14} height={14} />
                 Add
               </button>

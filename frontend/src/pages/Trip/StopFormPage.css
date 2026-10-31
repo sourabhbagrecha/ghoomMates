@@ -1,0 +1,70 @@
+.stop-form__body {
+  padding-top: 20px;
+}
+
+.stop-form__row {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  gap: 10px;
+}
+
+.stop-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stop-form__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Same as the TextField label */
+.stop-form__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.stop-form__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stop-form__people {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+/* Multi-line twin of TextField */
+.stop-form__notes {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  outline: none;
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  caret-color: var(--color-primary);
+  resize: none;
+}
+
+.stop-form__notes::placeholder {
+  color: var(--color-subtle);
+}
+
+.stop-form__notes:focus {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 0.5px var(--color-primary);
+}
