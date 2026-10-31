@@ -213,15 +213,21 @@ function App() {
       />
     )
   } else if (quizRoute) {
-    // Retaking the quiz from Profile returns there; after onboarding it goes Home
-    const fromProfile = (entries.quiz ?? '').startsWith('profile')
+    // Retaking the quiz from Profile returns there, and from a trip back to that trip; after onboarding it goes Home
+    const from = entries.quiz ?? ''
+    const fromProfile = from.startsWith('profile')
+    const fromTrip = from.startsWith('trip') && hasTrip
     // An invite opened before signing up is picked up again once the quiz is done
     const pending = getPendingInvite()
     screen = (
       <QuizFlow
         route={quizRoute}
         go={navigate}
-        onDone={() => navigate(fromProfile ? 'profile' : pending ? `join/${pending}` : '')}
+        onDone={() => {
+          // The squad's quiz progress lives on the trip's member list
+          if (fromTrip) void activeTrip.loadTrip()
+          navigate(fromProfile ? 'profile' : fromTrip ? from : pending ? `join/${pending}` : '')
+        }}
       />
     )
   } else if (section === 'join') {

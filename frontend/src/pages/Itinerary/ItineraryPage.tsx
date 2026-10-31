@@ -4,17 +4,18 @@ import iconPlus from '../../assets/figma/icon-plus.svg'
 import iconStarOutline from '../../assets/figma/icon-star-outline.svg'
 import iconStar from '../../assets/figma/icon-star.svg'
 import { AvatarStack } from '../../components/Avatar'
+import { Button } from '../../components/Button'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
 import { VibeChart } from '../../components/VibeChart'
 import { EmptyState } from '../../components/states/EmptyState'
 import { Skeleton } from '../../components/states/Skeleton'
-import { formatTripDates, tripDay, tripDayLabel, tripPhase, useActiveTrip } from '../../data/activeTrip'
-import { blendVibes, personaFor, SAMPLE_YOU_VIBE, SQUAD_VIBE, vibeMatch } from '../../data/vibe'
+import { activeTrip, formatTripDates, tripDay, tripDayLabel, tripPhase, useActiveTrip } from '../../data/activeTrip'
+import { blendVibes, personaFor, vibeMatch } from '../../data/vibe'
 import { useNavigate } from '../../hooks/navigation'
 import { loadVibe } from '../../services/vibeStorage'
-import type { ItineraryDay, ItineraryStop, TripDetail } from '../../services/tripsService'
+import { tripsApi, type ItineraryDay, type ItineraryStop, type TripDetail } from '../../services/tripsService'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './ItineraryPage.css'
 
@@ -43,7 +44,7 @@ export function ItineraryPage() {
         </div>
 
         <main className="screen__body">
-          {trip && <VibeCard trip={trip} />}
+          {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={!!live} />}
           {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
         </main>
       </ScreenLayout>
@@ -52,12 +53,31 @@ export function ItineraryPage() {
   )
 }
 
-function VibeCard({ trip }: { trip: TripDetail }) {
+function VibeCard({ trip, hasPlan, live }: { trip: TripDetail; hasPlan: boolean; live: boolean }) {
+  const navigate = useNavigate()
   const [rating, setRating] = useState(4)
-  // Your own quiz result once you've taken it, otherwise the sample from Figma
-  const [youVibe] = useState(() => loadVibe() ?? SAMPLE_YOU_VIBE)
-  // Everyone's quiz results blended; the sample shape until somebody has taken it
-  const squadVibe = blendVibes(trip.members.map((m) => m.vibe)) ?? SQUAD_VIBE
+  // Your quiz result: saved on this device right after the quiz, otherwise from the trip's member list
+  const me = trip.members.find((m) => m.memberId === trip.memberId)
+  const youVibe = loadVibe() ?? blendVibes([me?.vibe])
+  const vibes = trip.members.map((m) => ({ member: m, vibe: m.memberId === trip.memberId ? youVibe : blendVibes([m.vibe]) }))
+  const waiting = vibes.filter((v) => !v.vibe).map((v) => v.member)
+  const done = trip.members.length - waiting.length
+  const progress = `${done} of ${trip.members.length} ${trip.members.length === 1 ? 'mate' : 'mates'} done`
+
+  if (!youVibe) {
+    return (
+      <EmptyState
+        headingLevel={2}
+        title="What’s your travel vibe?"
+        text={`Take the vibe quiz (8 quick cards) so GhoomMate can plan the trip around you. ${progress}.`}
+        action={{ label: 'Take the vibe quiz', onClick: () => navigate('quiz') }}
+      />
+    )
+  }
+
+  // Everyone who has taken the quiz, blended
+  const squadVibe = blendVibes(vibes.map((v) => v.vibe))!
+  const firstNames = waiting.map((m) => m.name.split(' ')[0])
 
   return (
     <section className="card vibe-card">
@@ -86,29 +106,86 @@ function VibeCard({ trip }: { trip: TripDetail }) {
               You
             </span>
           </div>
-          <span className="vibe-card__match">{vibeMatch(youVibe, squadVibe)}% vibe match</span>
+          {done > 1 && <span className="vibe-card__match">{vibeMatch(youVibe, squadVibe)}% vibe match</span>}
         </div>
       </div>
-      <div className="trip-feedback">
-        <p className="trip-feedback__text">
-          How was Day 1? <span>Rate to tune tomorrow</span>
+      {waiting.length > 0 ? (
+        <p className="vibe-card__status">
+          <strong>{progress}.</strong> Waiting on {listNames(firstNames)} to take the vibe quiz before GhoomMate builds the plan.
         </p>
-        <div className="trip-feedback__stars" role="radiogroup" aria-label="Rate Day 1">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={rating === value}
-              aria-label={`${value} star${value > 1 ? 's' : ''}`}
-              onClick={() => setRating(value)}
-            >
-              <img src={value <= rating ? iconStar : iconStarOutline} alt="" width={16} height={16} />
-            </button>
-          ))}
+      ) : (
+        <GeneratePlan trip={trip} hasPlan={hasPlan} />
+      )}
+      {live && (
+        <div className="trip-feedback">
+          <p className="trip-feedback__text">
+            How was Day 1? <span>Rate to tune tomorrow</span>
+          </p>
+          <div className="trip-feedback__stars" role="radiogroup" aria-label="Rate Day 1">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={rating === value}
+                aria-label={`${value} star${value > 1 ? 's' : ''}`}
+                onClick={() => setRating(value)}
+              >
+                <img src={value <= rating ? iconStar : iconStarOutline} alt="" width={16} height={16} />
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </section>
+  )
+}
+
+/** "Riya", "Riya and Kabir", "Riya, Kabir and Meera" */
+const listNames = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`)
+
+/** Once the whole squad has taken the quiz: asks GhoomMate for a plan from everyone's vibes and saves it as the itinerary. */
+function GeneratePlan({ trip, hasPlan }: { trip: TripDetail; hasPlan: boolean }) {
+  const [busy, setBusy] = useState(false)
+  // Regenerating replaces the stops already planned, so it takes a second tap
+  const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const generate = async () => {
+    if (hasPlan && !confirming) return setConfirming(true)
+    setBusy(true)
+    setError(null)
+    try {
+      const plan = await tripsApi.draft(trip.id)
+      // Each slot lists GhoomMate's pick first, then alternatives
+      const days = plan.days.map((d) => ({ title: d.title, stops: d.slots.flatMap((slot) => slot.slice(0, 1)) }))
+      activeTrip.setItinerary(trip.id, await tripsApi.saveItinerary(trip.id, days))
+      setConfirming(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not build the plan')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="vibe-card__generate">
+      <p className="vibe-card__status">
+        {confirming
+          ? 'This replaces the stops already planned. Tap again to go ahead.'
+          : hasPlan
+            ? 'The whole squad has taken the vibe quiz.'
+            : 'The whole squad has taken the vibe quiz. Let GhoomMate build a plan around everyone’s interests.'}
+      </p>
+      <Button variant="primary" onClick={() => void generate()} disabled={busy}>
+        {busy ? 'GhoomMate is planning…' : confirming ? 'Replace the plan' : hasPlan ? 'Regenerate itinerary' : 'Generate itinerary'}
+      </Button>
+      {error && (
+        <p className="vibe-card__error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 

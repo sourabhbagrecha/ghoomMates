@@ -279,3 +279,32 @@
   line-height: 17px;
   color: var(--color-muted);
 }
+
+/* Squad quiz progress and the generate-plan action */
+.vibe-card__status {
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.vibe-card__status strong {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.vibe-card__generate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vibe-card__error {
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
