@@ -1,6 +1,7 @@
 // The extensibility seam: a skill = instructions + tools (+ optional handler for card taps).
 import type { llm } from '@livekit/agents';
 import type { BackendClient } from '../backendClient.ts';
+import type { GhoomateMemory } from '../memory.ts';
 import type { MemberRef } from '../members.ts';
 import type { AddedExpense, ExpenseCategory, ExpenseDraft, UiAction, UiEvent } from '../protocol.ts';
 
@@ -46,6 +47,8 @@ export type SkillContext = {
   trip: TripDetail;
   me: MemberRef;
   members: TripMember[];
+  /** What the speaker told GhoomMate in earlier chats (their profile); replaced when they add or drop a note */
+  memory: GhoomateMemory;
   api: BackendClient;
   /** Push a UI event to the user's screen. Never rejects; safe to `void`. */
   ui: (event: UiEvent) => Promise<void>;
@@ -58,6 +61,8 @@ export type Skill = {
   name: string;
   instructions(ctx: SkillContext): string;
   tools(ctx: SkillContext): Tool[];
+  /** Shown on screen while a tool of this skill runs, by tool name, e.g. { get_balances: 'Checking balances…' } */
+  working?: Record<string, string>;
   /**
    * Handles a tapped card button (RPC ghoomate.action). Return instructions for a short spoken
    * follow-up, or null if this skill doesn't own the action.

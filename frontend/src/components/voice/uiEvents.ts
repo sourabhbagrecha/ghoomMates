@@ -35,6 +35,8 @@ export type UiEffects = {
   setCard: (update: (card: UiCard | null) => UiCard | null) => void
   /** Brings the sheet back up if it was minimised, for a new card the user should see */
   show: () => void
+  /** What GhoomMate is busy with, shown as its status; null when done */
+  setWorking: (label: string | null) => void
   notify: (notice: Notice) => void
   navigate: (route: string) => void
   refreshMoney: () => void
@@ -105,6 +107,10 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
 
   'day.plan.cancelled': ({ planId }, fx) =>
     fx.setCard((card) => (card?.kind === 'dayPlan' && card.plan.id === planId ? null : card)),
+
+  working: ({ label }, fx) => fx.setWorking(label),
+
+  notice: ({ message }, fx) => fx.notify({ message }),
 }
 
 /** A UiEvent from an RPC payload, or null for junk and event types this build doesn’t know yet */

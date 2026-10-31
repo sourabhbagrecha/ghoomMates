@@ -9,7 +9,7 @@
     "agent": "node src/voice/agent.ts dev",
     "agent:start": "node src/voice/agent.ts start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/app.test.ts tests/auth/oauth.test.ts tests/expenses/domain.test.ts tests/voice/session.test.ts tests/voice/members.test.ts tests/trips/faces.test.ts tests/voice/experiences.test.ts",
+    "test": "node --test tests/app.test.ts tests/auth/oauth.test.ts tests/expenses/domain.test.ts tests/voice/session.test.ts tests/voice/members.test.ts tests/trips/faces.test.ts tests/voice/experiences.test.ts tests/voice/memory.test.ts",
     "test:auth": "node --test tests/auth/oauth.test.ts",
     "test:unit": "node --test tests/expenses/domain.test.ts",
     "test:expenses": "node --test --test-timeout=30000 --test-concurrency=1 tests/expenses",

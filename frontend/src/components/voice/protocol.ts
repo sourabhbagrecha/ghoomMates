@@ -73,7 +73,9 @@ export type UiEvent =
   | { type: 'experience.open'; experienceId: string }
   | { type: 'day.plan'; plan: DayPlan }
   | { type: 'day.plan.added'; planId: string; dayNumber: number; count: number }
-  | { type: 'day.plan.cancelled'; planId: string };
+  | { type: 'day.plan.cancelled'; planId: string }
+  | { type: 'working'; label: string | null }
+  | { type: 'notice'; message: string };
 
 export type UiAction =
   | { type: 'confirm'; draftId: string }

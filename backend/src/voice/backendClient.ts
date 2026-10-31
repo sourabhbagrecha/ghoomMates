@@ -14,6 +14,7 @@ export class BackendError extends Error {
 export type BackendClient = {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body: unknown, options?: { idempotencyKey?: string }): Promise<T>;
+  patch<T>(path: string, body: unknown): Promise<T>;
 };
 
 export const defaultBackendUrl = () => process.env.BACKEND_URL?.trim() || `http://127.0.0.1:${process.env.PORT || 3000}`;
@@ -41,5 +42,6 @@ export function createBackendClient({ baseUrl = defaultBackendUrl(), authToken }
   return {
     get: (path) => request('GET', path),
     post: (path, body, options) => request('POST', path, body, options?.idempotencyKey),
+    patch: (path, body) => request('PATCH', path, body),
   };
 }

@@ -55,6 +55,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `backendClient.ts` | `fetch` wrapper: Bearer token, JSON, `Idempotency-Key`, and turns `{error:{code,message}}` into a thrown `BackendError` |
 | `ui.ts` | `createUiPusher(room, identity)`: ordered, fire-and-forget `ghoomate.ui` RPCs. Failures are only logged. |
 | `members.ts` | Pure helpers: spoken names → member ids, rupees → paise, equal-split preview (tested in `tests/voice/members.test.ts`) |
+| `memory.ts` | What GhoomMate remembers about a person across chats (notes plus the rules they carry), saved on their profile as `preferences.ghoomate` (tested in `tests/voice/memory.test.ts`) |
 | `experiences.ts` | Agent-side copy of the guide-experience catalogue (ids, prices, weekly schedules, vibe weights) and the pure helpers: IST schedule, ranking, varied picks and day planning (tested in `tests/voice/experiences.test.ts`) |
 | `skills/` | One file per capability, plus the registry in `skills/index.ts` |
 
@@ -74,6 +75,8 @@ Agent → frontend, RPC `ghoomate.ui`, payload JSON `UiEvent`:
 | `day.plan` | `plan: DayPlan` (dayLabel, dayNumber or null, stops[{experienceId, start, end, matchPercent}]) | Day-plan card with Add to Day N / Not this |
 | `day.plan.added` | `planId, dayNumber, count` | Card flips to added; itinerary reloads; notice with View |
 | `day.plan.cancelled` | `planId` | Card dismissed |
+| `working` | `label` or `null` | Shown as GhoomMate's status (sheet and pill) while a tool runs; sent automatically for tools listed in their skill's `working` map |
+| `notice` | `message` | The notice pill, e.g. "I'll remember: vegetarian" |
 
 Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'confirm'|'cancel', draftId}` for expense drafts, `{type:'plan.add'|'plan.cancel', planId}` for day plans, `{type:'experience.join', experienceId}` after a tapped Join. The agent answers `{ok:true}` or `{ok:false,error}` and then speaks a short follow-up. A tap and a spoken "yes" share `commitDraft` / `cancelDraft` in `skills/expenses.ts`. The draft's idempotency key makes a repeated confirm a no-op.
 
@@ -121,6 +124,19 @@ Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'conf
 **Two catalogues**
 
 The cards look up each experience's photo, price and host from the frontend catalogue (`frontend/src/pages/Explore/experiencesData.ts`). The frontend works out the next date in `experienceSchedule.ts`. When you add or change an experience, update both catalogues. The test `the agent catalogue matches the frontend one` fails if their ids, cities, prices, days, start times or group sizes drift apart.
+
+## Memory
+
+`skills/memory.ts` lets GhoomMate remember lasting things the speaker says about themselves ("vegetarian", "not a morning person", "keep it under ₹1,500", "love history"):
+
+- **Saving.** `remember_preference` saves a short note on the speaker's own profile (`PATCH /auth/profile` with `preferences.ghoomate`, which leaves the quiz vibe and other keys alone) and shows a notice. `forget_preference` drops one.
+- **Rules.** A note can carry a rule: `no_early_starts` (nothing before 8 AM), `max_price_rupees`, and vibes it `likes` or `avoid`s. Recommendations and day plans follow these automatically. Remembered likes also stand in for the quiz, so no mood question is needed. Squad picks follow the speaker's limits and dislikes, but not their personal likes.
+- **Loading.** The agent loads the memory from `GET /auth/me` while it joins, and lists it in its instructions. It keeps at most 12 notes, newest last.
+- **What it ignores.** One-off moods and anything about other people.
+
+## Working status and filler
+
+GhoomMate says two or three words ("One sec…") before a tool that looks something up, saves or plans. Meanwhile the sheet shows what it's doing: "Checking balances…", "Planning your day…". A skill lists those labels in its `working` map. `buildAgentConfig` wraps each such tool to send `working` with the label when it starts and `null` when it ends.
 
 ## How to add a skill (example: "make a reel from my photos")
 

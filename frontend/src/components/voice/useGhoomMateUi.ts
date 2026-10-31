@@ -42,6 +42,7 @@ export function useGhoomMateUi(
   const { notify } = useVoice()
   const { minimize, expand } = sheet
   const [card, setCard] = useState<UiCard | null>(null)
+  const [working, setWorking] = useState<string | null>(null)
   const [pending, setPending] = useState<CardAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -54,6 +55,7 @@ export function useGhoomMateUi(
         setCard(update)
       },
       show: expand,
+      setWorking,
       notify,
       navigate: (route) => {
         navigate(route)
@@ -115,5 +117,5 @@ export function useGhoomMateUi(
     [room, agentIdentity],
   )
 
-  return { card, pending, actionError, act }
+  return { card, pending, actionError, act, working }
 }

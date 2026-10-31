@@ -109,7 +109,11 @@ export type UiEvent =
   | { type: 'experience.open'; experienceId: string }
   | { type: 'day.plan'; plan: DayPlan }
   | { type: 'day.plan.added'; planId: string; dayNumber: number; count: number }
-  | { type: 'day.plan.cancelled'; planId: string };
+  | { type: 'day.plan.cancelled'; planId: string }
+  /** What GhoomMate is doing while a tool runs ("Checking balances…"); null when it's done */
+  | { type: 'working'; label: string | null }
+  /** A short confirmation pill, e.g. "I'll remember: vegetarian" */
+  | { type: 'notice'; message: string };
 
 /** Frontend → agent. */
 export type UiAction =

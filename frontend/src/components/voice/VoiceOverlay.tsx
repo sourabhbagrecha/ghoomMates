@@ -257,11 +257,13 @@ export function VoiceOverlay({
 
   const groupName = trip?.groupName || trip?.name
   const statusText =
-    phase === 'listening' && micBlocked
-      ? 'Type it to me'
-      : phase === 'waking' && queued
-        ? 'Waking up… I’ll answer in a sec'
-        : STATUS[phase]
+    ui.working && (phase === 'thinking' || phase === 'listening')
+      ? ui.working
+      : phase === 'listening' && micBlocked
+        ? 'Type it to me'
+        : phase === 'waking' && queued
+          ? 'Waking up… I’ll answer in a sec'
+          : STATUS[phase]
 
   if (minimized) {
     return (

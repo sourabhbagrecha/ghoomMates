@@ -6,8 +6,9 @@ import { loadEnv } from '../env.ts';
 import { logger } from '../logger.ts';
 import { createBackendClient } from './backendClient.ts';
 import { firstName } from './members.ts';
+import { emptyMemory, memoryFrom } from './memory.ts';
 import { ACTION_RPC_METHOD, AGENT_NAME, agentNameFrom, type DispatchMetadata, type UiAction } from './protocol.ts';
-import { SKILLS, type SessionState, type Skill, type SkillContext, type TripDetail } from './skills/index.ts';
+import { SKILLS, type SessionState, type Skill, type SkillContext, type Tool, type TripDetail } from './skills/index.ts';
 import { createUiPusher } from './ui.ts';
 
 loadEnv();
@@ -36,6 +37,7 @@ export function personaInstructions(ctx: Pick<SkillContext, 'trip' | 'me' | 'mem
 - Infer the expense category yourself; never ask about it.
 - The payer defaults to the speaker; say "paid by you" in the readback.
 - When a tool returns an error, ask the user the question it implies. Never read ids or raw errors aloud.
+- Before a tool that looks something up, saves or plans (balances, expenses, picks, day plans, adding to the itinerary), first say two or three words ("One sec…", "Checking…", "Ek second…"), then call it. Never go silent while you work.
 - For things you can't do yet, say it's coming soon and offer to open the right screen.
 
 # Trip
@@ -47,10 +49,25 @@ export function personaInstructions(ctx: Pick<SkillContext, 'trip' | 'me' | 'mem
 - Speaking with: ${me.name}. "Me", "I", "main" mean ${me.name}.`;
 }
 
+/** Shows the skill's label on screen while a tool runs ("Checking balances…") and clears it when it's done */
+function withWorkingStatus(tool: Tool, label: string | undefined, ctx: SkillContext): Tool {
+  if (!label) return tool;
+  const run = tool.execute.bind(tool);
+  tool.execute = async (args, opts) => {
+    void ctx.ui({ type: 'working', label });
+    try {
+      return await run(args, opts);
+    } finally {
+      void ctx.ui({ type: 'working', label: null });
+    }
+  };
+  return tool;
+}
+
 export function buildAgentConfig(ctx: SkillContext, skills: Skill[] = SKILLS) {
   return {
     instructions: [personaInstructions(ctx), ...skills.map(s => s.instructions(ctx))].join('\n\n'),
-    tools: skills.flatMap(s => s.tools(ctx)),
+    tools: skills.flatMap(s => s.tools(ctx).map(tool => withWorkingStatus(tool, s.working?.[tool.name], ctx))),
   };
 }
 
@@ -70,6 +87,14 @@ export default defineAgent({
     const tripLoad = api.get<TripDetail>(`/api/trips/${meta.tripId}`).then(
       (trip) => ({ trip }),
       (error: Error) => ({ error }),
+    );
+    // What they told GhoomMate in earlier chats; a chat without it still works
+    const memoryLoad = api.get<{ user: { preferences?: unknown } }>('/auth/me').then(
+      ({ user }) => memoryFrom(user.preferences),
+      (err: Error) => {
+        logger.warn('Voice', `Couldn't load GhoomMate memory: ${err.message}`);
+        return emptyMemory();
+      },
     );
     await ctx.connect();
     const participantJoin = ctx.waitForParticipant();
@@ -92,9 +117,9 @@ export default defineAgent({
     const members = trip.members.map(({ memberId, userId, name, vibe }) => ({ memberId, userId, name, vibe: vibe ?? null }));
     const meMember = members.find(m => m.memberId === trip.memberId);
     const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
-    const participant = await participantJoin;
+    const [participant, memory] = await Promise.all([participantJoin, memoryLoad]);
     const state: SessionState = { pendingDraft: null, lastAdded: null };
-    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, api, ui: createUiPusher(ctx.room, participant.identity), state };
+    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, api, ui: createUiPusher(ctx.room, participant.identity), state };
 
     const session = newSession();
     session.on(voice.AgentSessionEventTypes.Error, (ev) => logger.warn('Voice', `Session error: ${(ev.error as { error?: Error })?.error?.message ?? String(ev.error)}`));

@@ -174,6 +174,13 @@ const errorMessage = (err: unknown) => (err as Error)?.message || 'something wen
 export const expenses: Skill = {
   name: 'expenses',
 
+  working: {
+    draft_expense: 'Working out the split…',
+    confirm_expense: 'Adding the expense…',
+    get_balances: 'Checking balances…',
+    list_recent_expenses: 'Looking up expenses…',
+  },
+
   instructions: () => `## Expenses
 - To add an expense, call draft_expense as soon as you know the amount, what it was for and who shares it. It shows a draft card on screen and returns a readback.
 - Read the readback in one short sentence and ask "Shall I add it?". Only call confirm_expense after an explicit yes ("yes", "haan", "kar do", "go ahead"). "No"/"cancel"/"rehne do" → cancel_expense. A correction → call draft_expense again with the fix.

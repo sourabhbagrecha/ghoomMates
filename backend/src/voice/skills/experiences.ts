@@ -35,6 +35,7 @@ import {
   type VibeAxis,
 } from '../experiences.ts';
 import { firstName } from '../members.ts';
+import { EARLY_START_MINUTES, emptyMemory, rulesNote, rulesOf, type MemoryRules } from '../memory.ts';
 import type { DayPlan, ExperiencePick, RecommendationBasis } from '../protocol.ts';
 import type { Skill, SkillContext } from './types.ts';
 
@@ -88,18 +89,30 @@ export function vibeFor(ctx: Pick<SkillContext, 'me' | 'members'>, forWhom: 'me'
   return squad ? { vibe: squad, basis: 'squad' } : { vibe: null, basis: 'rating' };
 }
 
+/** The speaker's remembered rules. Squad picks follow their limits and dislikes, not their personal likes. */
+export function rulesFor(ctx: Partial<Pick<SkillContext, 'memory'>>, forWhom: 'me' | 'squad'): MemoryRules {
+  const rules = rulesOf(ctx.memory ?? emptyMemory());
+  return forWhom === 'me' ? rules : { ...rules, likes: [] };
+}
+
+/** Rank filters from remembered rules */
+const limits = (rules: MemoryRules) => ({ notBefore: rules.noEarlyStarts ? EARLY_START_MINUTES : undefined, maxPriceRupees: rules.maxPriceRupees });
+
 /**
- * The vibe to rank with, including what they just said they're in the mood for. With no quiz results and no
- * mood yet, asks the model to find out with one quick question instead of falling back to generic picks.
+ * The vibe to rank with: the quiz, plus what they just said they're in the mood for and what they told GhoomMate
+ * before. With none of those, asks the model to find out with one quick question instead of generic picks.
  */
 export function resolveVibe(
-  ctx: Pick<SkillContext, 'me' | 'members'>,
+  ctx: Pick<SkillContext, 'me' | 'members'> & Partial<Pick<SkillContext, 'memory'>>,
   forWhom: 'me' | 'squad',
   likes?: VibeAxis[],
   avoid?: VibeAxis[],
 ): { vibe: Vibe | null; basis: RecommendationBasis } {
   const quiz = vibeFor(ctx, forWhom);
-  if ((likes?.length ?? 0) + (avoid?.length ?? 0) > 0) return { vibe: moodVibe(quiz.vibe, likes ?? [], avoid), basis: quiz.vibe ? quiz.basis : 'mood' };
+  const rules = rulesFor(ctx, forWhom);
+  const allLikes = [...(likes ?? []), ...rules.likes];
+  const allAvoid = [...(avoid ?? []), ...rules.avoid];
+  if (allLikes.length + allAvoid.length > 0) return { vibe: moodVibe(quiz.vibe, allLikes, allAvoid), basis: quiz.vibe ? quiz.basis : 'mood' };
   if (quiz.vibe || likes) return quiz;
   throw new llm.ToolError(
     'Nobody has taken the vibe quiz yet, so you don\'t know their personality. Ask ONE quick, fun question, e.g. "Adventure or something chill? And are you a big foodie?", then call again with their answer as likes (and avoid). If they say anything goes, call again with likes: [].',
@@ -216,6 +229,12 @@ const avoidParam = z.array(z.enum(VIBE_AXES)).optional().describe('What they sai
 export const experiences: Skill = {
   name: 'experiences',
 
+  working: {
+    recommend_experiences: 'Finding picks for you…',
+    plan_day: 'Planning your day…',
+    add_day_plan: 'Adding to your itinerary…',
+  },
+
   instructions: (ctx) => `## Guide trips and day plans
 - Local guides host experiences (workshops, treks, food walks, cooking classes, boat rides, yoga, nights out) in ${list([...EXPERIENCE_CITIES])}. They run on weekly schedules, and the tools only offer ones that haven't started yet.
 - Asked what to do, for a recommendation, or for something matching a mood ("kuch adventurous", "something chill tonight", "what would we all enjoy?"): call recommend_experiences right away. Pass when for "today", "tonight" or "tomorrow"; omit it otherwise.
@@ -245,10 +264,11 @@ export const experiences: Skill = {
         const now = new Date();
         const { today } = istClock(now);
         const members = for_whom === 'squad' ? membersWithVibes(ctx) : [];
-        const ranked = rankExperiences(vibe, { city: where, tag, when, now, solo: for_whom === 'me', exclude: [...stateOf(ctx).joined], members });
+        const rules = rulesFor(ctx, for_whom);
+        const ranked = rankExperiences(vibe, { city: where, tag, when, now, solo: for_whom === 'me', exclude: [...stateOf(ctx).joined], members, ...limits(rules) });
         if (!ranked.length) {
           const span = when ? when.replace('_', ' ') : 'this week';
-          throw new llm.ToolError(`No ${tag ? `${tag} ` : ''}guide trips left in ${where} ${span}. Offer another time or kind of trip.`);
+          throw new llm.ToolError(`No ${tag ? `${tag} ` : ''}guide trips left in ${where} ${span}${rulesNote(rules) ? ` within what they told you before (${rulesNote(rules)})` : ''}. Offer another time or kind of trip, or to relax that.`);
         }
 
         const top = pickVaried(ranked, PICKS);
@@ -261,7 +281,7 @@ export const experiences: Skill = {
           fits: r.fits.map(f => ({ memberId: f.memberId, name: f.name, matchPercent: f.match })),
         }));
         void ctx.ui({ type: 'experiences.recommended', city: where, basis, picks });
-        return `${fallbackNote(ctx, where, city)}${basisNote(ctx, basis, vibe)}\nTop picks in ${where} (shown on screen, best first):\n${top.map((r, i) => `${i + 1}. ${describe(r, today)}`).join('\n')}`;
+        return `${fallbackNote(ctx, where, city)}${basisNote(ctx, basis, vibe)} ${rulesNote(rules)}\nTop picks in ${where} (shown on screen, best first):\n${top.map((r, i) => `${i + 1}. ${describe(r, today)}`).join('\n')}`;
       },
     }),
 
@@ -301,9 +321,10 @@ export const experiences: Skill = {
         if (dayNumber !== null && (dayNumber < 1 || dayNumber > 60 || (tripEnd !== null && daysBetween(tripEnd, date) > 0))) dayNumber = null;
 
         const members = for_whom === 'squad' ? membersWithVibes(ctx) : [];
-        const stops = planDay(vibe, { city: where, day: date, now, solo: for_whom === 'me', exclude: [...stateOf(ctx).joined], members });
+        const rules = rulesFor(ctx, for_whom);
+        const stops = planDay(vibe, { city: where, day: date, now, solo: for_whom === 'me', exclude: [...stateOf(ctx).joined], members, ...limits(rules) });
         const label = dayLabel(date, today);
-        if (!stops.length) throw new llm.ToolError(`Nothing else runs in ${where} ${label.toLowerCase()}. Offer to plan another day.`);
+        if (!stops.length) throw new llm.ToolError(`Nothing else runs in ${where} ${label.toLowerCase()}${rulesNote(rules) ? ` that fits what they told you before (${rulesNote(rules)})` : ''}. Offer another day, or to relax that.`);
 
         const plan: DayPlan = {
           id: randomUUID(),
@@ -321,7 +342,7 @@ export const experiences: Skill = {
           : tripStart
             ? `${label} isn't one of the trip's dates, so it can't go on the itinerary; just pitch the day.`
             : 'The trip has no dates. Pitch the day; if they want it on the itinerary, ask which trip day (day 1, day 2…) and call plan_day again with day_number.';
-        return `${fallbackNote(ctx, where, city)}${basisNote(ctx, basis, vibe)}\n${label} in ${where} (shown on screen, in order):\n${stops.map(s => `${formatTime(s.start)}–${formatTime(s.end)}: ${describe(s, today)}`).join('\n')}\n${next}`;
+        return `${fallbackNote(ctx, where, city)}${basisNote(ctx, basis, vibe)} ${rulesNote(rules)}\n${label} in ${where} (shown on screen, in order):\n${stops.map(s => `${formatTime(s.start)}–${formatTime(s.end)}: ${describe(s, today)}`).join('\n')}\n${next}`;
       },
     }),
 

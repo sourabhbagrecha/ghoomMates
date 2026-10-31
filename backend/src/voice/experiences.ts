@@ -232,7 +232,15 @@ export type RankOptions = {
   /** Experience ids to leave out, e.g. ones already joined */
   exclude?: string[];
   members?: MemberVibe[];
+  /** Leave out starts before this many minutes after midnight (a remembered "no early starts") */
+  notBefore?: number;
+  /** Leave out anything pricier per person (a remembered budget) */
+  maxPriceRupees?: number | null;
 };
+
+/** Within a remembered budget and start time */
+const allowed = (e: CatalogueExperience, run: Run, opts: Pick<RankOptions, 'notBefore' | 'maxPriceRupees'>) =>
+  (!opts.notBefore || run.minutes >= opts.notBefore) && (!opts.maxPriceRupees || e.priceRupees <= opts.maxPriceRupees);
 
 const SOLO_BONUS = 4;
 
@@ -257,7 +265,7 @@ export function rankExperiences(vibe: Vibe | null, opts: RankOptions): RankedExp
     .filter(e => e.city === opts.city && (!opts.tag || e.tags.includes(opts.tag)) && !opts.exclude?.includes(e.id))
     .flatMap(experience => {
       const run = runFor(experience, opts.when ?? 'this_week', opts.now);
-      return run ? [ranked(experience, run, vibe, opts)] : [];
+      return run && allowed(experience, run, opts) ? [ranked(experience, run, vibe, opts)] : [];
     })
     .sort(byScore);
 }
@@ -298,7 +306,9 @@ export function planDay(vibe: Vibe | null, opts: Omit<RankOptions, 'tag' | 'when
     .filter(e => e.city === opts.city && !opts.exclude?.includes(e.id))
     .flatMap(experience => {
       const run = runOn(experience, opts.day, opts.now);
-      return run ? [{ ...ranked(experience, run, vibe, opts), start: run.minutes, end: run.minutes + durationMinutes(experience.duration) }] : [];
+      return run && allowed(experience, run, opts)
+        ? [{ ...ranked(experience, run, vibe, opts), start: run.minutes, end: run.minutes + durationMinutes(experience.duration) }]
+        : [];
     })
     .sort(byScore);
 
