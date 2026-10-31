@@ -36,3 +36,4 @@ npm run lint && npm run build   # frontend
 - New backend feature = new `src/<module>/` folder + migration file + route prefix in `src/app.ts` + short doc in `backend/docs/`.
 - Uploads go client → GCS → cloud function → DB. The backend never does heavy media processing inline.
 - Secrets live only in `.env` files (gitignored); add new keys to `backend/.env.example`.
+- Always commit and push on main, unless asked differently.
