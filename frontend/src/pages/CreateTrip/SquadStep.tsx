@@ -33,7 +33,7 @@ export function SquadStep({ trip, userName, onChange, onBack, onContinue }: Squa
     >
       <TextField
         label="Trip name"
-        placeholder="Manali Snow Escape"
+        placeholder="Udaipur Lake Escape"
         maxLength={60}
         value={trip.name}
         onChange={(e) => onChange({ name: e.target.value })}

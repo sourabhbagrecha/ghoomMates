@@ -105,31 +105,31 @@ export const PAST_TRIP_DETAILS: Record<string, PastTripDetails> = {
     ],
     balances: [],
   },
-  udaipur: {
-    trip: byId('udaipur'),
+  jaipur: {
+    trip: byId('jaipur'),
     dates: 'Fri 13 – Sun 15 Mar',
     days: [
       {
         label: 'Day 1 · Fri 13 Mar',
         title: 'Old city',
         stops: [
-          { time: '03:00 PM', title: 'Check in at a Lal Ghat haveli', tag: 'Stays', photo: grid5, rating: 5 },
-          { time: '06:00 PM', title: 'Sunset boat on Lake Pichola', tag: 'Chill', photo: vagator, rating: 5 },
+          { time: '03:00 PM', title: 'Check in at a Bapu Bazaar haveli', tag: 'Stays', photo: grid5, rating: 5 },
+          { time: '06:00 PM', title: 'Sunset at Nahargarh Fort', tag: 'Chill', photo: vagator, rating: 5 },
         ],
       },
       {
         label: 'Day 2 · Sat 14 Mar',
-        title: 'Palaces and cafés',
+        title: 'Forts and cafés',
         stops: [
-          { time: '10:00 AM', title: 'City Palace tour', tag: 'Culture', photo: market, rating: 4 },
-          { time: '01:00 PM', title: 'Rooftop thali at Ambrai', tag: 'Food', photo: dinner, rating: 5 },
-          { time: '08:00 PM', title: 'Dharohar folk dance show', tag: 'Culture', photo: grid2, rating: 4 },
+          { time: '10:00 AM', title: 'Amer Fort tour', tag: 'Culture', photo: market, rating: 4 },
+          { time: '01:00 PM', title: 'Rooftop thali in Johari Bazaar', tag: 'Food', photo: dinner, rating: 5 },
+          { time: '08:00 PM', title: 'Chokhi Dhani folk evening', tag: 'Culture', photo: grid2, rating: 4 },
         ],
       },
       {
         label: 'Day 3 · Sun 15 Mar',
-        title: 'Hills, then home',
-        stops: [{ time: '07:30 AM', title: 'Sajjangarh at sunrise', tag: 'Adventure', photo: grid1, rating: 4 }],
+        title: 'Pink City, then home',
+        stops: [{ time: '07:30 AM', title: 'Hawa Mahal at sunrise', tag: 'Culture', photo: grid1, rating: 4 }],
       },
     ],
     photos: [
@@ -144,9 +144,9 @@ export const PAST_TRIP_DETAILS: Record<string, PastTripDetails> = {
     stats: [
       { label: 'Days', value: '3' },
       { label: 'Photos', value: '288' },
-      { label: 'Palaces', value: '2' },
+      { label: 'Forts', value: '3' },
       { label: 'Spent', value: '₹27,600' },
-      { label: 'Top-rated', value: 'Boat ride' },
+      { label: 'Top-rated', value: 'Amer Fort' },
       { label: 'Most tagged', value: 'Riya' },
     ],
     awards: [
@@ -154,12 +154,12 @@ export const PAST_TRIP_DETAILS: Record<string, PastTripDetails> = {
       { person: 'kabir', title: 'Thali champion', detail: 'Three refills, zero regrets' },
     ],
     persona: 'The Culture Café Crawlers',
-    reel: { title: 'Udaipur in 60 seconds', clips: 24 },
+    reel: { title: 'Jaipur in 60 seconds', clips: 24 },
     expenses: [
-      { title: 'Lal Ghat haveli, 2 nights', paidBy: 'riya', amount: 12600, category: 'Stays' },
+      { title: 'Bapu Bazaar haveli, 2 nights', paidBy: 'riya', amount: 12600, category: 'Stays' },
       { title: 'Flights split', paidBy: 'you', amount: 9000, category: 'Travel' },
-      { title: 'Ambrai and cafés', paidBy: 'kabir', amount: 4200, category: 'Food' },
-      { title: 'Boat and City Palace', paidBy: 'kabir', amount: 1800, category: 'Fun' },
+      { title: 'Johari Bazaar and cafés', paidBy: 'kabir', amount: 4200, category: 'Food' },
+      { title: 'Amer Fort and Hawa Mahal', paidBy: 'kabir', amount: 1800, category: 'Fun' },
     ],
     balances: [],
   },

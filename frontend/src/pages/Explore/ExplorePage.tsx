@@ -60,40 +60,38 @@ export function ExplorePage() {
           ))}
         </div>
 
-        {/* The trending events are Goa-only sample data */}
-        {city === 'Goa' && (
-          <>
-          <SectionHeader
-            title="Trending this weekend"
-            action={
-              // TODO: full trending list once that screen exists
-              <button type="button" className="text-link" onClick={() => showToast('More trending spots are coming soon')}>
-                See all
-              </button>
-            }
-          />
-          <div className="trending no-scrollbar">
-            {TRENDING.map((t) => (
-              <article key={t.id} className="trend-card">
-                <div className="trend-card__cover">
-                  <img src={t.photo} alt="" width={220} height={118} />
-                  <span className="trend-card__badge">
-                    <img src={iconFlame} alt="" width={12} height={12} />
-                    {t.badge}
-                  </span>
+        <SectionHeader
+          title="Trending this weekend"
+          action={
+            // TODO: full trending list once that screen exists
+            <button type="button" className="text-link" onClick={() => showToast('More trending spots are coming soon')}>
+              See all
+            </button>
+          }
+        />
+        <div className="trending no-scrollbar">
+          {TRENDING[city].map((t) => (
+            <article key={t.id} className="trend-card">
+              {t.experienceId && (
+                <button type="button" className="trend-card__open" aria-label={`Open ${t.title}`} onClick={() => openGuideTrip(t.experienceId!)} />
+              )}
+              <div className="trend-card__cover">
+                <img src={t.photo} alt="" width={220} height={118} />
+                <span className="trend-card__badge">
+                  <img src={iconFlame} alt="" width={12} height={12} />
+                  {t.badge}
+                </span>
+              </div>
+              <div className="trend-card__body">
+                <h3 className="trend-card__title">{t.title}</h3>
+                <div className="trend-card__stats">
+                  <AvatarStack people={t.people} size={18} overlap={6} />
+                  <span>{t.stats}</span>
                 </div>
-                <div className="trend-card__body">
-                  <h3 className="trend-card__title">{t.title}</h3>
-                  <div className="trend-card__stats">
-                    <AvatarStack people={t.people} size={18} overlap={6} />
-                    <span>{t.stats}</span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-          </>
-        )}
+              </div>
+            </article>
+          ))}
+        </div>
 
         <SectionHeader
           title="Trips by local guides"

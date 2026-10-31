@@ -56,14 +56,14 @@ export const formatPhone = (digits: string) =>
 
 export const INTRO_SLIDE_COUNT = 4
 
-/** Slide 2: you ask, GhoomMate answers with a day plan (stops from the Goa itinerary) */
+/** Slide 2: you ask, GhoomMate answers with a day plan (stops from the Udaipur guide trips) */
 export const PLAN_PREVIEW = {
-  ask: 'Plan 4 days in Goa for the 5 of us',
+  ask: 'Plan 4 days in Udaipur for the 5 of us',
   reply: 'Done! Here’s Day 1, tuned to your squad’s vibe:',
   stops: [
-    { time: '06:00 AM', title: 'Sunrise at Chapora Fort' },
-    { time: '01:00 PM', title: 'Beach-shack seafood crawl' },
-    { time: '05:30 PM', title: 'Mandovi sunset cruise' },
+    { time: '10:30 AM', title: 'Molela pottery workshop' },
+    { time: '01:30 PM', title: 'Haveli thali by the lake' },
+    { time: '05:00 PM', title: 'Pichola sunset boat' },
   ],
 }
 

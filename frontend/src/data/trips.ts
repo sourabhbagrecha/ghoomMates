@@ -79,7 +79,7 @@ export const PAST_TRIPS: Trip[] = [
   {
     id: 'rishikesh',
     name: 'Rishikesh Rafting',
-    group: 'Goa Gang',
+    group: 'Lake City Squad',
     place: 'Rishikesh',
     dates: 'Aug 2026',
     status: 'completed',
@@ -88,10 +88,10 @@ export const PAST_TRIPS: Trip[] = [
     note: '412 pics',
   },
   {
-    id: 'udaipur',
-    name: 'Udaipur Lakes',
+    id: 'jaipur',
+    name: 'Jaipur Pink City',
     group: 'Café Hoppers',
-    place: 'Udaipur',
+    place: 'Jaipur',
     dates: 'Mar 2026',
     status: 'completed',
     members: ['you', 'kabir', 'riya'],

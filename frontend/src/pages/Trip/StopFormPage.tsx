@@ -88,11 +88,11 @@ function StopForm({ tripId, tripName, startDate, dayCount, existing }: StopFormP
     >
       {!existing && <GhoomMateTip>You’ll be marked as going. Mates RSVP from the stop.</GhoomMateTip>}
 
-      <TextField label="What’s the plan?" placeholder="Sunset at Vagator" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <TextField label="What’s the plan?" placeholder="Sunset at Ambrai Ghat" value={title} onChange={(e) => setTitle(e.target.value)} />
 
       <div className="stop-form__row">
         <TextField label="Time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-        <TextField label="Place" placeholder="Vagator beach" value={place} onChange={(e) => setPlace(e.target.value)} />
+        <TextField label="Place" placeholder="Ambrai Ghat" value={place} onChange={(e) => setPlace(e.target.value)} />
       </div>
 
       <div className="stop-form__group">

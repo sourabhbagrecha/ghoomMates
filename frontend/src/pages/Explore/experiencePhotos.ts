@@ -161,4 +161,80 @@ export const EXPERIENCE_PHOTOS = {
     photo(thumb('b/b5/Rajasthani_folk_dance_-04.jpg'), 'Folk dancer in a swirling ghagra', 'Rishikachauhan1', 'CC BY-SA 4.0', 162798128),
     photo(thumb('1/17/20191207_Gangaur_Ghat_and_Bagore_Ki_Haveli%2C_Udaipur_1524_7266.jpg'), 'Gangaur Ghat and Bagore ki Haveli from the lake', 'Jakub Hałun', 'CC BY-SA 4.0', 94106195),
   ],
+  molela: [
+    photo(thumb('a/a8/Molela_Terracotta_Art_and_Wooden_Idols_01.jpg'), 'Molela terracotta plaques of folk deities', 'The open draft', 'CC BY-SA 4.0', 162992652),
+    photo(thumb('d/d6/Old_potter%2C_Jaipur_1.jpg'), 'Potter shaping a clay pot on the wheel', 'Soap Boy 1', 'CC BY-SA 4.0', 115030116),
+    photo(thumb('a/a1/Molela_Terracotta_Art_and_Wooden_Idols_03.jpg'), 'Hand-painted Molela terracotta plaque', 'The open draft', 'CC BY-SA 4.0', 162992651),
+    photo(thumb('5/59/Old_potter%2C_Jaipur_2.jpg'), 'Clay pot taking shape on a spinning wheel', 'Soap Boy 1', 'CC BY-SA 4.0', 115030117),
+    photo(thumb('9/95/Molela_Terracotta_Art_and_Wooden_Idols_07.jpg'), 'Row of finished terracotta idols', 'The open draft', 'CC BY-SA 4.0', 162992658),
+  ],
+  blockPrint: [
+    photo(thumb('3/30/Hand_Printing_with_wooden_block.jpg'), 'Printer pressing a wooden block onto cloth', 'Ketayun Katz', 'CC BY-SA 4.0', 51445016),
+    photo(thumb('2/2d/Bandhani_dyeing_method.jpg'), 'Tying cloth for bandhani dyeing', 'Ramkumar Kalyani', 'CC BY-SA 4.0', 155535501),
+    photo(thumb('c/c3/Printing_with_Hand_Carved_Block.jpg'), 'Hand-carved printing block and fresh print', 'Ketayun Katz', 'CC BY-SA 4.0', 54152236),
+    photo(thumb('c/c1/Master_artist_carves_a_woodblock_for_textile_printing.jpg'), 'Master carver cutting a textile woodblock', 'Journyes', 'CC BY-SA 4.0', 196770078),
+    photo(thumb('6/6b/Bandhani%2C_Tie_dye_dresses_drying_in_Jaipur.jpg'), 'Bandhani dresses drying in the sun', 'Jon Connell', 'CC BY 2.0', 10708268),
+  ],
+  cityPalace: [
+    photo(thumb('6/68/Mor_Chowk_at_Udaipur_City_Palace.JPG'), 'Mor Chowk, the peacock courtyard of the City Palace', 'SangeetaC', 'CC BY-SA 3.0', 28732642),
+    photo(thumb('5/54/CityPalaceUdaipur.jpg'), 'City Palace seen from the lake', 'Arnav Khorana', 'CC BY-SA 3.0', 21176479),
+    photo(thumb('2/24/Peacock_mosaic_at_Mor_Chowk%2C_Udaipur_City_palace%2C_Rajasthan.jpg'), 'Glass peacock mosaic at Mor Chowk', 'Sujay25', 'CC BY-SA 3.0', 32820098),
+    photo(thumb('d/df/Udaipur%2C_India%2C_The_inner_courtyard_of_the_Udaipur_Palace.jpg'), 'Inner courtyard of the City Palace', 'Vyacheslav Argenberg', 'CC BY 4.0', 95177463),
+    photo(thumb('3/30/City_Palace%2C_Udaipur%2C_20191207_0526_6946.jpg'), 'Chini Chitrashala courtyard with blue tiles', 'Jakub Hałun', 'CC BY-SA 4.0', 94034414),
+  ],
+  kumbhalgarh: [
+    photo(thumb('a/a5/Kumbhalgarh_Fort_viewed_at_Sunset.JPG'), 'Kumbhalgarh fort walls at sunset', 'Amitdighe', 'CC BY-SA 3.0', 21805457),
+    photo(thumb('8/86/Chaumukha_Jain_temple_at_Ranakpur_in_Aravalli_range_near_Udaipur_Rajasthan_India.jpg'), 'Ranakpur Jain temple in the Aravalli hills', 'Nagarjun Kandukuru', 'CC BY 2.0', 33434794),
+    photo(thumb('b/bf/Kumbhalgarh_fort_view.jpg'), 'Kumbhalgarh fort on its hilltop', 'Soni Richa', 'CC BY-SA 4.0', 73021976),
+    photo(thumb('f/f7/Pillars_of_Ranakpur_Jain_Temple_01.jpg'), 'Carved marble pillars at Ranakpur', 'Banerjeedebasis', 'CC BY-SA 4.0', 98643482),
+    photo(thumb('d/de/Kumbhalgarh_fort_top_view.jpg'), 'View from the top of Kumbhalgarh', 'Nishumalik13', 'CC BY-SA 4.0', 72841277),
+  ],
+  menar: [
+    photo(thumb('3/30/White-tailedLapwingMenarUdaipur.jpg'), 'White-tailed lapwing at Menar', 'Sarusscape', 'CC BY-SA 4.0', 113084527),
+    photo(thumb('b/be/20191207_Czapla_siod%C5%82ata_w_Udajpurze_1436_7215.jpg'), 'Indian pond heron on the lakeshore', 'Jakub Hałun', 'CC BY-SA 4.0', 91974066),
+    photo(thumb('5/5a/20191207_Czajka_indyjska_w_Udajpurze_1436_7216.jpg'), 'Red-wattled lapwing by the water', 'Jakub Hałun', 'CC BY-SA 4.0', 91973921),
+    photo(original('0/03/Black-winged_Kite%2C_Fatehsagar_Lake%2C_Udaipur%2C_Rajasthan.jpg'), 'Black-winged kite on a shrub', 'Vaibhavmridul', 'CC BY-SA 4.0', 49458961),
+  ],
+  horseSafari: [
+    photo(thumb('c/ce/Humayun%2C_Marwari_Stallion_of_Virendra_Kankariya.jpg'), 'Marwari stallion with its curved ears', 'Virendra Kankariya', 'Public domain', 5091926),
+    photo(thumb('7/78/Agriculture_farms_in_Aravalli_Hills%2C_Udaipur_Rajasthan_India_2015.jpg'), 'Farms in the Aravalli hills outside Udaipur', 'TeshTesh', 'CC BY-SA 4.0', 39206160),
+    photo(thumb('f/f5/A_view_of_Udaipur_Aravalli_Hills_Rajasthan_India.jpg'), 'Udaipur and the Aravalli hills', 'TeshTesh', 'CC BY-SA 4.0', 39206171),
+    photo(thumb('2/21/Agriculture_farms_in_Aravalli_Hills%2C_Udaipur_Rajasthan_India_2015_b.jpg'), 'Village fields below the hills', 'TeshTesh', 'CC BY-SA 4.0', 39206157),
+  ],
+  sunriseYoga: [
+    photo(thumb('2/22/View_from_Neemach_Mata_Temple_at_dawn%2C_Udaipur%2C_November_2015.jpg'), 'Fateh Sagar at dawn from Neemach Mata hill', 'Lakhindr', 'CC BY-SA 4.0', 45263342),
+    photo(original('9/9f/Yoga_class.jpg'), 'Group yoga class', 'Rajanbastola', 'CC BY-SA 4.0', 95565041),
+    photo(thumb('9/99/Hdr_%28247480913%29.jpeg'), 'Morning light over Fateh Sagar', 'Jasmin Patel', 'CC0', 71326775),
+    photo(thumb('e/e7/Introducing_Udaipur%27s_latest_Ropeway_at_Neemach_Mata_temple_near_fatehsagar_lake.png'), 'Ropeway up to Neemach Mata temple', 'Abhz79', 'CC BY-SA 4.0', 156207908),
+  ],
+  badiLake: [
+    photo(thumb('c/ce/Badi_Lake.jpg'), 'Badi lake below the Aravalli hills', 'Mansanyas', 'CC BY-SA 4.0', 49815144),
+    photo(thumb('a/a7/WPC-Badi-Lake-2.jpg'), 'Still water at Badi lake', 'Vaishnavijha2001', 'CC BY 4.0', 169355519),
+    photo(thumb('3/33/Bird_in_Badi_Lake.jpg'), 'Bird skimming over Badi lake', 'Mansanyas', 'CC BY-SA 4.0', 49815145),
+    photo(thumb('7/7e/Sajjangarh_Wilde_Life_Sanctuary_View_from_Badi_Lake.jpg'), 'Sajjangarh sanctuary seen from Badi lake', 'Mansanyas', 'CC BY-SA 4.0', 49815157),
+    photo(thumb('c/c4/WPC-Badi-Lake.jpg'), 'Evening at Badi lake', 'Vaishnavijha2001', 'CC BY 4.0', 169355521),
+  ],
+  ambraiDinner: [
+    photo(thumb('6/66/Ambrai_Ghat_Night_Life.jpg'), 'Ambrai ghat lit up at night', 'Imsourabh1996', 'CC BY-SA 4.0', 81930310),
+    photo(thumb('2/26/Dreamy_sunsets.jpg'), 'Sunset from a lakeside rooftop restaurant', 'Aditi Dhabhai', 'CC BY-SA 4.0', 59990277),
+    photo(thumb('e/e3/Udaipur-Rooftop-SDIM1768.jpg'), 'Rooftop restaurants in the evening', 'ArishG', 'CC BY-SA 3.0', 19454951),
+    photo(thumb('5/59/GKN_Rajasthani_Thali_DSC_0213.JPG'), 'Rajasthani thali', 'Pranchiyettan', 'CC BY-SA 2.5 IN', 27720783),
+    photo(thumb('1/19/Ambrai_ghat.jpg'), 'Ambrai ghat on Lake Pichola', 'Professor108', 'CC BY-SA 4.0', 110543726),
+  ],
+  nightWalk: [
+    photo(thumb('6/60/City_Palace%2C_Udaipur%2C_Rajasthan_india.jpg'), 'City Palace illuminated at night', 'Ssteaj', 'CC BY-SA 4.0', 49598894),
+    photo(original('d/d4/Udaipur%2C_Lake_Palace_%282002%29_02.jpg'), 'Lake Palace glowing on Pichola at night', 'LBM1948', 'CC BY-SA 4.0', 128295933),
+    photo(thumb('a/af/Fateh_sagar_lake_night_view.jpg'), 'Fateh Sagar lake at night', 'VikramSingh Valera', 'CC BY-SA 4.0', 113618985),
+    photo(thumb('7/79/Ambrai_ghat_at_evening.jpg'), 'Ambrai ghat in the evening', 'Professor108', 'CC BY-SA 4.0', 110543770),
+  ],
+  shilpgram: [
+    photo(thumb('0/0f/Shilpgram%2C_Udaipur_01.jpg'), 'Mud huts at Shilpgram craft village', 'KHC Khushtar Heritage', 'CC BY 4.0', 179381516),
+    photo(thumb('6/67/Traditional_turban_of_Rajasthan.jpg'), 'Rajasthani-style turban', 'TheSlumPanda', 'CC BY-SA 4.0', 163925914),
+    photo(thumb('f/fa/Shilpgram_Udaipur_5.jpg'), 'Folk artists performing at Shilpgram', 'Surenders25', 'CC BY-SA 4.0', 98639458),
+    photo(thumb('a/aa/Shilpgram%2C_Udaipur_05.jpg'), 'Traditional houses at Shilpgram', 'KHC Khushtar Heritage', 'CC BY 4.0', 179381521),
+    photo(thumb('9/9b/Bandhani_pagadi_tie_and_dye_work_on_cloth%2Cjaipur_rajasthan_India.jpg'), 'Bandhani cloth for a pagadi', 'Swapnil Karambelkar', 'CC BY-SA 4.0', 64378232),
+  ],
 } satisfies Record<string, ExperiencePhoto[]>
+
+/** Cover for Udaipur, the demo city, wherever a destination photo is shown */
+export const UDAIPUR_COVER = EXPERIENCE_PHOTOS.pichola[0].src

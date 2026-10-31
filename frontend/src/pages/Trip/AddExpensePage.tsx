@@ -153,7 +153,7 @@ export function AddExpensePage() {
         </span>
       </label>
 
-      <TextField label="What for?" placeholder="Cab to Anjuna" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <TextField label="What for?" placeholder="Auto to Fateh Sagar" value={title} onChange={(e) => setTitle(e.target.value)} />
 
       <div className="add-expense__group">
         <p className="add-expense__label">Paid by</p>

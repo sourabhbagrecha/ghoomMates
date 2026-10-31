@@ -9,7 +9,7 @@ import { SQUAD_VIBE, VIBE_AXES, vibeMatch, type VibeScores } from '../../data/vi
 import { personaFor } from './quizData'
 import './QuizPages.css'
 
-const GROUP = 'Goa Gang'
+const GROUP = 'Lake City Squad'
 
 type PersonaPageProps = {
   scores: VibeScores

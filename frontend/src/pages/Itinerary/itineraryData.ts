@@ -34,8 +34,8 @@ export const VIBE_CHECK = {
   question: 'Your perfect evening looks like…',
   options: [
     { id: 'street-food', label: 'Street food crawl', selected: true },
-    { id: 'sunset-cruise', label: 'Sunset cruise', selected: true },
-    { id: 'beach-club', label: 'Beach club', selected: false },
+    { id: 'sunset-cruise', label: 'Sunset boat ride', selected: true },
+    { id: 'beach-club', label: 'Rooftop bar', selected: false },
     { id: 'live-gig', label: 'Live gig', selected: false },
   ],
 }
