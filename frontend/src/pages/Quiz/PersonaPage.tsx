@@ -4,12 +4,10 @@ import { Button } from '../../components/Button'
 import { Chip } from '../../components/Chip'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { VibeChart } from '../../components/VibeChart'
-import { SQUAD } from '../../data/people'
-import { SQUAD_VIBE, VIBE_AXES, vibeMatch, type VibeScores } from '../../data/vibe'
+import { activeTrip } from '../../data/activeTrip'
+import { othersVibe, VIBE_AXES, vibeMatch, type VibeScores } from '../../data/vibe'
 import { personaFor } from './quizData'
 import './QuizPages.css'
-
-const GROUP = 'Lake City Squad'
 
 type PersonaPageProps = {
   scores: VibeScores
@@ -20,7 +18,11 @@ type PersonaPageProps = {
 export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
   const [compare, setCompare] = useState(false)
   const persona = personaFor(scores)
-  const match = vibeMatch(scores, SQUAD_VIBE)
+  // Compared with the open trip's squad, once anyone else in it has taken the quiz
+  const trip = activeTrip.get().trip
+  const squadVibe = othersVibe(trip)
+  const group = trip?.groupName || trip?.name || 'your squad'
+  const showSquad = compare && !!squadVibe
   const label = (id: string) => VIBE_AXES.find((a) => a.id === id)?.label
 
   return (
@@ -41,11 +43,11 @@ export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
         <p className="persona__tagline">{persona.tagline}</p>
         <VibeChart
           series={[
-            ...(compare ? [{ scores: SQUAD_VIBE, color: 'var(--color-sky)', fillOpacity: 0.28 }] : []),
-            { scores, color: 'var(--color-amber)', fillOpacity: compare ? 0.15 : 0.3, dots: true },
+            ...(showSquad ? [{ scores: squadVibe, color: 'var(--color-sky)', fillOpacity: 0.28 }] : []),
+            { scores, color: 'var(--color-amber)', fillOpacity: showSquad ? 0.15 : 0.3, dots: true },
           ]}
           width={260}
-          label={`Your vibe chart${compare ? ` compared with the ${GROUP}` : ''}`}
+          label={`Your vibe chart${showSquad ? ` compared with ${group}` : ''}`}
         />
         <div className="persona__footer">
           <div className="persona__traits">
@@ -55,15 +57,17 @@ export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
               </span>
             ))}
           </div>
-          <Chip selected={compare} onClick={() => setCompare((c) => !c)}>
-            Compare squad
-          </Chip>
+          {squadVibe && (
+            <Chip selected={compare} onClick={() => setCompare((c) => !c)}>
+              Compare squad
+            </Chip>
+          )}
         </div>
-        {compare && (
+        {showSquad && (
           <div className="persona__legend">
             <span>
               <span className="persona__swatch persona__swatch--squad" />
-              {GROUP}
+              {group}
             </span>
             <span>
               <span className="persona__swatch persona__swatch--you" />
@@ -73,14 +77,16 @@ export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
         )}
       </section>
 
-      <section className="list-card persona__match">
-        <AvatarStack people={SQUAD} size={26} overlap={9} />
-        <div className="persona__match-text">
-          <p>{GROUP}</p>
-          <span>Blended into the squad spiderweb</span>
-        </div>
-        <span className="persona__match-pill">{match}% match</span>
-      </section>
+      {trip && squadVibe && (
+        <section className="list-card persona__match">
+          <AvatarStack people={trip.members.map((m) => m.memberId)} size={26} overlap={9} />
+          <div className="persona__match-text">
+            <p>{group}</p>
+            <span>Blended into the squad spiderweb</span>
+          </div>
+          <span className="persona__match-pill">{vibeMatch(scores, squadVibe)}% match</span>
+        </section>
+      )}
     </OnboardingLayout>
   )
 }

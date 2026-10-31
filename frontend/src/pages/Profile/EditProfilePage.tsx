@@ -198,8 +198,8 @@ export function EditProfilePage() {
             <img src={iconSparkles} alt="" width={20} height={20} />
           </span>
           <span className="profile-edit__row-text">
-            <strong>Retake vibe quiz</strong>
-            <span>You’re {vibe.persona}</span>
+            <strong>{vibe ? 'Retake vibe quiz' : 'Take the vibe quiz'}</strong>
+            <span>{vibe ? `You’re ${vibe.persona}` : '8 quick cards · about a minute'}</span>
           </span>
           <img src={iconChevron} alt="" width={16} height={16} />
         </button>

@@ -9,7 +9,7 @@ import grid3 from '../../assets/figma/photo-grid-3.svg'
 import grid5 from '../../assets/figma/photo-grid-5.svg'
 import grid6 from '../../assets/figma/photo-grid-6.svg'
 import type { PersonId } from '../../data/people'
-import { SQUAD_VIBE, VIBE_AXES, type VibeAxis, type VibeScores } from '../../data/vibe'
+import { VIBE_AXES, type VibeAxis, type VibeScores } from '../../data/vibe'
 import { UDAIPUR_COVER } from '../Explore/experiencePhotos'
 import { personaFor } from '../Quiz/quizData'
 
@@ -153,9 +153,6 @@ export const SUPPORT_EMAIL = 'help@ghoomate.app'
 
 /** Spiderweb order, clockwise from the top (matches spiderweb.svg) */
 export const AXES = VIBE_AXES
-
-/** The squad’s blended vibe, as drawn in spiderweb.svg (0–1 per axis, in AXES order) */
-export const SQUAD_SCORES = AXES.map(({ id }) => SQUAD_VIBE[id])
 
 export const TRAITS: Record<VibeAxis, { title: string; detail: string }> = {
   adventure: { title: 'Up for anything', detail: 'Treks, scuba, scooters: you say yes first' },

@@ -7,12 +7,15 @@ import iconSettingsWhite from '../../assets/figma/icon-settings-white.svg'
 import iconSparkles from '../../assets/figma/icon-sparkles-primary-20.svg'
 import { AvatarStack } from '../../components/Avatar'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { EmptyState } from '../../components/states/EmptyState'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
+import { activeTrip } from '../../data/activeTrip'
+import { othersVibe } from '../../data/vibe'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { getStoredUser } from '../../services/authService'
-import { ACCOUNT, BADGES, PLACES, PLACE_STATUS, SQUAD_SCORES, SQUADS, STATS } from './profileData'
+import { ACCOUNT, AXES, BADGES, PLACES, PLACE_STATUS, SQUADS, STATS } from './profileData'
 import { ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
 import { VibeLegend, VibeWeb } from './VibeWeb'
@@ -20,7 +23,7 @@ import './YourProfilePage.css'
 
 const MENU = [
   { icon: iconPencil, title: 'Edit profile', detail: 'Photo, name, colour and selfie', to: 'profile/edit' },
-  { icon: iconSparkles, title: 'Retake vibe quiz', detail: '8 quick cards · about a minute', to: 'quiz' },
+  { icon: iconSparkles, title: 'Vibe quiz', detail: '8 quick cards · about a minute', to: 'quiz' },
   { icon: iconSettings, title: 'Settings', detail: 'Account, notifications and privacy', to: 'profile/settings' },
   { icon: iconHelp, title: 'Help & FAQ', detail: 'Splits, UPI, face match and more', to: 'profile/help' },
 ]
@@ -31,6 +34,8 @@ export function YourProfilePage() {
   const backTo = useEntryRoute('profile')
   const profile = useProfileStore()
   const vibe = currentVibe()
+  // The open trip's squad, once anyone else in it has taken the quiz
+  const squadVibe = othersVibe(activeTrip.get().trip)
   const [toast, showToast] = useToast()
   const name = displayName(profile)
   const createdAt = getStoredUser()?.createdAt
@@ -70,7 +75,7 @@ export function YourProfilePage() {
             <p className="your-profile__handle">{profile.username}</p>
             <p className="your-profile__since">{memberSince}</p>
           </div>
-          <span className="your-profile__persona">{vibe.persona}</span>
+          {vibe && <span className="your-profile__persona">{vibe.persona}</span>}
           <dl className="your-profile__stats">
             {STATS.map((s) => (
               <div key={s.label}>
@@ -87,28 +92,40 @@ export function YourProfilePage() {
         <SectionHeader
           title="Your vibe"
           action={
-            <button type="button" className="text-link" onClick={() => navigate('quiz')}>
-              Retake quiz
-            </button>
+            vibe && (
+              <button type="button" className="text-link" onClick={() => navigate('quiz')}>
+                Retake quiz
+              </button>
+            )
           }
         />
-        <section className="card your-profile__vibe">
-          <div className="your-profile__vibe-main">
-            <VibeWeb you={vibe.scores} squad={SQUAD_SCORES} />
-            <div className="your-profile__vibe-info">
-              <p className="overline">Your spiderweb</p>
-              <h3 className="your-profile__vibe-persona">{vibe.persona}</h3>
-              <VibeLegend />
+        {vibe ? (
+          <section className="card your-profile__vibe">
+            <div className="your-profile__vibe-main">
+              <VibeWeb you={vibe.scores} squad={squadVibe ? AXES.map(({ id }) => squadVibe[id]) : undefined} />
+              <div className="your-profile__vibe-info">
+                <p className="overline">Your spiderweb</p>
+                <h3 className="your-profile__vibe-persona">{vibe.persona}</h3>
+                <VibeLegend squad={!!squadVibe} />
+              </div>
             </div>
-          </div>
-          <ul className="your-profile__traits" aria-label="Your top traits">
-            {vibe.traits.map((t) => (
-              <li key={t.title} className="tag">
-                {t.title}
-              </li>
-            ))}
-          </ul>
-        </section>
+            <ul className="your-profile__traits" aria-label="Your top traits">
+              {vibe.traits.map((t) => (
+                <li key={t.title} className="tag">
+                  {t.title}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <EmptyState
+            size="compact"
+            headingLevel={3}
+            title="No vibe yet"
+            text="Take the 8-card quiz to get your spiderweb and travel persona."
+            action={{ label: 'Take the vibe quiz', onClick: () => navigate('quiz') }}
+          />
+        )}
 
         <SectionHeader
           title="Places visited"

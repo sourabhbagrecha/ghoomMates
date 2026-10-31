@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react'
-import { SAMPLE_YOU_VIBE } from '../../data/vibe'
 import { getStoredUser, subscribeAuth, updateUserProfile } from '../../services/authService'
 import { getProfileName } from '../../services/onboardingStorage'
 import { loadVibe } from '../../services/vibeStorage'
@@ -148,5 +147,8 @@ export const profileActions = {
   },
 }
 
-/** Your vibe from the personality quiz (#/quiz), or the sample one until you've taken it */
-export const currentVibe = (): VibeResult => vibeResultFor(loadVibe() ?? SAMPLE_YOU_VIBE)
+/** Your vibe from the personality quiz (#/quiz); null until you've taken it */
+export const currentVibe = (): VibeResult | null => {
+  const scores = loadVibe()
+  return scores ? vibeResultFor(scores) : null
+}

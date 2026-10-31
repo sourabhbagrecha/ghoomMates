@@ -3,7 +3,7 @@ import '../../components/Flashcard.css'
 import { GhoomMateTip } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { VibeChart } from '../../components/VibeChart'
-import { SQUAD_VIBE } from '../../data/vibe'
+import { EXAMPLE_VIBE } from '../../data/vibe'
 import { QUIZ_CARDS, QUIZ_TOPICS } from './quizData'
 import './QuizPages.css'
 
@@ -48,7 +48,7 @@ export function QuizIntroPage({ onBack, onStart, onSkip }: QuizIntroPageProps) {
 
       <section className="card quiz-intro__unlock">
         <VibeChart
-          series={[{ scores: SQUAD_VIBE, color: 'var(--color-amber)', fillOpacity: 0.15, dots: true }]}
+          series={[{ scores: EXAMPLE_VIBE, color: 'var(--color-amber)', fillOpacity: 0.15, dots: true }]}
           width={132}
           label="Example vibe chart"
         />

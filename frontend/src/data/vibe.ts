@@ -13,24 +13,14 @@ export type VibeAxis = (typeof VIBE_AXES)[number]['id']
 /** 0–1 per axis */
 export type VibeScores = Record<VibeAxis, number>
 
-/** The Lake City Squad's blended vibe, read off the squad shape in the Itinerary spiderweb */
-export const SQUAD_VIBE: VibeScores = {
+/** Example shape for the quiz intro's “You’ll unlock” preview; never shown as anyone's real vibe */
+export const EXAMPLE_VIBE: VibeScores = {
   adventure: 0.9,
   food: 0.85,
   nightlife: 0.6,
   culture: 0.5,
   chill: 0.75,
   shops: 0.4,
-}
-
-/** “You” in the Figma spiderweb, shown until you've taken the personality quiz */
-export const SAMPLE_YOU_VIBE: VibeScores = {
-  adventure: 0.95,
-  food: 0.7,
-  nightlife: 0.35,
-  culture: 0.65,
-  chill: 0.55,
-  shops: 0.8,
 }
 
 /** 100% when two vibes are identical */
@@ -49,6 +39,11 @@ export function blendVibes(list: unknown[]): VibeScores | null {
   return Object.fromEntries(
     VIBE_AXES.map(({ id }) => [id, scores.reduce((sum, s) => sum + s[id], 0) / scores.length]),
   ) as VibeScores
+}
+
+/** Everyone else in a trip who has taken the quiz, blended; null when nobody has */
+export function othersVibe(trip: { memberId: string; members: { memberId: string; vibe?: unknown }[] } | null) {
+  return trip ? blendVibes(trip.members.filter((m) => m.memberId !== trip.memberId).map((m) => m.vibe)) : null
 }
 
 const PERSONA_WORDS: Record<VibeAxis, [adjective: string, noun: string]> = {
