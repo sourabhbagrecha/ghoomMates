@@ -6,6 +6,7 @@ import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth
 import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
+import { createFrontendRouter } from './frontend.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { logger } from './logger.ts';
@@ -20,8 +21,9 @@ const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be between 1 and 65535');
 const hostname = process.env.HOST ?? '127.0.0.1';
 
-const jwtSecret = process.env.JWT_SECRET || 'ghoomates-oauth-jwt-secret-key-32chars-min-dev-2026';
-if (jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters in .env');
+// The dev fallback secret is public (it is in this repo), so a production server refuses to start without a real one.
+const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'ghoomates-oauth-jwt-secret-key-32chars-min-dev-2026');
+if (jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters (backend/.env, or the JWT_SECRET secret on Cloud Run)');
 const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
 const apiKey = process.env.API_KEY ?? '';
@@ -86,6 +88,8 @@ if (db) {
 }
 
 const app = createServer({
+  // Production: also serve the built web app from this server (SERVE_FRONTEND_DIR, set in the Docker image)
+  frontend: createFrontendRouter(process.env.SERVE_FRONTEND_DIR),
   auth: createAuthApp(authDb, {
     ...authConfig,
     // Keep a copy of each new selfie in the media bucket for the face-matching pipeline
