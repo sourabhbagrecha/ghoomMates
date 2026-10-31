@@ -9,6 +9,7 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080
 COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
 COPY --chown=bun:bun package.json ./
 COPY --chown=bun:bun src ./src
+COPY --chown=bun:bun migrations ./migrations
 USER bun
 EXPOSE 8080
 CMD ["bun", "src/index.ts"]

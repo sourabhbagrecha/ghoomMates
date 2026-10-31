@@ -8,7 +8,7 @@ Authentication module of the unified Ghoomates backend (routes under `/auth/*`),
   - Authorization code redirect flow (`/auth/google/url` & `/auth/google/callback`)
   - Google Identity Services (GIS) / One-Tap verification (`/auth/google/verify`)
 - **JWT Session Tokens**: Standard HMAC-SHA256 stateless session tokens with configurable expiration
-- **MongoDB / Firestore Persistence**: Auto-indexes and upserts users in the `users` collection, with seamless in-memory fallback for offline/local development
+- **Cloud SQL Persistence**: Upserts users in the Postgres `users` table (unique `google_id` and lowercase `email`), with in-memory fallback for offline/local development
 - **Dev Mode / Test Accounts**: Instant 1-click test accounts for effortless local UI development before configuring Google Cloud credentials
 - **CORS & Vite Proxy**: Out-of-the-box preflight and header support for `http://localhost:5173`
 
@@ -31,9 +31,11 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:5173/#/auth/callback
 
-# Google Cloud Firestore / MongoDB URI
-MONGODB_URI=mongodb://...
-DATABASE_NAME=splitwise
+# Google Cloud SQL (Postgres), shared with the expense module
+CLOUD_SQL_INSTANCE=optimal-comfort-510810-d1:asia-south1:ghoomates
+DB_USER=ghoomates
+DB_PASSWORD=...
+DB_NAME=ghoomates
 ```
 
 ---

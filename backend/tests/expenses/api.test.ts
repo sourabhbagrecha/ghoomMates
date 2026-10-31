@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { openDatabase, type Database } from '../../src/expenses/database.ts';
+import { openDatabase, type Database } from '../../src/db.ts';
+import { loadEnv } from '../../src/env.ts';
+loadEnv();
 import { createApp } from '../../src/expenses/app.ts';
 import { mount, serve } from '../helpers.ts';
 const apiKey = 'test-secret-'.repeat(4);
@@ -14,7 +16,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await server.close();
-  await db.terminate();
+  await db.close();
 });
 async function request(path: string, body?: unknown, key: string = crypto.randomUUID()) {
   const response = await app(path, {
@@ -98,11 +100,11 @@ test('settlement rejects self-payments, unconfirmed records, and cross-group par
   }
   expect((await request(`${base}/settlements`)).data.items).toHaveLength(0);
 });
-test('ledger and idempotency survive creating a new Firestore client', async () => {
+test('ledger and idempotency survive opening a new database pool', async () => {
   const payload = { name: 'Persistent trip', members: ['Asha'] };
   const initial = await request('/api/groups', payload, 'persistent');
   expect(initial.status).toBe(201);
-  await server.close(); await db.terminate(); db = await openDatabase(); await start();
+  await server.close(); await db.close(); db = await openDatabase(); await start();
   expect((await request('/api/groups', payload, 'persistent')).data).toEqual(initial.data);
   expect((await request(`/api/groups/${initial.data.id}`)).status).toBe(200);
 });

@@ -2,7 +2,7 @@
 **Module:** `expenses`  
 **Monorepo Path:** `backend` (module `src/expenses/`, served by the unified backend)  
 **Ecosystem:** Ghoomates Travel Companion Platform  
-**Runtimes:** Node.js (v22+) / Bun (v1.3+) &bull; **Database:** Google Cloud Firestore (MongoDB Protocol)
+**Runtimes:** Node.js (v22+) / Bun (v1.3+) &bull; **Database:** Google Cloud SQL for PostgreSQL 18
 
 ---
 
@@ -12,7 +12,7 @@ The `expenses` module of the unified backend is the component within the **Ghoom
 
 ### Key Tenets
 1. **Zero Financial Precision Drift**: No floating-point numbers are used for monetary calculations. All amounts are stored and calculated as 64-bit integer **paise** ($1\text{ INR} = 100\text{ paise}$).
-2. **ACID Transactional Consistency**: All balance mutations, sequential audit logs, and idempotency states execute within multi-document database transactions.
+2. **ACID Transactional Consistency**: All balance mutations, sequential audit logs, and idempotency states execute within a single Postgres transaction.
 3. **Strict Idempotency**: All state-modifying requests require a unique `Idempotency-Key` header hashed via SHA-256 to prevent duplicate charges or double payments.
 4. **Platform & Runtime Neutrality**: Operates on both standard Node.js and Bun without external web framework dependencies (built on standard Web Fetch & Streams primitives).
 
@@ -36,8 +36,8 @@ flowchart TD
     end
 
     subgraph Storage["Google Cloud Platform (Managed)"]
-        Firestore["Google Cloud Firestore\n(Enterprise / MongoDB Protocol)"]
-        Collections[("Collections:\ngroups\nexpenses\nsettlements\nidempotency")]
+        CloudSQL["Google Cloud SQL\n(PostgreSQL 18, instance ghoomates)"]
+        Tables[("Tables:\ngroups, group_members\nexpenses, expense_shares\nsettlements\nidempotency_keys")]
     end
 
     Web -->|HTTPS| Gateway
@@ -46,15 +46,15 @@ flowchart TD
     Auth --> Router
     Router --> ServiceLayer
     ServiceLayer <--> Domain
-    ServiceLayer -->|TLS Port 443 + SCRAM-SHA-256| Firestore
-    Firestore --- Collections
+    ServiceLayer -->|Cloud SQL Node.js Connector\nTLS + IAM-authorized| CloudSQL
+    CloudSQL --- Tables
 ```
 
 ---
 
 ## 3. Data Model & Entity Relationships
 
-The service maintains an append-only transaction history alongside denormalized group aggregates to ensure $O(1)$ balance reads without scanning full historical transactions.
+The service maintains an append-only transaction history alongside per-member balance aggregates to ensure $O(1)$ balance reads without scanning full historical transactions.
 
 ```mermaid
 erDiagram
@@ -68,14 +68,16 @@ erDiagram
         string id PK "UUID"
         string name "Trip or Group Title"
         string currency "Strictly 'INR'"
-        int sequence "Strictly monotonically increasing"
-        json balances "Map: memberId -> netPaise"
-        datetime createdAt "ISO-8601"
+        bigint sequence "Strictly monotonically increasing"
+        timestamptz created_at
     }
 
     MEMBER {
-        string id PK "UUID"
+        uuid id PK
+        uuid group_id FK
+        int position "Display order"
         string name "Display Name (1-100 chars)"
+        bigint balance_paise "Net balance; sums to zero per group"
     }
 
     EXPENSE {
@@ -90,8 +92,10 @@ erDiagram
     }
 
     EXPENSE_SHARE {
-        string memberId FK "Member Reference"
-        int amountPaise "Share owed in paise"
+        uuid expense_id PK "Expense Reference"
+        int position PK "Participant order"
+        uuid member_id FK "Member Reference"
+        bigint amount_paise "Share owed in paise"
     }
 
     SETTLEMENT {
@@ -107,7 +111,7 @@ erDiagram
     }
 
     IDEMPOTENCY {
-        string _id PK "SHA-256(scope, key)"
+        string id PK "SHA-256(scope, key)"
         string scope "Route identifier"
         string request "Canonical input JSON string"
         string response "Cached response JSON"
@@ -153,29 +157,31 @@ sequenceDiagram
     actor Client as API Client / Gateway
     participant Router as App Router (app.ts)
     participant Service as ExpenseService
-    participant Mongo as Firestore Cluster (MongoDB Wire Protocol)
+    participant DB as Cloud SQL (PostgreSQL)
 
     Client->>Router: POST /api/groups/{id}/expenses (with Idempotency-Key)
     Router->>Service: mutate(scope, key, payload, action)
-    Service->>Mongo: startSession() & withTransaction()
-    
+    Service->>DB: BEGIN
+
     rect rgb(240, 248, 255)
-        Note over Service,Mongo: Inside ACID Multi-Document Transaction
-        Service->>Mongo: findOne(idempotency, { _id: sha256(scope, key) })
+        Note over Service,DB: Inside one READ COMMITTED transaction
+        Service->>DB: pg_advisory_xact_lock(sha256(scope, key))
+        Service->>DB: SELECT idempotency_keys WHERE id = sha256(scope, key)
         alt Key Exists
-            Mongo-->>Service: Return cached record
-            Service-->>Client: 200/201 Cached JSON (Early Return)
+            DB-->>Service: Return cached record
+            Service-->>Client: 201 Cached JSON (Early Return)
         else Key Does Not Exist
-            Service->>Mongo: findOne(groups, { id })
+            Service->>DB: SELECT groups WHERE id FOR UPDATE
+            Service->>DB: SELECT group_members (current balances)
             Service->>Service: Validate payer & participants
             Service->>Service: Recalculate balances & bump sequence (N+1)
-            Service->>Mongo: replaceOne(groups, { id }, updatedGroup)
-            Service->>Mongo: insertOne(expenses, { ...expense, sequence: N+1 })
-            Service->>Mongo: insertOne(idempotency, { _id, request, response })
+            Service->>DB: UPDATE groups.sequence, group_members.balance_paise
+            Service->>DB: INSERT expenses (sequence N+1) + expense_shares
+            Service->>DB: INSERT idempotency_keys (request, response)
         end
     end
 
-    Mongo-->>Service: Commit Transaction
+    DB-->>Service: COMMIT
     Service-->>Router: Success Result
     Router-->>Client: 201 Created (JSON Response)
 ```
@@ -184,26 +190,28 @@ sequenceDiagram
 
 ## 6. Storage & Database Tier
 
-### Google Cloud Firestore via MongoDB Protocol
-The service connects to Google Cloud Firestore using the MongoDB wire protocol on port 443. This combines serverless autoscaling with standard MongoDB driver ergonomics.
+### Google Cloud SQL for PostgreSQL
+The service connects to the `ghoomates` Cloud SQL instance (`optimal-comfort-510810-d1:asia-south1:ghoomates`) through the Cloud SQL Node.js Connector, which fetches ephemeral certificates with Application Default Credentials. No authorized networks or Auth Proxy are needed. The auth and expense modules share one `pg` pool. The schema lives in `migrations/` and is applied on startup.
 
 #### Connection Parameters
 
-| Parameter | Required Value | Rationale |
+| Variable | Example | Purpose |
 | :--- | :--- | :--- |
-| **`loadBalanced`** | `true` | Required by Firestore Enterprise serverless endpoint. |
-| **`tls`** | `true` | Enforces TLS 1.3 encryption over public port 443. |
-| **`authMechanism`** | `SCRAM-SHA-256` | Secure credential exchange without plaintext transit. |
-| **`retryWrites`** | `false` | Firestore handles atomic operations natively. |
+| **`CLOUD_SQL_INSTANCE`** | `project:region:instance` | Instance connection name used by the connector. |
+| **`CLOUD_SQL_IP_TYPE`** | `PUBLIC` | `PUBLIC`, `PRIVATE`, or `PSC`. |
+| **`DB_USER` / `DB_PASSWORD`** | `ghoomates` | Built-in Postgres user. |
+| **`DB_NAME`** | `ghoomates` | Database (`ghoomates_test` for API tests). |
+| **`DATABASE_URL`** | `postgres://…` | Alternative to the connector for local Postgres or the Auth Proxy. |
 
-#### Database Indexes
+#### Keys & Indexes
 
-| Collection | Index Key | Unique | Purpose |
+| Table | Key | Unique | Purpose |
 | :--- | :--- | :--- | :--- |
-| `groups` | `{ id: 1 }` | **Yes** | Primary key lookups for group state. |
-| `expenses` | `{ groupId: 1, sequence: -1 }` | No | Chronological reverse-pagination feed. |
-| `settlements` | `{ groupId: 1, sequence: -1 }` | No | Chronological payment history. |
-| `idempotency` | `{ _id: 1 }` | **Yes** | Constant-time duplicate detection. |
+| `groups` | `id` | **Yes** | Primary key; row lock serializes ledger writes per group. |
+| `group_members` | `(group_id, id)` | **Yes** | Target of composite foreign keys that keep members within their group. |
+| `expenses` | `(group_id, sequence)` | **Yes** | Chronological reverse-pagination feed. |
+| `settlements` | `(group_id, sequence)` | **Yes** | Chronological payment history. |
+| `idempotency_keys` | `id` | **Yes** | Constant-time duplicate detection. |
 
 ---
 
@@ -227,10 +235,10 @@ The service connects to Google Cloud Firestore using the MongoDB wire protocol o
 Local Dev (Port 3000) ---> Cloud Run (Port 8080)
    ├── Node 22+ / Bun          ├── Distroless Container
    ├── Direct TLS connection   ├── Managed VPC & Secret Manager
-   └── Automatic .env loader   └── Zero-trust Service Account (datastore.user)
+   └── Automatic .env loader   └── Zero-trust Service Account (cloudsql.client)
 ```
 
 ### Health Probes & Monitoring
 - **Liveness & Readiness**: `GET /health` returns `200 {"status":"ok"}` without database locking overhead, suitable for Cloud Run / Kubernetes probes.
-- **Graceful Shutdown**: Intercepts `SIGINT` and `SIGTERM` to close HTTP listeners, end active sessions, and terminate MongoDB client pools cleanly without dropping in-flight transactions.
+- **Graceful Shutdown**: Intercepts `SIGINT` and `SIGTERM` to close HTTP listeners, and drain the Postgres connection pool cleanly without dropping in-flight transactions.
 

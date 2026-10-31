@@ -12,8 +12,8 @@
     "test": "node --test tests/app.test.ts tests/auth/oauth.test.ts",
     "test:auth": "node --test tests/auth/oauth.test.ts",
     "test:unit": "bun test tests/expenses/domain.test.ts",
-    "test:expenses": "bun test tests/expenses",
-    "test:connection": "node scripts/test-firestore-connection.ts",
+    "test:expenses": "bun test --timeout 30000 tests/expenses",
+    "test:connection": "node scripts/test-db-connection.ts",
     "test:flow": "node scripts/test-api.ts"
   },
   "engines": {
@@ -23,11 +23,12 @@
     "@types/bun": "latest",
     "@types/express": "^5",
     "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@google-cloud/firestore": "9.4.0",
+    "@google-cloud/cloud-sql-connector": "^1.12.1",
     "express": "^5",
-    "mongodb": "^7.8.0"
+    "pg": "^8.23.1"
   }
 }

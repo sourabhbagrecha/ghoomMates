@@ -143,7 +143,7 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
 
   // Update user profile (e.g. selfie photo)
   const updateProfile: RequestHandler = async (req, res) => {
-    // Only fields present in the body change; MongoDB would store an absent one as null
+    // Only fields present in the body change
     const patch: { picture?: string; name?: string } = {};
     if (typeof req.body.picture === 'string') patch.picture = req.body.picture;
     if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim();

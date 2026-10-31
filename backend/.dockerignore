@@ -3,4 +3,6 @@
 !bun.lock
 !src/
 !src/**
+!migrations/
+!migrations/**
 !Dockerfile

@@ -1,10 +1,9 @@
-import { MongoClient } from 'mongodb';
 import { createServer } from './app.ts';
+import { isDatabaseConfigured, openDatabase } from './db.ts';
 import { loadEnv } from './env.ts';
 import { createApp as createAuthApp } from './auth/app.ts';
-import { attachOAuthDatabase, createInMemoryOAuthDatabase } from './auth/database.ts';
+import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth/database.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
-import { attachDatabase } from './expenses/database.ts';
 
 loadEnv();
 
@@ -19,21 +18,18 @@ const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 const apiKey = process.env.API_KEY ?? '';
 if (apiKey && apiKey.length < 32) throw new Error('Set API_KEY to a secret of at least 32 characters in .env');
 
-// One shared connection for every module. Without MONGODB_URI, auth runs on an in-memory store
-// and the expense API is disabled, since its ledger requires transactions.
-const mongoUri = process.env.MONGODB_URI;
-const mongo = mongoUri ? new MongoClient(mongoUri) : undefined;
-if (mongo) await mongo.connect();
-const db = mongo?.db(process.env.DATABASE_NAME || 'splitwise');
+// One shared Cloud SQL (Postgres) pool for every module. Without a database, auth runs on an
+// in-memory store and the expense API is disabled.
+const db = isDatabaseConfigured() ? await openDatabase() : undefined;
 
-const authDb = mongo && db ? await attachOAuthDatabase(mongo, db) : createInMemoryOAuthDatabase();
-if (!mongo) console.log('No MONGODB_URI configured. Running auth with in-memory store.');
+const authDb = db ? createPostgresOAuthDatabase(db) : createInMemoryOAuthDatabase();
+if (!db) console.log('No CLOUD_SQL_INSTANCE or DATABASE_URL configured. Running auth with in-memory store.');
 
 let expenses: ReturnType<typeof createExpensesApp> | undefined;
-if (mongo && db && apiKey) {
-  expenses = createExpensesApp(await attachDatabase(mongo, db), apiKey);
+if (db && apiKey) {
+  expenses = createExpensesApp(db, apiKey);
 } else {
-  console.warn(`Expense API disabled: set ${[!mongo && 'MONGODB_URI', !apiKey && 'API_KEY'].filter(Boolean).join(' and ')} to enable /api routes.`);
+  console.warn(`Expense API disabled: set ${[!db && 'CLOUD_SQL_INSTANCE or DATABASE_URL', !apiKey && 'API_KEY'].filter(Boolean).join(' and ')} to enable /api routes.`);
 }
 
 const app = createServer({
@@ -58,8 +54,8 @@ async function shutdown() {
   stopping = true;
   console.log('Shutting down Ghoomates backend...');
   await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
-  await mongo?.close();
   await authDb.terminate();
+  await db?.close();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

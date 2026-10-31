@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
-import type { ClientSession } from 'mongodb';
 import { timingSafeEqual } from 'node:crypto';
 import { ApiError, integer } from './domain.ts';
 import { ExpenseService } from './service.ts';
 import { jsonBody } from '../http.ts';
-import type { Database } from './database.ts';
+import type { Database, Tx } from '../db.ts';
 
 const GROUP_PATH = /^\/groups\/[a-zA-Z0-9-]+(?:\/(members|expenses|balances|settlement-suggestions|settlements))?$/;
 const GROUP_ID = /^[a-zA-Z0-9-]+$/;
@@ -40,7 +39,7 @@ export function createApp(db: Database, apiKey: string) {
   });
 
   router.post('/groups', jsonBody, async (req, res) => {
-    res.status(201).json(await service.mutate('groups', idempotencyKey(req), req.body, (session) => service.createGroup(req.body, session)));
+    res.status(201).json(await service.mutate('groups', idempotencyKey(req), req.body, (tx) => service.createGroup(req.body, tx)));
   });
 
   router.get('/groups/:groupId', async (req, res) => {
@@ -65,14 +64,14 @@ export function createApp(db: Database, apiKey: string) {
     res.json({ items: await service.settlements(req.params.groupId, limit, offset), limit, offset });
   });
 
-  const mutation = (resource: string, action: (groupId: string, input: unknown, session: ClientSession) => Promise<unknown>): RequestHandler =>
+  const mutation = (resource: string, action: (groupId: string, input: unknown, tx: Tx) => Promise<unknown>): RequestHandler =>
     async (req, res) => {
       const { groupId } = req.params as { groupId: string };
-      res.status(201).json(await service.mutate(`${groupId}/${resource}`, idempotencyKey(req), req.body, (session) => action(groupId, req.body, session)));
+      res.status(201).json(await service.mutate(`${groupId}/${resource}`, idempotencyKey(req), req.body, (tx) => action(groupId, req.body, tx)));
     };
-  router.post('/groups/:groupId/members', jsonBody, mutation('members', (id, input, session) => service.addMember(id, input, session)));
-  router.post('/groups/:groupId/expenses', jsonBody, mutation('expenses', (id, input, session) => service.addExpense(id, input, session)));
-  router.post('/groups/:groupId/settlements', jsonBody, mutation('settlements', (id, input, session) => service.addSettlement(id, input, session)));
+  router.post('/groups/:groupId/members', jsonBody, mutation('members', (id, input, tx) => service.addMember(id, input, tx)));
+  router.post('/groups/:groupId/expenses', jsonBody, mutation('expenses', (id, input, tx) => service.addExpense(id, input, tx)));
+  router.post('/groups/:groupId/settlements', jsonBody, mutation('settlements', (id, input, tx) => service.addSettlement(id, input, tx)));
 
   router.use((req) => {
     if (req.path === '/groups' || GROUP_PATH.test(req.path)) {

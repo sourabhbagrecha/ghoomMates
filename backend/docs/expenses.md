@@ -2,29 +2,33 @@
 
 Expense-splitting module of the unified Ghoomates backend, mounted at `/api/*`. See [../README.md](../README.md) for running the server.
 
-Node.js / Bun + TypeScript HTTP API backed by Google Cloud Firestore (via MongoDB compatibility protocol or native SDK). Money remains integer paise; the HTTP API is unchanged.
+Node.js / Bun + TypeScript HTTP API backed by Google Cloud SQL for PostgreSQL, shared with the auth module. Money remains integer paise; the HTTP API is unchanged.
 
 > 📖 **Architecture & Design Document**: For data models, entity relationships, splitting algorithms, and transaction lifecycles, see [expenses-architecture.md](expenses-architecture.md).
 
-## Connecting to Google Cloud Firestore (MongoDB compatibility)
+## Connecting to Cloud SQL
 
-Google Cloud Firestore supports the MongoDB wire protocol on port 443. Configure your connection string in `backend/.env`:
+The server connects to the `ghoomates` Cloud SQL instance through the [Cloud SQL Node.js Connector](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector), which authorizes with [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc) and encrypts the connection without authorized networks or the Auth Proxy. Locally, run `gcloud auth application-default login`; on Cloud Run, grant the service account `roles/cloudsql.client`. Configure `backend/.env`:
 
 ```env
 HOST=127.0.0.1
 PORT=3000
 API_KEY=your-32-char-random-secret
-MONGODB_URI=mongodb://gaurav:PASSWORD@48095cea-e799-4751-b4b9-ae96af9322b9.asia-south1.firestore.goog:443/splitwise?loadBalanced=true&tls=true&authMechanism=SCRAM-SHA-256&retryWrites=false
-DATABASE_NAME=splitwise
+CLOUD_SQL_INSTANCE=optimal-comfort-510810-d1:asia-south1:ghoomates
+DB_USER=ghoomates
+DB_PASSWORD=...
+DB_NAME=ghoomates
 ```
+
+`DATABASE_URL=postgres://user:password@host:5432/db` can replace the Cloud SQL variables, for example with a local Postgres or the Cloud SQL Auth Proxy. Pending files in `migrations/` are applied on startup, in filename order, under an advisory lock.
 
 ### Verification & Run Commands
 
 ```bash
-# Verify connection to the Firestore cluster:
+# Connect, apply migrations, and list table row counts:
 npm run test:connection
 
-# Run end-to-end trip verification (group, expense, split, settlement):
+# Run end-to-end trip verification (group, expense, split, settlement); writes sample data:
 node scripts/verify-e2e.ts
 
 # Start the service (with Node or Bun):
@@ -33,57 +37,15 @@ npm start
 bun start
 ```
 
-## Run locally with the Firestore emulator
-
-Install [Bun](https://bun.com/docs/installation), Node.js 22+ (for Firebase CLI), and Java 21+ (for the emulator). From the repository root:
-
-```bash
-cd backend
-bun install --frozen-lockfile
-cp .env.example .env
-openssl rand -hex 32
-# Set API_KEY in .env to the generated value.
-bunx firebase-tools@15.34.2 emulators:start --only firestore --project demo-ghoomates
-```
-
-In another terminal, from `backend/`:
-
-```bash
-bun run dev
-```
-
-Default API address: `http://127.0.0.1:3000`. The example environment points to the local emulator at `127.0.0.1:8080` with project `demo-ghoomates`; no cloud credentials or real project are needed. Demo project IDs are rejected unless an emulator host is set. Emulator data is temporary unless explicitly exported/imported using Firebase CLI.
-
 ### Tests
 
 ```bash
 bun run test:unit
 bun run typecheck
-# Starts a local emulator, runs all tests, and stops the emulator:
-bunx firebase-tools@15.34.2 emulators:exec --only firestore --project demo-ghoomates 'bun run test:expenses'
+DB_NAME=ghoomates_test bun run test:expenses
 ```
 
-If an emulator is already running:
-
-```bash
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 bun run test:expenses
-```
-
-Integration tests require a localhost emulator and use randomly named `demo-` projects. They do not read or erase production data. Missing emulator configuration fails explicitly rather than silently skipping integration tests. Tests cover duplicate retries, concurrent expenses, simultaneous settlement attempts, client reconnects, and history pagination. Validated with Bun 1.4.4 and the official Firestore emulator.
-
-## Connect to Google Cloud Firestore
-
-1. Create or select a Firebase/Google Cloud project with a Firestore **Native mode** `(default)` database. Choose the database location for your application.
-2. Set `GOOGLE_CLOUD_PROJECT` in `backend/.env` to the real project ID and remove `FIRESTORE_EMULATOR_HOST` from both `.env` and your shell.
-3. Configure [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc). For local development with the Google Cloud CLI, run `gcloud auth application-default login`. In a Google Cloud deployment, use an attached service account with the required Firestore IAM permissions (typically `roles/datastore.user`). If a credential file is necessary, keep it outside this repo and point `GOOGLE_APPLICATION_CREDENTIALS` to it.
-4. Review and deploy the checked-in rules/index configuration to your chosen project:
-
-```bash
-bunx firebase-tools@15.34.2 deploy --only firestore:rules,firestore:indexes --project YOUR_PROJECT_ID
-bun start
-```
-
-These commands are setup instructions; no cloud project has been created or deployed by this change. The server SDK uses IAM and bypasses Firestore client Security Rules. The supplied rules deny direct web/mobile access, because this MVP routes all access through the backend. Firebase CLI login and backend ADC are separate authentication mechanisms. See [Firestore access rules](https://firebase.google.com/docs/firestore/security/rules-conditions).
+API tests create groups in the configured database and never delete them, so run them against the `ghoomates_test` database rather than `ghoomates`. They cover duplicate retries, concurrent expenses, simultaneous settlement attempts, new connection pools, and history pagination. Requests from a laptop cross the network to `asia-south1`, so the suite allows 30 seconds per test.
 
 ## Current scope
 
@@ -93,7 +55,7 @@ These commands are setup instructions; no cloud project has been created or depl
 - Immutable expenses, paginated expense history, and member net balances.
 - Suggested transfers based on net balances, including partial settlements.
 - Manually confirmed payment records and settlement history.
-- Firestore transactions and persistent idempotency keys on every POST.
+- Postgres transactions and persistent idempotency keys on every POST.
 
 This is an **internal API MVP**, not a public multi-user service. The service bearer token grants access to every group; names represent ledger participants, not authenticated users. Do not embed this key in frontend code. User login, per-member authorization, invitations, expense corrections/voids, multiple payers, and rate limiting are future work. The server binds to localhost by default.
 
@@ -116,7 +78,7 @@ All routes except `GET /health` require `Authorization: Bearer <API_KEY>`. All P
 | POST | `/api/groups/:id/settlements` | Record a manually confirmed payment |
 | GET | `/api/groups/:id/settlements?limit=50&offset=0` | List payments, newest first |
 
-List limits are 1–100. Offset pagination preserves the existing API, but skipped documents still incur Firestore reads; use small offsets in this MVP and move to cursor pagination for large histories. Mutations return HTTP 201; replaying the same key and request returns the original body with 201. Reusing the key with different content returns 409. Keys are scoped to the group/resource (group creation has its own scope) and currently retained indefinitely. A failed validation does not consume the key.
+List limits are 1–100. Offset pagination preserves the existing API, but Postgres still scans skipped rows; use small offsets in this MVP and move to cursor pagination for large histories. Mutations return HTTP 201; replaying the same key and request returns the original body with 201. Reusing the key with different content returns 409. Keys are scoped to the group/resource (group creation has its own scope) and currently retained indefinitely. A failed validation does not consume the key.
 
 ### Create a group
 
@@ -189,38 +151,32 @@ This reduces Ben's debt and Asha's credit by 1000 paise. Partial payments are al
 
 Errors use `{"error":{"code":"VALIDATION_ERROR","message":"..."}}` with appropriate 400, 401, 404, 405, 409, 413, 415, or 500 status codes. Unexpected internal details are not exposed.
 
-## Firestore data model
+## Data model
+
+Schema: [`migrations/001_initial_schema.sql`](../migrations/001_initial_schema.sql).
 
 ```text
-groups/{groupId}
-  id, name, currency, createdAt, members[], balances{memberId: netPaise}, sequence
-  expenses/{expenseId}
-    id, groupId, payerId, description, amountPaise, splitType, shares[], createdAt, sequence
-  settlements/{settlementId}
-    id, groupId, fromMemberId, toMemberId, amountPaise, note, verification, createdAt, sequence
-idempotency/{sha256(scope, key)}
-  scope, request, response
+groups            id, name, currency, sequence, created_at
+group_members     id, group_id, position, name, balance_paise
+expenses          id, group_id, sequence, payer_id, description, amount_paise, split_type, created_at
+expense_shares    expense_id, position, group_id, member_id, amount_paise
+settlements       id, group_id, sequence, from_member_id, to_member_id, amount_paise, note, verification, created_at
+idempotency_keys  id = sha256(scope, key), scope, request, response, created_at
 ```
 
-The group document holds at most 100 members and their aggregate balances. Each expense or settlement updates this document, creates an immutable history document, and saves its idempotency response in **one transaction**. Reading the group inside the transaction ensures concurrent writes retry against current balances; no external payment calls happen in retryable callbacks. History lives in subcollections so it does not grow the group document indefinitely. A transaction-controlled sequence orders history even when timestamps match.
+Each member row holds that member's net balance. Each expense or settlement locks its group row (`SELECT … FOR UPDATE`), rereads balances, updates them and the group sequence, inserts an immutable history row, and stores its idempotency response in **one transaction**. Concurrent writes to a group therefore queue on the lock and see current balances; no external payment calls happen inside the transaction. Requests sharing an idempotency key also serialize on a transaction-scoped advisory lock, so simultaneous retries replay the first response. The per-group sequence orders history even when timestamps match.
 
-Group writes serialize through one document, which is appropriate for trip-sized groups rather than a high-throughput shared ledger. All writes must go through this service to preserve aggregate balances; direct console edits can violate its invariants. `config/firestore.indexes.json` exempts unqueried member/balance/share payloads and idempotency bodies from indexing. History queries use Firestore's default single-field `sequence` index.
-
-The former SQL schema has been removed. No SQLite data is automatically imported or deleted; if an earlier local database contains meaningful data, migrate it explicitly before switching environments. Collections are created on first write; there is no SQL migration runner.
+Composite foreign keys on `(group_id, member_id)` make the database reject payers, participants, or settlement parties from another group. Group writes serialize through one row, which suits trip-sized groups rather than a high-throughput shared ledger. All writes must go through this service to keep balances equal to the ledger; direct SQL edits can break that invariant.
 
 ## Layout
 
 - `src/index.ts`: unified server startup, environment configuration, graceful shutdown.
 - `src/expenses/app.ts`: async HTTP routing, service authentication, validation, errors.
 - `src/expenses/domain.ts`: integer money allocation and transfer suggestions.
-- `src/expenses/service.ts`: Firestore ledger operations and atomic idempotency.
-- `src/expenses/database.ts`: Firestore client configuration and emulator guard.
-- `config/firestore.rules`: deny direct client access; server access uses IAM.
-- `config/firestore.indexes.json`: index exemptions.
-- `firebase.json`: local emulator and deployment configuration.
-- `tests/expenses/`: domain and emulator-backed API tests.
-
-References: [Firestore transactions](https://firebase.google.com/docs/firestore/manage-data/transactions), [Firestore emulator](https://firebase.google.com/docs/emulator-suite/connect_firestore).
+- `src/expenses/service.ts`: SQL ledger operations and atomic idempotency.
+- `src/db.ts`: shared Cloud SQL pool, migration runner, transaction helper.
+- `migrations/`: SQL schema.
+- `tests/expenses/`: domain and database-backed API tests.
 
 ## Deploy and test remotely
 
@@ -233,4 +189,4 @@ After deployment, set `BASE_URL` to the returned HTTPS URL and `API_KEY` to the 
 bun scripts/test-api.ts
 ```
 
-This creates a sample group, adds a ₹1,200 expense split three ways, fetches balances and suggested transfers, and records one sample manual settlement. It leaves labeled test data in Firestore and does not move real money.
+This creates a sample group, adds a ₹1,200 expense split three ways, fetches balances and suggested transfers, and records one sample manual settlement. It leaves labeled test data in the database and does not move real money.

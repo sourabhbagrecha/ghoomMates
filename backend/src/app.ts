@@ -5,7 +5,7 @@ import { ApiError, errorHandler, notFound } from './http.ts';
 export interface ServerModules {
   // Google OAuth and user profile routes, mounted under /auth.
   auth: Router;
-  // Internal expense ledger routes, mounted under /api. Omitted when MONGODB_URI or API_KEY is not configured.
+  // Internal expense ledger routes, mounted under /api. Omitted when the database or API_KEY is not configured.
   expenses?: Router;
 }
 

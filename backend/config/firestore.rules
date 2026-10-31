@@ -1,9 +1,0 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Clients use the backend API. Server SDK access is controlled by IAM.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}

@@ -1,6 +1,8 @@
-import { MongoClient, type Db } from 'mongodb';
 import { randomBytes } from 'node:crypto';
 import type { User } from './types.ts';
+import type { Database, Pool } from '../db.ts';
+
+export type ProfilePatch = { picture?: string; name?: string };
 
 export interface OAuthDatabase {
   findUserById(id: string): Promise<User | null>;
@@ -15,7 +17,7 @@ export interface OAuthDatabase {
     familyName?: string;
     locale?: string;
   }): Promise<{ user: User; isNew: boolean }>;
-  updateUserProfile(id: string, patch: Partial<User>): Promise<User | null>;
+  updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null>;
   terminate(): Promise<void>;
   readonly isConnected: boolean;
 }
@@ -92,7 +94,7 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
     return { user: newUser, isNew: true };
   }
 
-  async updateUserProfile(id: string, patch: Partial<User>): Promise<User | null> {
+  async updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null> {
     const user = this.users.get(id);
     if (!user) return null;
     const updated = { ...user, ...patch, updatedAt: new Date().toISOString() };
@@ -105,30 +107,48 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
   }
 }
 
-class MongoOAuthDatabase implements OAuthDatabase {
+const USER_COLUMNS = 'id, google_id, email, email_verified, name, given_name, family_name, picture, locale, created_at, updated_at, last_login_at';
+
+function toUser(row: Record<string, any>): User {
+  return {
+    id: row.id,
+    googleId: row.google_id,
+    email: row.email,
+    emailVerified: row.email_verified,
+    name: row.name,
+    givenName: row.given_name ?? undefined,
+    familyName: row.family_name ?? undefined,
+    picture: row.picture ?? undefined,
+    locale: row.locale ?? undefined,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+    lastLoginAt: row.last_login_at.toISOString(),
+  };
+}
+
+class PostgresOAuthDatabase implements OAuthDatabase {
   readonly isConnected = true;
-  private client: MongoClient;
-  private db: Db;
+  private pool: Pool;
 
-  constructor(client: MongoClient, db: Db) {
-    this.client = client;
-    this.db = db;
+  constructor(pool: Pool) {
+    this.pool = pool;
   }
 
-  private get collection() {
-    return this.db.collection<User>('users');
+  private async findOne(where: string, value: string): Promise<User | null> {
+    const { rows: [row] } = await this.pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE ${where} = $1`, [value]);
+    return row ? toUser(row) : null;
   }
 
-  async findUserById(id: string): Promise<User | null> {
-    return (await this.collection.findOne({ id } as any)) as User | null;
+  findUserById(id: string) {
+    return this.findOne('id', id);
   }
 
-  async findUserByGoogleId(googleId: string): Promise<User | null> {
-    return (await this.collection.findOne({ googleId } as any)) as User | null;
+  findUserByGoogleId(googleId: string) {
+    return this.findOne('google_id', googleId);
   }
 
-  async findUserByEmail(email: string): Promise<User | null> {
-    return (await this.collection.findOne({ email: email.toLowerCase().trim() } as any)) as User | null;
+  findUserByEmail(email: string) {
+    return this.findOne('email', email.toLowerCase().trim());
   }
 
   async upsertGoogleUser(profile: {
@@ -140,112 +160,59 @@ class MongoOAuthDatabase implements OAuthDatabase {
     familyName?: string;
     locale?: string;
   }): Promise<{ user: User; isNew: boolean }> {
-    const existing = (await this.findUserByGoogleId(profile.googleId)) || (await this.findUserByEmail(profile.email));
-    const now = new Date().toISOString();
+    const email = profile.email.toLowerCase().trim();
+    const existing = (await this.findUserByGoogleId(profile.googleId)) || (await this.findUserByEmail(email));
 
     if (existing) {
-      const updated: User = {
-        ...existing,
-        googleId: profile.googleId,
-        email: profile.email,
-        emailVerified: profile.emailVerified ?? existing.emailVerified,
-        name: profile.name || existing.name,
-        givenName: profile.givenName || existing.givenName,
-        familyName: profile.familyName || existing.familyName,
-        picture: existing.picture, // Retain selfie picture, never overwrite with Google
-        locale: profile.locale || existing.locale,
-        updatedAt: now,
-        lastLoginAt: now,
-      };
-
-      await this.collection.updateOne(
-        { id: existing.id } as any,
-        {
-          $set: {
-            googleId: updated.googleId,
-            email: updated.email,
-            emailVerified: updated.emailVerified,
-            name: updated.name,
-            givenName: updated.givenName,
-            familyName: updated.familyName,
-            locale: updated.locale,
-            updatedAt: updated.updatedAt,
-            lastLoginAt: updated.lastLoginAt,
-          },
-        }
+      // The picture is the user's selfie and is never overwritten with Google's.
+      const { rows: [row] } = await this.pool.query(
+        `UPDATE users SET
+           google_id = $2,
+           email = $3,
+           email_verified = COALESCE($4, email_verified),
+           name = COALESCE(NULLIF($5, ''), name),
+           given_name = COALESCE(NULLIF($6, ''), given_name),
+           family_name = COALESCE(NULLIF($7, ''), family_name),
+           locale = COALESCE(NULLIF($8, ''), locale),
+           updated_at = now(),
+           last_login_at = now()
+         WHERE id = $1
+         RETURNING ${USER_COLUMNS}`,
+        [existing.id, profile.googleId, email, profile.emailVerified ?? null, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
       );
-
-      return { user: updated, isNew: false };
+      return { user: toUser(row), isNew: false };
     }
 
-    const newUser: User = {
-      id: `usr_${randomBytes(8).toString('hex')}`,
-      googleId: profile.googleId,
-      email: profile.email.toLowerCase().trim(),
-      emailVerified: profile.emailVerified ?? true,
-      name: profile.name,
-      givenName: profile.givenName,
-      familyName: profile.familyName,
-      picture: undefined, // No profile photo from Google
-      locale: profile.locale,
-      createdAt: now,
-      updatedAt: now,
-      lastLoginAt: now,
-    };
-
-    await this.collection.insertOne(newUser as any);
-    return { user: newUser, isNew: true };
-  }
-
-  async updateUserProfile(id: string, patch: Partial<User>): Promise<User | null> {
-    const now = new Date().toISOString();
-    await this.collection.updateOne(
-      { id } as any,
-      { $set: { ...patch, updatedAt: now } }
+    const { rows: [row] } = await this.pool.query(
+      `INSERT INTO users (id, google_id, email, email_verified, name, given_name, family_name, locale)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING ${USER_COLUMNS}`,
+      [`usr_${randomBytes(8).toString('hex')}`, profile.googleId, email, profile.emailVerified ?? true, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
     );
-    return this.findUserById(id);
+    return { user: toUser(row), isNew: true };
   }
 
-  async terminate(): Promise<void> {
-    await this.client.close();
+  async updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null> {
+    const { rows: [row] } = await this.pool.query(
+      `UPDATE users SET
+         picture = CASE WHEN $2 THEN $3 ELSE picture END,
+         name = COALESCE($4, name),
+         updated_at = now()
+       WHERE id = $1
+       RETURNING ${USER_COLUMNS}`,
+      [id, patch.picture !== undefined, patch.picture ?? null, patch.name ?? null]
+    );
+    return row ? toUser(row) : null;
   }
+
+  // The pool is shared with other modules and closed by its owner.
+  async terminate(): Promise<void> {}
 }
 
 export function createInMemoryOAuthDatabase(): OAuthDatabase {
   return new InMemoryOAuthDatabase();
 }
 
-// Wrap an already-connected client, ensuring the indexes the users collection relies on.
-export async function attachOAuthDatabase(client: MongoClient, db: Db): Promise<OAuthDatabase> {
-  try {
-    await Promise.all([
-      db.collection('users').createIndex({ id: 1 }, { unique: true }),
-      db.collection('users').createIndex({ googleId: 1 }, { unique: true, sparse: true }),
-      db.collection('users').createIndex({ email: 1 }, { unique: true }),
-    ]);
-  } catch (idxErr) {
-    console.warn('Notice: index creation:', idxErr instanceof Error ? idxErr.message : idxErr);
-  }
-  return new MongoOAuthDatabase(client, db);
-}
-
-export async function openOAuthDatabase(
-  uri = process.env.MONGODB_URI,
-  dbName = process.env.DATABASE_NAME || 'splitwise'
-): Promise<OAuthDatabase> {
-  if (!uri) {
-    console.log('No MONGODB_URI configured. Running OAuth service with in-memory store.');
-    return new InMemoryOAuthDatabase();
-  }
-
-  try {
-    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
-    await client.connect();
-    const db = await attachOAuthDatabase(client, client.db(dbName));
-    console.log('OAuth database connected to MongoDB/Firestore successfully.');
-    return db;
-  } catch (err) {
-    console.warn('Could not connect to MongoDB. Falling back to in-memory store for OAuth:', err instanceof Error ? err.message : err);
-    return new InMemoryOAuthDatabase();
-  }
+export function createPostgresOAuthDatabase(database: Database): OAuthDatabase {
+  return new PostgresOAuthDatabase(database.pool);
 }

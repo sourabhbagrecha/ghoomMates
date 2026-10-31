@@ -3,8 +3,7 @@ data/
 *.sqlite-shm
 *.sqlite-wal
 
-# Firebase local state and credential files
-.firebase/
+# Credential files
 *-service-account*.json
 service-account*.json
 

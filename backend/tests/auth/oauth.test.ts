@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { signJwt, verifyJwt } from '../../src/auth/jwt.ts';
 import { createApp } from '../../src/auth/app.ts';
-import { openOAuthDatabase } from '../../src/auth/database.ts';
+import { createInMemoryOAuthDatabase } from '../../src/auth/database.ts';
 import { mount, serve } from '../helpers.ts';
 
 const TEST_SECRET = 'a-very-secret-test-key-32-characters-minimum';
@@ -33,7 +33,7 @@ test('JWT rejects invalid signature', () => {
 
 test('OAuth app health and dev mock login endpoints', async () => {
   // Use in-memory database for testing
-  const db = await openOAuthDatabase('');
+  const db = createInMemoryOAuthDatabase();
   const server = await serve(mount('/auth', createApp(db, {
     jwtSecret: TEST_SECRET,
     googleClientId: 'mock-google-client-id.apps.googleusercontent.com',
