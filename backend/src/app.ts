@@ -14,11 +14,13 @@ export interface ServerModules {
   voice?: Router;
   // Live crowd levels at heritage sites, mounted under /api/heritage. Needs no database.
   heritage?: Router;
+  // Farm-to-table hosts, squad table bookings and the host kitchen tools, mounted under /api/hospitality.
+  hospitality?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, hospitality, media }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -48,6 +50,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (heritage) app.use('/api/heritage', heritage);
+  if (hospitality) app.use('/api/hospitality', hospitality);
   if (media) app.use('/api/media', media);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
