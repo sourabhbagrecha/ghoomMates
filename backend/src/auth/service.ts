@@ -1,4 +1,4 @@
-import type { OAuthDatabase } from './database.ts';
+import type { ProfilePatch, OAuthDatabase } from './database.ts';
 import { buildGoogleAuthUrl, exchangeCodeForTokens, fetchGoogleUserInfo, verifyGoogleIdToken } from './google.ts';
 import { signJwt, verifyJwt } from './jwt.ts';
 import type { AuthResult, GoogleTokenInfo, User } from './types.ts';
@@ -172,7 +172,7 @@ export class OAuthService {
     return { user, token, isNewUser: isNew };
   }
 
-  async updateProfile(userId: string, patch: { picture?: string; name?: string }): Promise<User> {
+  async updateProfile(userId: string, patch: ProfilePatch): Promise<User> {
     const user = await this.db.updateUserProfile(userId, patch);
     if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'User profile not found');
     return user;

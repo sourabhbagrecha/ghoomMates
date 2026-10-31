@@ -13,9 +13,7 @@ import {
   type VibeResult,
 } from './profileData'
 
-// Your profile and settings. Shared by every Profile screen (they remount on
-// each route). Name and photo are saved to the signed-in account; the rest
-// resets on reload until there's a profile service.
+// Profile and settings hydrate from the signed-in account.
 type ProfileState = {
   /** null until edited here; falls back to the name from sign-up */
   name: string | null
@@ -34,7 +32,7 @@ type ProfileState = {
 
 const initialState = (): ProfileState => ({
   name: null,
-  username: ACCOUNT.username,
+  username: getStoredUser()?.username || '',
   colour: COLOURS[0].id,
   photo: getStoredUser()?.picture || null,
   // Taken during sign-up
@@ -47,7 +45,20 @@ const initialState = (): ProfileState => ({
   language: 'en',
 })
 
-let state = initialState()
+function accountState(): ProfileState {
+  const user = getStoredUser()
+  const prefs = user?.preferences || {}
+  const base = initialState()
+  return { ...base, name: user?.name || null,
+    colour: typeof prefs.colour === 'string' ? prefs.colour : base.colour,
+    upi: typeof prefs.upi === 'string' ? prefs.upi : base.upi,
+    notifications: { ...base.notifications, ...(prefs.notifications as Partial<ProfileState['notifications']> || {}) },
+    faceMatch: typeof prefs.faceMatch === 'boolean' ? prefs.faceMatch : base.faceMatch,
+    locationSharing: typeof prefs.locationSharing === 'boolean' ? prefs.locationSharing : base.locationSharing,
+    language: prefs.language === 'hi' ? 'hi' : 'en',
+  }
+}
+let state = accountState()
 /** One-off message for the next profile screen to show, e.g. after saving */
 let notice: string | null = null
 const listeners = new Set<() => void>()
@@ -63,7 +74,7 @@ const subscribe = (listener: () => void) => {
 }
 
 // Follow the account: a new selfie or sign-in brings its photo, signing out starts over
-subscribeAuth((user) => (user ? set({ photo: user.picture || null }) : set(initialState())))
+subscribeAuth((user) => set(user ? accountState() : initialState()))
 
 export const useProfileStore = () => useSyncExternalStore(subscribe, () => state)
 
@@ -75,20 +86,25 @@ export const colourValue = (id: string) => (COLOURS.find((c) => c.id === id) ?? 
 /** Amber is too light for a white initial, so it gets a primary one (like the header avatar) */
 export const isLightColour = (id: string) => id === COLOURS[0].id
 
+const persist = (patch: Partial<ProfileState>) => {
+  set(patch)
+  void updateUserProfile({ preferences: patch }).catch(() => { notice = 'Could not save settings. Please try again.' })
+}
+
 export const profileActions = {
-  saveProfile: (patch: Pick<ProfileState, 'name' | 'username' | 'colour' | 'photo'>) => {
-    set(patch)
+  saveProfile: async (patch: Pick<ProfileState, 'name' | 'username' | 'colour' | 'photo'>) => {
+    await updateUserProfile({ name: patch.name ?? undefined, username: patch.username,
+      picture: patch.photo ?? '', preferences: { colour: patch.colour } })
     notice = 'Profile saved'
-    void updateUserProfile({ name: patch.name ?? undefined, picture: patch.photo ?? '' })
   },
   setSelfie: (selfie: string) => set({ hasSelfie: true, selfie }),
   deleteSelfie: () => set({ hasSelfie: false, selfie: null }),
-  setUpi: (upi: string) => set({ upi: upi.trim() }),
+  setUpi: (upi: string) => persist({ upi: upi.trim() }),
   toggleNotification: (id: NotificationPrefId) =>
-    set({ notifications: { ...state.notifications, [id]: !state.notifications[id] } }),
-  setFaceMatch: (on: boolean) => set({ faceMatch: on }),
-  setLocationSharing: (on: boolean) => set({ locationSharing: on }),
-  setLanguage: (language: LanguageId) => set({ language }),
+    persist({ notifications: { ...state.notifications, [id]: !state.notifications[id] } }),
+  setFaceMatch: (on: boolean) => persist({ faceMatch: on }),
+  setLocationSharing: (on: boolean) => persist({ locationSharing: on }),
+  setLanguage: (language: LanguageId) => persist({ language }),
   /** Returns the pending notice once, then clears it */
   takeNotice: () => {
     const message = notice

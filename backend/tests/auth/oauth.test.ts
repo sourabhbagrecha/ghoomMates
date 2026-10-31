@@ -82,3 +82,32 @@ test('OAuth app health and dev mock login endpoints', async () => {
   await db.terminate();
 });
 
+
+ test('profiles persist across login, merge preferences, and reject invalid or duplicate usernames', async () => {
+  const db = createInMemoryOAuthDatabase();
+  const server = await serve(mount('/auth', createApp(db, { jwtSecret: TEST_SECRET })));
+  const login = async (email: string) => (await server.request('/auth/dev/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name: 'Google Name' }),
+  })).json();
+  try {
+    const first = await login('first@example.com');
+    assert.ok(first.user.username);
+    assert.deepEqual(first.user.preferences, {});
+    const patch = (token: string, body: unknown) => server.request('/auth/profile', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body),
+    });
+    assert.equal((await patch(first.token, { username: '@traveler', name: 'Custom Name', picture: 'data:image/jpeg;base64,test', preferences: { language: 'hi' } })).status, 200);
+    assert.equal((await patch(first.token, { preferences: { colour: 'amber' } })).status, 200);
+    const returning = await login('first@example.com');
+    assert.equal(returning.user.id, first.user.id);
+    assert.equal(returning.user.username, 'traveler');
+    assert.equal(returning.user.name, 'Custom Name');
+    assert.equal(returning.user.picture, 'data:image/jpeg;base64,test');
+    assert.deepEqual(returning.user.preferences, { language: 'hi', colour: 'amber' });
+    const second = await login('second@example.com');
+    assert.equal((await patch(second.token, { username: 'traveler' })).status, 409);
+    assert.equal((await patch(first.token, { preferences: [] })).status, 400);
+    assert.equal((await patch(first.token, { username: 'a b' })).status, 400);
+    assert.equal((await patch('invalid', { username: 'another' })).status, 401);
+  } finally { await server.close(); await db.terminate(); }
+});

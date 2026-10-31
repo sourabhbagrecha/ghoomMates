@@ -72,3 +72,11 @@ To run unit tests:
 npm run test:auth
 ```
 
+
+### Persisted user profiles
+
+Login creates a user with a unique `username` (the public user ID), name, verified-provider email, `picture`, and `preferences` JSON object. The internal `id` stays stable when a username changes. Users without a chosen username receive a generated one. Existing accounts are backfilled by migration `002_user_profiles.sql`, applied automatically at backend startup.
+
+Authenticated `PATCH /auth/profile` accepts `username`, `name`, `picture`, and `preferences`. Usernames normalize to lowercase without a leading `@`, use 3–64 letters, numbers, dots or underscores, and return 409 if taken. Preferences merge at the top level; nested values are replaced. `GET /auth/me` and login responses return the saved profile. Subsequent logins retain custom names, photos and preferences. Email comes from the login provider.
+
+Onboarding saves the chosen username, name, photo and avatar colour. Profile settings and quiz preferences also save to the backend. Photos are stored in the existing picture column as compressed data URLs. Persistent storage requires DATABASE_URL or the Cloud SQL environment configuration; the in-memory development database resets on restart.

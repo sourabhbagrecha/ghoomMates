@@ -3,7 +3,8 @@ import type { Request, RequestHandler } from 'express';
 import { ApiError } from './types.ts';
 import { OAuthService } from './service.ts';
 import { jsonBody, optionalJsonBody } from '../http.ts';
-import type { OAuthDatabase } from './database.ts';
+import { logger } from '../logger.ts';
+import type { ProfilePatch, OAuthDatabase } from './database.ts';
 import type { OAuthServiceConfig } from './service.ts';
 
 function getBearerToken(req: Request): string {
@@ -72,12 +73,16 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
 
   // Public OAuth configuration info (whether Google is configured, Client ID)
   router.get('/config', (_req, res) => {
-    res.json(service.getAuthConfig());
+    const cfg = service.getAuthConfig();
+    logger.debug('Auth', `Configuration requested (configured: ${cfg.isConfigured}, devMode: ${cfg.devModeEnabled})`);
+    res.json(cfg);
   });
 
   // Google OAuth URL generation
   router.get('/google/url', (req, res) => {
-    const authUrl = service.getGoogleAuthUrl(queryString(req.query.redirect_uri), queryString(req.query.state));
+    const redirectUri = queryString(req.query.redirect_uri);
+    const authUrl = service.getGoogleAuthUrl(redirectUri, queryString(req.query.state));
+    logger.info('Auth', `Generated Google OAuth redirect URL (redirectUri: ${redirectUri || 'default'})`);
     res.json({ url: authUrl });
   });
 
@@ -87,7 +92,10 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
     if (!credential) {
       throw new ApiError(400, 'MISSING_CREDENTIAL', 'Google ID credential is required');
     }
-    res.json(await service.handleGoogleIdToken(credential));
+    logger.info('Auth', 'Verifying Google ID credential...');
+    const result = await service.handleGoogleIdToken(credential);
+    logger.info('Auth', `Google ID verified for user: ${result.user.email} (id: ${result.user.id}, new: ${result.isNewUser})`);
+    res.json(result);
   });
 
   // Google OAuth authorization code exchange (POST from client)
@@ -97,7 +105,10 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
     if (!code) {
       throw new ApiError(400, 'MISSING_CODE', 'Authorization code is required');
     }
-    res.json(await service.handleGoogleCode(code, redirectUri));
+    logger.info('Auth', `Exchanging Google OAuth code (POST) with redirectUri: ${redirectUri || 'default'}`);
+    const result = await service.handleGoogleCode(code, redirectUri);
+    logger.info('Auth', `Successfully logged in user via Google code: ${result.user.email} (${result.user.name})`);
+    res.json(result);
   });
 
   // Google OAuth authorization code redirect (GET from browser redirect)
@@ -107,27 +118,32 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
     const error = queryString(req.query.error);
 
     if (error) {
-      console.error('Google OAuth redirect error:', error);
+      logger.error('Auth', `Google OAuth redirect received error from Google: ${error}`);
       return res.redirect(302, signInError(error));
     }
 
     if (!code) {
-      console.error('Google OAuth missing authorization code');
+      logger.warn('Auth', 'Google OAuth redirect received without authorization code');
       return res.redirect(302, signInError('missing_authorization_code'));
     }
 
     try {
+      logger.info('Auth', 'Handling Google OAuth redirect code exchange from browser...');
       const result = await service.handleGoogleCode(code);
+      logger.info('Auth', `Google OAuth exchange successful for: ${result.user.email} (id: ${result.user.id}, new: ${result.isNewUser}) -> redirecting to /#/selfie`);
       res.redirect(302, `${clientOrigin}/#/selfie?token=${encodeURIComponent(result.token)}`);
     } catch (authErr: any) {
-      console.error('Google OAuth code exchange error:', authErr);
+      logger.error('Auth', `Google OAuth code exchange failed: ${authErr.message || String(authErr)}`);
       res.redirect(302, signInError(authErr.message || 'google_auth_failed'));
     }
   });
 
   // Dev mock login for rapid local development
   router.post('/dev/login', optionalJsonBody, async (req, res) => {
-    res.json(await service.devMockLogin(req.body));
+    logger.info('Auth', `Dev mock login requested for ${req.body?.email || 'Aditi Sharma (default)'}`);
+    const result = await service.devMockLogin(req.body);
+    logger.info('Auth', `Dev mock login granted: ${result.user.email} (id: ${result.user.id})`);
+    res.json(result);
   });
 
   // Resolves the Bearer session token into res.locals.user before the body is read.
@@ -138,16 +154,34 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
 
   // Current authenticated user
   router.get('/me', requireUser, (_req, res) => {
+    logger.debug('Auth', `Fetched profile for user ${res.locals.user.email} (${res.locals.user.id})`);
     res.json({ user: res.locals.user });
   });
 
   // Update user profile (e.g. selfie photo)
   const updateProfile: RequestHandler = async (req, res) => {
     // Only fields present in the body change
-    const patch: { picture?: string; name?: string } = {};
+    const patch: ProfilePatch = {};
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw new ApiError(400, 'INVALID_PROFILE', 'Profile must be an object');
+    }
+    if ('username' in req.body) {
+      if (typeof req.body.username !== 'string') throw new ApiError(400, 'INVALID_USERNAME', 'Username must be a string');
+      const username = req.body.username.replace(/^@/, '').toLowerCase().trim();
+      if (!/^[a-z0-9._]{3,64}$/.test(username)) throw new ApiError(400, 'INVALID_USERNAME', 'Use 3–64 letters, numbers, dots or underscores');
+      patch.username = username;
+    }
+    if ('preferences' in req.body) {
+      if (!req.body.preferences || typeof req.body.preferences !== 'object' || Array.isArray(req.body.preferences)) {
+        throw new ApiError(400, 'INVALID_PREFERENCES', 'Preferences must be a JSON object');
+      }
+      patch.preferences = req.body.preferences;
+    }
     if (typeof req.body.picture === 'string') patch.picture = req.body.picture;
     if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim();
+    logger.info('Auth', `Updating profile for user ${res.locals.user.email} (${res.locals.user.id}): keys=[${Object.keys(patch).join(', ')}]`);
     const updated = await service.updateProfile(res.locals.user.id, patch);
+    logger.info('Auth', `Profile updated successfully for user ${res.locals.user.email}`);
     res.json({ user: updated });
   };
   router.patch(['/profile', '/me'], requireUser, jsonBody, updateProfile);
@@ -156,6 +190,7 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
   // Logout
   router.post('/logout', (_req, res) => {
     // Stateless JWT logout (client deletes token; optionally blacklist if stateful)
+    logger.info('Auth', 'User logged out (token cleared on client)');
     res.json({ ok: true, message: 'Logged out successfully' });
   });
 

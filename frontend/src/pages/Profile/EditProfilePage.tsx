@@ -32,10 +32,15 @@ export function EditProfilePage() {
   const update = (patch: Partial<typeof draft>) => setDraft((d) => ({ ...d, ...patch }))
   const canSave = !!draft.name.trim() && draft.username.length > 1
 
-  const save = () => {
-    // Name and photo are saved to the account too, which updates Home
-    profileActions.saveProfile({ ...draft, name: draft.name.trim() })
-    navigate('profile')
+  const [saving, setSaving] = useState(false)
+  const save = async () => {
+    setSaving(true)
+    try {
+      await profileActions.saveProfile({ ...draft, name: draft.name.trim() })
+      navigate('profile')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not save profile')
+    } finally { setSaving(false) }
   }
 
   return (
@@ -48,7 +53,7 @@ export function EditProfilePage() {
         bodyClassName="profile-edit__body"
         actions={
           <>
-            <Button variant="primary" disabled={!canSave} onClick={save}>
+            <Button variant="primary" disabled={saving || !canSave} onClick={save}>
               Save changes
             </Button>
             <LinkButton onClick={() => navigate('profile')}>Cancel</LinkButton>

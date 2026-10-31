@@ -1,6 +1,7 @@
 import express from 'express';
 import type { Router } from 'express';
 import { ApiError, errorHandler, notFound } from './http.ts';
+import { requestLogger } from './logger.ts';
 
 export interface ServerModules {
   // Google OAuth and user profile routes, mounted under /auth.
@@ -12,6 +13,9 @@ export interface ServerModules {
 export function createServer({ auth, expenses }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
+
+  // Request logging
+  app.use(requestLogger);
 
   app.use((_req, res, next) => {
     res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });

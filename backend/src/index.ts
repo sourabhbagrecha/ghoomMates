@@ -4,6 +4,7 @@ import { loadEnv } from './env.ts';
 import { createApp as createAuthApp } from './auth/app.ts';
 import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth/database.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
+import { logger } from './logger.ts';
 
 loadEnv();
 
@@ -20,16 +21,28 @@ if (apiKey && apiKey.length < 32) throw new Error('Set API_KEY to a secret of at
 
 // One shared Cloud SQL (Postgres) pool for every module. Without a database, auth runs on an
 // in-memory store and the expense API is disabled.
-const db = isDatabaseConfigured() ? await openDatabase() : undefined;
+let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
+let dbMode = 'In-memory (fallback)';
+if (isDatabaseConfigured()) {
+  try {
+    db = await openDatabase();
+    dbMode = process.env.CLOUD_SQL_INSTANCE ? `Cloud SQL (${process.env.CLOUD_SQL_INSTANCE})` : 'Postgres (DATABASE_URL)';
+  } catch (err: any) {
+    logger.warn('Server', `Cloud database connection failed (${err.message}). Falling back to in-memory store.`);
+  }
+}
 
 const authDb = db ? createPostgresOAuthDatabase(db) : createInMemoryOAuthDatabase();
-if (!db) console.log('No CLOUD_SQL_INSTANCE or DATABASE_URL configured. Running auth with in-memory store.');
+if (!db) {
+  logger.info('Server', 'Running auth with in-memory store');
+}
 
 let expenses: ReturnType<typeof createExpensesApp> | undefined;
 if (db && apiKey) {
   expenses = createExpensesApp(db, apiKey);
 } else {
-  console.warn(`Expense API disabled: set ${[!db && 'CLOUD_SQL_INSTANCE or DATABASE_URL', !apiKey && 'API_KEY'].filter(Boolean).join(' and ')} to enable /api routes.`);
+  const missing = [!db && 'database', !apiKey && 'API_KEY'].filter(Boolean).join(' and ');
+  logger.warn('Server', `Expense API (/api/*) is disabled: requires ${missing}`);
 }
 
 const app = createServer({
@@ -45,17 +58,30 @@ const app = createServer({
 
 const server = app.listen(port, hostname, (err?: Error) => {
   if (err) throw err;
-  console.log(`Ghoomates backend listening at http://${hostname}:${port}`);
+  const isGoogleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  console.log(`
+┌────────────────────────────────────────────────────────┐
+│               Ghoomates Backend Server                 │
+├────────────────────────────────────────────────────────┤
+│  Address:     http://${hostname}:${port.toString().padEnd(39)}│
+│  Frontend:    ${clientOrigin.padEnd(41)}│
+│  Database:    ${dbMode.slice(0, 41).padEnd(41)}│
+│  Auth:        ${isGoogleConfigured ? 'Google OAuth 2.0 (configured)          ' : 'Dev Mock Mode (no Google keys)       '} │
+│  Expenses:    ${expenses ? 'Enabled                                  ' : 'Disabled (needs DB + API_KEY)          '} │
+└────────────────────────────────────────────────────────┘
+`);
+  logger.info('Server', `Listening at http://${hostname}:${port}`);
 });
 
 let stopping = false;
 async function shutdown() {
   if (stopping) return;
   stopping = true;
-  console.log('Shutting down Ghoomates backend...');
+  logger.info('Server', 'Gracefully shutting down Ghoomates backend...');
   await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
   await authDb.terminate();
   await db?.close();
+  logger.info('Server', 'Shutdown complete.');
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

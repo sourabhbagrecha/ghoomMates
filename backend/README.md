@@ -1,6 +1,6 @@
 # Ghoomates backend
 
-Single Node.js / Bun + TypeScript server for every Ghoomates backend module. One process, one port, one shared Google Cloud SQL (Postgres) connection pool.
+Single Node.js / Bun + TypeScript server for every Ghoomates backend module. One process, one port, one shared PostgreSQL connection pool (local or Google Cloud SQL).
 
 | Prefix | Module | Source | Docs |
 | --- | --- | --- | --- |
@@ -19,6 +19,21 @@ Copy `.env.example` to `.env`. All modules read the same file.
 `GET /health` reports which modules are enabled.
 
 ## Running locally
+
+Local PostgreSQL is configured in the ignored `backend/.env` using `DATABASE_URL`.
+The development database is `ghoomates`, owned by the `ghoomates_local` role, on `127.0.0.1:5432`.
+The password is kept in `.env`. Start the installed service with:
+
+```bash
+brew services start postgresql@14
+npm --prefix backend run test:connection
+```
+
+Migrations apply automatically on startup. To switch to Cloud SQL later, comment out
+`DATABASE_URL` and enable `CLOUD_SQL_INSTANCE` with its `DB_USER`, `DB_PASSWORD`, and
+`DB_NAME` settings. Cloud SQL takes priority when both connection settings are enabled.
+Switching connections does not copy local data into the cloud database.
+
 
 ```bash
 # From repository root
