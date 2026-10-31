@@ -16,9 +16,11 @@ export interface ServerModules {
   heritage?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
+  // The built web app (frontend/dist) with a single-page-app fallback, mounted after every API route. Production only (SERVE_FRONTEND_DIR).
+  frontend?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -29,6 +31,9 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
     res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     next();
   });
+
+  // With the web app served from here, "/" is the app; /health stays the JSON status.
+  if (frontend) app.get('/', frontend);
 
   app.get(['/', '/health'], (_req, res) => {
     res.json({
@@ -53,6 +58,9 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));
   app.use('/auth', auth);
+
+  // The web app comes last so it can never shadow an API route.
+  if (frontend) app.use(frontend);
 
   app.use(notFound);
   app.use(errorHandler);

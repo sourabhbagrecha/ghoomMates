@@ -73,4 +73,6 @@ The API tests write groups to the configured database; point them at the `ghooma
 
 ## Deploy
 
-The `Dockerfile` builds the whole backend on Node.js 24 and binds to `0.0.0.0:$PORT` (8080 in the image). See [Cloud Run deployment](../cloud-ops/deploy/README.md).
+The `Dockerfile` at the repository root builds the API and the web app into one image for Cloud Run, and `deploy/cloudrun.sh` builds and deploys it (`deploy/secrets.sh` moves `.env` into Secret Manager first). Setup, the Google sign-in step, costs and the pre-demo checklist are in [docs/deploy.md](docs/deploy.md). The `Dockerfile` in this folder is the older API-only image.
+
+`SERVE_FRONTEND_DIR` makes the server also serve the built web app; `ALLOW_DEV_LOGIN` controls the mock sign-in, which is off when `NODE_ENV=production`.

@@ -1,4 +1,5 @@
 import type { ProfilePatch, OAuthDatabase } from './database.ts';
+import { assertDevLogin, assertDevLoginEmail, devLoginAllowed } from './devLogin.ts';
 import { buildGoogleAuthUrl, exchangeCodeForTokens, fetchGoogleUserInfo, verifyGoogleIdToken } from './google.ts';
 import { signJwt, verifyJwt } from './jwt.ts';
 import type { AuthResult, GoogleTokenInfo, User } from './types.ts';
@@ -16,6 +17,8 @@ export interface OAuthServiceConfig {
   googleClientSecret?: string;
   googleRedirectUri?: string;
   clientOrigin?: string;
+  // Whether the mock sign-in works. Defaults to devLoginAllowed(): ALLOW_DEV_LOGIN, else on unless NODE_ENV=production.
+  devLogin?: boolean;
 }
 
 export class OAuthService {
@@ -30,13 +33,17 @@ export class OAuthService {
     }
   }
 
+  get devLoginEnabled(): boolean {
+    return this.config.devLogin ?? devLoginAllowed();
+  }
+
   getAuthConfig() {
     return {
       googleClientId: this.config.googleClientId || null,
       isConfigured: Boolean(this.config.googleClientId && this.config.googleClientSecret),
       redirectUri: this.config.googleRedirectUri || 'http://localhost:5173/auth/callback',
       clientOrigin: this.config.clientOrigin || 'http://localhost:5173',
-      devModeEnabled: true,
+      devModeEnabled: this.devLoginEnabled,
     };
   }
 
@@ -146,7 +153,9 @@ export class OAuthService {
   }
 
   async devMockLogin(input?: { email?: string; name?: string }): Promise<AuthResult> {
+    assertDevLogin(this.devLoginEnabled);
     const email = input?.email?.trim() || 'aditi.travels@gmail.com';
+    assertDevLoginEmail(email);
     const name = input?.name?.trim() || 'Aditi Sharma';
     const googleId = `dev_google_${Buffer.from(email).toString('hex').slice(0, 16)}`;
 

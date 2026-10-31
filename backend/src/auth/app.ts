@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import { ApiError } from './types.ts';
 import { OAuthService } from './service.ts';
+import { assertDevLogin } from './devLogin.ts';
 import { jsonBody, optionalJsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { ProfilePatch, OAuthDatabase } from './database.ts';
@@ -21,9 +22,11 @@ function queryString(value: unknown): string | undefined {
 }
 
 function cors(clientOrigin: string): RequestHandler {
+  // Local dev servers (any localhost port) may call the API; a production server answers only its own client origin.
+  const allowLocalhost = process.env.NODE_ENV !== 'production';
   return (req, res, next) => {
     const reqOrigin = req.headers.origin;
-    const allowedOrigin = reqOrigin && (reqOrigin === clientOrigin || reqOrigin.startsWith('http://localhost:'))
+    const allowedOrigin = reqOrigin && (reqOrigin === clientOrigin || (allowLocalhost && reqOrigin.startsWith('http://localhost:')))
       ? reqOrigin
       : clientOrigin;
 
@@ -54,6 +57,10 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
   const service = new OAuthService(db, config);
   const clientOrigin = config.clientOrigin || 'http://localhost:5173';
   const router = Router();
+
+  if (service.devLoginEnabled && process.env.NODE_ENV === 'production') {
+    logger.warn('Auth', 'Test sign-in is on in production: anyone can sign in as a demo account (DEV_LOGIN_EMAILS, default Aditi and Kabir). Switch it off after the demo.');
+  }
 
   router.use(cors(clientOrigin));
 
@@ -143,9 +150,10 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
     }
   });
 
-  // Dev mock login for rapid local development
+  // Dev mock login for rapid local development; off in production unless ALLOW_DEV_LOGIN=true (see devLogin.ts)
   router.post('/dev/login', optionalJsonBody, async (req, res) => {
-    logger.info('Auth', `Dev mock login requested for ${req.body?.email || 'Aditi Sharma (default)'}`);
+    assertDevLogin(service.devLoginEnabled);
+    // Nothing from the request is logged until it is accepted: on a public URL anyone can send this route anything
     const result = await service.devMockLogin(req.body);
     logger.info('Auth', `Dev mock login granted: ${result.user.email} (id: ${result.user.id})`);
     res.json(result);
