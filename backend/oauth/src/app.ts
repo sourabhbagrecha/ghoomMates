@@ -90,9 +90,23 @@ export function createApp(db: OAuthDatabase, config: OAuthServiceConfig) {
       const path = url.pathname;
       const method = request.method;
 
-      // Health check
-      if ((path === '/health' || path === '/auth/health') && method === 'GET') {
-        return json({ status: 'ok', service: 'ghoomates-oauth', version: '0.1.0' }, 200, cors);
+      // Health check & root info
+      if ((path === '/' || path === '/health' || path === '/auth/health') && method === 'GET') {
+        return json({
+          status: 'ok',
+          service: 'ghoomates-oauth',
+          version: '0.1.0',
+          frontendUrl: clientOrigin,
+          endpoints: [
+            '/health',
+            '/auth/config',
+            '/auth/google/url',
+            '/auth/google/verify',
+            '/auth/callback',
+            '/auth/me',
+            '/auth/profile',
+          ],
+        }, 200, cors);
       }
 
       // Public OAuth configuration info (whether Google is configured, Client ID)
