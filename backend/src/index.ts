@@ -20,7 +20,14 @@ if (apiKey && apiKey.length < 32) throw new Error('Set API_KEY to a secret of at
 
 // One shared Cloud SQL (Postgres) pool for every module. Without a database, auth runs on an
 // in-memory store and the expense API is disabled.
-const db = isDatabaseConfigured() ? await openDatabase() : undefined;
+let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
+if (isDatabaseConfigured()) {
+  try {
+    db = await openDatabase();
+  } catch (err: any) {
+    console.warn(`Database connection failed (${err.message}). Falling back to in-memory store.`);
+  }
+}
 
 const authDb = db ? createPostgresOAuthDatabase(db) : createInMemoryOAuthDatabase();
 if (!db) console.log('No CLOUD_SQL_INSTANCE or DATABASE_URL configured. Running auth with in-memory store.');
