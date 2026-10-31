@@ -4,6 +4,8 @@ Independently runnable expense-splitting microservice in the Ghoomates monorepo.
 
 Node.js / Bun + TypeScript HTTP API backed by Google Cloud Firestore (via MongoDB compatibility protocol or native SDK). Money remains integer paise; the HTTP API is unchanged.
 
+> 📖 **Architecture & Design Document**: For data models, entity relationships, splitting algorithms, and transaction lifecycles, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Connecting to Google Cloud Firestore (MongoDB compatibility)
 
 Google Cloud Firestore supports the MongoDB wire protocol on port 443. Configure your connection string in `backend/expense-service/.env`:
