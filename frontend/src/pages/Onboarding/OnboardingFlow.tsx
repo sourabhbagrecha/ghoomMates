@@ -5,8 +5,8 @@ import { PermissionsPage } from './PermissionsPage'
 import { ProfilePage } from './ProfilePage'
 import { SelfiePage } from './SelfiePage'
 import { SignInPage } from './SignInPage'
-import { VerifyPage } from './VerifyPage'
 import { WelcomePage } from './WelcomePage'
+import { updateUserProfile } from '../../services/authService'
 
 type OnboardingFlowProps = {
   step: OnboardingStep
@@ -15,12 +15,12 @@ type OnboardingFlowProps = {
 }
 
 /**
- * Welcome → (Invite) → Sign in → Verify → Profile → Selfie → Permissions → app.
+ * Welcome → (Invite) → Sign in (Google) → Live Selfie → About you → Permissions → app.
  * Holds what the user enters so it survives moving back and forth between steps.
  */
 export function OnboardingFlow({ step, go, onDone }: OnboardingFlowProps) {
   const [details, setDetails] = useState<SignUpDetails>({
-    phone: '',
+    email: '',
     name: '',
     username: '',
     colour: COLOURS[0].value,
@@ -47,34 +47,46 @@ export function OnboardingFlow({ step, go, onDone }: OnboardingFlowProps) {
     case 'sign-in':
       return (
         <SignInPage
-          phone={details.phone}
-          onPhoneChange={(phone) => update({ phone })}
           onBack={() => go(fromInvite ? 'invite' : 'welcome')}
-          onSendCode={() => go('verify')}
-          onSocialSignIn={() => go('about-you')}
+          onSuccess={(result) => {
+            const updatedDetails: SignUpDetails = {
+              ...details,
+              name: result.user.name || details.name,
+              email: result.user.email,
+              photo: null, // No profile photo from Google; only name & email
+              googleId: result.user.googleId,
+            }
+            update(updatedDetails)
+            // Once login is complete, navigate directly to the live selfie photo page
+            go('selfie')
+          }}
         />
       )
-    case 'verify':
-      return (
-        <VerifyPage
-          phone={details.phone}
-          onBack={() => go('sign-in')}
-          onEditNumber={() => go('sign-in')}
-          onVerified={() => go('about-you')}
-        />
-      )
-    case 'about-you':
-      return <ProfilePage details={details} onChange={update} onBack={() => go('verify')} onContinue={() => go('selfie')} />
     case 'selfie':
       return (
         <SelfiePage
+          userName={details.name}
           selfie={details.selfie}
-          onSelfie={(selfie) => update({ selfie })}
-          onBack={() => go('about-you')}
+          onSelfie={(selfieUrl) => {
+            update({ selfie: selfieUrl, photo: selfieUrl })
+            if (selfieUrl) {
+              updateUserProfile({ picture: selfieUrl })
+            }
+          }}
+          onBack={() => go('sign-in')}
+          onContinue={() => go('about-you')}
+        />
+      )
+    case 'about-you':
+      return (
+        <ProfilePage
+          details={details}
+          onChange={update}
+          onBack={() => go('selfie')}
           onContinue={() => go('permissions')}
         />
       )
     case 'permissions':
-      return <PermissionsPage onBack={() => go('selfie')} onDone={() => onDone(details)} />
+      return <PermissionsPage onBack={() => go('about-you')} onDone={() => onDone(details)} />
   }
 }

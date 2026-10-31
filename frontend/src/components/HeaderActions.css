@@ -45,4 +45,14 @@
   color: var(--color-primary);
   font-weight: 800;
   font-size: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+}
+
+.header-actions__profile-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }

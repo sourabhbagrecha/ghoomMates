@@ -1,33 +1,92 @@
-.country-code {
+.sign-in__card {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  padding: 20px;
+  filter: var(--shadow-card);
   display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 4px;
-  padding: 8px 8px 8px 10px;
-  border-radius: 10px;
-  background: var(--color-tint);
-  font-weight: 800;
-  font-size: 14px;
-  line-height: 21px;
-  color: var(--color-ink);
-  white-space: nowrap;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid var(--color-border);
 }
 
-.sign-in__note {
+.sign-in__google-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 20px;
+  background: #ffffff;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 22px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 8px rgba(7, 42, 200, 0.08);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.sign-in__google-btn:hover:not(:disabled) {
+  background: #fafcff;
+  border-color: var(--color-sky);
+  box-shadow: 0 4px 14px rgba(7, 42, 200, 0.14);
+  transform: translateY(-1px);
+}
+
+.sign-in__google-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.sign-in__google-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sign-in__google-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.sign-in__features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-tint);
+  border-radius: 14px;
+}
+
+.sign-in__feature-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
   font-weight: 600;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-muted);
+  color: var(--color-ink);
+}
+
+.sign-in__feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 12px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(7, 42, 200, 0.08);
 }
 
 .sign-in__divider {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 10px;
   font-weight: 700;
   font-size: 11px;
   line-height: 17px;
@@ -41,4 +100,86 @@
   flex: 1;
   height: 1px;
   background: var(--color-border);
+}
+
+.sign-in__dev-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #fbfdff;
+  border: 1px dashed var(--color-sky);
+  border-radius: 12px;
+}
+
+.sign-in__dev-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-sky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sign-in__dev-badge {
+  background: var(--color-tint);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.sign-in__dev-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sign-in__dev-account-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sign-in__dev-account-btn:hover {
+  background: var(--color-tint);
+  border-color: var(--color-sky);
+}
+
+.sign-in__dev-account-name {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.sign-in__dev-account-email {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.sign-in__error {
+  padding: 10px 14px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.sign-in__gis-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }

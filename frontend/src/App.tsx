@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { GhoomMateFab } from './components/GhoomMate'
 import { ScreenBackContext } from './components/screenBack'
 import { OfflineBanner } from './components/states/OfflineBanner'
@@ -25,6 +25,15 @@ import { parseQuizRoute } from './pages/Quiz/quizData'
 import { StatesPage } from './pages/States/StatesPage'
 import { rememberTripTab } from './pages/Trip/lastTab'
 import { TripDetailRoutes } from './pages/Trip/TripDetailRoutes'
+import {
+  fetchCurrentUser,
+  getStoredUser,
+  loginWithGoogleCode,
+  logoutUser,
+  saveAuthSession,
+  subscribeAuth,
+  type AuthUser,
+} from './services/authService'
 import { getProfileName, hasOnboarded, markOnboarded } from './services/onboardingStorage'
 import './App.css'
 
@@ -51,20 +60,80 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/quiz[/…]         Personality quiz: intro, cards 1–8, persona (after onboarding; retaken from Profile)
  *   #/profile[/…]      Your profile: edit, settings, help
  *   #/states           Gallery of loading / empty / error / offline states
- *   #/<step>           Any onboarding step (welcome, sign-in, verify, …)
+ *   #/auth/callback    OAuth callback redirect
+ *   #/<step>           Any onboarding step (welcome, sign-in, selfie, about-you, permissions, invite)
  */
 function App() {
-  // `entries` remembers where each section was opened from, so back buttons and "done" return there
   const [route, navigate, entries] = useHashRoute()
+  const [user, setUser] = useState<AuthUser | null>(getStoredUser)
   // Read on every render (i.e. every route change) so signing out from Settings takes effect
   const onboarded = hasOnboarded()
   const profile = useProfileStore()
-  // A name edited in Profile wins over the one saved during onboarding
-  const name = profile.name ? displayName(profile) : getProfileName()
+  // A name edited in Profile or from Google wins over the one saved during onboarding
+  const name = user?.name || (profile.name ? displayName(profile) : getProfileName())
+
   const [notifications, setNotifications] = useState(NOTIFICATIONS)
   const unread = notifications.filter((n) => n.unread).length
   const markRead = (id?: string) =>
     setNotifications((all) => all.map((n) => (!id || n.id === id ? { ...n, unread: false } : n)))
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuth((u) => {
+      setUser(u)
+    })
+    fetchCurrentUser().then((u) => {
+      if (u) {
+        setUser(u)
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  // Process OAuth callback from Google
+  useEffect(() => {
+    const isCallbackPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback')
+    const rawQuery = (typeof window !== 'undefined' && (window.location.search.replace(/^\?/, '') || window.location.hash.split('?')[1])) || ''
+    const hasAuthParam = rawQuery.includes('token=') || rawQuery.includes('code=')
+
+    if (route.startsWith('auth/callback') || isCallbackPath || hasAuthParam) {
+      const params = new URLSearchParams(rawQuery)
+      const token = params.get('token')
+      const code = params.get('code')
+
+      if (token) {
+        fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.user) {
+              saveAuthSession(token, data.user, false)
+              setUser(data.user)
+              window.history.replaceState(null, '', '/#/selfie')
+              navigate('selfie')
+            }
+          })
+          .catch(() => {
+            window.history.replaceState(null, '', '/#/sign-in')
+            navigate('sign-in')
+          })
+      } else if (code) {
+        const redirectUri = `${window.location.origin}/auth/callback`
+        loginWithGoogleCode(code, redirectUri)
+          .then((res) => {
+            setUser(res.user)
+            window.history.replaceState(null, '', '/#/selfie')
+            navigate('selfie')
+          })
+          .catch((err) => {
+            console.error('Google OAuth callback error:', err)
+            window.history.replaceState(null, '', '/#/sign-in')
+            navigate('sign-in')
+          })
+      } else if (isCallbackPath) {
+        window.history.replaceState(null, '', '/#/selfie')
+        navigate('selfie')
+      }
+    }
+  }, [route, navigate])
 
   const segments = route.split('/')
   const [section, sub] = segments
@@ -74,6 +143,7 @@ function App() {
   const openBeforeSignUp = quizRoute || route === 'profile/help'
   const onboardingStep = isOnboardingStep(route) ? route : onboarded || openBeforeSignUp ? null : 'welcome'
   const goHome = () => navigate('')
+
   // Detail screens inside the trip (stop, add expense, photo viewer, members, …). TripDetailRoutes
   // is hook-free and returns null for paths it doesn't handle, which then fall back to a tab.
   const tripDetail =
@@ -85,14 +155,29 @@ function App() {
   // Hook-free like the other route modules; unknown profile paths fall back to Home
   const profileScreen = section === 'profile' ? ProfileRoutes({ path: segments.slice(1) }) : null
 
+  const handleLogout = async () => {
+    await logoutUser()
+    setUser(null)
+    navigate('welcome')
+  }
+
   let screen
-  if (onboardingStep) {
+  if (route.startsWith('auth/callback') || (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback'))) {
+    screen = (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16 }}>
+        <p style={{ fontWeight: 700, color: 'var(--color-primary)' }}>Signing in with Google...</p>
+      </div>
+    )
+  } else if (onboardingStep) {
     screen = (
       <OnboardingFlow
         step={onboardingStep}
         go={navigate}
         onDone={(details) => {
           markOnboarded(details.name)
+          if (details.photo) {
+            setUser((prev) => (prev ? { ...prev, picture: details.photo! } : null))
+          }
           navigate('quiz')
         }}
       />
@@ -131,11 +216,13 @@ function App() {
       <>
         <HomePage
           name={name}
+          user={user}
           unread={unread}
           empty={route === 'home/empty'}
           onOpenNotifications={() => navigate('notifications')}
           onOpenTrip={(tab) => navigate(`trip/${tab}`)}
           onHaveInvite={() => navigate('invite')}
+          onLogout={handleLogout}
         />
         <GhoomMateFab />
       </>

@@ -331,3 +331,86 @@
   height: 100%;
   text-align: left;
 }
+
+/* Account Profile Modal */
+.account-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(11, 23, 71, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.account-modal {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  background: var(--color-surface);
+  border-radius: 24px;
+  padding: 24px 20px;
+  box-shadow: 0 12px 36px rgba(7, 42, 200, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.account-modal__avatar-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid var(--color-yellow);
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(7, 42, 200, 0.15);
+}
+
+.account-modal__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-modal__name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-ink);
+  margin-top: 2px;
+}
+
+.account-modal__email {
+  font-size: 13px;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.account-modal__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--color-tint);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+}
+
+.account-modal__badge img {
+  width: 14px;
+  height: 14px;
+}
+
+.account-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}

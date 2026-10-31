@@ -21,7 +21,7 @@ export function VerifyPage({ phone, onBack, onEditNumber, onVerified }: VerifyPa
 
   useEffect(() => {
     if (secondsLeft === 0) return
-    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
+    const timer = setTimeout(() => setSecondsLeft((s: number) => s - 1), 1000)
     return () => clearTimeout(timer)
   }, [secondsLeft])
 

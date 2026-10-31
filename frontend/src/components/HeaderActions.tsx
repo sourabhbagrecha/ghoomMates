@@ -6,18 +6,38 @@ import { useNavigate } from '../hooks/navigation'
 import './HeaderActions.css'
 
 /** Header buttons: a frosted action (QR invite by default, opens the squad's invite on Members) and the profile avatar. */
-export function HeaderActions({ leading }: { leading?: ReactNode }) {
+export function HeaderActions({
+  leading,
+  profileInitial,
+  profilePicture,
+  onProfileClick,
+}: {
+  leading?: ReactNode
+  profileInitial?: string
+  profilePicture?: string | null
+  onProfileClick?: () => void
+}) {
   const navigate = useNavigate()
+  const handleClick = onProfileClick || (() => navigate('profile'))
 
   return (
     <div className="header-actions">
       {leading ?? (
-        <button type="button" className="header-actions__button" aria-label="Show invite QR code" onClick={() => navigate('trip/members')}>
+        <button type="button" className="header-actions__button" aria-label="Show invite QR code">
           <img src={iconQr} alt="" width={20} height={20} />
         </button>
       )}
-      <button type="button" className="header-actions__profile" aria-label="Your profile" onClick={() => navigate('profile')}>
-        {PEOPLE.you.initial}
+      <button
+        type="button"
+        className="header-actions__profile"
+        onClick={handleClick}
+        aria-label="Your profile"
+      >
+        {profilePicture ? (
+          <img src={profilePicture} alt="Profile" className="header-actions__profile-img" />
+        ) : (
+          profileInitial ?? PEOPLE.you.initial
+        )}
       </button>
     </div>
   )

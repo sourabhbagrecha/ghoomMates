@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 
-const readRoute = () => window.location.hash.replace(/^#\/?/, '')
+const readRoute = () => {
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback')) {
+    return 'auth/callback'
+  }
+  return window.location.hash.replace(/^#\/?/, '')
+}
 
 export type Navigate = (route: string, options?: { replace?: boolean }) => void
 
