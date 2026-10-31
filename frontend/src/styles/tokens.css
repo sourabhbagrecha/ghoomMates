@@ -55,6 +55,8 @@
   --gradient-sky: linear-gradient(135deg, var(--color-sky) 8.33%, var(--color-primary) 91.67%);
   --gradient-deep: linear-gradient(152.49deg, var(--color-primary) 8.33%, var(--color-primary-bright) 91.67%);
   --gradient-sunshine: linear-gradient(to right, var(--color-yellow), var(--color-amber));
+  /* The dim layer behind a bottom sheet (the date sheet; the GhoomMate sheet draws the same values itself) */
+  --gradient-scrim: linear-gradient(180deg, rgba(7, 42, 200, 0.45) 0%, rgba(11, 23, 71, 0.72) 100%);
 
   /* Type */
   --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

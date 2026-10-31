@@ -267,6 +267,15 @@ Used by the Itinerary vibe card and the personality quiz in [`src/pages/Quiz/`](
 
 **Personality quiz:** after Permissions, onboarding continues to the quiz intro (`#/quiz`), eight cards (`#/quiz/1` … `#/quiz/8`) and your travel persona (`#/quiz/persona`). Keep questions to a few words (“Your trip pace?”) and let the icon carry the meaning of each option. Single-choice cards say “Pick one”, multi-choice cards “Pick any”. The result is saved on the device and drives the “You” shape on the Itinerary vibe card and your persona, spiderweb and traits in Profile, where “Retake vibe quiz” opens it again.
 
+### Date components
+Used by the create-trip Dates step and Trip settings. Trip dates are `YYYY-MM-DD` strings and “today” is the date in India (UTC+5:30), never the device’s own zone: all the date maths lives in [`src/data/tripDates.ts`](src/data/tripDates.ts), which has no imports.
+
+| Component | What it is |
+|---|---|
+| [`DateRangeCalendar`](src/components/DateRangeCalendar.tsx) | Month calendar that opens on the current month and pages with the round ‹ › buttons. First tap sets the start, the second the end, a third starts over. Past days (a trip can start today) and days past the 14-day itinerary limit are greyed out, and today wears a small dot. `lockStart` keeps the first day fixed for a trip that is already live. Put it inside a `.card` on a page |
+| `RangeSummary` | The tinted “Trip length” panel: days and nights, first day → last day |
+| [`DateRangeSheet`](src/components/DateRangeSheet.tsx) | Bottom sheet around the calendar with the summary, an optional hint and one Save button. Esc, the ✕ and the scrim close it. Trip settings uses it to change a trip’s dates |
+
 ### App structure and navigation
 **Home** (`#/`) is the top level: a GhoomMate briefing, the live trip card (with shortcuts into each trip tab), upcoming trips, past trips and a pinned "Plan a new trip" button. Opening a trip goes to `#/trip/<tab>`, where the four tab screens show a back button to Home (`ScreenBackContext`). **Notifications** (`#/notifications`) open from the bell, which shows the unread count. `#/home/empty` previews the first-run Home with no trips.
 
@@ -285,7 +294,7 @@ Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts
 
 `CoverLayout` (full-bleed photo header with a sheet body: stop, guide trip, trip recap) and `Toast` + `useToast` (feedback for stubbed actions) are shared. Still local and worth promoting once a second screen needs them: toggle switch, segmented control, progress bar, status tag, person toggle and star rating. Profile still draws your vibe with its own `VibeWeb` and the Create-trip vibe step with the static `spiderweb.svg`; both could switch to the shared `VibeChart` (see Vibe components).
 
-- Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot.
+- Trip status shows as a `.tag` (Planning / Booked) and a live trip gets a yellow **LIVE · DAY n OF n** badge with a pulsing green dot. A trip is live on every day from its first to its last, both included, counted in India time.
 - Something that needs the user ("2 votes need you", "Pay ₹450") is sky blue or a `.pill-button`, never red.
 
 ### Crowd components

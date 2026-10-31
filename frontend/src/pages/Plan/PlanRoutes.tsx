@@ -10,9 +10,9 @@ import { VotePage } from './VotePage'
 import './plan.css'
 
 /**
- * Before-the-trip screens for the Manali trip. `path` is the route after `plan`:
+ * Before-the-trip screens for the Udaipur heritage weekend. `path` is the route after `plan`:
  *   []                  Overview
- *   ['vote', <voteId>]  A squad vote (stay | day3)
+ *   ['vote', <voteId>]  A squad vote (stay | sunset)
  *   ['bookings']        Stays and transport
  *   ['checklist']       Group to-dos and your packing list
  *   ['budget']          Deposits and the budget pool

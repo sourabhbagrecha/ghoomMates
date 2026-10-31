@@ -9,6 +9,7 @@ import {
   type TripSummary,
 } from '../services/tripsService'
 import { registerPeople } from './people'
+import { formatDateRange } from './tripDates'
 
 /**
  * The trip open in the trip tabs (#/trip/*), loaded from the backend and shared by every trip screen,
@@ -77,6 +78,15 @@ const once = <T,>(key: string, run: () => Promise<T>) => {
   inflight.set(key, promise)
   return promise
 }
+
+const fetchTrips = () =>
+  tripsApi
+    .list()
+    .then((trips) => {
+      trips.forEach((t) => registerPeople(t.members, t.memberId))
+      set({ trips, tripsError: null })
+    })
+    .catch((err) => set({ tripsError: message(err) }))
 
 export const activeTrip = {
   get: () => state,
@@ -179,15 +189,17 @@ export const activeTrip = {
   },
 
   loadTrips() {
-    return once('trips', () =>
-      tripsApi
-        .list()
-        .then((trips) => {
-          trips.forEach((t) => registerPeople(t.members, t.memberId))
-          set({ trips, tripsError: null })
-        })
-        .catch((err) => set({ tripsError: message(err) })),
-    )
+    return once('trips', fetchTrips)
+  },
+
+  /**
+   * The server saved new dates: the open trip, its itinerary (day labels, moved stops, crowd forecasts) and where the
+   * trip sits on Home (live, upcoming, past) all follow. Fetched fresh, not shared with a request already in flight.
+   */
+  async applyDates(updated: TripDetail) {
+    this.setTrip(updated)
+    const [itinerary] = await Promise.all([tripsApi.itinerary(updated.id).catch(() => null), fetchTrips()])
+    if (itinerary) this.setItinerary(updated.id, itinerary)
   },
 
   /** Signing out clears everything that belonged to the previous user */
@@ -216,64 +228,15 @@ export function useMyTrips(enabled: boolean) {
   return { trips: snapshot.trips, error: snapshot.tripsError }
 }
 
-/* Display helpers */
+/* Display helpers. The date maths lives in tripDates.ts: days are counted in India time, whatever zone the device is set to. */
 
 export const rupees = (paise: number) => paise / 100
 
-const DAY = 24 * 60 * 60 * 1000
-const parseDate = (value: string) => {
-  const [y, m, d] = value.split('-').map(Number)
-  return new Date(y, m - 1, d)
-}
-const today = () => {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-}
-
-export type TripPhase = 'live' | 'upcoming' | 'past'
-
-export function tripPhase(trip: { startDate: string | null; endDate: string | null }): TripPhase {
-  const now = today().getTime()
-  const start = trip.startDate ? parseDate(trip.startDate).getTime() : null
-  const end = trip.endDate ? parseDate(trip.endDate).getTime() : start
-  if (end !== null && end < now) return 'past'
-  if (start === null || start > now) return 'upcoming'
-  return 'live'
-}
-
-/** Day N of M while live, e.g. { day: 2, total: 4 } */
-export function tripDay(trip: { startDate: string | null; endDate: string | null }) {
-  if (!trip.startDate) return null
-  const start = parseDate(trip.startDate).getTime()
-  const end = trip.endDate ? parseDate(trip.endDate).getTime() : start
-  return { day: Math.floor((today().getTime() - start) / DAY) + 1, total: Math.round((end - start) / DAY) + 1 }
-}
-
-export function daysUntil(date: string | null) {
-  if (!date) return null
-  return Math.round((parseDate(date).getTime() - today().getTime()) / DAY)
-}
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+export { daysUntil, tripDay, tripDayLabel, tripPhase, type TripPhase } from './tripDates'
 
 /** "Sat 12 – Wed 16 Dec", or "Dates TBD" */
-export function formatTripDates(trip: { startDate: string | null; endDate: string | null }) {
-  if (!trip.startDate) return 'Dates TBD'
-  const s = parseDate(trip.startDate)
-  const e = trip.endDate ? parseDate(trip.endDate) : s
-  const day = (d: Date) => `${WEEKDAYS[d.getDay()]} ${d.getDate()}`
-  if (s.getTime() === e.getTime()) return `${day(s)} ${MONTHS[s.getMonth()]}`
-  if (s.getMonth() === e.getMonth()) return `${day(s)} – ${day(e)} ${MONTHS[e.getMonth()]}`
-  return `${day(s)} ${MONTHS[s.getMonth()]} – ${day(e)} ${MONTHS[e.getMonth()]}`
-}
-
-/** Date of day N (1-based) of the trip: "Sat, 12 Dec" */
-export function tripDayLabel(startDate: string | null, dayNumber: number) {
-  if (!startDate) return `Day ${dayNumber}`
-  const d = new Date(parseDate(startDate).getTime() + (dayNumber - 1) * DAY)
-  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`
-}
+export const formatTripDates = (trip: { startDate: string | null; endDate: string | null }) =>
+  formatDateRange(trip.startDate, trip.endDate)
 
 /** YYYY-MM-DD for a Date, in local time */
 export function isoDate(date: Date) {

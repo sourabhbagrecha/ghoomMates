@@ -2,22 +2,22 @@ import iconBed from '../../assets/figma/icon-bed-primary.svg'
 import iconBus from '../../assets/figma/icon-bus-primary.svg'
 import iconCar from '../../assets/figma/icon-car-primary.svg'
 import iconTicket from '../../assets/figma/icon-ticket-primary.svg'
-import grid1 from '../../assets/figma/photo-grid-1.svg'
-import grid2 from '../../assets/figma/photo-grid-2.svg'
-import grid3 from '../../assets/figma/photo-grid-3.svg'
-import grid4 from '../../assets/figma/photo-grid-4.svg'
-import grid5 from '../../assets/figma/photo-grid-5.svg'
 import type { PersonId } from '../../data/people'
+import { daysUntil } from '../../data/tripDates'
 import { UPCOMING_TRIPS } from '../../data/trips'
+import { EXPERIENCE_PHOTOS } from '../Explore/experiencePhotos'
 
-// Mock data until the planning service exists. "Today" is Sat 31 Oct.
+// Mock data until the planning service exists: the Mewar Mates planning a heritage weekend in Udaipur. The places are
+// real; the stays, hosts, prices and booking codes are made up for the demo, and prices are estimates.
 export const TRIP = UPCOMING_TRIPS[0]
 
+const startsIn = daysUntil(TRIP.startDate ?? null)
+
 export const PLAN = {
-  eyebrow: 'Starts in 42 days · Planning',
-  nights: 4,
-  depositPerPerson: 15000,
-  depositDue: 'Sun 15 Nov',
+  eyebrow: `${startsIn === null ? 'Planning' : startsIn <= 0 ? 'Starts today' : startsIn === 1 ? 'Starts tomorrow' : `Starts in ${startsIn} days`} · Planning`,
+  nights: 3,
+  depositPerPerson: 4000,
+  depositDue: 'Fri 6 Nov',
 }
 
 /** ₹ with Indian digit grouping: 150000 → ₹1,50,000 */
@@ -25,7 +25,7 @@ export const rupees = (amount: number) => `₹${amount.toLocaleString('en-IN')}`
 
 /* Votes */
 
-export type VoteId = 'stay' | 'day3'
+export type VoteId = 'stay' | 'sunset'
 
 export type VoteOption = {
   id: string
@@ -52,59 +52,59 @@ export const VOTES: Record<VoteId, Vote> = {
   stay: {
     id: 'stay',
     title: 'Where to stay',
-    question: 'Where should we stay?',
+    question: 'Which haveli should we stay in?',
     startedBy: 'meera',
     started: 'Yesterday',
-    closes: 'Sun 8 Nov',
+    closes: 'Wed 4 Nov',
     options: [
       {
-        id: 'snowpeak',
-        name: 'Snowpeak Cottage',
-        details: 'Old Manali · 5 min walk to the cafés',
-        price: '₹3,200/night',
-        photo: grid1,
+        id: 'chandpol-kothi',
+        name: 'Kothi at Chandpol',
+        details: 'Chandpol · Family haveli, lake-view rooftop',
+        price: '≈ ₹3,400/night',
+        photo: EXPERIENCE_PHOTOS.ambraiDinner[2].src,
         votes: ['riya'],
       },
       {
-        id: 'pine-crest',
-        name: 'Pine Crest Homestay',
-        details: 'Vashisht · Hot springs next door',
-        price: '₹2,600/night',
-        photo: grid2,
+        id: 'jharokha-haveli',
+        name: 'Jharokha Haveli',
+        details: 'Lal Ghat · Solar water, refill tap, no plastic bottles',
+        price: '≈ ₹3,000/night',
+        photo: EXPERIENCE_PHOTOS.dharohar[4].src,
         votes: ['meera'],
       },
       {
-        id: 'hideout',
-        name: 'The Himalayan Hideout',
-        details: 'Hadimba Road · Heated rooms, breakfast in',
-        price: '₹4,100/night',
-        photo: grid4,
+        id: 'ahar-farmstay',
+        name: 'Ahar Farm Homestay',
+        details: 'Ahar · Farm breakfast, 10 min by cycle',
+        price: '≈ ₹2,400/night',
+        photo: EXPERIENCE_PHOTOS.horseSafari[1].src,
         votes: ['dev'],
       },
     ],
   },
-  day3: {
-    id: 'day3',
-    title: 'Day 3 plan',
-    question: 'Day 3: Solang Valley or Sissu?',
+  sunset: {
+    id: 'sunset',
+    title: 'Sunset plan',
+    question: 'Sunset: Ambrai Ghat or Sajjangarh?',
     startedBy: 'riya',
     started: 'Thu',
-    closes: 'Sun 8 Nov',
+    closes: 'Wed 4 Nov',
     options: [
       {
-        id: 'solang',
-        name: 'Solang Valley',
-        details: 'Skiing, ropeway, snow tubing · 14 km',
-        price: '₹1,500 each',
-        photo: grid3,
+        id: 'ambrai',
+        name: 'Ambrai Ghat',
+        details: 'City Palace lit up across Pichola · walk over Chandpol bridge',
+        price: 'Free · rooftop thali ≈ ₹450',
+        photo: EXPERIENCE_PHOTOS.sajjangarh[3].src,
         votes: ['riya', 'dev'],
       },
       {
-        id: 'sissu',
-        name: 'Sissu via Atal Tunnel',
-        details: 'Frozen waterfall, snow fields · 40 km',
-        price: '₹2,200 each',
-        photo: grid5,
+        id: 'sajjangarh',
+        name: 'Sajjangarh Monsoon Palace',
+        details: 'The whole valley at golden hour · share one cab, the hill road jams',
+        price: '≈ ₹250 each with the cab',
+        photo: EXPERIENCE_PHOTOS.sajjangarh[0].src,
         votes: ['meera'],
       },
     ],
@@ -146,58 +146,54 @@ export type PlanDay = {
   stops: PlanStop[]
 }
 
+// Heritage sites sit in their quiet windows (see backend/src/heritage): palaces at opening, boats at noon, temples at aarti
 export const PLAN_DAYS: PlanDay[] = [
   {
     id: 'd1',
     label: 'D1',
-    date: 'Sat 12 Dec',
-    title: 'Arrive and thaw out',
+    date: 'Fri 20 Nov',
+    title: 'Arrive and unwind',
     stops: [
-      { id: 'arrive', time: '09:00 AM', title: 'Volvo rolls into Manali', status: 'locked' },
+      { id: 'arrive', time: '08:30 AM', title: 'Coach rolls into Udaipur', status: 'locked' },
       { id: 'check-in', time: '11:00 AM', title: 'Check in', status: 'vote', voteId: 'stay', decidedTitle: 'Check in at {winner}' },
-      { id: 'cafes', time: '04:00 PM', title: 'Old Manali café hop', status: 'keen', keen: ['you', 'riya', 'meera'] },
+      { id: 'dal-baati', time: '01:30 PM', title: 'Dal baati churma at a family kitchen', status: 'keen', keen: ['you', 'riya', 'meera'] },
+      { id: 'gulab-bagh', time: '04:30 PM', title: 'Gulab Bagh garden walk', status: 'keen', keen: ['you', 'meera', 'dev'] },
     ],
   },
   {
     id: 'd2',
     label: 'D2',
-    date: 'Sun 13 Dec',
-    title: 'Temples and hot springs',
+    date: 'Sat 21 Nov',
+    title: 'Palaces before the rush',
     stops: [
-      { id: 'hadimba', time: '09:30 AM', title: 'Hadimba Temple and the cedar forest', status: 'locked' },
-      { id: 'vashisht', time: '12:30 PM', title: 'Vashisht hot springs', status: 'keen', keen: ['riya', 'meera', 'dev'] },
-      { id: 'mall-road', time: '06:00 PM', title: 'Momos and shopping on Mall Road', status: 'locked' },
+      { id: 'city-palace', time: '09:30 AM', title: 'City Palace at opening, before the tour buses', status: 'locked' },
+      { id: 'pichola-boat', time: '12:00 PM', title: 'Pichola boat from Rameshwar Ghat, half-empty at noon', status: 'locked' },
+      { id: 'sunset', time: '05:30 PM', title: 'Sunset: Ambrai Ghat or Sajjangarh?', status: 'vote', voteId: 'sunset', decidedTitle: 'Sunset at {winner}' },
+      { id: 'dharohar', time: '07:30 PM', title: 'Folk dance at Bagore ki Haveli', status: 'keen', keen: ['riya', 'meera', 'dev'] },
     ],
   },
   {
     id: 'd3',
     label: 'D3',
-    date: 'Mon 14 Dec',
-    title: 'Snow day',
+    date: 'Sun 22 Nov',
+    title: 'Makers and hidden gems',
     stops: [
-      { id: 'snow', time: '08:00 AM', title: 'Solang Valley or Sissu?', status: 'vote', voteId: 'day3', decidedTitle: '{winner}' },
-      { id: 'bonfire', time: '07:30 PM', title: 'Bonfire and Maggi at the stay', status: 'keen', keen: ['you', 'riya', 'meera', 'dev'] },
+      { id: 'ahar', time: '09:00 AM', title: 'Ahar royal cenotaphs, almost no crowds', status: 'keen', keen: ['you', 'riya', 'meera', 'dev'] },
+      { id: 'shilpgram', time: '11:30 AM', title: 'Meet the makers at Shilpgram', status: 'keen', keen: ['you', 'meera'] },
+      { id: 'farm-lunch', time: '01:30 PM', title: 'Farm-kitchen lunch near Ahar', status: 'keen', keen: ['you', 'riya', 'dev'] },
+      { id: 'badi-lake', time: '04:30 PM', title: 'Badi Lake at golden hour', status: 'keen', keen: ['you', 'riya', 'meera', 'dev'] },
     ],
   },
   {
     id: 'd4',
     label: 'D4',
-    date: 'Tue 15 Dec',
-    title: 'Waterfall trek',
+    date: 'Mon 23 Nov',
+    title: 'Last chai, then home',
     stops: [
-      { id: 'jogini', time: '08:30 AM', title: 'Jogini Falls trek from Vashisht', status: 'locked' },
-      { id: 'manu', time: '02:00 PM', title: 'Manu Temple and Old Manali lanes', status: 'keen', keen: ['you', 'meera'] },
-      { id: 'farewell', time: '07:30 PM', title: 'Farewell dinner at Johnson’s Café', status: 'keen', keen: ['you', 'riya', 'dev'] },
-    ],
-  },
-  {
-    id: 'd5',
-    label: 'D5',
-    date: 'Wed 16 Dec',
-    title: 'Head home',
-    stops: [
-      { id: 'check-out', time: '11:00 AM', title: 'Check out and one last café run', status: 'locked' },
-      { id: 'bus-home', time: '05:00 PM', title: 'Volvo back to Delhi', status: 'locked' },
+      { id: 'jagdish', time: '07:30 AM', title: 'Jagdish Temple morning aarti', status: 'keen', keen: ['riya', 'meera'] },
+      { id: 'miniatures', time: '10:30 AM', title: 'Miniature paintings in Hathi Pol, bought from the painter', status: 'keen', keen: ['you', 'dev'] },
+      { id: 'check-out', time: '12:00 PM', title: 'Check out, refill bottles at the tap', status: 'locked' },
+      { id: 'bus-home', time: '07:30 PM', title: 'Coach back to Delhi', status: 'locked' },
     ],
   },
 ]
@@ -240,54 +236,67 @@ export const TRANSPORT: Booking[] = [
   {
     id: 'bus-there',
     kind: 'bus',
-    title: 'Delhi → Manali',
-    details: 'HRTC Himsuta Volvo · Seats 21–24',
-    when: 'Fri 11 Dec, 08:30 PM → Sat 12 Dec, 09:00 AM',
-    summary: 'Fri 11 Dec · Overnight Volvo',
+    title: 'Delhi → Udaipur',
+    details: 'Overnight AC sleeper coach · Berths 5–8',
+    when: 'Thu 19 Nov, 08:30 PM → Fri 20 Nov, 08:30 AM',
+    summary: 'Thu 19 Nov · Overnight coach',
     status: 'booked',
-    code: '7741 2093',
+    code: '5528 1904',
     paidBy: 'dev',
-    share: 1850,
+    share: 1200,
     settled: ['dev', 'riya', 'meera'],
   },
   {
     id: 'bus-back',
     kind: 'bus',
-    title: 'Manali → Delhi',
-    details: 'HRTC Himsuta Volvo · Seats 9–12',
-    when: 'Wed 16 Dec, 05:00 PM → Thu 17 Dec, 07:00 AM',
-    summary: 'Wed 16 Dec · Overnight Volvo',
+    title: 'Udaipur → Delhi',
+    details: 'Overnight AC sleeper coach · Berths 9–12',
+    when: 'Mon 23 Nov, 07:30 PM → Tue 24 Nov, 07:30 AM',
+    summary: 'Mon 23 Nov · Overnight coach',
     status: 'booked',
-    code: '7741 9310',
+    code: '5528 2216',
     paidBy: 'riya',
-    share: 1750,
+    share: 1200,
     settled: ['riya', 'you', 'meera'],
+  },
+  {
+    id: 'boat',
+    kind: 'activity',
+    title: 'Lake Pichola boat ride',
+    details: 'Private electric boat from Rameshwar Ghat · noon slot',
+    when: 'Sat 21 Nov, 12:00 PM',
+    summary: 'Sat 21 Nov · Noon boat',
+    status: 'booked',
+    code: 'PCH-2111',
+    paidBy: 'meera',
+    share: 600,
+    settled: ['meera', 'riya'],
   },
   {
     id: 'cab',
     kind: 'cab',
     title: 'Local cab',
-    details: 'Innova with driver · Snow day + Hadimba run',
-    when: 'Sun 13 – Mon 14 Dec',
+    details: 'One shared cab · Shilpgram, Ahar and the Sajjangarh road',
+    when: 'Sat 21 – Sun 22 Nov',
     summary: 'Dev’s getting quotes',
     status: 'to-book',
     owner: 'dev',
-    note: 'Quotes from ₹3,500/day',
+    note: 'Quotes from ₹3,000/day',
   },
 ]
 
 /** Already-uploaded tickets, by booking id */
 export const INITIAL_TICKETS: Record<string, string> = {
-  'bus-there': 'hrtc-delhi-manali.pdf',
+  'bus-there': 'delhi-udaipur-coach.pdf',
 }
 
 /** Riya places a refundable hold on whichever stay wins the vote */
 export const STAY_HOLD = {
   heldBy: 'riya' as PersonId,
-  code: 'SNW-48213',
-  dates: 'Sat 12 – Wed 16 Dec · 4 nights',
+  code: 'HVL-48213',
+  dates: 'Fri 20 – Mon 23 Nov · 3 nights',
   rooms: '2 rooms · 4 guests',
-  cancellation: 'Free cancellation till Tue 1 Dec',
+  cancellation: 'Free cancellation till Fri 13 Nov',
 }
 
 /* Checklist */
@@ -301,35 +310,36 @@ export type ChecklistItem = {
 }
 
 export const GROUP_TODOS: ChecklistItem[] = [
-  { id: 'g-bus', label: 'Book the Volvo both ways', assignee: 'dev', done: true },
-  { id: 'g-playlist', label: 'Make the bus playlist', assignee: 'riya', done: true },
-  { id: 'g-stay', label: 'Hold the stay once the vote closes', assignee: 'riya', done: false },
+  { id: 'g-coach', label: 'Book the overnight coach both ways', assignee: 'dev', done: true },
+  { id: 'g-playlist', label: 'Make the road-trip playlist: Mewari folk and Coke Studio', assignee: 'riya', done: true },
+  { id: 'g-stay', label: 'Hold the haveli once the vote closes', assignee: 'riya', done: false },
   { id: 'g-deposits', label: 'Collect everyone’s deposit', assignee: 'meera', done: false },
-  { id: 'g-cab', label: 'Get cab quotes for the snow day', assignee: 'dev', done: false },
-  { id: 'g-gear', label: 'Find ski and snow-boot rentals in Solang', assignee: 'you', done: false },
-  { id: 'g-tunnel', label: 'Check Atal Tunnel road status the day before', assignee: 'you', done: false },
+  { id: 'g-cab', label: 'Get cab quotes for the Shilpgram and Ahar run', assignee: 'dev', done: false },
+  { id: 'g-refill', label: 'Check the haveli has a refill tap, so we skip plastic bottles', assignee: 'you', done: false },
+  { id: 'g-sunset', label: 'Check Sajjangarh’s last entry time for sunset', assignee: 'you', done: false },
+  { id: 'g-dress', label: 'Agree on temple outfits: shoulders and knees covered', assignee: 'meera', done: false },
 ]
 
 export const BAG_ITEMS: ChecklistItem[] = [
-  { id: 'b-thermals', label: 'Thermals (2 sets)', done: true },
-  { id: 'b-jacket', label: 'Down jacket', done: true },
-  { id: 'b-socks', label: 'Woollen socks and gloves', done: true },
-  { id: 'b-boots', label: 'Waterproof boots', done: false },
-  { id: 'b-sunglasses', label: 'Sunglasses for the snow glare', done: false },
-  { id: 'b-lips', label: 'Lip balm and cold cream', done: false },
-  { id: 'b-power', label: 'Power bank (the cold drains batteries)', done: false },
+  { id: 'b-bottle', label: 'Refillable water bottle (top up at the haveli’s tap)', done: true },
+  { id: 'b-tote', label: 'Cotton tote for market buys, no plastic bags', done: true },
+  { id: 'b-temple', label: 'Temple outfit: shoulders and knees covered', done: true },
+  { id: 'b-shawl', label: 'Light shawl or jacket for chilly November nights', done: false },
+  { id: 'b-sandals', label: 'Sandals that slip off easily at temples', done: false },
+  { id: 'b-sun', label: 'Sunscreen and a cap for the ghats', done: false },
+  { id: 'b-power', label: 'Power bank for sunset photos and maps', done: false },
   { id: 'b-id', label: 'Govt ID for check-in', done: false },
-  { id: 'b-tablets', label: 'Motion-sickness tablets for the hill roads', done: false },
+  { id: 'b-notes', label: 'Small notes for makers and chai stalls', done: false },
 ]
 
 /* Budget */
 
 export const PLANNED_SPEND = [
-  { id: 'travel', label: 'Travel', detail: 'Volvo both ways, snow-day cab', amount: 25300, color: 'var(--color-primary)' },
-  { id: 'stay', label: 'Stay', detail: '4 nights · 2 rooms', amount: 12800, color: 'var(--color-sky)' },
-  { id: 'food', label: 'Food', detail: 'Cafés, dhabas, Maggi points', amount: 12000, color: 'var(--color-amber)' },
-  { id: 'fun', label: 'Activities', detail: 'Skiing, ropeway, gear rental', amount: 8400, color: 'var(--color-sky-light)' },
-  { id: 'buffer', label: 'Buffer', detail: 'Snow delays and tips', amount: 1500, color: 'var(--color-disabled)' },
+  { id: 'travel', label: 'Travel', detail: 'Coach both ways, shared cab', amount: 15600, color: 'var(--color-primary)' },
+  { id: 'stay', label: 'Stay', detail: '3 nights · 2 haveli rooms', amount: 18000, color: 'var(--color-sky)' },
+  { id: 'food', label: 'Food', detail: 'Family kitchens, kachori, rooftop thalis', amount: 14400, color: 'var(--color-amber)' },
+  { id: 'fun', label: 'Activities', detail: 'City Palace, Pichola boat, Shilpgram', amount: 5200, color: 'var(--color-sky-light)' },
+  { id: 'makers', label: 'Makers and tips', detail: 'Miniatures, pottery, puppeteers', amount: 2800, color: 'var(--color-disabled)' },
 ]
 
 export const PLANNED_TOTAL = PLANNED_SPEND.reduce((sum, c) => sum + c.amount, 0)

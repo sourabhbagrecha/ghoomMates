@@ -1,10 +1,10 @@
-import grid1 from '../assets/figma/photo-grid-1.svg'
 import grid3 from '../assets/figma/photo-grid-3.svg'
 import grid4 from '../assets/figma/photo-grid-4.svg'
 import grid5 from '../assets/figma/photo-grid-5.svg'
 import grid6 from '../assets/figma/photo-grid-6.svg'
-import photoVagator from '../assets/figma/photo-vagator.svg'
+import { EXPERIENCE_PHOTOS } from '../pages/Explore/experiencePhotos'
 import type { PersonId } from './people'
+import { daysUntil, formatDateRange } from './tripDates'
 
 export type TripStatus = 'live' | 'planning' | 'upcoming' | 'completed'
 
@@ -14,64 +14,57 @@ export type Trip = {
   group: string
   place: string
   dates: string
+  /** First day, YYYY-MM-DD, for trips that haven't started */
+  startDate?: string
   status: TripStatus
   members: PersonId[]
   cover: string
   /** Short status line, e.g. "2 votes need you" or "412 pics" */
   note: string
-  /** Countdown for planned trips, e.g. "In 42 days" */
+  /** Countdown for planned trips, e.g. "In 19 days" */
   startsIn?: string
   /** Completed trips: what you still owe, if anything */
   balance?: string
 }
 
-export type LiveTrip = Trip & {
-  day: number
-  totalDays: number
-  /** Id of the next stop in the itinerary data */
-  nextStopId: string
+/** "In 19 days", counted from today in India so it stays right whenever the demo runs */
+const countdown = (start: string) => {
+  const days = daysUntil(start)
+  if (days === null) return undefined
+  return days <= 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`
 }
 
-// Mock data until the trips service exists. "Today" is Sat 31 Oct, Day 2 of the Goa trip.
-export const LIVE_TRIP: LiveTrip = {
-  id: 'goa',
-  name: 'Goa Trip',
-  group: 'Goa Gang',
-  place: 'North Goa',
-  dates: 'Fri 30 Oct – Mon 2 Nov',
-  status: 'live',
-  members: ['you', 'riya', 'kabir', 'meera', 'dev'],
-  cover: photoVagator,
-  note: '3 of you picked the sunset cruise',
-  day: 2,
-  totalDays: 4,
-  nextStopId: 'mandovi-cruise',
-}
+// Sample trips for the planning and recap screens, which aren't backed by real data yet (your real trips come from
+// the trips service). The Mewar Mates' Udaipur weekend is the one planned in src/pages/Plan.
+const UDAIPUR_WEEKEND = { start: '2026-11-20', end: '2026-11-23' }
+const PONDICHERRY_LONG_WEEKEND = { start: '2027-01-22', end: '2027-01-25' }
 
 export const UPCOMING_TRIPS: Trip[] = [
   {
-    id: 'manali',
-    name: 'Manali Snow Escape',
-    group: 'Mountain Crew',
-    place: 'Manali',
-    dates: 'Sat 12 – Wed 16 Dec',
+    id: 'udaipur-heritage',
+    name: 'Udaipur Heritage',
+    group: 'Mewar Mates',
+    place: 'Udaipur',
+    dates: formatDateRange(UDAIPUR_WEEKEND.start, UDAIPUR_WEEKEND.end),
+    startDate: UDAIPUR_WEEKEND.start,
     status: 'planning',
     members: ['you', 'riya', 'meera', 'dev'],
-    cover: grid1,
+    cover: EXPERIENCE_PHOTOS.cityPalace[1].src,
     note: '2 votes need you',
-    startsIn: 'In 42 days',
+    startsIn: countdown(UDAIPUR_WEEKEND.start),
   },
   {
     id: 'pondicherry',
     name: 'Pondicherry Long Weekend',
     group: 'Café Hoppers',
     place: 'Pondicherry',
-    dates: 'Fri 22 – Mon 25 Jan',
+    dates: formatDateRange(PONDICHERRY_LONG_WEEKEND.start, PONDICHERRY_LONG_WEEKEND.end),
+    startDate: PONDICHERRY_LONG_WEEKEND.start,
     status: 'upcoming',
     members: ['you', 'kabir', 'riya'],
     cover: grid4,
     note: 'Stays booked',
-    startsIn: 'In 83 days',
+    startsIn: countdown(PONDICHERRY_LONG_WEEKEND.start),
   },
 ]
 
@@ -111,5 +104,3 @@ export const PAST_TRIPS: Trip[] = [
     balance: '₹320',
   },
 ]
-
-export const TODAY = 'Sat, 31 Oct'

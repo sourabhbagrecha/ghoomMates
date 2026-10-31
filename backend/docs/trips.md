@@ -16,7 +16,7 @@ Every route except the invite preview needs `Authorization: Bearer <session toke
 | POST | `/api/trips` | Create a trip. You become its organiser. |
 | GET | `/api/trips/invites/:code` | Public invite preview (works signed out) |
 | POST | `/api/trips/join` | `{ code }`: join a trip. Joining twice is a no-op. |
-| GET / PATCH | `/api/trips/:id` | Trip detail (members, invite code and URL) / update name, dates, destination, … |
+| GET / PATCH | `/api/trips/:id` | Trip detail (members, invite code and URL) / update name, dates, destination, … (see Changing dates) |
 | GET | `/api/trips/:id/summary` | Balances, suggested transfers, totals by category |
 | GET / POST | `/api/trips/:id/expenses` | List / add an expense |
 | GET / POST | `/api/trips/:id/settlements` | List / record a payment you sent or received |
@@ -44,6 +44,15 @@ Errors use the shared `{ "error": { "code", "message" } }` envelope.
 ```
 
 `memberId`s are the ledger member ids from the trip's `members`. Splits are `equal` or `exact` (each `value` in paise, summing to `amountPaise`); categories are `food`, `stays`, `travel`, `fun`, `other`. Send an `Idempotency-Key` header so a retried save is recorded once. Settlements are recorded as manually confirmed (`verification: manual`); there is no UPI provider integration.
+
+## Changing dates
+
+`PATCH /api/trips/:id` with `{ "startDate": "2026-11-01", "endDate": "2026-11-04" }` (YYYY-MM-DD, real calendar days, end on or after start; send `null` to clear). Only fields present in the body change, and the response is the trip detail plus `movedStops`.
+
+- **Organiser only.** A mate who sends different dates gets `403 FORBIDDEN`; renaming and the other fields stay open to every member, and re-sending the current dates is a no-op.
+- **A shorter trip keeps its stops.** If the new length (`tripLength`: the date range, else the flexible length from the create flow, else 3; capped at 14) is below the old one, stops planned for days that no longer exist move to the new last day, keeping their times, and the day titles are cut to the new length. The dates and the moved stops are saved in one transaction, and `movedStops` says how many moved so the app can tell the user.
+- **A longer trip or shifted dates** move nothing: new days start empty, and stops stay on their day numbers, so Day 1 simply lands on the new start. Crowd forecasts are computed from the day's date, so they follow the new dates on the next itinerary read.
+- Trip status (live, upcoming, past) is not stored. The app derives it from the dates and today's date in India (UTC+5:30), so a trip is live on every day from its start to its end, both included.
 
 ## Uploads
 
@@ -92,6 +101,10 @@ expenses          + category, receipt_key, created_by
 ```
 
 ## Tests
+
+`npm test` covers date changes with a fake database (`tests/trips/dates.test.ts`) and the app's date maths (`tests/trips/tripDates.test.ts`, which runs `frontend/src/data/tripDates.ts`, a plain file with no imports).
+
+The end-to-end suite needs a real database:
 
 ```bash
 DATABASE_URL=<…/ghoomates_test> npm run test:trips

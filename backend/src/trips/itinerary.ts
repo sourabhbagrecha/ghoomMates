@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ApiError, integer, object, requireThat, text } from '../expenses/domain.ts';
-import { transaction, type Database, type Pool } from '../db.ts';
+import { transaction, type Database, type Pool, type Tx } from '../db.ts';
 import { logger } from '../logger.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { TripAccess } from './service.ts';
@@ -63,6 +63,23 @@ export function tripLength(trip: TripAccess['trip']) {
   }
   const flexible = Number((trip.details as { flexibleDays?: unknown }).flexibleDays);
   return Number.isInteger(flexible) && flexible > 0 ? Math.min(MAX_DAYS, flexible) : 3;
+}
+
+/**
+ * A trip that gets shorter keeps every stop: the ones planned for days that no longer exist move to the new last day
+ * (their times stay), and the day titles shrink with the trip. Returns how many stops moved.
+ * Call it in the same transaction that saves the new dates.
+ */
+export async function fitStopsToLength(db: Pick<Tx, 'query'>, tripId: string, length: number) {
+  const moved = await db.query('UPDATE trip_stops SET day_number = $2::int WHERE trip_id = $1 AND day_number > $2::int', [tripId, length]);
+  await db.query(
+    `UPDATE trips SET day_titles = coalesce(
+       (SELECT jsonb_agg(t.title ORDER BY t.n) FROM jsonb_array_elements(day_titles) WITH ORDINALITY AS t (title, n) WHERE t.n <= $2::int),
+       '[]'::jsonb)
+     WHERE id = $1 AND jsonb_array_length(day_titles) > $2::int`,
+    [tripId, length],
+  );
+  return moved.rowCount ?? 0;
 }
 
 export class ItineraryService {

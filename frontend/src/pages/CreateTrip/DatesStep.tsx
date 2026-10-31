@@ -1,19 +1,10 @@
 import iconCalendar from '../../assets/figma/icon-calendar-primary.svg'
 import { Button } from '../../components/Button'
 import { Chip } from '../../components/Chip'
+import { DateRangeCalendar, RangeSummary } from '../../components/DateRangeCalendar'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
-import {
-  BUDGETS,
-  CALENDAR,
-  FLEXIBLE_LENGTHS,
-  WEEKDAYS,
-  daysInMonth,
-  destinationName,
-  formatDay,
-  leadingBlanks,
-  tripLength,
-  type TripDetails,
-} from './createTripData'
+import { describeRange } from '../../data/tripDates'
+import { BUDGETS, FLEXIBLE_LENGTHS, destinationName, tripLength, type TripDetails } from './createTripData'
 import './DatesStep.css'
 
 type DatesStepProps = {
@@ -23,30 +14,13 @@ type DatesStepProps = {
   onContinue: () => void
 }
 
-const nights = (days: number) => `${days - 1} night${days - 1 === 1 ? '' : 's'}`
-
 export function DatesStep({ trip, onChange, onBack, onContinue }: DatesStepProps) {
   const { start, end, flexible } = trip
   const length = tripLength(trip)
 
-  // First tap sets the start, second tap the end; tapping again starts a new range
-  const pickDay = (day: number) => {
-    if (!start || end) onChange({ start: day, end: null })
-    else if (day < start) onChange({ start: day })
-    else onChange({ end: day })
-  }
-
-  let summary: { value: string; detail: string }
-  if (flexible) {
-    summary = { value: `About ${trip.flexibleDays} days`, detail: 'Any dates in December · I’ll find the best weather' }
-  } else if (start && end && length) {
-    summary = {
-      value: length === 1 ? 'A day trip' : `${length} days · ${nights(length)}`,
-      detail: length === 1 ? formatDay(start) : `${formatDay(start)} → ${formatDay(end)}`,
-    }
-  } else {
-    summary = { value: 'Pick an end date', detail: start ? `Starting ${formatDay(start)}` : 'Tap your first day' }
-  }
+  const summary = flexible
+    ? { value: `About ${trip.flexibleDays} days`, detail: 'Any dates that work · I’ll find the best weather' }
+    : describeRange(start, end)
 
   return (
     <OnboardingLayout
@@ -62,46 +36,8 @@ export function DatesStep({ trip, onChange, onBack, onContinue }: DatesStepProps
         </Button>
       }
     >
-      <section className={`card create-calendar${flexible ? ' create-calendar--flexible' : ''}`}>
-        <h2 className="create-calendar__month">{CALENDAR.label}</h2>
-        <div className="create-calendar__grid">
-          {WEEKDAYS.map((w, i) => (
-            <span key={i} className="create-calendar__weekday" aria-hidden="true">
-              {w}
-            </span>
-          ))}
-          {Array.from({ length: leadingBlanks() }, (_, i) => (
-            <span key={`blank-${i}`} />
-          ))}
-          {Array.from({ length: daysInMonth() }, (_, i) => {
-            const day = i + 1
-            const isStart = day === start
-            const isEnd = day === end
-            const inRange = !!start && !!end && day > start && day < end
-            const className = [
-              'create-calendar__day',
-              inRange && 'create-calendar__day--in-range',
-              (isStart || isEnd) && 'create-calendar__day--edge',
-              isStart && end && end !== start && 'create-calendar__day--start',
-              isEnd && end !== start && 'create-calendar__day--end',
-            ]
-              .filter(Boolean)
-              .join(' ')
-            return (
-              <button
-                key={day}
-                type="button"
-                className={className}
-                disabled={flexible}
-                aria-pressed={isStart || isEnd || inRange}
-                aria-label={`${formatDay(day)}${isStart ? ', trip starts' : ''}${isEnd ? ', trip ends' : ''}`}
-                onClick={() => pickDay(day)}
-              >
-                <span>{day}</span>
-              </button>
-            )
-          })}
-        </div>
+      <section className="card create-calendar">
+        <DateRangeCalendar start={start} end={end} disabled={flexible} onChange={onChange} />
       </section>
 
       <button
@@ -130,11 +66,7 @@ export function DatesStep({ trip, onChange, onBack, onContinue }: DatesStepProps
         </div>
       )}
 
-      <div className="create-dates__summary" aria-live="polite">
-        <p className="overline">Trip length</p>
-        <p className="create-dates__summary-value">{summary.value}</p>
-        <p className="create-dates__summary-detail">{summary.detail}</p>
-      </div>
+      <RangeSummary value={summary.value} detail={summary.detail} />
 
       <div className="create-dates__budget">
         <h2 className="create-dates__label">Budget per person</h2>
