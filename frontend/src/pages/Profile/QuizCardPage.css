@@ -1,0 +1,75 @@
+.quiz-card__body {
+  padding-top: 40px;
+  gap: 18px;
+}
+
+/* Vibe-check flashcard, as on the Itinerary */
+.quiz-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding-top: 6px;
+}
+
+/* Next card peeking out behind, tilted -3° */
+.quiz-card__next {
+  position: absolute;
+  left: 14px;
+  right: 6px;
+  top: -4px;
+  bottom: 14px;
+  border-radius: var(--radius-card);
+  background: var(--color-sky-light);
+  transform: rotate(-3deg);
+}
+
+.quiz-card__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 196px;
+  padding: 14px;
+  border-radius: var(--radius-card);
+  background: var(--color-amber);
+}
+
+.quiz-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quiz-card__overline {
+  color: var(--color-primary);
+}
+
+/* Itinerary's Skip link colour: primary at 70% */
+.quiz-card__skip {
+  padding: 4px 0 4px 8px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: rgba(7, 42, 200, 0.7);
+}
+
+.quiz-card__question {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.quiz-card__hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.quiz-card__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
+}

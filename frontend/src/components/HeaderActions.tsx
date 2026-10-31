@@ -2,10 +2,13 @@ import type { ReactNode } from 'react'
 import iconBell from '../assets/figma/icon-bell-white.svg'
 import iconQr from '../assets/figma/icon-qr.svg'
 import { PEOPLE } from '../data/people'
+import { useNavigate } from '../hooks/navigation'
 import './HeaderActions.css'
 
 /** Header buttons: a frosted action (QR invite by default) and the profile avatar. */
 export function HeaderActions({ leading }: { leading?: ReactNode }) {
+  const navigate = useNavigate()
+
   return (
     <div className="header-actions">
       {leading ?? (
@@ -13,7 +16,7 @@ export function HeaderActions({ leading }: { leading?: ReactNode }) {
           <img src={iconQr} alt="" width={20} height={20} />
         </button>
       )}
-      <button type="button" className="header-actions__profile" aria-label="Your profile">
+      <button type="button" className="header-actions__profile" aria-label="Your profile" onClick={() => navigate('profile')}>
         {PEOPLE.you.initial}
       </button>
     </div>

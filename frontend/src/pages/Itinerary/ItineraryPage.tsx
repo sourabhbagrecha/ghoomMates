@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import headerBg from '../../assets/figma/itinerary-header-bg.svg'
+import iconPlus from '../../assets/figma/icon-plus.svg'
 import iconStarOutline from '../../assets/figma/icon-star-outline.svg'
 import iconStar from '../../assets/figma/icon-star.svg'
 import spiderweb from '../../assets/figma/spiderweb.svg'
@@ -8,6 +9,7 @@ import { Chip } from '../../components/Chip'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
+import { EmptyState } from '../../components/states/EmptyState'
 import { SQUAD } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { DAYS, TRIP, VIBE_CHECK, type Stop } from './itineraryData'
@@ -152,8 +154,10 @@ function VibeCheckFlashcards() {
 }
 
 function DayPlan() {
+  const navigate = useNavigate()
   const [dayId, setDayId] = useState(DAYS[0].id)
   const day = DAYS.find((d) => d.id === dayId) ?? DAYS[0]
+  const dayNumber = day.label.replace(/\D/g, '')
 
   return (
     <>
@@ -175,11 +179,21 @@ function DayPlan() {
           </div>
         }
       />
-      <ol className="timeline">
-        {day.stops.map((stop) => (
-          <TimelineStop key={stop.id} stop={stop} />
-        ))}
-      </ol>
+      {day.stops.length > 0 ? (
+        <ol className="timeline">
+          {day.stops.map((stop) => (
+            <TimelineStop key={stop.id} stop={stop} />
+          ))}
+        </ol>
+      ) : (
+        <EmptyState
+          size="compact"
+          headingLevel={3}
+          title={`Nothing planned for Day ${dayNumber} yet`}
+          text={`Add a stop, or tap me and say “Plan Day ${dayNumber}”.`}
+          action={{ label: 'Add a stop', icon: iconPlus, onClick: () => navigate('trip/itinerary/add') }}
+        />
+      )}
     </>
   )
 }

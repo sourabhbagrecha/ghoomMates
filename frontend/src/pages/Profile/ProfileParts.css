@@ -1,0 +1,89 @@
+/* Your avatar: initial scales with size like Avatar (42.5%) */
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--size);
+  height: var(--size);
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 8px 18px rgba(7, 42, 200, 0.12);
+  font-weight: 800;
+  font-size: calc(var(--size) * 0.425);
+  line-height: var(--size);
+  color: #fff;
+}
+
+.profile-avatar--ring {
+  border-color: var(--color-yellow);
+}
+
+.profile-avatar--light {
+  color: var(--color-primary);
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Switch, as in Trip settings */
+.profile-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--color-track-muted);
+  transition: background 0.15s;
+}
+
+.profile-switch--on {
+  background: var(--color-primary);
+}
+
+.profile-switch__knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+  transition: transform 0.15s;
+}
+
+.profile-switch--on .profile-switch__knob {
+  transform: translateX(18px);
+}
+
+/* Inline confirm step */
+.profile-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  text-align: center;
+}
+
+.profile-confirm__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.profile-confirm__text {
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}

@@ -1,0 +1,120 @@
+.quiz-result__body {
+  gap: 14px;
+}
+
+.quiz-result__vibe {
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.quiz-result__overline {
+  color: var(--color-sky);
+}
+
+.quiz-result__persona {
+  margin-bottom: 4px;
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--color-ink);
+}
+
+/* Top traits, numbered like the create-trip priorities */
+.quiz-result__traits,
+.quiz-result__changes {
+  gap: 10px;
+}
+
+.quiz-result__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.quiz-result__trait {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.quiz-result__number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.quiz-result__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.quiz-result__text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* What GhoomMate does differently */
+.quiz-result__changes-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quiz-result__changes-title {
+  display: flex;
+  flex-direction: column;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.quiz-result__changes-title span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.quiz-result__changes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.quiz-result__changes-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.quiz-result__changes-list img {
+  flex-shrink: 0;
+}

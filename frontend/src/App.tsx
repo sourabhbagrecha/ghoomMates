@@ -1,7 +1,9 @@
 import { useState, type ComponentType } from 'react'
 import { GhoomMateFab } from './components/GhoomMate'
 import { ScreenBackContext } from './components/screenBack'
+import { OfflineBanner } from './components/states/OfflineBanner'
 import { TabBar, type TabId } from './components/TabBar'
+import { VoiceProvider } from './components/voice/VoiceProvider'
 import { NOTIFICATIONS } from './data/notifications'
 import { NavigateContext } from './hooks/navigation'
 import { useHashRoute } from './hooks/useHashRoute'
@@ -16,6 +18,9 @@ import { isOnboardingStep } from './pages/Onboarding/onboardingData'
 import { PastTripRoutes } from './pages/PastTrip/PastTripRoutes'
 import { PhotosPage } from './pages/Photos/PhotosPage'
 import { PlanRoutes } from './pages/Plan/PlanRoutes'
+import { ProfileRoutes } from './pages/Profile/ProfileRoutes'
+import { displayName, useProfileStore } from './pages/Profile/profileStore'
+import { StatesPage } from './pages/States/StatesPage'
 import { TripDetailRoutes } from './pages/Trip/TripDetailRoutes'
 import { getProfileName, hasOnboarded, markOnboarded } from './services/onboardingStorage'
 import './App.css'
@@ -40,12 +45,17 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/trip/<tab>/…     Trip details: stop/<id>, add, expenses/add, expenses/settle, photos/view/<i>, …
  *   #/trip/members     Squad members (and #/trip/settings)
  *   #/past/<id>[/…]    After the trip: recap, album, days, expenses, rate[/<stars>]
+ *   #/profile[/…]      Your profile: edit, quiz[/<n>|result], settings, help
+ *   #/states           Gallery of loading / empty / error / offline states
  *   #/<step>           Any onboarding step (welcome, sign-in, verify, …)
  */
 function App() {
   const [route, navigate] = useHashRoute()
-  const [onboarded, setOnboarded] = useState(hasOnboarded)
-  const [name, setName] = useState(getProfileName)
+  // Read on every render (i.e. every route change) so signing out from Settings takes effect
+  const onboarded = hasOnboarded()
+  const profile = useProfileStore()
+  // A name edited in Profile wins over the one saved during onboarding
+  const name = profile.name ? displayName(profile) : getProfileName()
   const [notifications, setNotifications] = useState(NOTIFICATIONS)
   const unread = notifications.filter((n) => n.unread).length
   const markRead = (id?: string) =>
@@ -63,6 +73,9 @@ function App() {
   // After the trip; unknown trips fall back to Home
   const pastTrip = section === 'past' ? PastTripRoutes({ path: segments.slice(1) }) : null
 
+  // Hook-free like the other route modules; unknown profile paths fall back to Home
+  const profileScreen = section === 'profile' ? ProfileRoutes({ path: segments.slice(1) }) : null
+
   let screen
   if (onboardingStep) {
     screen = (
@@ -71,8 +84,6 @@ function App() {
         go={navigate}
         onDone={(details) => {
           markOnboarded(details.name)
-          setOnboarded(true)
-          setName(getProfileName())
           goHome()
         }}
       />
@@ -95,6 +106,10 @@ function App() {
     screen = <PlanRoutes path={segments.slice(1)} />
   } else if (section === 'create') {
     screen = <CreateTripRoutes path={segments.slice(1)} />
+  } else if (profileScreen) {
+    screen = profileScreen
+  } else if (section === 'states') {
+    screen = <StatesPage />
   } else if (section === 'notifications') {
     screen = <NotificationsPage notifications={notifications} onMarkRead={markRead} onBack={goHome} />
   } else {
@@ -116,7 +131,10 @@ function App() {
   return (
     <div className="app">
       <div className="device">
-        <NavigateContext.Provider value={navigate}>{screen}</NavigateContext.Provider>
+        <NavigateContext.Provider value={navigate}>
+          <VoiceProvider>{screen}</VoiceProvider>
+        </NavigateContext.Provider>
+        <OfflineBanner />
       </div>
     </div>
   )
