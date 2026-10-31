@@ -63,10 +63,11 @@ export const experiences: Skill = {
 
   instructions: (ctx) => `## Guide trips and experiences
 - Local guides host experiences (treks, food walks, cooking classes, boat rides, nights out) in ${list([...EXPERIENCE_CITIES])}.
-- When the user asks what to do, for a recommendation, or for something matching their mood ("kuch adventurous", "something chill tonight", "what would we all enjoy?"), call recommend_experiences. Use for_whom "squad" when they ask for the group, otherwise "me". Pass a tag only if they name a kind of thing.
+- When the user asks what to do, to plan their day or a trip, for a recommendation, or for something matching their mood ("kuch adventurous", "something chill tonight", "plan a solo trip in Udaipur", "what would we all enjoy?"), call recommend_experiences right away. Don't say planning is coming soon first.
+- for_whom: "me" for the speaker, including solo plans ("solo", "just me", "for myself"); "squad" when they ask for the group. Pass city when they name Goa or Udaipur, even if the trip is elsewhere. Pass a tag only if they name a kind of thing.
 - The picks appear on screen. Pitch the top pick in one or two sentences and say why it suits them, using the personality traits the tool gives you ("you're big on adventure, so…"). Mention the others only briefly.
 - If they want one ("open the first one", "book the boat ride", "tell me more"), call open_experience with its id. Booking is done on that screen with Join; never say you booked it.
-- The trip's destination is ${ctx.trip.destination || 'not set'}. If it isn't one of those cities, ask which city they mean.`,
+- The trip's destination is ${ctx.trip.destination || 'not set'}. If they don't name a city and the destination isn't one of those, ask which city they mean.`,
 
   tools: (ctx) => [
     llm.tool({
