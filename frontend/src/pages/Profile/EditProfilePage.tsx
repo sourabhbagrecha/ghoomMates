@@ -11,7 +11,9 @@ import { Toast } from '../../components/Toast'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { checkSingleFace } from '../../services/faceCheck'
+import { toJpegIfHeic } from '../../services/tripsService'
 import { COLOURS } from '../Onboarding/onboardingData'
+import { sizeSelfie } from '../Photos/faceSearch'
 import { ConfirmBox, ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
 import './EditProfilePage.css'
@@ -133,20 +135,20 @@ export function EditProfilePage() {
             accept="image/*"
             hidden
             onChange={async (e) => {
-              const file = e.target.files?.[0]
+              const picked = e.target.files?.[0]
               e.target.value = ''
-              if (!file) return
+              if (!picked) return
               // Camera or photo library; either way it must show just you
-              const url = URL.createObjectURL(file)
               showToast('Checking your photo…')
+              const url = URL.createObjectURL(await toJpegIfHeic(picked))
               const result = await checkSingleFace(url)
               if (!result.ok) {
                 URL.revokeObjectURL(url)
                 showToast(result.message)
                 return
               }
-              // TODO: upload and re-index face match
-              profileActions.setSelfie(url)
+              profileActions.setSelfie(await sizeSelfie(url))
+              URL.revokeObjectURL(url)
               setConfirmDelete(false)
               showToast('Selfie updated')
             }}

@@ -30,6 +30,30 @@ type ProfileState = {
   language: LanguageId
 }
 
+// The face-match selfie stays on this device, per account (too big for the profile request)
+const selfieKey = () => {
+  const id = getStoredUser()?.id
+  return id ? `ghoomates:selfie:${id}` : null
+}
+const storedSelfie = () => {
+  const key = selfieKey()
+  try {
+    return key ? localStorage.getItem(key) : null
+  } catch {
+    return null
+  }
+}
+const storeSelfie = (selfie: string | null) => {
+  const key = selfieKey()
+  if (!key) return
+  try {
+    if (selfie) localStorage.setItem(key, selfie)
+    else localStorage.removeItem(key)
+  } catch {
+    // Storage full or blocked: the selfie still works until the next reload
+  }
+}
+
 const initialState = (): ProfileState => ({
   name: null,
   username: getStoredUser()?.username || '',
@@ -37,7 +61,7 @@ const initialState = (): ProfileState => ({
   photo: getStoredUser()?.picture || null,
   // Taken during sign-up
   hasSelfie: true,
-  selfie: null,
+  selfie: storedSelfie(),
   upi: ACCOUNT.upi,
   notifications: DEFAULT_NOTIFICATION_PREFS,
   faceMatch: true,
@@ -97,8 +121,15 @@ export const profileActions = {
       picture: patch.photo ?? '', preferences: { colour: patch.colour } })
     notice = 'Profile saved'
   },
-  setSelfie: (selfie: string) => set({ hasSelfie: true, selfie }),
-  deleteSelfie: () => set({ hasSelfie: false, selfie: null }),
+  /** Takes a data URL so it can be kept across reloads */
+  setSelfie: (selfie: string) => {
+    storeSelfie(selfie)
+    set({ hasSelfie: true, selfie })
+  },
+  deleteSelfie: () => {
+    storeSelfie(null)
+    set({ hasSelfie: false, selfie: null })
+  },
   setUpi: (upi: string) => persist({ upi: upi.trim() }),
   toggleNotification: (id: NotificationPrefId) =>
     persist({ notifications: { ...state.notifications, [id]: !state.notifications[id] } }),
