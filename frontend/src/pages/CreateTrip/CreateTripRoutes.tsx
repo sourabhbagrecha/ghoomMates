@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react'
-import { activeTrip, formatTripDates, isoDate } from '../../data/activeTrip'
+import { activeTrip, formatTripDates } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { getStoredUser } from '../../services/authService'
 import { tripsApi, type DraftPlan, type DraftStop, type NewTrip, type TripDetail } from '../../services/tripsService'
 import {
-  CALENDAR,
   DEFAULT_DESTINATION,
-  INITIAL_TRIP,
   VIBE,
   budgetLabel,
   destinationName,
   findDestination,
   generatingSteps,
+  initialTrip,
   isCreateStep,
   suggestedTripName,
   type CreateStep,
@@ -26,14 +25,13 @@ import { VibeStep } from './VibeStep'
 
 /** What the backend stores for the details entered in the flow */
 function toNewTrip(trip: TripDetails): NewTrip {
-  const day = (d: number | null) => (d ? isoDate(new Date(CALENDAR.year, CALENDAR.month, d)) : null)
   const tweaks = trip.tweaks.map((id) => VIBE.tweaks.find((t) => t.id === id)?.label ?? id)
   return {
     name: trip.name.trim() || suggestedTripName(trip.destination),
     groupName: trip.group.trim() || undefined,
     destination: destinationName(trip.destination),
-    startDate: trip.flexible ? null : day(trip.start),
-    endDate: trip.flexible ? null : day(trip.end ?? trip.start),
+    startDate: trip.flexible ? null : trip.start,
+    endDate: trip.flexible ? null : (trip.end ?? trip.start),
     budget: budgetLabel(trip.budget),
     cover: findDestination(trip.destination)?.id ?? '',
     details: { tweaks, flexibleDays: trip.flexible ? trip.flexibleDays : undefined, budgetLabel: budgetLabel(trip.budget) },
@@ -49,7 +47,7 @@ function toNewTrip(trip: TripDetails): NewTrip {
  */
 export function CreateTripRoutes({ path }: { path: string[] }): JSX.Element {
   const navigate = useNavigate()
-  const [trip, setTrip] = useState<TripDetails>(INITIAL_TRIP)
+  const [trip, setTrip] = useState<TripDetails>(initialTrip)
   const [created, setCreated] = useState<TripDetail | null>(null)
   const [plan, setPlan] = useState<DraftPlan | null>(null)
   const [error, setError] = useState<string | null>(null)

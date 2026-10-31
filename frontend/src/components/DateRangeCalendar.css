@@ -1,0 +1,146 @@
+/* Month calendar for picking a trip's dates (create flow and trip settings) */
+.date-range {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.date-range--disabled .date-range__grid {
+  opacity: 0.45;
+}
+
+.date-range__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.date-range__month {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.date-range__nav {
+  display: flex;
+  gap: 6px;
+}
+
+.date-range__step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-tint);
+}
+
+.date-range__step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.date-range__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 4px;
+}
+
+.date-range__weekday {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+/* The button is the full cell so the range band joins up; the circle is the span */
+.date-range__day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.date-range__day:disabled {
+  cursor: default;
+}
+
+.date-range__day span {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.date-range__day--in-range {
+  background: var(--color-tint);
+  color: var(--color-primary);
+}
+
+.date-range__day--start {
+  background: linear-gradient(to right, transparent 50%, var(--color-tint) 50%);
+}
+
+.date-range__day--end {
+  background: linear-gradient(to left, transparent 50%, var(--color-tint) 50%);
+}
+
+.date-range__day--edge span {
+  background: var(--color-primary);
+  font-weight: 800;
+  color: #fff;
+}
+
+/* Past days, and days that would stretch the trip beyond what the itinerary holds */
+.date-range__day--off {
+  color: var(--color-disabled);
+}
+
+/* A dot under today's number, yellow when today is also the start or end of the range */
+.date-range__day--today span::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-sky);
+}
+
+.date-range__day--today.date-range__day--edge span::after {
+  background: var(--color-yellow);
+}
+
+/* Trip length summary under the calendar */
+.range-summary {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.range-summary__value {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.range-summary__detail {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}

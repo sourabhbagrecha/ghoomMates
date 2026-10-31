@@ -4,6 +4,7 @@ import grid3 from '../../assets/figma/photo-grid-3.svg'
 import grid4 from '../../assets/figma/photo-grid-4.svg'
 import grid6 from '../../assets/figma/photo-grid-6.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
+import { addDays, daysBetween, todayISO, type IsoDate } from '../../data/tripDates'
 import { UDAIPUR_COVER } from '../Explore/experiencePhotos'
 
 export const CREATE_STEPS = ['destination', 'dates', 'squad', 'vibe', 'generating', 'draft'] as const
@@ -105,26 +106,7 @@ export const SURPRISES = [
   { destination: 'coorg', reason: 'Waterfall hikes and coffee estates, with a slower pace for the chill ones.' },
 ]
 
-/* Dates and budget: the calendar shows December 2026 (1 Dec is a Tuesday) */
-
-export const CALENDAR = { year: 2026, month: 11, label: 'December 2026', short: 'Dec' }
-
-export const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-
-const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-export const daysInMonth = () => new Date(CALENDAR.year, CALENDAR.month + 1, 0).getDate()
-
-/** Empty cells before the 1st in a Monday-first grid */
-export const leadingBlanks = () => (new Date(CALENDAR.year, CALENDAR.month, 1).getDay() + 6) % 7
-
-/** 12 → "Sat, 12 Dec" */
-export const formatDay = (day: number) =>
-  `${dayNames[new Date(CALENDAR.year, CALENDAR.month, day).getDay()]}, ${day} ${CALENDAR.short}`
-
-/** 12 → "Sat 12" (compact, for day pills) */
-export const formatDayShort = (day: number) =>
-  `${dayNames[new Date(CALENDAR.year, CALENDAR.month, day).getDay()]} ${day}`
+/* Dates and budget: the calendar (components/DateRangeCalendar) starts at the current month */
 
 export const FLEXIBLE_LENGTHS = [
   { days: 3, label: 'Long weekend' },
@@ -188,25 +170,29 @@ export type TripDetails = {
   destination: string | null
   name: string
   group: string
-  /** Days of the month in CALENDAR */
-  start: number | null
-  end: number | null
+  /** YYYY-MM-DD */
+  start: IsoDate | null
+  end: IsoDate | null
   flexible: boolean
   flexibleDays: number
   budget: BudgetId
   tweaks: string[]
 }
 
-export const INITIAL_TRIP: TripDetails = {
-  destination: null,
-  name: 'Udaipur Lake Escape',
-  group: 'Lake City Squad',
-  start: 12,
-  end: 16,
-  flexible: false,
-  flexibleDays: 5,
-  budget: '10-20',
-  tweaks: [],
+/** A fresh trip. It starts today for 4 days (Udaipur's usual length), so a squad that shares it goes live right away. */
+export const initialTrip = (): TripDetails => {
+  const today = todayISO()
+  return {
+    destination: null,
+    name: 'Udaipur Lake Escape',
+    group: 'Lake City Squad',
+    start: today,
+    end: addDays(today, 3),
+    flexible: false,
+    flexibleDays: 5,
+    budget: '10-20',
+    tweaks: [],
+  }
 }
 
 const CUSTOM_PREFIX = 'custom:'
@@ -223,4 +209,4 @@ export const suggestedTripName = (id: string | null) =>
 
 /** Number of days in the trip, or null while the range is incomplete */
 export const tripLength = (trip: TripDetails) =>
-  trip.flexible ? trip.flexibleDays : trip.start && trip.end ? trip.end - trip.start + 1 : null
+  trip.flexible ? trip.flexibleDays : trip.start && trip.end ? daysBetween(trip.start, trip.end) + 1 : null
