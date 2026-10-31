@@ -3,6 +3,7 @@ import { ApiError, integer, object, requireThat, text } from '../expenses/domain
 import { ExpenseService } from '../expenses/service.ts';
 import { transaction, type Database, type Pool, type Tx } from '../db.ts';
 import { IMAGE_TYPES, type MediaStorage } from '../storage.ts';
+import { mapMatches, parseSelfies, type FaceSearch } from './faces.ts';
 
 export const EXPENSE_CATEGORIES = ['food', 'stays', 'travel', 'fun', 'other'] as const;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -361,6 +362,33 @@ export class TripService {
     return { added: photos.length };
   }
 
+  // face_photos is created by the cloud/ migration; before it runs, every photo is simply pending.
+  private async faceIndex(tripId: string, keys: string[], total: number) {
+    try {
+      const { rows } = await this.pool.query(
+        'SELECT object_name, status, face_count FROM face_photos WHERE trip_id = $1 AND object_name = ANY($2::text[])',
+        [tripId, keys],
+      );
+      const { rows: [s] } = await this.pool.query(
+        `SELECT count(*) FILTER (WHERE fp.status = 'indexed') AS indexed,
+                count(*) FILTER (WHERE fp.status = 'no_faces') AS no_faces,
+                count(*) FILTER (WHERE fp.status = 'error') AS failed,
+                count(*) FILTER (WHERE fp.object_name IS NULL) AS pending,
+                coalesce(sum(fp.face_count), 0) AS faces
+         FROM trip_photos p LEFT JOIN face_photos fp ON fp.object_name = p.object_key AND fp.trip_id = p.trip_id
+         WHERE p.trip_id = $1`,
+        [tripId],
+      );
+      return {
+        byKey: new Map(rows.map(r => [r.object_name as string, { status: r.status as string, count: Number(r.face_count) }])),
+        summary: { indexed: Number(s.indexed), noFaces: Number(s.no_faces), pending: Number(s.pending), failed: Number(s.failed), faces: Number(s.faces) },
+      };
+    } catch (err: any) {
+      if (err?.code !== '42P01') throw err;
+      return { byKey: new Map<string, { status: string; count: number }>(), summary: { indexed: 0, noFaces: 0, pending: total, failed: 0, faces: 0 } };
+    }
+  }
+
   async photos(access: TripAccess, limit: number, offset: number) {
     const { rows } = await this.pool.query(
       `SELECT p.id, p.object_key, p.width, p.height, p.caption, p.created_at, p.uploaded_by, u.name AS uploader
@@ -369,8 +397,11 @@ export class TripService {
       [access.trip.id, limit, offset],
     );
     const { rows: [count] } = await this.pool.query('SELECT count(*) AS n FROM trip_photos WHERE trip_id = $1', [access.trip.id]);
+    const total = Number(count.n);
+    const faces = await this.faceIndex(access.trip.id, rows.map(r => r.object_key), total);
     return {
-      total: Number(count.n),
+      total,
+      faceSummary: faces.summary,
       items: await Promise.all(rows.map(async r => ({
         id: r.id,
         url: await this.storage.readUrl(r.object_key),
@@ -379,7 +410,20 @@ export class TripService {
         caption: r.caption,
         uploadedBy: { userId: r.uploaded_by, name: r.uploader },
         createdAt: r.created_at.toISOString(),
+        faces: faces.byKey.get(r.object_key) ?? { status: 'pending', count: 0 },
       }))),
     };
+  }
+
+  // Selfie search over the trip's indexed faces; the selfies are passed through and never stored.
+  async findMe(access: TripAccess, body: unknown, faceSearch: FaceSearch) {
+    const selfies = parseSelfies(body);
+    const result = await faceSearch.search(access.trip.id, selfies);
+    const names = result.matches.map(m => m.object_name);
+    const { rows } = names.length
+      ? await this.pool.query('SELECT id, object_key FROM trip_photos WHERE trip_id = $1 AND object_key = ANY($2::text[])', [access.trip.id, names])
+      : { rows: [] };
+    const matches = mapMatches(result.matches, new Map(rows.map(r => [r.object_key as string, r.id as string])));
+    return { matches, threshold: result.threshold, truncated: result.truncated };
   }
 }

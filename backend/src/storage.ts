@@ -149,7 +149,7 @@ class LocalStorage implements MediaStorage {
   }
 }
 
-function decodeCredentials(env: NodeJS.ProcessEnv) {
+export function decodeCredentials(env: NodeJS.ProcessEnv) {
   if (!env.GCS_CREDENTIALS_BASE64) return null;
   const json = JSON.parse(Buffer.from(env.GCS_CREDENTIALS_BASE64, 'base64').toString('utf8'));
   if (!json.client_email || !json.private_key) throw new Error('GCS_CREDENTIALS_BASE64 must be a base64 service account JSON key');

@@ -15,9 +15,14 @@ import { ScreenLayout } from '../../components/ScreenLayout'
 import { EmptyState } from '../../components/states/EmptyState'
 import { Skeleton } from '../../components/states/Skeleton'
 import { useVoice } from '../../components/voice/voiceContext'
+import { Toast } from '../../components/Toast'
 import { useActiveTrip } from '../../data/activeTrip'
 import { personOf, type PersonId } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
+import { useToast } from '../../hooks/useToast'
+import { ApiRequestError, tripsApi, type FaceSummary } from '../../services/tripsService'
+import { useProfileStore } from '../Profile/profileStore'
+import { downscaleSelfie, faceSummaryOf, hasMatched, markMatched, useFacePolling } from './faceSearch'
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
@@ -25,6 +30,14 @@ export function PhotosPage() {
   const navigate = useNavigate()
   const { trip, photos } = useActiveTrip()
   const total = photos?.total ?? 0
+  const summary = faceSummaryOf(photos)
+  const [toast, showToast] = useToast()
+  // Photo ids found by the face filter, or null while it is off
+  const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null)
+  const [searching, setSearching] = useState(false)
+  useFacePolling(summary?.pending ?? 0)
+
+  const visible = (photos?.items ?? []).map((photo, index) => ({ photo, index })).filter(({ photo }) => !matchedIds || matchedIds.has(photo.id))
 
   return (
     <>
@@ -36,14 +49,36 @@ export function PhotosPage() {
         withBubble
       >
         <main className="screen__body photos__body">
-          <FaceFilter squad={trip?.members.map((m) => m.memberId) ?? []} />
-          <UploadCard total={total} uploaders={new Set(photos?.items.map((p) => p.uploadedBy.userId)).size} />
+          <FaceFilter
+            squad={trip?.members.map((m) => m.memberId) ?? []}
+            meId={trip?.memberId ?? null}
+            tripId={trip?.id ?? null}
+            active={!!matchedIds}
+            searching={searching}
+            onSearching={setSearching}
+            onMatches={setMatchedIds}
+            showToast={showToast}
+          />
+          <UploadCard
+            total={total}
+            uploaders={new Set(photos?.items.map((p) => p.uploadedBy.userId)).size}
+            summary={summary}
+            matched={hasMatched(trip?.id ?? null)}
+          />
           <ReelStudio />
           {!photos ? (
             <Skeleton variant="card" height={230} />
+          ) : matchedIds && !visible.length ? (
+            <EmptyState
+              size="compact"
+              headingLevel={3}
+              title="No photos of you yet"
+              text="We couldn’t spot you in the squad’s photos. Try a clearer selfie, or check back as more get added."
+              action={{ label: 'Show all photos', onClick: () => setMatchedIds(null) }}
+            />
           ) : photos.items.length ? (
-            <div className="photo-grid">
-              {photos.items.map((photo, i) => (
+            <div className="photo-grid" aria-busy={searching}>
+              {visible.map(({ photo, index: i }) => (
                 <button key={photo.id} type="button" className="photo-grid__item" onClick={() => navigate(`trip/photos/view/${i}`)}>
                   <img src={photo.url} alt={`Trip photo ${i + 1}, from ${photo.uploadedBy.name}`} width={116} height={110} loading="lazy" />
                 </button>
@@ -60,23 +95,76 @@ export function PhotosPage() {
           )}
         </main>
       </ScreenLayout>
+      <Toast message={toast} />
       <GhoomMateSays>Say “make a reel” and I’ll cut one in seconds!</GhoomMateSays>
     </>
   )
 }
 
-// TODO: filter the grid once face matching runs on uploads
-function FaceFilter({ squad }: { squad: PersonId[] }) {
+type FaceFilterProps = {
+  squad: PersonId[]
+  meId: string | null
+  tripId: string | null
+  active: boolean
+  searching: boolean
+  onSearching: (searching: boolean) => void
+  onMatches: (ids: Set<string> | null) => void
+  showToast: (message: string) => void
+}
+
+const SEARCH_ERRORS: Record<string, string> = {
+  NO_FACE: 'We couldn’t see a face in your selfie, try another',
+  INVALID_IMAGE: 'We couldn’t read your selfie, try another',
+  SELFIE_TOO_LARGE: 'Your selfie is too large, try another',
+  FACE_SEARCH_DISABLED: 'Face search isn’t switched on yet',
+  FACE_SEARCH_UNAVAILABLE: 'Face search is busy right now, try again in a minute',
+}
+
+function FaceFilter({ squad, meId, tripId, active, searching, onSearching, onMatches, showToast }: FaceFilterProps) {
   const navigate = useNavigate()
-  const [selected, setSelected] = useState<PersonId | null>(null)
+  const profile = useProfileStore()
+  // Only your own selfie is ever sent to the server, so only you can be matched
+  const selfie = profile.selfie ?? (profile.photo?.startsWith('data:') ? profile.photo : null)
+
+  const findMe = async () => {
+    if (searching) return
+    if (active) {
+      onMatches(null)
+      return
+    }
+    if (!tripId) return
+    if (!selfie) {
+      showToast('Add a selfie first so we can find you')
+      navigate('profile/edit')
+      return
+    }
+    onSearching(true)
+    try {
+      const small = await downscaleSelfie(selfie)
+      const { matches } = await tripsApi.findMe(tripId, [small])
+      markMatched(tripId)
+      onMatches(new Set(matches.map((m) => m.photoId)))
+    } catch (err) {
+      const code = err instanceof ApiRequestError ? err.code : ''
+      showToast(SEARCH_ERRORS[code] ?? 'Couldn’t search the photos right now, try again')
+    } finally {
+      onSearching(false)
+    }
+  }
 
   return (
     <section className="face-filter">
       <div className="face-filter__header">
         <h2 className="face-filter__title">Who’s in it?</h2>
-        {selected && <span className="face-filter__status">Face filter on</span>}
+        {searching ? (
+          <span className="face-filter__status" role="status">
+            Finding you in the photos…
+          </span>
+        ) : (
+          active && <span className="face-filter__status">Face filter on</span>
+        )}
       </div>
-      <div className="face-filter__faces">
+      <div className="face-filter__faces" aria-busy={searching}>
         {/* Your face-match selfie lives in Edit profile */}
         <button type="button" className="face" onClick={() => navigate('profile/edit')}>
           <span className="face__add">
@@ -85,14 +173,16 @@ function FaceFilter({ squad }: { squad: PersonId[] }) {
           <span className="face__label face__label--bold">+ Selfie</span>
         </button>
         {squad.map((id) => {
-          const isSelected = id === selected
+          const isMe = id === meId
+          const isSelected = isMe && active
           return (
             <button
               key={id}
               type="button"
               className={`face${isSelected ? ' face--selected' : ''}`}
               aria-pressed={isSelected}
-              onClick={() => setSelected(isSelected ? null : id)}
+              aria-busy={isMe && searching}
+              onClick={() => (isMe ? void findMe() : showToast(`${personOf(id).name} can find themselves with their own selfie`))}
             >
               <span className="face__ring">
                 <Avatar person={id} size={isSelected ? 44 : 52} />
@@ -106,10 +196,27 @@ function FaceFilter({ squad }: { squad: PersonId[] }) {
   )
 }
 
-function UploadCard({ total, uploaders }: { total: number; uploaders: number }) {
+function faceLine(total: number, summary: FaceSummary | null) {
+  if (!total || !summary) return 'Add photos to start tagging faces'
+  if (summary.pending > 0) return `Tagging faces · ${total - summary.pending} of ${total} ${total === 1 ? 'photo' : 'photos'}`
+  if (summary.faces > 0) {
+    const photoCount = summary.indexed
+    return `${summary.faces} ${summary.faces === 1 ? 'face' : 'faces'} found in ${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}${summary.failed ? ` · ${summary.failed} couldn’t be read` : ''}`
+  }
+  return summary.failed ? 'Couldn’t read faces in some photos' : 'No faces found in these photos'
+}
+
+function UploadCard({ total, uploaders, summary, matched }: { total: number; uploaders: number; summary: FaceSummary | null; matched: boolean }) {
   const navigate = useNavigate()
-  // Uploads are ingested into the bucket; the face steps light up once the cloud pipeline lands
-  const steps: PipelineStep[] = PIPELINE.map((step, i) => ({ ...step, status: i === 0 && total ? 'done' : 'pending' }))
+  // Ingest is done once photos are stored; Faces and Embed follow the cloud pipeline, Match follows a find-me search
+  const processing = !!total && !!summary && summary.pending > 0
+  const processed = !!total && !!summary && summary.pending === 0
+  const steps: PipelineStep[] = PIPELINE.map((step, i): PipelineStep => {
+    if (i === 0) return { ...step, status: total ? 'done' : 'pending' }
+    if (i === 1 || i === 2) return { ...step, status: processed ? 'done' : processing ? 'current' : 'pending' }
+    if (i === 3) return { ...step, status: matched ? 'done' : 'pending' }
+    return { ...step, status: 'pending' }
+  })
 
   return (
     <section className="card upload-card">
@@ -132,7 +239,7 @@ function UploadCard({ total, uploaders }: { total: number; uploaders: number }) 
       <hr className="upload-card__divider" />
       <div className="upload-card__pipeline-header">
         <p className="overline">AI face pipeline</p>
-        <p className="upload-card__found">Face tagging coming soon</p>
+        <p className="upload-card__found" role="status">{faceLine(total, summary)}</p>
       </div>
       <ol className="pipeline">
         {steps.map((step, i) => (

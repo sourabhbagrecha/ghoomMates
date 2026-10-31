@@ -204,7 +204,7 @@ export function PhotoUploadPage() {
           <hr className="upload__divider" />
           <div className="upload__pipeline-header">
             <p className="overline">AI face pipeline</p>
-            <p className="upload__found">Face tagging coming soon</p>
+            <p className="upload__found">Faces are tagged automatically after upload</p>
           </div>
           <ol className="upload__pipeline">
             {UPLOAD_STEPS.map((name, i) => {

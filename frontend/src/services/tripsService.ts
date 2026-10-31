@@ -106,6 +106,20 @@ export type TripPhoto = {
   caption: string
   uploadedBy: { userId: string; name: string }
   createdAt: string
+  /** Filled in by the cloud pipeline a few seconds after upload */
+  faces?: { status: 'pending' | 'indexed' | 'no_faces' | 'error'; count: number }
+}
+
+export type FaceSummary = { indexed: number; noFaces: number; pending: number; failed: number; faces: number }
+
+export type TripPhotos = { items: TripPhoto[]; total: number; faceSummary?: FaceSummary }
+
+export type FindMeMatch = {
+  photoId: string
+  distance: number
+  width: number
+  height: number
+  faces: { x: number; y: number; w: number; h: number; distance: number }[]
 }
 
 export type Rsvp = 'going' | 'maybe' | 'skip'
@@ -204,7 +218,9 @@ export const tripsApi = {
   settlements: (id: string) => request<{ items: Settlement[] }>(`${trip(id)}/settlements?limit=100`).then((r) => r.items),
   settle: (id: string, transfer: Transfer & { note?: string }, idempotencyKey: string) =>
     request<Settlement>(`${trip(id)}/settlements`, { body: transfer, idempotencyKey }),
-  photos: (id: string) => request<{ items: TripPhoto[]; total: number }>(`${trip(id)}/photos?limit=500`),
+  photos: (id: string) => request<TripPhotos>(`${trip(id)}/photos?limit=500`),
+  findMe: (id: string, selfies: string[]) =>
+    request<{ matches: FindMeMatch[]; threshold: number; truncated: boolean }>(`${trip(id)}/photos/find-me`, { body: { selfies } }),
   addPhotos: (id: string, photos: { key: string; width?: number; height?: number }[]) =>
     request<{ added: number }>(`${trip(id)}/photos`, { body: { photos } }),
   itinerary: (id: string) => request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`).then((r) => r.days),

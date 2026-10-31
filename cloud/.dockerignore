@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+local-bucket/
+test-images/
+*.md
+deploy.sh
+docker-compose.yml

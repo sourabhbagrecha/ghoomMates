@@ -15,3 +15,8 @@ export function loadEnv(envPath = resolve(import.meta.dirname, '../.env')) {
     }
   } catch {}
 }
+
+// Base URL of the private face-search Cloud Run service (or http://localhost:8081 locally). Unset disables find-me.
+export function faceSearchUrl(env = process.env) {
+  return env.FACE_SEARCH_URL?.trim().replace(/\/+$/, '') || null;
+}

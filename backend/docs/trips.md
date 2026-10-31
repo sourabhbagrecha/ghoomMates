@@ -21,7 +21,8 @@ Every route except the invite preview needs `Authorization: Bearer <session toke
 | GET / POST | `/api/trips/:id/expenses` | List / add an expense |
 | GET / POST | `/api/trips/:id/settlements` | List / record a payment you sent or received |
 | POST | `/api/trips/:id/uploads` | `{ kind: photo \| receipt, contentType }` → `{ key, upload: { url, method, headers } }` |
-| GET / POST | `/api/trips/:id/photos` | List the album (signed read URLs) / register uploaded keys |
+| GET / POST | `/api/trips/:id/photos` | List the album (signed read URLs, face index status) / register uploaded keys |
+| POST | `/api/trips/:id/photos/find-me` | Selfie search: the album photos that contain the person in the selfies |
 | GET / PUT | `/api/trips/:id/itinerary` | Days and stops with RSVPs / replace the whole plan |
 | POST | `/api/trips/:id/itinerary/draft` | Suggested plan (`{ day? }` for one day); nothing is saved |
 | POST / PATCH / DELETE | `/api/trips/:id/stops[/:stopId]` | Add / edit / remove a stop |
@@ -97,3 +98,29 @@ DATABASE_URL=<…/ghoomates_test> npm run test:trips
 ```
 
 Runs create → invite → join → expenses → settle → photo/receipt upload (local storage) and the itinerary draft/save/RSVP flow against a real database. It leaves test rows behind, so point it at `ghoomates_test`.
+
+## Face matching
+
+A Python service under `cloud/` indexes every photo uploaded under `trips/<tripId>/photos/` into `face_photos` and `faces` (same database, created by the cloud migration, not by the backend). `face_photos.object_name` equals `trip_photos.object_key`. If those tables do not exist yet, the album still works and every photo reports `pending`.
+
+`GET /api/trips/:id/photos` adds, per item, `faces: { status: 'pending' | 'indexed' | 'no_faces' | 'error', count }` (no `face_photos` row means `pending`, count 0), and at the top level `faceSummary: { indexed, noFaces, pending, failed, faces }` counted over the whole trip (`faces` is the sum of face counts).
+
+`POST /api/trips/:id/photos/find-me` (members only) takes `{ "selfies": [dataUrlOrBase64, ...] }` with 1 to 3 JPEG, PNG or WebP images. It has its own 25 MiB JSON limit and still requires `Content-Type: application/json`. Selfies are forwarded to `face-search` in memory and never logged or stored.
+
+```json
+{ "matches": [ { "photoId": "uuid", "distance": 0.21, "width": 4000, "height": 3000,
+                 "faces": [ { "x": 120, "y": 80, "w": 200, "h": 200, "distance": 0.21 } ] } ],
+  "threshold": 0.4, "truncated": false }
+```
+
+Matches are sorted by distance ascending. Face boxes are in original image pixels. Matches whose photo is not registered in `trip_photos` are dropped.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 400 | `VALIDATION_ERROR` | Not 1 to 3 image strings (or the code face-search returns for 400) |
+| 413 | `SELFIE_TOO_LARGE` | Selfie too large for face-search |
+| 422 | `NO_FACE`, `INVALID_IMAGE` | No face found or unreadable image, with face-search's message |
+| 503 | `FACE_SEARCH_DISABLED` | `FACE_SEARCH_URL` is not set |
+| 503 | `FACE_SEARCH_UNAVAILABLE` | Network error, timeout (90 s, covers a cold start) or a 5xx |
+
+`FACE_SEARCH_URL` is the face-search base URL. Local `http://localhost` or `http://127.0.0.1` URLs are called without auth; any other URL gets a Google ID token (audience = the URL) minted from `GCS_CREDENTIALS_BASE64`, whose service account needs `roles/run.invoker` on the service.
