@@ -44,7 +44,7 @@ const ERRORS: Record<VoiceErrorKind, { title: string; text: string }> = {
   failed: { title: 'GhoomMate tripped up', text: 'Something went wrong starting the chat. Give it another go?' },
 }
 
-const SUGGESTIONS = ['Add ₹250 lunch, split with everyone', 'Who owes what?', 'Make a reel', 'Plan my free day']
+const SUGGESTIONS = ['Add ₹250 lunch, split with everyone', 'Who owes what?', 'What should I do here?', 'Make a reel', 'Plan my free day']
 
 const WAVE_BARS = 9
 const QUIET = 0.18

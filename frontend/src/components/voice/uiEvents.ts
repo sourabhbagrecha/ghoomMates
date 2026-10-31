@@ -1,5 +1,14 @@
 import { formatINR } from '../../pages/Trip/tripFormat'
-import { SCREEN_ROUTES, type BalanceLine, type ExpenseDraft, type TransferLine, type UiEvent } from './protocol'
+import {
+  SCREEN_ROUTES,
+  experienceRoute,
+  type BalanceLine,
+  type ExpenseDraft,
+  type ExperiencePick,
+  type RecommendationBasis,
+  type TransferLine,
+  type UiEvent,
+} from './protocol'
 import type { Notice } from './voiceContext'
 
 /*
@@ -17,6 +26,7 @@ import type { Notice } from './voiceContext'
 export type UiCard =
   | { kind: 'expense'; draft: ExpenseDraft; status: 'draft' | 'added' }
   | { kind: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
+  | { kind: 'experiences'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
 
 /** Side effects a handler can use */
 export type UiEffects = {
@@ -61,6 +71,10 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
     const route = SCREEN_ROUTES[screen]
     if (route) fx.navigate(route)
   },
+
+  'experiences.recommended': ({ city, basis, picks }, fx) => fx.setCard(() => ({ kind: 'experiences', city, basis, picks })),
+
+  'experience.open': ({ experienceId }, fx) => fx.navigate(experienceRoute(experienceId)),
 }
 
 /** A UiEvent from an RPC payload, or null for junk and event types this build doesn’t know yet */

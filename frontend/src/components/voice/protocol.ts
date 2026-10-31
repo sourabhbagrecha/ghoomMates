@@ -39,12 +39,22 @@ export type TransferLine = { from: string; to: string; amountPaise: number };
 
 export type Screen = 'expenses' | 'itinerary' | 'photos' | 'explore' | 'members' | 'reel';
 
+export type RecommendationBasis = 'you' | 'squad' | 'rating';
+
+export type ExperiencePick = {
+  experienceId: string;
+  matchPercent: number | null;
+  reason: string;
+};
+
 export type UiEvent =
   | { type: 'expense.draft'; draft: ExpenseDraft }
   | { type: 'expense.added'; expense: AddedExpense }
   | { type: 'expense.cancelled'; draftId: string }
   | { type: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
-  | { type: 'navigate'; screen: Screen };
+  | { type: 'navigate'; screen: Screen }
+  | { type: 'experiences.recommended'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
+  | { type: 'experience.open'; experienceId: string };
 
 export type UiAction =
   | { type: 'confirm'; draftId: string }
@@ -58,3 +68,5 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   members: 'trip/members',
   reel: 'trip/photos/reel',
 };
+
+export const experienceRoute = (experienceId: string) => `trip/explore/guide/${encodeURIComponent(experienceId)}`;

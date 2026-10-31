@@ -57,13 +57,27 @@ export type TransferLine = { from: string; to: string; amountPaise: number };
 
 export type Screen = 'expenses' | 'itinerary' | 'photos' | 'explore' | 'members' | 'reel';
 
+/** Whose personality a set of picks was ranked for; 'rating' when nobody has taken the quiz */
+export type RecommendationBasis = 'you' | 'squad' | 'rating';
+
+/** One recommended guide experience. The frontend looks up title, photo and price by id. */
+export type ExperiencePick = {
+  experienceId: string;
+  /** 0–100 fit with the vibe; null when ranked by rating */
+  matchPercent: number | null;
+  /** Short why, e.g. "Adventure + food" */
+  reason: string;
+};
+
 /** Agent → frontend. Add new variants here when a new skill needs UI. */
 export type UiEvent =
   | { type: 'expense.draft'; draft: ExpenseDraft }
   | { type: 'expense.added'; expense: AddedExpense }
   | { type: 'expense.cancelled'; draftId: string }
   | { type: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
-  | { type: 'navigate'; screen: Screen };
+  | { type: 'navigate'; screen: Screen }
+  | { type: 'experiences.recommended'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
+  | { type: 'experience.open'; experienceId: string };
 
 /** Frontend → agent. */
 export type UiAction =
@@ -79,3 +93,6 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   members: 'trip/members',
   reel: 'trip/photos/reel',
 };
+
+/** Frontend hash route of one guide experience */
+export const experienceRoute = (experienceId: string) => `trip/explore/guide/${encodeURIComponent(experienceId)}`;

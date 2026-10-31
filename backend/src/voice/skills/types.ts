@@ -4,7 +4,11 @@ import type { BackendClient } from '../backendClient.ts';
 import type { MemberRef } from '../members.ts';
 import type { AddedExpense, ExpenseCategory, ExpenseDraft, UiAction, UiEvent } from '../protocol.ts';
 
-export type TripMember = MemberRef & { userId: string };
+export type TripMember = MemberRef & {
+  userId: string;
+  /** Personality-quiz scores from the member's profile; null until they take the quiz */
+  vibe?: unknown;
+};
 
 /** The subset of GET /api/trips/:tripId the agent uses. */
 export type TripDetail = {

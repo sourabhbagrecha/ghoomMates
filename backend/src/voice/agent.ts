@@ -77,7 +77,7 @@ export default defineAgent({
       return;
     }
 
-    const members = trip.members.map(({ memberId, userId, name }) => ({ memberId, userId, name }));
+    const members = trip.members.map(({ memberId, userId, name, vibe }) => ({ memberId, userId, name, vibe: vibe ?? null }));
     const meMember = members.find(m => m.memberId === trip.memberId);
     const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
     const participant = await ctx.waitForParticipant();

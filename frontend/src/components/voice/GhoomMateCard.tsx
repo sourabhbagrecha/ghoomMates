@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BalancesCard } from './BalancesCard'
 import { ExpenseDraftCard } from './ExpenseDraftCard'
+import { ExperiencesCard } from './ExperiencesCard'
 import type { UiCard } from './uiEvents'
 import type { CardAction } from './useGhoomMateUi'
 
@@ -25,6 +26,9 @@ const RENDERERS: { [K in UiCard['kind']]: (props: CardProps<K>) => ReactNode } =
     />
   ),
   balances: ({ card }) => <BalancesCard balances={card.balances} transfers={card.transfers} />,
+  experiences: ({ card, onNavigate }) => (
+    <ExperiencesCard city={card.city} basis={card.basis} picks={card.picks} onNavigate={onNavigate} />
+  ),
 }
 
 /** Whatever GhoomMate last put on screen */

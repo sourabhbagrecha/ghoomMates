@@ -1,6 +1,6 @@
 # Voice module (GhoomMate)
 
-A real-time voice agent on LiveKit Cloud. The user talks to GhoomMate (the octopus FAB). It drafts expenses on screen, writes them after a spoken "yes" or a tapped Confirm, reads balances and opens screens. The model is speech-to-speech `google/gemini-3.8-live` through LiveKit Inference, billed to the LiveKit project, so no Google key is needed.
+A real-time voice agent on LiveKit Cloud. The user talks to GhoomMate (the octopus FAB). It drafts expenses on screen, writes them after a spoken "yes" or a tapped Confirm, reads balances, recommends local guide experiences that fit the user's personality, and opens screens. The model is speech-to-speech `google/gemini-3.8-live` through LiveKit Inference, billed to the LiveKit project, so no Google key is needed.
 
 ## Flow
 
@@ -43,6 +43,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `backendClient.ts` | `fetch` wrapper: Bearer token, JSON, `Idempotency-Key`, and turns `{error:{code,message}}` into a thrown `BackendError` |
 | `ui.ts` | `createUiPusher(room, identity)`: ordered, fire-and-forget `ghoomate.ui` RPCs. Failures are only logged. |
 | `members.ts` | Pure helpers: spoken names → member ids, rupees → paise, equal-split preview (tested in `tests/voice/members.test.ts`) |
+| `experiences.ts` | Agent-side copy of the guide-experience catalogue (ids, prices, vibe weights) and the pure ranking helpers (tested in `tests/voice/experiences.test.ts`) |
 | `skills/` | One file per capability, plus the registry in `skills/index.ts` |
 
 ## UI event protocol
@@ -56,6 +57,8 @@ Agent → frontend, RPC `ghoomate.ui`, payload JSON `UiEvent`:
 | `expense.cancelled` | `draftId` | Card dismissed |
 | `balances` | `currency, balances[{memberId,name,balancePaise}], transfers[{from,to,amountPaise}]` (`from`/`to` are display names) | Who-owes-whom card |
 | `navigate` | `screen` (route in `SCREEN_ROUTES`) | Navigates; the session stays alive |
+| `experiences.recommended` | `city, basis ('you'\|'squad'\|'rating'), picks[{experienceId, matchPercent, reason}]` | Picks card; tapping a pick opens it |
+| `experience.open` | `experienceId` | Navigates to `trip/explore/guide/<id>` |
 
 Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'confirm'|'cancel', draftId}`. The agent answers `{ok:true}` or `{ok:false,error}` and then speaks a short follow-up. A tap and a spoken "yes" share `commitDraft` / `cancelDraft` in `skills/expenses.ts`. The draft's idempotency key makes a repeated confirm a no-op.
 
@@ -66,6 +69,22 @@ Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'conf
 - The category is inferred, never asked.
 - An unclear amount, description or name makes the tool throw `llm.ToolError("…")`, and the model asks that as one clarifying question (for example "Which Riya, Riya S or Riya K?").
 - The equal-split preview uses the backend's `splitExpense`, so the card matches what gets saved.
+
+## Experience recommendations
+
+`skills/experiences.ts` gives the model two tools:
+
+- **`recommend_experiences({for_whom, city?, tag?})`** ranks the guide trips in the trip's city (or a city the user names) and pushes the top 3 as a card. It also returns them to the model, with the personality traits behind each pick, so GhoomMate can say why one suits you.
+- **`open_experience({experience_id})`** opens that experience's detail screen. Booking stays a tap on Join; the agent never books.
+
+How the ranking works:
+
+- **Personality.** It uses the vibe from the personality quiz (`users.preferences.vibe`: 0–1 for adventure, food, nightlife, culture, chill and shops). The vibe reaches the agent on each member in `GET /api/trips/:id`.
+- **Whose vibe.** `for_whom: 'me'` uses the speaker's own vibe. If they haven't taken the quiz, it falls back to the squad's blended vibe. If nobody has, it ranks by rating, and GhoomMate suggests taking the quiz.
+- **Match score.** Each experience has vibe weights. The match is the weighted mean of the person's scores over those axes, and ties go to the higher rating.
+- **Cities.** Destinations other than Goa or Udaipur get a clarifying question about which city they mean.
+
+The card looks up each experience's photo, price and date from the frontend catalogue (`frontend/src/pages/Explore/experiencesData.ts`). When you add or change an experience, update both files. The test `the agent catalogue matches the frontend one` fails if their ids, cities or prices drift apart.
 
 ## How to add a skill (example: "make a reel from my photos")
 
