@@ -33,6 +33,10 @@ export function YourProfilePage() {
   const vibe = currentVibe()
   const [toast, showToast] = useToast()
   const name = displayName(profile)
+  const createdAt = getStoredUser()?.createdAt
+  const memberSince = createdAt
+    ? `Member since ${new Date(createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`
+    : ACCOUNT.memberSince
   const earned = BADGES.filter((b) => b.earned).length
 
   // Confirmation from the screen we came back from (edit profile, vibe quiz)
@@ -64,7 +68,7 @@ export function YourProfilePage() {
           <div className="your-profile__identity">
             <h2 className="your-profile__name">{name}</h2>
             <p className="your-profile__handle">{profile.username}</p>
-            <p className="your-profile__since">{ACCOUNT.memberSince}</p>
+            <p className="your-profile__since">{memberSince}</p>
           </div>
           <span className="your-profile__persona">{vibe.persona}</span>
           <dl className="your-profile__stats">

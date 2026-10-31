@@ -25,6 +25,9 @@ export function SettingsPage() {
   const [upiDraft, setUpiDraft] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const upiValid = upiDraft !== null && isValidUpi(upiDraft)
+  // Signed in with Google: show that account's email
+  const googleUser = getStoredUser()
+  const email = googleUser?.email || ACCOUNT.email
 
   const saveUpi = () => {
     if (!upiValid) return
@@ -34,13 +37,9 @@ export function SettingsPage() {
     showToast('UPI ID updated')
   }
 
-  // Signed in with Google: show that account's email
-  const googleUser = getStoredUser()
-  const email = googleUser?.email ?? ACCOUNT.email
-
-  const logOut = async () => {
-    // Ends the Google session on the server and clears it (and the onboarding flag) on this device
-    await logoutUser()
+  const logOut = () => {
+    // Ends the Google session on the server in the background; this device signs out right away
+    void logoutUser()
     signOut()
     profileActions.reset()
     navigate('welcome')

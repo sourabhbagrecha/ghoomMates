@@ -223,11 +223,31 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   }
 }
 
+// The backend rejects request bodies over 64 KiB, so photos are re-encoded as a small JPEG first.
+const PICTURE_SIZE = 320;
+
+async function toUploadablePicture(src: string): Promise<string> {
+  // Remote URLs (e.g. Google avatars) and "no photo" are stored as they are
+  if (!src.startsWith('data:') && !src.startsWith('blob:')) return src;
+  // Already small enough, e.g. the saved photo sent again with a new name
+  if (src.startsWith('data:') && src.length < 48_000) return src;
+  const image = new Image();
+  image.src = src;
+  await image.decode();
+  const scale = Math.min(1, PICTURE_SIZE / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.naturalWidth * scale);
+  canvas.height = Math.round(image.naturalHeight * scale);
+  canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.8);
+}
+
 export async function updateUserProfile(patch: { picture?: string; name?: string }): Promise<AuthUser | null> {
   const token = getToken();
   if (!token) return null;
 
   try {
+    if (patch.picture) patch = { ...patch, picture: await toUploadablePicture(patch.picture) };
     const res = await fetch('/auth/profile', {
       method: 'PATCH',
       headers: {

@@ -32,6 +32,7 @@ import {
   loginWithGoogleCode,
   saveAuthSession,
   subscribeAuth,
+  updateUserProfile,
   type AuthUser,
 } from './services/authService'
 import { getProfileName, hasOnboarded, markOnboarded } from './services/onboardingStorage'
@@ -183,6 +184,8 @@ function App() {
         go={navigate}
         onDone={(details) => {
           markOnboarded(details.name)
+          // The name entered in About you replaces the one from Google
+          if (details.name.trim() && details.name.trim() !== user?.name) void updateUserProfile({ name: details.name.trim() })
           if (details.photo) {
             setUser((prev) => (prev ? { ...prev, picture: details.photo! } : null))
           }
