@@ -3,6 +3,7 @@ import { GhoomMateFab } from './components/GhoomMate'
 import { ScreenBackContext } from './components/screenBack'
 import { OfflineBanner } from './components/states/OfflineBanner'
 import { TabBar, type TabId } from './components/TabBar'
+import { ErrorBoundary } from './components/states/ErrorBoundary'
 import { VoiceProvider } from './components/voice/VoiceProvider'
 import { activeTrip } from './data/activeTrip'
 import { setYou } from './data/people'
@@ -38,6 +39,7 @@ import {
   updateUserProfile,
   type AuthUser,
 } from './services/authService'
+import { syncVibeToProfile } from './services/vibeStorage'
 import { getProfileName, hasOnboarded, markOnboarded } from './services/onboardingStorage'
 import { getPendingInvite } from './services/pendingInvite'
 import './App.css'
@@ -100,6 +102,9 @@ function App() {
     })
     return unsubscribe
   }, [])
+
+  // A quiz taken before signing up goes onto the profile, where GhoomMate and the squad can see it
+  useEffect(() => syncVibeToProfile(user), [user])
 
   // Signed in with an invite still pending (e.g. a returning user who signed in from the invite): open it
   useEffect(() => {
@@ -282,7 +287,17 @@ function App() {
       <div className="device">
         <NavigateContext.Provider value={navigate}>
           <EntryRoutesContext.Provider value={entries}>
-            <VoiceProvider>{screen}</VoiceProvider>
+            <VoiceProvider>
+              {/* A screen that throws shows an error card instead of blanking the app */}
+              <ErrorBoundary
+                resetKey={route}
+                className="app__screen-error"
+                title="This screen hit a snag"
+                text="Something went wrong showing it. Try again, or head back."
+              >
+                {screen}
+              </ErrorBoundary>
+            </VoiceProvider>
           </EntryRoutesContext.Provider>
         </NavigateContext.Provider>
         <OfflineBanner />

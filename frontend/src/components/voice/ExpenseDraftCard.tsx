@@ -13,7 +13,7 @@ type ExpenseDraftCardProps = {
   status: 'draft' | 'added'
   pending: CardAction | null
   error: string | null
-  onAction: (type: CardAction) => void
+  onAction: (type: 'confirm' | 'cancel') => void
   onView: () => void
 }
 

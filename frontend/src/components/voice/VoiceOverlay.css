@@ -8,6 +8,98 @@
   justify-content: flex-end;
 }
 
+/* Minimised: a live pill in the octopus button's corner, above the screen's bottom bar (--dock-bottom, measured),
+   so the screen behind stays usable mid-conversation */
+.voice-dock {
+  position: absolute;
+  right: 12px;
+  bottom: var(--dock-bottom, 24px);
+  z-index: 50;
+  width: min(290px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  filter: var(--shadow-float);
+  animation: voice-dock-in 0.22s ease-out;
+}
+
+.voice-dock__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.voice-dock__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-dock__text strong {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 17px;
+  color: #fff;
+}
+
+.voice-dock__text span {
+  overflow: hidden;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-on-brand-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.voice-dock__wave {
+  flex-shrink: 0;
+  gap: 3px;
+  height: 20px;
+  padding-right: 4px;
+}
+
+.voice-dock__wave span {
+  width: 3px;
+  height: 20px;
+  background: var(--color-sky-light);
+}
+
+.voice-dock__wave span:nth-child(odd) {
+  background: var(--color-yellow);
+}
+
+.voice-dock__end {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-surface);
+}
+
+@keyframes voice-dock-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+/* The pill stands in for the octopus button (and its tips) while it's up */
+.device:has(.voice-dock) .ghoommate-fab,
+.device:has(.voice-dock) .ghoommate-says {
+  display: none;
+}
+
 /* Ink-to-blue scrim (one-off translucent values, see DESIGN_GUIDELINES.md section 2) */
 .voice-overlay__scrim {
   position: absolute;
@@ -256,10 +348,11 @@
   color: var(--color-primary);
 }
 
-/* Expense draft, balances and experiences cards: white on the sheet, lifted with the card shadow */
+/* Expense draft, balances, picks and day-plan cards: white on the sheet, lifted with the card shadow */
 .voice-expense,
 .voice-balances,
-.voice-experiences {
+.voice-picks,
+.voice-plan {
   border-radius: var(--radius-card);
   background: var(--color-surface);
   filter: var(--shadow-card);
@@ -390,35 +483,148 @@
   color: var(--color-ink);
 }
 
-/* Guide-trip picks */
-.voice-experiences__list {
+/* Guide-trip picks: hero pick, then compact alternatives */
+.voice-picks__hero {
   display: flex;
   flex-direction: column;
-  list-style: none;
+  gap: 6px;
 }
 
-.voice-experiences__list li + li {
-  border-top: 1px solid var(--color-divider);
-}
-
-.voice-experiences__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 8px 0;
-  text-align: left;
-}
-
-.voice-experiences__row img {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
+.voice-picks__photo {
+  position: relative;
+  display: block;
+  height: 150px;
+  overflow: hidden;
   border-radius: var(--radius-tile);
+}
+
+.voice-picks__photo img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
-.voice-experiences__text {
+.voice-picks__match {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 58px;
+  padding: 6px 8px;
+  border-radius: var(--radius-tile);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 20px;
+  color: var(--color-primary);
+}
+
+.voice-picks__match small {
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.voice-picks__seats {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-primary);
+}
+
+.voice-picks__title {
+  margin-top: 4px;
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+.voice-picks__why {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.voice-picks__meta {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.voice-picks__fits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.voice-picks__fits li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 2px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.voice-picks__fits strong {
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.voice-picks__hero .voice-card__actions {
+  margin-top: 6px;
+}
+
+.voice-picks__alts {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  border-top: 1px solid var(--color-divider);
+}
+
+.voice-picks__alts li + li {
+  border-top: 1px solid var(--color-divider);
+}
+
+.voice-picks__alt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 0;
+  text-align: left;
+}
+
+.voice-picks__alt > img:first-child {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.voice-picks__alt-text {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -426,28 +632,149 @@
   gap: 1px;
 }
 
-.voice-experiences__title {
+.voice-picks__alt-title {
   font-weight: 800;
   font-size: 13px;
   line-height: 18px;
   color: var(--color-ink);
 }
 
-.voice-experiences__meta,
-.voice-experiences__why {
+.voice-picks__alt-meta {
   font-weight: 600;
   font-size: 11px;
   line-height: 16px;
   color: var(--color-muted);
 }
 
-.voice-experiences__why strong {
+.voice-picks__alt-meta strong {
   font-weight: 800;
   color: var(--color-primary);
 }
 
-.voice-experiences__all {
+.voice-picks__quiz {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  text-align: left;
+}
+
+.voice-picks__quiz span {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+.voice-picks__quiz strong {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.voice-picks__all {
   align-self: center;
+}
+
+/* Day plan: a time rail of stops */
+.voice-plan__stops {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.voice-plan__stop {
+  position: relative;
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-plan__stop:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 28px;
+  top: 34px;
+  bottom: -18px;
+  width: 2px;
+  background: var(--color-sky-light);
+}
+
+.voice-plan__time {
+  justify-self: center;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.voice-plan__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  text-align: left;
+}
+
+.voice-plan__row img {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.voice-plan__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-plan__title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.voice-plan__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+.voice-plan__meta strong {
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.voice-plan__done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.voice-plan__added {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-success);
 }
 
 .voice-suggestions {
@@ -558,6 +885,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .voice-dock,
   .voice-overlay__scrim,
   .voice-sheet,
   .voice-card,

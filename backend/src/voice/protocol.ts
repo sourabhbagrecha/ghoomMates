@@ -57,16 +57,38 @@ export type TransferLine = { from: string; to: string; amountPaise: number };
 
 export type Screen = 'expenses' | 'itinerary' | 'photos' | 'explore' | 'members' | 'reel';
 
-/** Whose personality a set of picks was ranked for; 'rating' when nobody has taken the quiz */
-export type RecommendationBasis = 'you' | 'squad' | 'rating';
+/** Whose personality picks were ranked for: the speaker's quiz, the squad's blend, what they just asked for, or rating */
+export type RecommendationBasis = 'you' | 'squad' | 'mood' | 'rating';
+
+export type MemberFit = { memberId: string; name: string; matchPercent: number };
 
 /** One recommended guide experience. The frontend looks up title, photo and price by id. */
 export type ExperiencePick = {
   experienceId: string;
   /** 0–100 fit with the vibe; null when ranked by rating */
   matchPercent: number | null;
-  /** Short why, e.g. "Adventure + food" */
+  /** Short label, e.g. "Adventure + food" */
   reason: string;
+  /** One line on why it suits them, e.g. "You're big on adventure and food" */
+  why: string;
+  /** Next start, e.g. "Today · 04:30 PM" */
+  when: string;
+  /** Squad picks: the fit for each member who took the quiz */
+  fits: MemberFit[];
+};
+
+export type DayPlanStop = { experienceId: string; start: string; end: string; matchPercent: number | null };
+
+/** A proposed day of guide experiences GhoomMate shows before adding anything to the itinerary. */
+export type DayPlan = {
+  id: string;
+  city: string;
+  /** "Today", "Tomorrow" or "Wed, 4 Nov" */
+  dayLabel: string;
+  /** Itinerary day it would be added to; null when that date isn't part of the trip */
+  dayNumber: number | null;
+  basis: RecommendationBasis;
+  stops: DayPlanStop[];
 };
 
 /** Agent → frontend. Add new variants here when a new skill needs UI. */
@@ -77,12 +99,18 @@ export type UiEvent =
   | { type: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
   | { type: 'navigate'; screen: Screen }
   | { type: 'experiences.recommended'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
-  | { type: 'experience.open'; experienceId: string };
+  | { type: 'experience.open'; experienceId: string }
+  | { type: 'day.plan'; plan: DayPlan }
+  | { type: 'day.plan.added'; planId: string; dayNumber: number; count: number }
+  | { type: 'day.plan.cancelled'; planId: string };
 
 /** Frontend → agent. */
 export type UiAction =
   | { type: 'confirm'; draftId: string }
-  | { type: 'cancel'; draftId: string };
+  | { type: 'cancel'; draftId: string }
+  | { type: 'plan.add'; planId: string }
+  | { type: 'plan.cancel'; planId: string }
+  | { type: 'experience.join'; experienceId: string };
 
 /** Frontend hash routes for each Screen. */
 export const SCREEN_ROUTES: Record<Screen, string> = {

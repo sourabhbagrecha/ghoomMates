@@ -36,3 +36,8 @@
     box-shadow: none;
   }
 }
+
+/* A screen that threw: its error card in place of the screen */
+.app__screen-error {
+  margin: 96px 16px 0;
+}

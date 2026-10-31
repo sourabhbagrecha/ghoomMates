@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react'
 import {
   useAudioPlayback,
   useLocalParticipant,
@@ -16,6 +25,7 @@ import { Button, LinkButton } from '../Button'
 import { GhoomMateAvatar } from '../GhoomMate'
 import { ErrorState } from '../states/ErrorState'
 import { TextField } from '../TextField'
+import { ErrorBoundary } from '../states/ErrorBoundary'
 import { GhoomMateCard } from './GhoomMateCard'
 import { useGhoomMateUi } from './useGhoomMateUi'
 import type { VoiceConnection, VoiceErrorKind, VoicePrompt } from './VoiceProvider'
@@ -44,9 +54,13 @@ const ERRORS: Record<VoiceErrorKind, { title: string; text: string }> = {
   failed: { title: 'GhoomMate tripped up', text: 'Something went wrong starting the chat. Give it another go?' },
 }
 
-const SUGGESTIONS = ['Add ₹250 lunch, split with everyone', 'Who owes what?', 'What should I do here?', 'Make a reel', 'Plan my free day']
+const SUGGESTIONS = ['What should I do here?', 'Plan my day tomorrow', 'Add ₹250 lunch, split with everyone', 'Who owes what?', 'Make a reel']
 
 const WAVE_BARS = 9
+const DOCK_BARS = 5
+/** Bottom bars the minimised pill sits above: the tab bar and the screens' pinned action footers */
+const BOTTOM_BARS = '.tab-bar, .cover-layout__actions, .onboarding__actions, .home__actions'
+const DOCK_GAP = 12
 const QUIET = 0.18
 const CHAT_TOPIC = 'lk.chat'
 
@@ -55,14 +69,33 @@ type VoiceOverlayProps = {
   micBlocked: boolean
   /** Asked through `useVoice().open(prompt)`; sent once GhoomMate is listening */
   prompt: VoicePrompt | null
+  /** Tucked into a pill at the top so the screen behind is usable; the call keeps going */
+  minimized: boolean
+  onMinimize: () => void
+  onExpand: () => void
   onClose: () => void
   onRetry: () => void
   onRetryMic: () => void
   onOpenTrips: () => void
 }
 
-/** GhoomMate’s voice sheet: live agent state, transcript, and whatever card the agent puts on screen. */
-export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRetryMic, onOpenTrips }: VoiceOverlayProps) {
+/**
+ * GhoomMate’s voice sheet: live agent state, transcript, and whatever card the agent puts on screen. Going to a
+ * screen (a card tap, or the agent opening one) minimises it to a pill so you can look around mid-conversation;
+ * a new card, an error or a tap on the pill brings it back.
+ */
+export function VoiceOverlay({
+  conn,
+  micBlocked,
+  prompt,
+  minimized,
+  onMinimize,
+  onExpand,
+  onClose,
+  onRetry,
+  onRetryMic,
+  onOpenTrips,
+}: VoiceOverlayProps) {
   const room = useRoomContext()
   const navigate = useNavigate()
   const { trip } = useActiveTrip()
@@ -70,7 +103,7 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
   const { microphoneTrack, localParticipant } = useLocalParticipant()
   const transcriptions = useTranscriptions()
   const { canPlayAudio, startAudio } = useAudioPlayback(room)
-  const ui = useGhoomMateUi(room, agent?.identity)
+  const ui = useGhoomMateUi(room, agent?.identity, { minimize: onMinimize, expand: onExpand })
 
   const micTrack = microphoneTrack?.track instanceof LocalAudioTrack ? microphoneTrack.track : undefined
   const agentLevels = useMultibandTrackVolume(audioTrack, { bands: WAVE_BARS, updateInterval: 60 })
@@ -83,6 +116,9 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
   const sheetRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const sentPrompt = useRef(0)
+  // Typed (or a tapped suggestion) before GhoomMate was up; sent as soon as it's listening, like `prompt`
+  const [queued, setQueued] = useState<VoicePrompt | null>(null)
+  const sentQueued = useRef(0)
 
   const live = conn.status === 'live' && !!agent
   const phase: Phase =
@@ -102,7 +138,38 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
   const typing = typingChosen || micBlocked
   const error = conn.status === 'error' ? conn.error : null
 
-  useEffect(() => closeRef.current?.focus(), [])
+  // Focus the sheet whenever it comes up (on open, and when expanding from the pill)
+  useEffect(() => {
+    if (!minimized) closeRef.current?.focus()
+  }, [minimized])
+
+  // Something went wrong while minimised: bring the sheet up so the fix is in view
+  useEffect(() => {
+    if (minimized && error) onExpand()
+  }, [minimized, error, onExpand])
+
+  // The pill floats in the octopus button's corner, just above whatever bar is pinned to the bottom of this screen
+  const dockRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const dock = dockRef.current
+    const device = dock?.parentElement
+    if (!dock || !device) return
+    const bottom = device.getBoundingClientRect().bottom
+    const tops = [...device.querySelectorAll<HTMLElement>(BOTTOM_BARS)]
+      .map((bar) => bar.getBoundingClientRect())
+      .filter((rect) => rect.height > 0 && Math.abs(rect.bottom - bottom) < 4)
+      .map((rect) => rect.top)
+    dock.style.setProperty('--dock-bottom', `${(tops.length ? bottom - Math.min(...tops) : 0) + DOCK_GAP}px`)
+  })
+
+  /** Open a screen from the sheet and step aside so it's visible */
+  const go = useCallback(
+    (route: string) => {
+      navigate(route)
+      onMinimize()
+    },
+    [navigate, onMinimize],
+  )
 
   useEffect(() => {
     if (typingChosen) sheetRef.current?.querySelector<HTMLInputElement>('.voice-type input')?.focus()
@@ -128,12 +195,32 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
     void send(prompt.text)
   }, [prompt, phase, send])
 
+  useEffect(() => {
+    if (!queued || queued.n <= sentQueued.current || phase !== 'listening') return
+    sentQueued.current = queued.n
+    void send(queued.text)
+  }, [queued, phase, send])
+
+  /** Send now if GhoomMate is listening; while it's still waking, hold the message and show it as said */
+  const say = useCallback(
+    (text: string) => {
+      if (live) {
+        void send(text)
+        return
+      }
+      setTyped({ text, at: Date.now() })
+      setQueued((q) => ({ text, n: (q?.n ?? 0) + 1 }))
+    },
+    [live, send],
+  )
+  const canSay = phase !== 'error' && phase !== 'no-trip'
+
   const submitTyped = (event: FormEvent) => {
     event.preventDefault()
     const text = draft.trim()
-    if (!text || !live) return
+    if (!text || !canSay) return
     setDraft('')
-    void send(text)
+    say(text)
   }
 
   // Esc closes; Tab stays inside the sheet
@@ -169,11 +256,39 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
     levels ? ({ '--level': Math.max(QUIET, Math.min(1, levels[i] ?? 0)) } as CSSProperties) : undefined
 
   const groupName = trip?.groupName || trip?.name
-  const statusText = phase === 'listening' && micBlocked ? 'Type it to me' : STATUS[phase]
+  const statusText =
+    phase === 'listening' && micBlocked
+      ? 'Type it to me'
+      : phase === 'waking' && queued
+        ? 'Waking up… I’ll answer in a sec'
+        : STATUS[phase]
+
+  if (minimized) {
+    return (
+      <div ref={dockRef} className={`voice-dock voice-overlay--${phase}`} role="region" aria-label="GhoomMate, minimised">
+        <button type="button" className="voice-dock__main" onClick={onExpand} aria-label={`Open GhoomMate: ${statusText}`}>
+          <GhoomMateAvatar size={34} ring={2} />
+          <span className="voice-dock__text">
+            <strong>{statusText}</strong>
+            <span>{mateLine || 'Tap to see the chat'}</span>
+          </span>
+          <span className="voice-wave voice-dock__wave" aria-hidden="true">
+            {Array.from({ length: DOCK_BARS }, (_, i) => (
+              <span key={i} style={bar(i)} />
+            ))}
+          </span>
+        </button>
+        <button type="button" className="voice-dock__end" aria-label="End GhoomMate" onClick={onClose}>
+          <img src={iconClose} alt="" width={16} height={16} />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className={`voice-overlay voice-overlay--${phase}`} onKeyDown={onKeyDown}>
-      <button type="button" className="voice-overlay__scrim" tabIndex={-1} aria-hidden="true" onClick={onClose} />
+      {/* Tapping outside tucks GhoomMate away (still listening); the X ends the chat */}
+      <button type="button" className="voice-overlay__scrim" tabIndex={-1} aria-hidden="true" onClick={onMinimize} />
       <section ref={sheetRef} className="voice-sheet" role="dialog" aria-modal="true" aria-labelledby="voice-sheet-title">
         <span className="voice-sheet__grabber" aria-hidden="true" />
         <header className="voice-sheet__top">
@@ -268,20 +383,27 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
             )}
 
             {ui.card && (
-              <GhoomMateCard
-                card={ui.card}
-                pending={ui.pending}
-                error={ui.actionError}
-                onAction={(type, id) => void ui.act(type, id)}
-                onNavigate={(route) => navigate(route)}
-              />
+              <ErrorBoundary
+                resetKey={ui.card}
+                headingLevel={3}
+                title="Couldn’t show that card"
+                text="GhoomMate sent something this screen can’t show. Keep talking, it still hears you."
+              >
+                <GhoomMateCard
+                  card={ui.card}
+                  pending={ui.pending}
+                  error={ui.actionError}
+                  onAction={(action) => void ui.act(action)}
+                  onNavigate={go}
+                />
+              </ErrorBoundary>
             )}
 
             <div className="voice-suggestions">
               <p className="overline">Try saying</p>
               <div className="voice-suggestions__row no-scrollbar">
                 {SUGGESTIONS.map((s) => (
-                  <button key={s} type="button" className="chip" disabled={!live} onClick={() => void send(s)}>
+                  <button key={s} type="button" className="chip" disabled={!canSay} onClick={() => say(s)}>
                     {s}
                   </button>
                 ))}
@@ -307,7 +429,7 @@ export function VoiceOverlay({ conn, micBlocked, prompt, onClose, onRetry, onRet
                       autoComplete="off"
                     />
                   </div>
-                  <button type="submit" className="voice-type__send" aria-label="Send" disabled={!draft.trim() || !live}>
+                  <button type="submit" className="voice-type__send" aria-label="Send" disabled={!draft.trim() || !canSay}>
                     <img src={iconSend} alt="" width={18} height={18} />
                   </button>
                 </div>

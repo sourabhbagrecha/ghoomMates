@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { BalancesCard } from './BalancesCard'
+import { DayPlanCard } from './DayPlanCard'
 import { ExpenseDraftCard } from './ExpenseDraftCard'
 import { ExperiencesCard } from './ExperiencesCard'
+import type { UiAction } from './protocol'
 import type { UiCard } from './uiEvents'
 import type { CardAction } from './useGhoomMateUi'
 
@@ -9,7 +11,7 @@ type CardProps<K extends UiCard['kind']> = {
   card: Extract<UiCard, { kind: K }>
   pending: CardAction | null
   error: string | null
-  onAction: (type: CardAction, id: string) => void
+  onAction: (action: UiAction) => void
   onNavigate: (route: string) => void
 }
 
@@ -21,13 +23,30 @@ const RENDERERS: { [K in UiCard['kind']]: (props: CardProps<K>) => ReactNode } =
       status={card.status}
       pending={pending}
       error={error}
-      onAction={(type) => onAction(type, card.draft.id)}
+      onAction={(type) => onAction({ type, draftId: card.draft.id })}
       onView={() => onNavigate('trip/expenses')}
     />
   ),
   balances: ({ card }) => <BalancesCard balances={card.balances} transfers={card.transfers} />,
-  experiences: ({ card, onNavigate }) => (
-    <ExperiencesCard city={card.city} basis={card.basis} picks={card.picks} onNavigate={onNavigate} />
+  experiences: ({ card, pending, onAction, onNavigate }) => (
+    <ExperiencesCard
+      city={card.city}
+      basis={card.basis}
+      picks={card.picks}
+      pending={pending}
+      onAction={onAction}
+      onNavigate={onNavigate}
+    />
+  ),
+  dayPlan: ({ card, pending, error, onAction, onNavigate }) => (
+    <DayPlanCard
+      plan={card.plan}
+      status={card.status}
+      pending={pending}
+      error={error}
+      onAction={onAction}
+      onNavigate={onNavigate}
+    />
   ),
 }
 

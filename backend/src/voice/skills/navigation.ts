@@ -12,7 +12,7 @@ export const navigation: Skill = {
   instructions: () => `## Screens
 - open_screen opens a screen in the app: expenses, itinerary, photos, explore, members, reel.
 - Making a reel or story from photos: say the full voice feature is coming soon and offer to open the reel screen.
-- Planning a day or a trip ("I'm free tomorrow, plan something", "kal kya karein?", "plan a solo trip in Udaipur"): call recommend_experiences first and pitch the picks. Only building a full day-by-day itinerary by voice is coming soon; mention that in a few words after the picks, never instead of them.
+- Planning a day or a trip ("I'm free tomorrow, plan something", "kal kya karein?", "plan a solo trip in Udaipur"): use plan_day; never say planning is coming soon.
 - Anything else you can't do yet: say it's coming soon and offer the closest screen. Only open a screen once they agree or ask for it.`,
 
   tools: (ctx) => [

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { RoomAudioRenderer, RoomContext } from '@livekit/components-react'
-import { ParticipantKind, Room, RoomEvent } from 'livekit-client'
+import { createLocalAudioTrack, ParticipantKind, Room, RoomEvent } from 'livekit-client'
 import { activeTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { ApiRequestError } from '../../services/tripsService'
@@ -62,6 +62,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const [micBlocked, setMicBlocked] = useState(false)
   const [prompt, setPrompt] = useState<VoicePrompt | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  // Tucked into a pill at the top while you look at a screen; the call keeps going
+  const [minimized, setMinimized] = useState(false)
   const sessionRef = useRef<Session | null>(null)
   const nextId = useRef(0)
   const returnFocus = useRef<HTMLElement | null>(null)
@@ -69,7 +71,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback((text?: string) => {
     if (text) setPrompt((p) => ({ text, n: (p?.n ?? 0) + 1 }))
-    // Already open (e.g. a voice button behind the sheet): just pass the new prompt along
+    setMinimized(false)
+    // Already open (e.g. a voice button behind the sheet, or the octopus while minimised): pass the prompt along
     if (sessionRef.current) return
     if (document.activeElement instanceof HTMLElement) returnFocus.current = document.activeElement
     nextId.current += 1
@@ -84,6 +87,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => {
     sessionRef.current = null
     setSession(null)
+    setMinimized(false)
     setConn({ status: 'idle' })
     setPrompt(null)
     const target = returnFocus.current
@@ -93,6 +97,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       if (target?.isConnected) target.focus()
     }, 0)
   }, [])
+
+  const minimize = useCallback(() => setMinimized(true), [])
+  const expand = useCallback(() => setMinimized(false), [])
 
   const notify = useCallback((next: Notice) => {
     window.clearTimeout(noticeTimer.current)
@@ -108,34 +115,44 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     if (!session?.tripId) return
     const { room, tripId } = session
     let cancelled = false
+    // Open the mic while the token and connection are set up, rather than after (it can take a moment)
+    const mic = createLocalAudioTrack().catch(() => null)
+    const dropMic = () => void mic.then((track) => track?.stop())
     void (async () => {
       setConn({ status: 'starting' })
       let token
       try {
         token = await voiceApi.createSession(tripId)
       } catch (err) {
+        dropMic()
         if (!cancelled) setConn({ status: 'error', error: sessionError(err) })
         return
       }
-      if (cancelled) return
+      if (cancelled) return dropMic()
       setConn({ status: 'connecting' })
       try {
         await room.connect(token.serverUrl, token.participantToken)
       } catch (err) {
+        dropMic()
         if (!cancelled) setConn({ status: 'error', error: { kind: 'network', detail: err instanceof Error ? err.message : undefined } })
         return
       }
       if (cancelled) {
+        dropMic()
         void room.disconnect()
         return
       }
       setConn({ status: 'live' })
       // We’re past the tap that opened the sheet, so the browser may still block playback; the overlay offers a button
       room.startAudio().catch(() => {})
+      const track = await mic
+      if (cancelled) return track?.stop()
       try {
-        await room.localParticipant.setMicrophoneEnabled(true)
-      } catch {
         // Denied or no mic: typing still works
+        if (!track) throw new Error('No microphone')
+        await room.localParticipant.publishTrack(track)
+      } catch {
+        track?.stop()
         if (!cancelled) setMicBlocked(true)
       }
     })()
@@ -214,6 +231,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
                 className="voice-notice__action"
                 onClick={() => {
                   setNotice(null)
+                  setMinimized(true)
                   navigate(action.route)
                 }}
               >
@@ -231,6 +249,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
             conn={conn}
             micBlocked={micBlocked}
             prompt={prompt}
+            minimized={minimized}
+            onMinimize={minimize}
+            onExpand={expand}
             onClose={close}
             onRetry={retry}
             onRetryMic={retryMic}

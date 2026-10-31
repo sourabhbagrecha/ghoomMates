@@ -39,12 +39,28 @@ export type TransferLine = { from: string; to: string; amountPaise: number };
 
 export type Screen = 'expenses' | 'itinerary' | 'photos' | 'explore' | 'members' | 'reel';
 
-export type RecommendationBasis = 'you' | 'squad' | 'rating';
+export type RecommendationBasis = 'you' | 'squad' | 'mood' | 'rating';
+
+export type MemberFit = { memberId: string; name: string; matchPercent: number };
 
 export type ExperiencePick = {
   experienceId: string;
   matchPercent: number | null;
   reason: string;
+  why: string;
+  when: string;
+  fits: MemberFit[];
+};
+
+export type DayPlanStop = { experienceId: string; start: string; end: string; matchPercent: number | null };
+
+export type DayPlan = {
+  id: string;
+  city: string;
+  dayLabel: string;
+  dayNumber: number | null;
+  basis: RecommendationBasis;
+  stops: DayPlanStop[];
 };
 
 export type UiEvent =
@@ -54,11 +70,17 @@ export type UiEvent =
   | { type: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
   | { type: 'navigate'; screen: Screen }
   | { type: 'experiences.recommended'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
-  | { type: 'experience.open'; experienceId: string };
+  | { type: 'experience.open'; experienceId: string }
+  | { type: 'day.plan'; plan: DayPlan }
+  | { type: 'day.plan.added'; planId: string; dayNumber: number; count: number }
+  | { type: 'day.plan.cancelled'; planId: string };
 
 export type UiAction =
   | { type: 'confirm'; draftId: string }
-  | { type: 'cancel'; draftId: string };
+  | { type: 'cancel'; draftId: string }
+  | { type: 'plan.add'; planId: string }
+  | { type: 'plan.cancel'; planId: string }
+  | { type: 'experience.join'; experienceId: string };
 
 export const SCREEN_ROUTES: Record<Screen, string> = {
   expenses: 'trip/expenses',

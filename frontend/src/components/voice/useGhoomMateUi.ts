@@ -32,9 +32,15 @@ function actionFailure(reply: string): string | null {
  * Lets the agent drive the sheet: registers the `ghoomate.ui` RPC on the room and dispatches each event
  * through the registry in uiEvents.ts. `act` sends a card button tap back to the agent (`ghoomate.action`).
  */
-export function useGhoomMateUi(room: Room, agentIdentity: string | undefined) {
+export function useGhoomMateUi(
+  room: Room,
+  agentIdentity: string | undefined,
+  /** The sheet moves out of the way for a screen the agent opens, and comes back for a new card */
+  sheet: { minimize: () => void; expand: () => void },
+) {
   const navigate = useNavigate()
   const { notify } = useVoice()
+  const { minimize, expand } = sheet
   const [card, setCard] = useState<UiCard | null>(null)
   const [pending, setPending] = useState<CardAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -47,11 +53,16 @@ export function useGhoomMateUi(room: Room, agentIdentity: string | undefined) {
         setActionError(null)
         setCard(update)
       },
+      show: expand,
       notify,
-      navigate: (route) => navigate(route),
+      navigate: (route) => {
+        navigate(route)
+        minimize()
+      },
       refreshMoney: () => void activeTrip.refreshMoney(),
+      refreshItinerary: () => void activeTrip.loadItinerary(),
     }
-  }, [navigate, notify])
+  }, [navigate, notify, expand, minimize])
 
   // Only the GhoomMate agent may drive the sheet
   const agent = useRef(agentIdentity)
@@ -71,13 +82,12 @@ export function useGhoomMateUi(room: Room, agentIdentity: string | undefined) {
   }, [room])
 
   const act = useCallback(
-    async (type: CardAction, draftId: string) => {
+    async (action: UiAction) => {
       if (!agentIdentity) {
         setActionError('GhoomMate isn’t here right now. Give it a sec?')
         return
       }
-      const action: UiAction = { type, draftId }
-      setPending(type)
+      setPending(action.type)
       setActionError(null)
       try {
         const reply = await room.localParticipant.performRpc({
@@ -92,8 +102,9 @@ export function useGhoomMateUi(room: Room, agentIdentity: string | undefined) {
           setActionError(failure)
           return
         }
-        // The agent also pushes expense.cancelled; hide the card now so the tap feels instant
-        if (type === 'cancel') setCard((c) => (c?.kind === 'expense' && c.draft.id === draftId ? null : c))
+        // The agent also pushes a cancelled event; hide the card now so the tap feels instant
+        if (action.type === 'cancel') setCard((c) => (c?.kind === 'expense' && c.draft.id === action.draftId ? null : c))
+        if (action.type === 'plan.cancel') setCard((c) => (c?.kind === 'dayPlan' && c.plan.id === action.planId ? null : c))
       } catch (err) {
         const reason = err instanceof RpcError && err.message ? ` (${err.message})` : ''
         setActionError(`Couldn’t reach GhoomMate${reason}. Try again?`)

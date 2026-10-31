@@ -12,6 +12,7 @@ import { PEOPLE } from '../../data/people'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
 import { CoverLayout } from '../../components/CoverLayout'
+import { formatDays, nextRunLabel } from '../Explore/experienceSchedule'
 import type { Experience } from '../Explore/experiencesData'
 import { formatINR, listNames } from './tripFormat'
 import { tripActions, useTripStore } from './tripStore'
@@ -82,7 +83,7 @@ export function GuideTripPage({ experience: guide }: { experience: Experience })
           <ul className="guide__facts">
             <li>
               <img src={iconCalendar} alt="" width={14} height={14} />
-              {guide.date} · {guide.startTime}
+              {nextRunLabel(guide)} · {guide.startTime}
             </li>
             <li>
               <img src={iconClock} alt="" width={14} height={14} />
@@ -95,6 +96,10 @@ export function GuideTripPage({ experience: guide }: { experience: Experience })
             <li>
               <img src={iconUsers} alt="" width={14} height={14} />
               Up to {guide.groupSize} guests
+            </li>
+            <li>
+              <img src={iconCalendar} alt="" width={14} height={14} />
+              {formatDays(guide.days)}
             </li>
           </ul>
           <p className="guide__price">

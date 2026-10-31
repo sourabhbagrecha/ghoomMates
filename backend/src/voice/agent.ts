@@ -14,6 +14,9 @@ loadEnv();
 
 const MODEL = process.env.GHOOMATE_MODEL || 'google/gemini-3.8-live';
 const VOICE = process.env.GHOOMATE_VOICE || 'Puck';
+/** Job processes kept started and loaded, so a new chat skips spawning Node and importing the agent (~1–2 s).
+ *  The SDK defaults to none in dev; 0 turns it off (e.g. to pick up code edits on the very next chat). */
+const IDLE_PROCESSES = Math.max(0, Number(process.env.GHOOMATE_IDLE_PROCESSES ?? 1) || 0);
 
 const today = () => new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -61,14 +64,23 @@ const newSession = () => new voice.AgentSession({ llm: new inference.RealtimeMod
 
 export default defineAgent({
   entry: async (ctx: JobContext) => {
-    await ctx.connect();
     const meta = parseMetadata(ctx.job.metadata);
     const api = createBackendClient({ authToken: meta.authToken });
+    // Start loading the trip while we join the room and wait for the user; none of these need the others
+    const tripLoad = api.get<TripDetail>(`/api/trips/${meta.tripId}`).then(
+      (trip) => ({ trip }),
+      (error: Error) => ({ error }),
+    );
+    await ctx.connect();
+    const participantJoin = ctx.waitForParticipant();
+    participantJoin.catch(() => {}); // awaited below; if the trip fails to load we return without it
 
     let trip: TripDetail;
-    try {
-      trip = await api.get<TripDetail>(`/api/trips/${meta.tripId}`);
-    } catch (err) {
+    const loaded = await tripLoad;
+    if ('trip' in loaded) {
+      trip = loaded.trip;
+    } else {
+      const err = loaded.error;
       // Still join so the user hears something instead of silence.
       logger.error('Voice', `Couldn't load trip ${meta.tripId}: ${(err as Error).message}`);
       const session = newSession();
@@ -80,7 +92,7 @@ export default defineAgent({
     const members = trip.members.map(({ memberId, userId, name, vibe }) => ({ memberId, userId, name, vibe: vibe ?? null }));
     const meMember = members.find(m => m.memberId === trip.memberId);
     const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
-    const participant = await ctx.waitForParticipant();
+    const participant = await participantJoin;
     const state: SessionState = { pendingDraft: null, lastAdded: null };
     const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, api, ui: createUiPusher(ctx.room, participant.identity), state };
 
@@ -120,5 +132,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     logger.warn('Voice', 'GhoomMate agent not started: set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in backend/.env');
     process.exit(0);
   }
-  cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url), agentName: AGENT_NAME }));
+  cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url), agentName: AGENT_NAME, numIdleProcesses: IDLE_PROCESSES }));
 }

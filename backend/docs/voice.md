@@ -1,6 +1,6 @@
 # Voice module (GhoomMate)
 
-A real-time voice agent on LiveKit Cloud. The user talks to GhoomMate (the octopus FAB). It drafts expenses on screen, writes them after a spoken "yes" or a tapped Confirm, reads balances, recommends local guide experiences that fit the user's personality, and opens screens. The model is speech-to-speech `google/gemini-3.8-live` through LiveKit Inference, billed to the LiveKit project, so no Google key is needed.
+A real-time voice agent on LiveKit Cloud. The user talks to GhoomMate (the octopus FAB). It drafts expenses on screen, writes them after a spoken "yes" or a tapped Confirm, reads balances, recommends local guide experiences that fit the user's personality, plans a day out of them (added to the itinerary after a yes), and opens screens. The model is speech-to-speech `google/gemini-3.8-live` through LiveKit Inference, billed to the LiveKit project, so no Google key is needed.
 
 ## Flow
 
@@ -24,6 +24,14 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 - To run the worker on its own: `npm --prefix backend run agent` (`node src/voice/agent.ts dev`). It logs "registered worker" once it's connected to `LIVEKIT_URL`.
 - The worker reaches the API at `BACKEND_URL`, so the API must be running too.
 
+## Start-up speed
+
+- **The worker keeps one job process warm** (`GHOOMATE_IDLE_PROCESSES`). A new chat doesn't wait for a Node process to spawn and import the agent.
+- **The job overlaps its start-up steps.** It starts loading the trip before joining the room, and waits for the user's participant while the trip loads.
+- **The browser opens the mic in parallel.** It starts while the session token and room connection are set up, then publishes the track once connected.
+- **Messages can go in early.** Anything typed, or a tapped suggestion, before GhoomMate is listening is held and sent the moment it is.
+- **No early voice capture.** The Node agents SDK (1.9.x) has no pre-connect audio buffer, so speech before the agent joins isn't captured.
+
 ## Env keys (`backend/.env`)
 
 | Key | Default | Purpose |
@@ -32,6 +40,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | Token minting, worker registration and Inference billing |
 | `GHOOMATE_MODEL` | `google/gemini-3.8-live` | Any LiveKit Inference realtime model |
 | `GHOOMATE_VOICE` | `Puck` | Voice name |
+| `GHOOMATE_IDLE_PROCESSES` | `1` | Job processes kept started and loaded, so a chat starts without spawning Node and importing the agent (about 1–2 s). `0` turns it off, which you may want while editing the agent: the warm process runs the code from when it started, so an edit applies from the chat after next. |
 | `BACKEND_URL` | `http://127.0.0.1:$PORT` | Where the worker calls the API |
 
 ## Files
@@ -43,7 +52,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `backendClient.ts` | `fetch` wrapper: Bearer token, JSON, `Idempotency-Key`, and turns `{error:{code,message}}` into a thrown `BackendError` |
 | `ui.ts` | `createUiPusher(room, identity)`: ordered, fire-and-forget `ghoomate.ui` RPCs. Failures are only logged. |
 | `members.ts` | Pure helpers: spoken names → member ids, rupees → paise, equal-split preview (tested in `tests/voice/members.test.ts`) |
-| `experiences.ts` | Agent-side copy of the guide-experience catalogue (ids, prices, vibe weights) and the pure ranking helpers (tested in `tests/voice/experiences.test.ts`) |
+| `experiences.ts` | Agent-side copy of the guide-experience catalogue (ids, prices, weekly schedules, vibe weights) and the pure helpers: IST schedule, ranking, varied picks and day planning (tested in `tests/voice/experiences.test.ts`) |
 | `skills/` | One file per capability, plus the registry in `skills/index.ts` |
 
 ## UI event protocol
@@ -57,10 +66,13 @@ Agent → frontend, RPC `ghoomate.ui`, payload JSON `UiEvent`:
 | `expense.cancelled` | `draftId` | Card dismissed |
 | `balances` | `currency, balances[{memberId,name,balancePaise}], transfers[{from,to,amountPaise}]` (`from`/`to` are display names) | Who-owes-whom card |
 | `navigate` | `screen` (route in `SCREEN_ROUTES`) | Navigates; the session stays alive |
-| `experiences.recommended` | `city, basis ('you'\|'squad'\|'rating'), picks[{experienceId, matchPercent, reason}]` | Picks card; tapping a pick opens it |
+| `experiences.recommended` | `city, basis ('you'\|'squad'\|'mood'\|'rating'), picks[{experienceId, matchPercent, reason, why, when, fits}]` | Picks card: hero pick with Join, two alternatives, a quiz prompt for mood / rating picks |
 | `experience.open` | `experienceId` | Navigates to `trip/explore/guide/<id>` |
+| `day.plan` | `plan: DayPlan` (dayLabel, dayNumber or null, stops[{experienceId, start, end, matchPercent}]) | Day-plan card with Add to Day N / Not this |
+| `day.plan.added` | `planId, dayNumber, count` | Card flips to added; itinerary reloads; notice with View |
+| `day.plan.cancelled` | `planId` | Card dismissed |
 
-Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'confirm'|'cancel', draftId}`. The agent answers `{ok:true}` or `{ok:false,error}` and then speaks a short follow-up. A tap and a spoken "yes" share `commitDraft` / `cancelDraft` in `skills/expenses.ts`. The draft's idempotency key makes a repeated confirm a no-op.
+Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'confirm'|'cancel', draftId}` for expense drafts, `{type:'plan.add'|'plan.cancel', planId}` for day plans, `{type:'experience.join', experienceId}` after a tapped Join. The agent answers `{ok:true}` or `{ok:false,error}` and then speaks a short follow-up. A tap and a spoken "yes" share `commitDraft` / `cancelDraft` in `skills/expenses.ts`. The draft's idempotency key makes a repeated confirm a no-op.
 
 ## Expense rules the agent follows
 
@@ -70,21 +82,42 @@ Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'conf
 - An unclear amount, description or name makes the tool throw `llm.ToolError("…")`, and the model asks that as one clarifying question (for example "Which Riya, Riya S or Riya K?").
 - The equal-split preview uses the backend's `splitExpense`, so the card matches what gets saved.
 
-## Experience recommendations
+## Experience recommendations and day plans
 
-`skills/experiences.ts` gives the model two tools:
+`skills/experiences.ts` gives the model five tools:
 
-- **`recommend_experiences({for_whom, city?, tag?})`** ranks the guide trips in the trip's city (or a city the user names) and pushes the top 3 as a card. It also returns them to the model, with the personality traits behind each pick, so GhoomMate can say why one suits you.
-- **`open_experience({experience_id})`** opens that experience's detail screen. Booking stays a tap on Join; the agent never books.
+- **`recommend_experiences({for_whom, city?, tag?, when?, likes?, avoid?})`** shows the top 3 picks as a card. It also returns them to the model, with the personality traits behind each one, so GhoomMate can say why a pick suits you.
+- **`plan_day({for_whom, day, day_number?, city?, likes?, avoid?})`** builds up to three experiences on one day. They don't overlap and leave 45 minutes to get between them. Nothing is saved yet.
+- **`add_day_plan()` / `cancel_day_plan()`** add the plan's stops to the itinerary after a spoken yes, or drop it. A tapped Add or Not this (`plan.add` / `plan.cancel`) takes the same path. Adding is idempotent per plan. If it fails partway, a retry only adds the stops that weren't saved.
+- **`open_experience({experience_id})`** opens the detail screen. Joining stays a tap on Join (on the card or the screen). The card tells the agent with `experience.join`, so it can reply and stop recommending that experience this session.
 
-How the ranking works:
+**Whose personality**
 
-- **Personality.** It uses the vibe from the personality quiz (`users.preferences.vibe`: 0–1 for adventure, food, nightlife, culture, chill and shops). The vibe reaches the agent on each member in `GET /api/trips/:id`.
-- **Whose vibe.** `for_whom: 'me'` uses the speaker's own vibe. If they haven't taken the quiz, it falls back to the squad's blended vibe. If nobody has, it ranks by rating, and GhoomMate suggests taking the quiz.
-- **Match score.** Each experience has vibe weights. The match is the weighted mean of the person's scores over those axes, and ties go to the higher rating.
-- **Cities.** Destinations other than Goa or Udaipur get a clarifying question about which city they mean.
+- **Quiz results.** The vibe comes from the personality quiz (`users.preferences.vibe`: 0–1 for adventure, food, nightlife, culture, chill and shops). It reaches the agent on each member in `GET /api/trips/:id`. The app saves a quiz taken before sign-up to the profile on the next sign-in (`syncVibeToProfile`).
+- **`for_whom: 'me'`** uses the speaker's vibe and falls back to the squad's blend. Squad picks also carry each quiz-taker's own fit.
+- **What they ask for.** `likes` / `avoid` are what the user says they're in the mood for. They lift or drop those axes on top of the quiz, or build a vibe from a neutral middle when there's no quiz (basis `mood`).
+- **No quiz results and no mood.** The tool doesn't fall back to generic picks. It tells the model to ask one quick question ("Adventure or something chill? Big foodie?"). `likes: []` means anything goes, which ranks by rating.
 
-The card looks up each experience's photo, price and date from the frontend catalogue (`frontend/src/pages/Explore/experiencesData.ts`). When you add or change an experience, update both files. The test `the agent catalogue matches the frontend one` fails if their ids, cities or prices drift apart.
+**Ranking**
+
+- **Match.** The match is the weighted mean of the person's scores over the axes each experience speaks to.
+- **Solo.** Solo plans get a small boost for groups of 10 or fewer.
+- **Variety.** Picks are varied: each pick that repeats an earlier pick's main axis loses 8 points.
+
+**Schedules**
+
+- **Weekly days.** Experiences run on weekly days (for example the Anjuna flea on Wednesdays), so they never go stale.
+- **Time.** Times are IST. Anything starting within 30 minutes, or already started, is left out. `when` narrows to today, tonight (from 5 PM) or tomorrow.
+
+**Itinerary day**
+
+- **With trip dates.** `plan_day` maps the date onto the trip: day 1 is `startDate`, and a trip with no `endDate` is one day long, as in the backend.
+- **Outside the trip.** For a date outside the trip, the plan is shown but can't be added (`dayNumber: null`).
+- **Without trip dates.** The model asks for a `day_number` instead.
+
+**Two catalogues**
+
+The cards look up each experience's photo, price and host from the frontend catalogue (`frontend/src/pages/Explore/experiencesData.ts`). The frontend works out the next date in `experienceSchedule.ts`. When you add or change an experience, update both catalogues. The test `the agent catalogue matches the frontend one` fails if their ids, cities, prices, days, start times or group sizes drift apart.
 
 ## How to add a skill (example: "make a reel from my photos")
 

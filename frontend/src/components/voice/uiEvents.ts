@@ -3,6 +3,7 @@ import {
   SCREEN_ROUTES,
   experienceRoute,
   type BalanceLine,
+  type DayPlan,
   type ExpenseDraft,
   type ExperiencePick,
   type RecommendationBasis,
@@ -13,8 +14,8 @@ import type { Notice } from './voiceContext'
 
 /*
  * The frontend half of GhoomMate's skills. The agent pushes a `UiEvent` over the `ghoomate.ui` RPC and
- * `useGhoomMateUi` dispatches it here by `type`. A handler may swap the card on the sheet, show the notice
- * pill, navigate or refresh data.
+ * `useGhoomMateUi` dispatches it here by `type`. A handler may swap the card on the sheet (and `show` it if the
+ * sheet is minimised), show the notice pill, navigate (which minimises the sheet) or refresh data.
  *
  * Adding a skill with UI (e.g. `reel.ready`):
  *   1. add the event to the `UiEvent` union in protocol.ts (both copies),
@@ -27,13 +28,17 @@ export type UiCard =
   | { kind: 'expense'; draft: ExpenseDraft; status: 'draft' | 'added' }
   | { kind: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
   | { kind: 'experiences'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
+  | { kind: 'dayPlan'; plan: DayPlan; status: 'draft' | 'added' }
 
 /** Side effects a handler can use */
 export type UiEffects = {
   setCard: (update: (card: UiCard | null) => UiCard | null) => void
+  /** Brings the sheet back up if it was minimised, for a new card the user should see */
+  show: () => void
   notify: (notice: Notice) => void
   navigate: (route: string) => void
   refreshMoney: () => void
+  refreshItinerary: () => void
 }
 
 type UiEventType = UiEvent['type']
@@ -48,7 +53,10 @@ export function formatPaise(paise: number) {
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
 export const UI_EVENT_HANDLERS: UiEventHandlers = {
-  'expense.draft': ({ draft }, fx) => fx.setCard(() => ({ kind: 'expense', draft, status: 'draft' })),
+  'expense.draft': ({ draft }, fx) => {
+    fx.setCard(() => ({ kind: 'expense', draft, status: 'draft' }))
+    fx.show()
+  },
 
   'expense.added': ({ expense }, fx) => {
     fx.setCard((card) =>
@@ -64,17 +72,39 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
   'expense.cancelled': ({ draftId }, fx) =>
     fx.setCard((card) => (card?.kind === 'expense' && card.draft.id === draftId ? null : card)),
 
-  balances: ({ currency, balances, transfers }, fx) =>
-    fx.setCard(() => ({ kind: 'balances', currency, balances, transfers })),
+  balances: ({ currency, balances, transfers }, fx) => {
+    fx.setCard(() => ({ kind: 'balances', currency, balances, transfers }))
+    fx.show()
+  },
 
   navigate: ({ screen }, fx) => {
     const route = SCREEN_ROUTES[screen]
     if (route) fx.navigate(route)
   },
 
-  'experiences.recommended': ({ city, basis, picks }, fx) => fx.setCard(() => ({ kind: 'experiences', city, basis, picks })),
+  'experiences.recommended': ({ city, basis, picks }, fx) => {
+    fx.setCard(() => ({ kind: 'experiences', city, basis, picks }))
+    fx.show()
+  },
 
   'experience.open': ({ experienceId }, fx) => fx.navigate(experienceRoute(experienceId)),
+
+  'day.plan': ({ plan }, fx) => {
+    fx.setCard(() => ({ kind: 'dayPlan', plan, status: 'draft' }))
+    fx.show()
+  },
+
+  'day.plan.added': ({ planId, dayNumber, count }, fx) => {
+    fx.setCard((card) => (card?.kind === 'dayPlan' && card.plan.id === planId ? { ...card, status: 'added' } : card))
+    fx.refreshItinerary()
+    fx.notify({
+      message: `${count} ${count === 1 ? 'stop' : 'stops'} added to Day ${dayNumber}`,
+      action: { label: 'View', route: SCREEN_ROUTES.itinerary },
+    })
+  },
+
+  'day.plan.cancelled': ({ planId }, fx) =>
+    fx.setCard((card) => (card?.kind === 'dayPlan' && card.plan.id === planId ? null : card)),
 }
 
 /** A UiEvent from an RPC payload, or null for junk and event types this build doesn’t know yet */

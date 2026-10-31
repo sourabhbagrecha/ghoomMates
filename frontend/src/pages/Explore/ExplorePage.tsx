@@ -17,6 +17,7 @@ import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { formatINR } from '../Trip/tripFormat'
 import { CATEGORIES, TRENDING } from './exploreData'
+import { nextRunLabel } from './experienceSchedule'
 import { EXPERIENCES, experienceCityFor, type Experience, type ExperienceCity } from './experiencesData'
 import './ExplorePage.css'
 
@@ -157,7 +158,7 @@ function GuideTripCard({ trip, onOpen }: { trip: Experience; onOpen: () => void 
         </p>
         <h3 className="guide-trip__title">{trip.title}</h3>
         <p className="guide-trip__details">
-          {trip.date} · {trip.duration} · {trip.area}
+          {nextRunLabel(trip)} · {trip.duration} · {trip.area}
         </p>
         <div className="guide-trip__footer">
           <p className="guide-trip__price">
