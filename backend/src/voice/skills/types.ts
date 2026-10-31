@@ -1,6 +1,7 @@
 // The extensibility seam: a skill = instructions + tools (+ optional handler for card taps).
 import type { llm } from '@livekit/agents';
 import type { BackendClient } from '../backendClient.ts';
+import type { HistoryItem } from '../history.ts';
 import type { GhoomateMemory } from '../memory.ts';
 import type { MemberRef } from '../members.ts';
 import type { AddedExpense, ExpenseCategory, ExpenseDraft, UiAction, UiEvent } from '../protocol.ts';
@@ -49,6 +50,8 @@ export type SkillContext = {
   members: TripMember[];
   /** What the speaker told GhoomMate in earlier chats (their profile); replaced when they add or drop a note */
   memory: GhoomateMemory;
+  /** The latest messages from earlier chats in this trip, oldest first */
+  history?: HistoryItem[];
   api: BackendClient;
   /** Push a UI event to the user's screen. Never rejects; safe to `void`. */
   ui: (event: UiEvent) => Promise<void>;

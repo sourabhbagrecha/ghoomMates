@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { EditProfilePage } from './EditProfilePage'
+import { GhoomMateMemoryPage } from './GhoomMateMemoryPage'
 import { HelpPage } from './HelpPage'
 import { SettingsPage } from './SettingsPage'
 import { YourProfilePage } from './YourProfilePage'
@@ -10,6 +11,7 @@ import { YourProfilePage } from './YourProfilePage'
  *   edit              edit profile
  *   settings          app settings
  *   help              help & FAQ
+ *   ghoomate          what GhoomMate remembers about you (view, edit, add, remove)
  * The vibe quiz is the personality quiz at `#/quiz` (src/pages/Quiz).
  * Hook-free so the app can call it and fall back to Home on `null`.
  */
@@ -26,6 +28,8 @@ export function ProfileRoutes({ path }: { path: string[] }): JSX.Element | null 
       return <SettingsPage />
     case 'help':
       return <HelpPage />
+    case 'ghoomate':
+      return <GhoomMateMemoryPage />
     default:
       return null
   }

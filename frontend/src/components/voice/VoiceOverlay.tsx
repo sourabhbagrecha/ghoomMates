@@ -18,6 +18,10 @@ import {
 } from '@livekit/components-react'
 import { LocalAudioTrack } from 'livekit-client'
 import iconSend from '../../assets/figma/icon-arrow-white.svg'
+import iconBrain from '../../assets/figma/icon-brain-ink.svg'
+import iconBrainPrimary from '../../assets/figma/icon-brain-primary.svg'
+import iconHistory from '../../assets/figma/icon-history-ink.svg'
+import iconHistoryWhite from '../../assets/figma/icon-history-white.svg'
 import iconClose from '../../assets/figma/icon-x-ink.svg'
 import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
@@ -26,6 +30,7 @@ import { GhoomMateAvatar } from '../GhoomMate'
 import { ErrorState } from '../states/ErrorState'
 import { TextField } from '../TextField'
 import { ErrorBoundary } from '../states/ErrorBoundary'
+import { ChatHistory } from './ChatHistory'
 import { GhoomMateCard } from './GhoomMateCard'
 import { useGhoomMateUi } from './useGhoomMateUi'
 import type { VoiceConnection, VoiceErrorKind, VoicePrompt } from './VoiceProvider'
@@ -56,11 +61,15 @@ const ERRORS: Record<VoiceErrorKind, { title: string; text: string }> = {
 
 const SUGGESTIONS = ['What should I do here?', 'Plan my day tomorrow', 'Add ₹250 lunch, split with everyone', 'Who owes what?', 'Make a reel']
 
+/** How long a "Memory updated" chip stays up */
+const MEMORY_CHIP_MS = 8000
 const WAVE_BARS = 9
 const DOCK_BARS = 5
 /** Bottom bars the minimised pill sits above: the tab bar and the screens' pinned action footers */
 const BOTTOM_BARS = '.tab-bar, .cover-layout__actions, .onboarding__actions, .home__actions'
 const DOCK_GAP = 12
+/** With no bottom bar, clear of the home indicator */
+const DOCK_BOTTOM_PLAIN = 30
 const QUIET = 0.18
 const CHAT_TOPIC = 'lk.chat'
 
@@ -110,6 +119,10 @@ export function VoiceOverlay({
   const micLevels = useMultibandTrackVolume(micTrack, { bands: WAVE_BARS, updateInterval: 60 })
 
   const [typingChosen, setTyping] = useState(false)
+  // The sheet shows this trip's earlier chats instead of the live one
+  const [showHistory, setShowHistory] = useState(false)
+  // The memory update whose chip has timed out; a newer one shows again
+  const [memorySeenAt, setMemorySeenAt] = useState(0)
   const [draft, setDraft] = useState('')
   const [typed, setTyped] = useState<{ text: string; at: number } | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
@@ -143,10 +156,6 @@ export function VoiceOverlay({
     if (!minimized) closeRef.current?.focus()
   }, [minimized])
 
-  // Something went wrong while minimised: bring the sheet up so the fix is in view
-  useEffect(() => {
-    if (minimized && error) onExpand()
-  }, [minimized, error, onExpand])
 
   // The pill floats in the octopus button's corner, just above whatever bar is pinned to the bottom of this screen
   const dockRef = useRef<HTMLDivElement>(null)
@@ -159,8 +168,17 @@ export function VoiceOverlay({
       .map((bar) => bar.getBoundingClientRect())
       .filter((rect) => rect.height > 0 && Math.abs(rect.bottom - bottom) < 4)
       .map((rect) => rect.top)
-    dock.style.setProperty('--dock-bottom', `${(tops.length ? bottom - Math.min(...tops) : 0) + DOCK_GAP}px`)
+    dock.style.setProperty('--dock-bottom', `${tops.length ? bottom - Math.min(...tops) + DOCK_GAP : DOCK_BOTTOM_PLAIN}px`)
   })
+
+  // "Memory updated" shows for a few seconds after GhoomMate saves or drops a memory
+  const memory = ui.memoryUpdate && ui.memoryUpdate.at > memorySeenAt ? ui.memoryUpdate : null
+  useEffect(() => {
+    if (!memory) return
+    const timer = window.setTimeout(() => setMemorySeenAt(memory.at), MEMORY_CHIP_MS)
+    return () => window.clearTimeout(timer)
+  }, [memory])
+  const memoryText = memory ? `${memory.change === 'added' ? 'Remembered' : 'Forgot'}: ${memory.note}` : null
 
   /** Open a screen from the sheet and step aside so it's visible */
   const go = useCallback(
@@ -271,8 +289,8 @@ export function VoiceOverlay({
         <button type="button" className="voice-dock__main" onClick={onExpand} aria-label={`Open GhoomMate: ${statusText}`}>
           <GhoomMateAvatar size={34} ring={2} />
           <span className="voice-dock__text">
-            <strong>{statusText}</strong>
-            <span>{mateLine || 'Tap to see the chat'}</span>
+            <strong>{memory ? 'Memory updated' : statusText}</strong>
+            <span>{memoryText ?? (error ? `${ERRORS[error.kind].title}. Tap to fix` : mateLine || 'Tap to see the chat')}</span>
           </span>
           <span className="voice-wave voice-dock__wave" aria-hidden="true">
             {Array.from({ length: DOCK_BARS }, (_, i) => (
@@ -300,148 +318,193 @@ export function VoiceOverlay({
             </h2>
             <p className="voice-sheet__meta">{groupName && phase !== 'no-trip' ? `Your ${groupName} buddy` : 'Your travel buddy'}</p>
           </div>
-          <button ref={closeRef} type="button" className="voice-sheet__close" aria-label="Close GhoomMate" onClick={onClose}>
-            <img src={iconClose} alt="" width={20} height={20} />
-          </button>
+          <div className="voice-sheet__tools">
+            {trip && (
+              <>
+                <button
+                  type="button"
+                  className={`voice-sheet__close${showHistory ? ' voice-sheet__close--on' : ''}`}
+                  aria-label={showHistory ? 'Back to the chat' : 'Chat history'}
+                  aria-pressed={showHistory}
+                  title="Chat history"
+                  onClick={() => setShowHistory((on) => !on)}
+                >
+                  <img src={showHistory ? iconHistoryWhite : iconHistory} alt="" width={20} height={20} />
+                </button>
+                <button
+                  type="button"
+                  className="voice-sheet__close"
+                  aria-label="What GhoomMate remembers"
+                  title="What GhoomMate remembers"
+                  onClick={() => go('profile/ghoomate')}
+                >
+                  <img src={iconBrain} alt="" width={20} height={20} />
+                </button>
+              </>
+            )}
+            <button ref={closeRef} type="button" className="voice-sheet__close" aria-label="Close GhoomMate" onClick={onClose}>
+              <img src={iconClose} alt="" width={20} height={20} />
+            </button>
+          </div>
         </header>
 
-        <div className="voice-sheet__hero" aria-hidden="true">
-          <span className="voice-sheet__ring" />
-          <span className="voice-sheet__ring voice-sheet__ring--late" />
-          <GhoomMateAvatar size={96} ring={4} />
-        </div>
-
-        <p className="voice-sheet__status" role="status">
-          {statusText}
-        </p>
-
-        {phase === 'no-trip' && (
-          <div className="voice-card voice-card--center">
-            <p className="voice-card__text">
-              Open a trip first and I’ll help out: split a bill, check who owes what, or plan your day.
-            </p>
-            <Button variant="primary" onClick={onOpenTrips}>
-              See my trips
-            </Button>
+        {memory && (
+          <div className="voice-memory" role="status">
+            <img src={iconBrainPrimary} alt="" width={18} height={18} />
+            <span className="voice-memory__text">
+              <strong>Memory updated</strong>
+              <span>{memoryText}</span>
+            </span>
+            <button type="button" className="voice-memory__view" onClick={() => go('profile/ghoomate')}>
+              View
+            </button>
           </div>
         )}
 
-        {error && (
-          <ErrorState
-            headingLevel={3}
-            className="voice-sheet__error"
-            title={ERRORS[error.kind].title}
-            text={ERRORS[error.kind].text}
-            detail={error.detail}
-            onRetry={onRetry}
-          />
-        )}
-
-        {phase !== 'no-trip' && !error && (
+        {showHistory && trip ? (
+          <ChatHistory tripId={trip.id} />
+        ) : (
           <>
-            <div className="voice-wave" aria-hidden="true">
-              {Array.from({ length: WAVE_BARS }, (_, i) => (
-                <span key={i} style={bar(i)} />
-              ))}
+          <div className="voice-sheet__hero" aria-hidden="true">
+            <span className="voice-sheet__ring" />
+            <span className="voice-sheet__ring voice-sheet__ring--late" />
+            <GhoomMateAvatar size={96} ring={4} />
+          </div>
+
+          <p className="voice-sheet__status" role="status">
+            {statusText}
+          </p>
+
+          {phase === 'no-trip' && (
+            <div className="voice-card voice-card--center">
+              <p className="voice-card__text">
+                Open a trip first and I’ll help out: split a bill, check who owes what, or plan your day.
+              </p>
+              <Button variant="primary" onClick={onOpenTrips}>
+                See my trips
+              </Button>
             </div>
+          )}
 
-            {conn.status === 'live' && !canPlayAudio && (
-              <button type="button" className="pill-button voice-sheet__audio" onClick={() => void startAudio()}>
-                Tap to hear GhoomMate
-              </button>
-            )}
+          {error && (
+            <ErrorState
+              headingLevel={3}
+              className="voice-sheet__error"
+              title={ERRORS[error.kind].title}
+              text={ERRORS[error.kind].text}
+              detail={error.detail}
+              onRetry={onRetry}
+            />
+          )}
 
-            <div className="voice-transcript" aria-live="polite">
-              {userLine || mateLine ? (
-                <>
-                  {userLine && (
-                    <p className="voice-transcript__line voice-transcript__line--you">
-                      <span className="voice-transcript__who">You</span>“{userLine}”
-                    </p>
-                  )}
-                  {mateLine && (
-                    <p className="voice-transcript__line voice-transcript__line--mate">
-                      <span className="voice-transcript__who">GhoomMate</span>
-                      {mateLine}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="voice-transcript--empty">
-                  {live ? 'Tap a phrase below, or just say it' : 'Hang on, GhoomMate’s on the way…'}
-                </p>
-              )}
-            </div>
-
-            {micBlocked && (
-              <ErrorState
-                headingLevel={3}
-                className="voice-sheet__error"
-                title="I can’t hear you"
-                text="Allow the mic for this site, or type to me below. That works too!"
-                retryLabel="Try the mic again"
-                onRetry={onRetryMic}
-              />
-            )}
-
-            {ui.card && (
-              <ErrorBoundary
-                resetKey={ui.card}
-                headingLevel={3}
-                title="Couldn’t show that card"
-                text="GhoomMate sent something this screen can’t show. Keep talking, it still hears you."
-              >
-                <GhoomMateCard
-                  card={ui.card}
-                  pending={ui.pending}
-                  error={ui.actionError}
-                  onAction={(action) => void ui.act(action)}
-                  onNavigate={go}
-                />
-              </ErrorBoundary>
-            )}
-
-            <div className="voice-suggestions">
-              <p className="overline">Try saying</p>
-              <div className="voice-suggestions__row no-scrollbar">
-                {SUGGESTIONS.map((s) => (
-                  <button key={s} type="button" className="chip" disabled={!canSay} onClick={() => say(s)}>
-                    {s}
-                  </button>
+          {phase !== 'no-trip' && !error && (
+            <>
+              <div className="voice-wave" aria-hidden="true">
+                {Array.from({ length: WAVE_BARS }, (_, i) => (
+                  <span key={i} style={bar(i)} />
                 ))}
               </div>
-            </div>
 
-            {sendError && (
-              <p className="voice-card__error" role="alert">
-                {sendError}
-              </p>
-            )}
+              {conn.status === 'live' && !canPlayAudio && (
+                <button type="button" className="pill-button voice-sheet__audio" onClick={() => void startAudio()}>
+                  Tap to hear GhoomMate
+                </button>
+              )}
 
-            {typing ? (
-              <form className="voice-type" onSubmit={submitTyped}>
-                <div className="voice-type__row">
-                  <div className="voice-type__field">
-                    <TextField
-                      label="Type to GhoomMate"
-                      placeholder="e.g. I paid 800 for the cab"
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      enterKeyHint="send"
-                      autoComplete="off"
-                    />
-                  </div>
-                  <button type="submit" className="voice-type__send" aria-label="Send" disabled={!draft.trim() || !canSay}>
-                    <img src={iconSend} alt="" width={18} height={18} />
-                  </button>
+              <div className="voice-transcript" aria-live="polite">
+                {userLine || mateLine ? (
+                  <>
+                    {userLine && (
+                      <p className="voice-transcript__line voice-transcript__line--you">
+                        <span className="voice-transcript__who">You</span>“{userLine}”
+                      </p>
+                    )}
+                    {mateLine && (
+                      <p className="voice-transcript__line voice-transcript__line--mate">
+                        <span className="voice-transcript__who">GhoomMate</span>
+                        {mateLine}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="voice-transcript--empty">
+                    {live ? 'Tap a phrase below, or just say it' : 'Hang on, GhoomMate’s on the way…'}
+                  </p>
+                )}
+              </div>
+
+              {micBlocked && (
+                <ErrorState
+                  headingLevel={3}
+                  className="voice-sheet__error"
+                  title="I can’t hear you"
+                  text="Allow the mic for this site, or type to me below. That works too!"
+                  retryLabel="Try the mic again"
+                  onRetry={onRetryMic}
+                />
+              )}
+
+              {ui.card && (
+                <ErrorBoundary
+                  resetKey={ui.card}
+                  headingLevel={3}
+                  title="Couldn’t show that card"
+                  text="GhoomMate sent something this screen can’t show. Keep talking, it still hears you."
+                >
+                  <GhoomMateCard
+                    card={ui.card}
+                    pending={ui.pending}
+                    error={ui.actionError}
+                    onAction={(action) => void ui.act(action)}
+                    onNavigate={go}
+                  />
+                </ErrorBoundary>
+              )}
+
+              <div className="voice-suggestions">
+                <p className="overline">Try saying</p>
+                <div className="voice-suggestions__row no-scrollbar">
+                  {SUGGESTIONS.map((s) => (
+                    <button key={s} type="button" className="chip" disabled={!canSay} onClick={() => say(s)}>
+                      {s}
+                    </button>
+                  ))}
                 </div>
-                {!micBlocked && <LinkButton onClick={() => setTyping(false)}>Speak instead</LinkButton>}
-              </form>
-            ) : (
-              <LinkButton className="voice-sheet__type" onClick={() => setTyping(true)}>
-                Type instead
-              </LinkButton>
-            )}
+              </div>
+
+              {sendError && (
+                <p className="voice-card__error" role="alert">
+                  {sendError}
+                </p>
+              )}
+
+              {typing ? (
+                <form className="voice-type" onSubmit={submitTyped}>
+                  <div className="voice-type__row">
+                    <div className="voice-type__field">
+                      <TextField
+                        label="Type to GhoomMate"
+                        placeholder="e.g. I paid 800 for the cab"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        enterKeyHint="send"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <button type="submit" className="voice-type__send" aria-label="Send" disabled={!draft.trim() || !canSay}>
+                      <img src={iconSend} alt="" width={18} height={18} />
+                    </button>
+                  </div>
+                  {!micBlocked && <LinkButton onClick={() => setTyping(false)}>Speak instead</LinkButton>}
+                </form>
+              ) : (
+                <LinkButton className="voice-sheet__type" onClick={() => setTyping(true)}>
+                  Type instead
+                </LinkButton>
+              )}
+            </>
+          )}
+
           </>
         )}
 

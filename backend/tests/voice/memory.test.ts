@@ -102,7 +102,7 @@ describe('agent tools', () => {
     const { ctx, events, patches, run } = fakeCtx();
     await run('remember_preference', { note: 'not a morning person', no_early_starts: true, likes: ['chill'] });
     expect(patches).toEqual([{ preferences: { ghoomate: ctx.memory } }]);
-    expect(events.some(e => e.type === 'notice' && e.message.includes('not a morning person'))).toBe(true);
+    expect(events.some(e => e.type === 'memory.updated' && e.change === 'added' && e.note === 'not a morning person')).toBe(true);
 
     const reply = await run('recommend_experiences', { for_whom: 'me' });
     expect(reply.includes('no starts before 8 AM')).toBe(true);

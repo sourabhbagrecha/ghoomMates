@@ -1,0 +1,140 @@
+.memory__body {
+  gap: 14px;
+}
+
+.memory__intro {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.memory__intro p,
+.memory__empty {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.memory__empty {
+  text-align: center;
+}
+
+.memory__error {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.memory__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.memory__note {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.memory__note-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory__note-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.memory__rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.memory__note-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Add / edit form */
+.memory__form {
+  gap: 14px;
+}
+
+.memory__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.memory__row > span {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+.memory__row strong {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.memory__vibes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memory__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.memory__chip {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.memory__chip--like {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.memory__chip--avoid {
+  border-color: var(--color-muted);
+  background: var(--color-track-muted);
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.memory__form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}

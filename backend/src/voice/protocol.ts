@@ -112,8 +112,10 @@ export type UiEvent =
   | { type: 'day.plan.cancelled'; planId: string }
   /** What GhoomMate is doing while a tool runs ("Checking balances…"); null when it's done */
   | { type: 'working'; label: string | null }
-  /** A short confirmation pill, e.g. "I'll remember: vegetarian" */
-  | { type: 'notice'; message: string };
+  /** A short confirmation pill, e.g. "Added 3 stops" */
+  | { type: 'notice'; message: string }
+  /** GhoomMate saved or dropped something it remembers about the speaker */
+  | { type: 'memory.updated'; change: 'added' | 'removed'; note: string };
 
 /** Frontend → agent. */
 export type UiAction =

@@ -4,13 +4,25 @@ import { llm } from '@livekit/agents';
 import { z } from 'zod';
 import { VIBE_AXES } from '../experiences.ts';
 import { firstName } from '../members.ts';
-import { forget, memoryLines, remember, type GhoomateMemory } from '../memory.ts';
+import { forget, memoryFrom, memoryLines, remember, type GhoomateMemory } from '../memory.ts';
 import type { Skill, SkillContext } from './types.ts';
 
-/** Saves the speaker's memory onto their profile (preferences.ghoomate; other preference keys are left alone) */
-async function save(ctx: SkillContext, memory: GhoomateMemory) {
-  await ctx.api.patch('/auth/profile', { preferences: { ghoomate: memory } });
-  ctx.memory = memory;
+/**
+ * Applies a change to the speaker's latest saved memory and saves it on their profile (preferences.ghoomate; other
+ * preference keys are left alone). Reads it fresh first, since they may have edited it in the app during the chat.
+ * If saving fails, the change still holds for this chat and the error is passed on.
+ */
+async function update(ctx: SkillContext, change: (memory: GhoomateMemory) => GhoomateMemory): Promise<GhoomateMemory> {
+  let latest = ctx.memory;
+  try {
+    latest = memoryFrom((await ctx.api.get<{ user: { preferences?: unknown } }>('/auth/me')).user.preferences);
+  } catch {
+    // Offline from the API: work from what this chat knows
+  }
+  const next = change(latest);
+  ctx.memory = next;
+  if (next !== latest) await ctx.api.patch('/auth/profile', { preferences: { ghoomate: next } });
+  return next;
 }
 
 const failed = (err: unknown) => new llm.ToolError(`Couldn't save that (${(err as Error).message}). Tell them briefly; it still counts for this chat.`);
@@ -43,16 +55,15 @@ ${lines.length ? lines.map(l => `- ${l}`).join('\n') : '- Nothing yet.'}
         avoid: z.array(z.enum(VIBE_AXES)).optional().describe('Vibes this note says to steer clear of'),
       }),
       execute: async ({ note, no_early_starts, max_price_rupees, likes, avoid }) => {
-        const next = remember(ctx.memory, { text: note, noEarlyStarts: no_early_starts, maxPriceRupees: max_price_rupees, likes, avoid });
-        if (next === ctx.memory) throw new llm.ToolError('The note was empty. Ask what they want you to remember.');
+        if (!note.trim()) throw new llm.ToolError('The note was empty. Ask what they want you to remember.');
+        let next: GhoomateMemory;
         try {
-          await save(ctx, next);
+          next = await update(ctx, (m) => remember(m, { text: note, noEarlyStarts: no_early_starts, maxPriceRupees: max_price_rupees, likes, avoid }));
         } catch (err) {
-          ctx.memory = next;
           throw failed(err);
         }
         const saved = next.notes[next.notes.length - 1].text;
-        void ctx.ui({ type: 'notice', message: `I’ll remember: ${saved}` });
+        void ctx.ui({ type: 'memory.updated', change: 'added', note: saved });
         return `Saved "${saved}". Confirm in a few words.`;
       },
     }),
@@ -62,19 +73,22 @@ ${lines.length ? lines.map(l => `- ${l}`).join('\n') : '- Nothing yet.'}
       description: 'Forget something remembered about the speaker.',
       parameters: z.object({ about: z.string().describe('Words from the note to forget, e.g. "vegetarian"') }),
       execute: async ({ about }) => {
-        const { memory: next, removed } = forget(ctx.memory, about);
+        let removed: { text: string }[] = [];
+        try {
+          await update(ctx, (m) => {
+            const result = forget(m, about);
+            removed = result.removed;
+            return removed.length ? result.memory : m;
+          });
+        } catch (err) {
+          throw failed(err);
+        }
         if (!removed.length) {
           const known = memoryLines(ctx.memory);
           throw new llm.ToolError(`Nothing remembered matches "${about}". ${known.length ? `You remember: ${known.join('; ')}.` : 'You remember nothing yet.'} Tell them briefly.`);
         }
-        try {
-          await save(ctx, next);
-        } catch (err) {
-          ctx.memory = next;
-          throw failed(err);
-        }
         const forgotten = removed.map(n => n.text).join(', ');
-        void ctx.ui({ type: 'notice', message: `Forgot: ${forgotten}` });
+        void ctx.ui({ type: 'memory.updated', change: 'removed', note: forgotten });
         return `Forgot "${forgotten}". Confirm in a few words.`;
       },
     }),

@@ -30,6 +30,9 @@ export type UiCard =
   | { kind: 'experiences'; city: string; basis: RecommendationBasis; picks: ExperiencePick[] }
   | { kind: 'dayPlan'; plan: DayPlan; status: 'draft' | 'added' }
 
+/** The latest change GhoomMate made to what it remembers, shown briefly in the sheet */
+export type MemoryUpdate = { change: 'added' | 'removed'; note: string; at: number }
+
 /** Side effects a handler can use */
 export type UiEffects = {
   setCard: (update: (card: UiCard | null) => UiCard | null) => void
@@ -37,6 +40,8 @@ export type UiEffects = {
   show: () => void
   /** What GhoomMate is busy with, shown as its status; null when done */
   setWorking: (label: string | null) => void
+  /** GhoomMate saved or dropped a memory */
+  setMemoryUpdate: (update: MemoryUpdate) => void
   notify: (notice: Notice) => void
   navigate: (route: string) => void
   refreshMoney: () => void
@@ -111,6 +116,8 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
   working: ({ label }, fx) => fx.setWorking(label),
 
   notice: ({ message }, fx) => fx.notify({ message }),
+
+  'memory.updated': ({ change, note }, fx) => fx.setMemoryUpdate({ change, note, at: Date.now() }),
 }
 
 /** A UiEvent from an RPC payload, or null for junk and event types this build doesn’t know yet */

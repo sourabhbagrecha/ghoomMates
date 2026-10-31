@@ -6,6 +6,7 @@ import { loadEnv } from '../env.ts';
 import { logger } from '../logger.ts';
 import { createBackendClient } from './backendClient.ts';
 import { firstName } from './members.ts';
+import { createHistoryRecorder, HISTORY_LOAD, historySection, type HistoryItem } from './history.ts';
 import { emptyMemory, memoryFrom } from './memory.ts';
 import { ACTION_RPC_METHOD, AGENT_NAME, agentNameFrom, type DispatchMetadata, type UiAction } from './protocol.ts';
 import { SKILLS, type SessionState, type Skill, type SkillContext, type Tool, type TripDetail } from './skills/index.ts';
@@ -66,7 +67,9 @@ function withWorkingStatus(tool: Tool, label: string | undefined, ctx: SkillCont
 
 export function buildAgentConfig(ctx: SkillContext, skills: Skill[] = SKILLS) {
   return {
-    instructions: [personaInstructions(ctx), ...skills.map(s => s.instructions(ctx))].join('\n\n'),
+    instructions: [personaInstructions(ctx), historySection(ctx.history ?? [], firstName(ctx.me.name)), ...skills.map(s => s.instructions(ctx))]
+      .filter(Boolean)
+      .join('\n\n'),
     tools: skills.flatMap(s => s.tools(ctx).map(tool => withWorkingStatus(tool, s.working?.[tool.name], ctx))),
   };
 }
@@ -96,6 +99,14 @@ export default defineAgent({
         return emptyMemory();
       },
     );
+    // The last chats in this trip, so it can pick up where you left off
+    const historyLoad = api.get<{ items: HistoryItem[] }>(`/api/voice/history?tripId=${encodeURIComponent(meta.tripId)}&limit=${HISTORY_LOAD}`).then(
+      ({ items }) => items,
+      (err: Error) => {
+        logger.warn('Voice', `Couldn't load GhoomMate history: ${err.message}`);
+        return [] as HistoryItem[];
+      },
+    );
     await ctx.connect();
     const participantJoin = ctx.waitForParticipant();
     participantJoin.catch(() => {}); // awaited below; if the trip fails to load we return without it
@@ -117,12 +128,19 @@ export default defineAgent({
     const members = trip.members.map(({ memberId, userId, name, vibe }) => ({ memberId, userId, name, vibe: vibe ?? null }));
     const meMember = members.find(m => m.memberId === trip.memberId);
     const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
-    const [participant, memory] = await Promise.all([participantJoin, memoryLoad]);
+    const [participant, memory, history] = await Promise.all([participantJoin, memoryLoad, historyLoad]);
     const state: SessionState = { pendingDraft: null, lastAdded: null };
-    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, api, ui: createUiPusher(ctx.room, participant.identity), state };
+    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, history, api, ui: createUiPusher(ctx.room, participant.identity), state };
 
     const session = newSession();
     session.on(voice.AgentSessionEventTypes.Error, (ev) => logger.warn('Voice', `Session error: ${(ev.error as { error?: Error })?.error?.message ?? String(ev.error)}`));
+    // Save each turn (spoken or typed) to the trip's history as the chat goes, and whatever's left when it ends
+    const recorder = createHistoryRecorder((messages) => api.post('/api/voice/history', { tripId: trip.id, messages }));
+    session.on(voice.AgentSessionEventTypes.ConversationItemAdded, ({ item }) => {
+      if (item.type !== 'message' || (item.role !== 'user' && item.role !== 'assistant')) return;
+      recorder.add(item.role === 'user' ? 'user' : 'agent', item.textContent);
+    });
+    ctx.addShutdownCallback(() => recorder.flush());
     await session.start({ agent: new voice.Agent(buildAgentConfig(skillCtx)), room: ctx.room });
     logger.info('Voice', `GhoomMate joined ${ctx.room.name} for ${me.name} on "${trip.name}"`);
 

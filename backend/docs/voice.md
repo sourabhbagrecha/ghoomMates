@@ -55,6 +55,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `backendClient.ts` | `fetch` wrapper: Bearer token, JSON, `Idempotency-Key`, and turns `{error:{code,message}}` into a thrown `BackendError` |
 | `ui.ts` | `createUiPusher(room, identity)`: ordered, fire-and-forget `ghoomate.ui` RPCs. Failures are only logged. |
 | `members.ts` | Pure helpers: spoken names → member ids, rupees → paise, equal-split preview (tested in `tests/voice/members.test.ts`) |
+| `history.ts` | Chat history: the background recorder that saves each turn, and the latest turns as context for the next chat (tested in `tests/voice/history.test.ts`) |
 | `memory.ts` | What GhoomMate remembers about a person across chats (notes plus the rules they carry), saved on their profile as `preferences.ghoomate` (tested in `tests/voice/memory.test.ts`) |
 | `experiences.ts` | Agent-side copy of the guide-experience catalogue (ids, prices, weekly schedules, vibe weights) and the pure helpers: IST schedule, ranking, varied picks and day planning (tested in `tests/voice/experiences.test.ts`) |
 | `skills/` | One file per capability, plus the registry in `skills/index.ts` |
@@ -125,6 +126,20 @@ Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'conf
 
 The cards look up each experience's photo, price and host from the frontend catalogue (`frontend/src/pages/Explore/experiencesData.ts`). The frontend works out the next date in `experienceSchedule.ts`. When you add or change an experience, update both catalogues. The test `the agent catalogue matches the frontend one` fails if their ids, cities, prices, days, start times or group sizes drift apart.
 
+## Chat history
+
+Every turn (spoken or typed) is saved per person per trip in `ghoomate_messages` (migration `005_ghoomate_history.sql`). Only that person can read it.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/voice/history?tripId=&limit=` | Your messages in the trip, oldest first: the latest `limit` (default 50, max 200) |
+| POST | `/api/voice/history` | `{ tripId, messages: [{ role: user\|agent, text }] }`, 1–50 at a time; the agent saves turns as the chat goes |
+| DELETE | `/api/voice/history?tripId=` | Clears your history in the trip |
+
+- **Saving.** The agent listens for `conversation_item_added` and saves user and assistant messages in small background batches (`createHistoryRecorder`). It saves what's left when the job shuts down. A failed save is logged and dropped, never shown to the user.
+- **Recalling.** At start, the agent loads the latest 40 messages alongside the trip. It puts them in its instructions as "Earlier chats", capped at about 3,000 characters, so it can pick up where you left off ("that place you suggested").
+- **In the app.** The voice sheet has **Chat history** (grouped by day, with Clear history) and **What I remember** links.
+
 ## Memory
 
 `skills/memory.ts` lets GhoomMate remember lasting things the speaker says about themselves ("vegetarian", "not a morning person", "keep it under ₹1,500", "love history"):
@@ -133,6 +148,8 @@ The cards look up each experience's photo, price and host from the frontend cata
 - **Rules.** A note can carry a rule: `no_early_starts` (nothing before 8 AM), `max_price_rupees`, and vibes it `likes` or `avoid`s. Recommendations and day plans follow these automatically. Remembered likes also stand in for the quiz, so no mood question is needed. Squad picks follow the speaker's limits and dislikes, but not their personal likes.
 - **Loading.** The agent loads the memory from `GET /auth/me` while it joins, and lists it in its instructions. It keeps at most 12 notes, newest last.
 - **What it ignores.** One-off moods and anything about other people.
+- **The memory screen.** You can see, edit, add and remove notes yourself at **Profile → What GhoomMate remembers** (`#/profile/ghoomate`). The screen and the agent save the same shape.
+- **Edits mid-chat are safe.** The agent re-reads your latest memory before each change, so an edit made on the screen during a chat isn't overwritten.
 
 ## Working status and filler
 

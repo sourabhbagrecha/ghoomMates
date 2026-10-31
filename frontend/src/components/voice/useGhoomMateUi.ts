@@ -3,7 +3,7 @@ import { RpcError, type Room } from 'livekit-client'
 import { activeTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { ACTION_RPC_METHOD, UI_RPC_METHOD, type UiAction } from './protocol'
-import { dispatchUiEvent, parseUiEvent, type UiCard, type UiEffects } from './uiEvents'
+import { dispatchUiEvent, parseUiEvent, type MemoryUpdate, type UiCard, type UiEffects } from './uiEvents'
 import { useVoice } from './voiceContext'
 
 export type CardAction = UiAction['type']
@@ -43,6 +43,7 @@ export function useGhoomMateUi(
   const { minimize, expand } = sheet
   const [card, setCard] = useState<UiCard | null>(null)
   const [working, setWorking] = useState<string | null>(null)
+  const [memoryUpdate, setMemoryUpdate] = useState<MemoryUpdate | null>(null)
   const [pending, setPending] = useState<CardAction | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -56,6 +57,7 @@ export function useGhoomMateUi(
       },
       show: expand,
       setWorking,
+      setMemoryUpdate,
       notify,
       navigate: (route) => {
         navigate(route)
@@ -117,5 +119,5 @@ export function useGhoomMateUi(
     [room, agentIdentity],
   )
 
-  return { card, pending, actionError, act, working }
+  return { card, pending, actionError, act, working, memoryUpdate }
 }

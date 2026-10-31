@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import octopus from '../../assets/figma/ghoommate-octopus.png'
 import iconChevron from '../../assets/figma/icon-chevron-right-muted.svg'
 import iconHelp from '../../assets/figma/icon-help-circle-primary.svg'
 import iconPencil from '../../assets/figma/icon-pencil-primary.svg'
@@ -24,6 +25,7 @@ import './YourProfilePage.css'
 const MENU = [
   { icon: iconPencil, title: 'Edit profile', detail: 'Photo, name, colour and selfie', to: 'profile/edit' },
   { icon: iconSparkles, title: 'Vibe quiz', detail: '8 quick cards · about a minute', to: 'quiz' },
+  { icon: octopus, title: 'What GhoomMate remembers', detail: 'Your preferences it plans around', to: 'profile/ghoomate' },
   { icon: iconSettings, title: 'Settings', detail: 'Account, notifications and privacy', to: 'profile/settings' },
   { icon: iconHelp, title: 'Help & FAQ', detail: 'Splits, UPI, face match and more', to: 'profile/help' },
 ]
