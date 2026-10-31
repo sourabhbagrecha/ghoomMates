@@ -1,0 +1,35 @@
+.vibe-chart {
+  display: block;
+  overflow: visible;
+}
+
+.vibe-chart__grid {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.vibe-chart__shape {
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.vibe-chart__dot {
+  stroke: #fff;
+  stroke-width: 1.3;
+}
+
+.vibe-chart__label {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 10px;
+  fill: var(--color-muted);
+}
+
+.vibe-chart--compact .vibe-chart__dot {
+  stroke-width: 1;
+}
+
+.vibe-chart--compact .vibe-chart__label {
+  font-size: 8.5px;
+}

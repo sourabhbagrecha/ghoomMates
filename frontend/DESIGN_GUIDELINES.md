@@ -257,6 +257,16 @@ Used by the sign-up flow in [`src/pages/Onboarding/`](src/pages/Onboarding/) (Fi
 
 Every onboarding screen can be opened directly at `#/welcome`, `#/sign-in`, `#/verify`, `#/profile`, `#/selfie`, `#/permissions` or `#/invite`.
 
+### Vibe components
+Used by the Itinerary vibe card and the personality quiz in [`src/pages/Quiz/`](src/pages/Quiz/).
+
+| Component | What it is |
+|---|---|
+| [`Flashcard`](src/components/Flashcard.tsx) | Amber question card with a sky card peeking out behind it at −3°: overline ("Vibe check · Card 3 of 8"), Skip, a 15 px question, a hint and a row of `Chip` answers |
+| [`VibeChart`](src/components/VibeChart.tsx) | The hexagonal “spiderweb” across the six axes in [`src/data/vibe.ts`](src/data/vibe.ts). Draw the squad in sky (28% fill) and You in amber (15% fill, with dots), You on top. `variant="compact"` is the 176 × 140 Itinerary chart; the default is for bigger charts |
+
+**Personality quiz:** after Permissions, onboarding continues to the quiz intro (`#/quiz`), eight cards (`#/quiz/1` … `#/quiz/8`) and your travel persona (`#/quiz/persona`). Single-choice cards say “Pick one”, multi-choice cards “Select all that apply to you”. The result is saved on the device and replaces the sample “You” shape on the Itinerary vibe card.
+
 ### Utility classes: [`src/styles/ui.css`](src/styles/ui.css)
 
 | Class | What it is |

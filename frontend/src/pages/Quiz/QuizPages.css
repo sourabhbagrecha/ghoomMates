@@ -1,0 +1,173 @@
+.quiz__body {
+  gap: 14px;
+  padding-top: 40px;
+}
+
+/* New card slides in from the right, like dealing the next flashcard */
+.quiz-card__flashcard .flashcard {
+  animation: quiz-deal 260ms ease-out;
+}
+
+@keyframes quiz-deal {
+  from {
+    opacity: 0;
+    transform: translateX(28px) rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-card__flashcard .flashcard {
+    animation: none;
+  }
+}
+
+/* Intro: topics on the preview card */
+.quiz-intro__topic {
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.6);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.quiz-intro__unlock,
+.quiz-card__so-far {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.quiz-intro__unlock-text,
+.quiz-card__so-far-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quiz-intro__unlock-text h2 {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.quiz-intro__unlock-text p:last-child,
+.quiz-card__so-far-text p:last-child {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Persona result */
+.persona {
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.persona__name {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 26px;
+  color: var(--color-ink);
+}
+
+.persona__tagline {
+  max-width: 280px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.persona .vibe-chart {
+  margin: 8px 0 4px;
+}
+
+.persona__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 8px;
+}
+
+.persona__traits {
+  display: flex;
+  gap: 6px;
+}
+
+.persona__legend {
+  display: flex;
+  align-self: flex-start;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.persona__legend > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.persona__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.persona__swatch--squad {
+  background: var(--color-sky);
+}
+
+.persona__swatch--you {
+  background: var(--color-amber);
+}
+
+.persona__match {
+  gap: 10px;
+  padding: 12px;
+}
+
+.persona__match-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.persona__match-text p {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.persona__match-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.persona__match-pill {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}

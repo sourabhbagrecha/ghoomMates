@@ -1,0 +1,66 @@
+.flashcards {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding-top: 6px;
+}
+
+/* Next card peeking out behind, tilted -3° (333 × 175 on the 361 × 173 card in Figma); follows the card's height */
+.flashcards__next {
+  position: absolute;
+  left: 16.35px;
+  right: 11.65px;
+  top: -4.84px;
+  bottom: 8px;
+  border-radius: var(--radius-card);
+  background: var(--color-sky-light);
+  transform: rotate(-3deg);
+}
+
+.flashcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: var(--radius-card);
+  background: var(--color-amber);
+}
+
+.flashcard__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flashcard__overline {
+  color: var(--color-primary);
+}
+
+.flashcard__skip {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: rgba(7, 42, 200, 0.7);
+}
+
+.flashcard__question {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.flashcard__hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.flashcard__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
+}

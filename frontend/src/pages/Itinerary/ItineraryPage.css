@@ -46,20 +46,10 @@
 }
 
 .spiderweb {
-  position: relative;
   flex-shrink: 0;
   width: 176px;
   height: 140px;
   overflow: hidden;
-}
-
-.spiderweb__label {
-  position: absolute;
-  font-weight: 700;
-  font-size: 8.5px;
-  line-height: 13px;
-  color: var(--color-muted);
-  white-space: nowrap;
 }
 
 .vibe-card__persona {
@@ -150,75 +140,6 @@
   display: flex;
   align-items: center;
   gap: 2px;
-}
-
-/* Vibe check flashcards */
-.flashcards {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding-top: 6px;
-}
-
-/* Next card peeking out behind, tilted -3° */
-.flashcards__next {
-  position: absolute;
-  left: 16.35px;
-  top: -4.84px;
-  width: 333px;
-  height: 175px;
-  border-radius: var(--radius-card);
-  background: var(--color-sky-light);
-  transform: rotate(-3deg);
-}
-
-.flashcard {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px;
-  border-radius: var(--radius-card);
-  background: var(--color-amber);
-}
-
-.flashcard__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.flashcard__overline {
-  color: var(--color-primary);
-}
-
-.flashcard__skip {
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 17px;
-  color: rgba(7, 42, 200, 0.7);
-}
-
-.flashcard__question {
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 23px;
-  color: var(--color-ink);
-  white-space: nowrap;
-}
-
-.flashcard__hint {
-  font-weight: 600;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-primary);
-}
-
-.flashcard__options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding-top: 6px;
 }
 
 /* Day switcher */

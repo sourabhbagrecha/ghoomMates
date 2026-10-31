@@ -8,6 +8,8 @@ import { ItineraryPage } from './pages/Itinerary/ItineraryPage'
 import { OnboardingFlow } from './pages/Onboarding/OnboardingFlow'
 import { isOnboardingStep } from './pages/Onboarding/onboardingData'
 import { PhotosPage } from './pages/Photos/PhotosPage'
+import { QuizFlow } from './pages/Quiz/QuizFlow'
+import { parseQuizRoute } from './pages/Quiz/quizData'
 import { hasOnboarded, markOnboarded } from './services/onboardingStorage'
 import './App.css'
 
@@ -24,8 +26,9 @@ function App() {
   const [tab, setTab] = useState<TabId>('itinerary')
   const Page = PAGES[tab]
 
-  // Any onboarding screen can be opened directly via #/<step>; otherwise new users start at welcome
-  const onboardingStep = isOnboardingStep(route) ? route : onboarded ? null : 'welcome'
+  // Any onboarding or quiz screen can be opened directly via #/<step>; otherwise new users start at welcome
+  const quizRoute = parseQuizRoute(route)
+  const onboardingStep = isOnboardingStep(route) ? route : onboarded || quizRoute ? null : 'welcome'
 
   return (
     <div className="app">
@@ -37,9 +40,11 @@ function App() {
             onDone={() => {
               markOnboarded()
               setOnboarded(true)
-              navigate('')
+              navigate('quiz')
             }}
           />
+        ) : quizRoute ? (
+          <QuizFlow route={quizRoute} go={navigate} onDone={() => navigate('')} />
         ) : (
           <>
             <Page />

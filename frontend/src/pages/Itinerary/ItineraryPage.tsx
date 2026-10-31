@@ -2,24 +2,18 @@ import { useState } from 'react'
 import headerBg from '../../assets/figma/itinerary-header-bg.svg'
 import iconStarOutline from '../../assets/figma/icon-star-outline.svg'
 import iconStar from '../../assets/figma/icon-star.svg'
-import spiderweb from '../../assets/figma/spiderweb.svg'
 import { AvatarStack } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
+import { Flashcard } from '../../components/Flashcard'
 import { GhoomMateSays } from '../../components/GhoomMate'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
+import { VibeChart } from '../../components/VibeChart'
 import { SQUAD } from '../../data/people'
+import { SAMPLE_YOU_VIBE, SQUAD_VIBE } from '../../data/vibe'
+import { loadVibe } from '../../services/vibeStorage'
 import { DAYS, TRIP, VIBE_CHECK, type Stop } from './itineraryData'
 import './ItineraryPage.css'
-
-const SPIDERWEB_LABELS = [
-  { label: 'Adventure', left: 60.5, top: 10.5 },
-  { label: 'Food', left: 129.63, top: 38 },
-  { label: 'Nightlife', left: 129.63, top: 93 },
-  { label: 'Culture', left: 67.5, top: 120.5 },
-  { label: 'Chill', left: 18.37, top: 93 },
-  { label: 'Shops', left: 11.37, top: 38 },
-]
 
 export function ItineraryPage() {
   return (
@@ -58,17 +52,22 @@ export function ItineraryPage() {
 
 function VibeCard() {
   const [rating, setRating] = useState(4)
+  // Your own quiz result once you've taken it, otherwise the sample from Figma
+  const [youVibe] = useState(() => loadVibe() ?? SAMPLE_YOU_VIBE)
 
   return (
     <section className="card vibe-card">
       <div className="vibe-card__main">
-        <div className="spiderweb" aria-hidden="true">
-          <img src={spiderweb} alt="" width={176} height={140} />
-          {SPIDERWEB_LABELS.map(({ label, left, top }) => (
-            <span key={label} className="spiderweb__label" style={{ left, top }}>
-              {label}
-            </span>
-          ))}
+        <div className="spiderweb">
+          <VibeChart
+            variant="compact"
+            width={176}
+            label="Squad spiderweb: your vibe compared with the squad"
+            series={[
+              { scores: SQUAD_VIBE, color: 'var(--color-sky)', fillOpacity: 0.28 },
+              { scores: youVibe, color: 'var(--color-amber)', fillOpacity: 0.15, dots: true },
+            ]}
+          />
         </div>
         <div className="vibe-card__persona">
           <p className="overline vibe-card__overline">Squad spiderweb</p>
@@ -123,28 +122,17 @@ function VibeCheckFlashcards() {
     })
 
   return (
-    <section className="flashcards">
-      <div className="flashcards__next" aria-hidden="true" />
-      <div className="flashcard">
-        <div className="flashcard__top">
-          <p className="overline flashcard__overline">
-            Vibe check · Card {VIBE_CHECK.card} of {VIBE_CHECK.totalCards}
-          </p>
-          <button type="button" className="flashcard__skip">
-            Skip
-          </button>
-        </div>
-        <h2 className="flashcard__question">{VIBE_CHECK.question}</h2>
-        <p className="flashcard__hint">Select all that apply to you</p>
-        <div className="flashcard__options">
-          {VIBE_CHECK.options.map((option) => (
-            <Chip key={option.id} selected={selected.has(option.id)} onClick={() => toggle(option.id)}>
-              {option.label}
-            </Chip>
-          ))}
-        </div>
-      </div>
-    </section>
+    <Flashcard
+      overline={`Vibe check · Card ${VIBE_CHECK.card} of ${VIBE_CHECK.totalCards}`}
+      question={VIBE_CHECK.question}
+      hint="Select all that apply to you"
+    >
+      {VIBE_CHECK.options.map((option) => (
+        <Chip key={option.id} selected={selected.has(option.id)} onClick={() => toggle(option.id)}>
+          {option.label}
+        </Chip>
+      ))}
+    </Flashcard>
   )
 }
 
