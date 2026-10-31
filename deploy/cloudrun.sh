@@ -289,8 +289,13 @@ deploy_web() {
   say "  address: $PUBLIC_URL"
   # shellcheck disable=SC2046
   collect_secrets $(web_secret_spec)
-  if ! have_secret GOOGLE_CLIENT_SECRET && [[ "${ALLOW_DEV_LOGIN:-}" != true ]]; then
-    die "There is no way to sign in: GOOGLE_CLIENT_SECRET is not in Secret Manager and ALLOW_DEV_LOGIN is not true. Run deploy/secrets.sh."
+  if [[ "${ALLOW_DEV_LOGIN:-}" != true ]]; then
+    if ! have_secret GOOGLE_CLIENT_SECRET; then
+      need "There is no way to sign in: GOOGLE_CLIENT_SECRET is not in Secret Manager and ALLOW_DEV_LOGIN is not true. Run deploy/secrets.sh."
+    fi
+    if is_placeholder "$(env_value GOOGLE_CLIENT_ID)"; then
+      need "There is no way to sign in: GOOGLE_CLIENT_ID is not set in $ENV_FILE or the environment, and ALLOW_DEV_LOGIN is not true."
+    fi
   fi
   if ! have_secret GCS_CREDENTIALS_BASE64; then
     warn "GCS_CREDENTIALS_BASE64 is missing: photos would be written to the container's temporary disk and vanish."
@@ -404,11 +409,12 @@ set_min_instances() { # SERVICE COUNT
 
 # --- Summary --------------------------------------------------------------------------------------------------------
 summary() {
-  local client_id
+  local client_id headline="Ghoomates is on Cloud Run:  $PUBLIC_URL"
   client_id="$(env_value GOOGLE_CLIENT_ID)"
+  if [[ "$DRY_RUN" == 1 ]]; then headline="Dry run done, nothing was deployed. It would live at:  $PUBLIC_URL"; fi
   cat >&2 <<EOF
 
-${C_BOLD}Ghoomates is on Cloud Run:  $PUBLIC_URL${C_OFF}
+${C_BOLD}$headline${C_OFF}
 
 One manual step for Google sign-in (gcloud cannot do it):
   https://console.cloud.google.com/apis/credentials?project=$PROJECT_ID

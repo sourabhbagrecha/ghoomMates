@@ -59,6 +59,8 @@ say()  { printf '%s\n' "$*" >&2; }
 ok()   { printf '%s  ok%s %s\n' "$C_GREEN" "$C_OFF" "$*" >&2; }
 warn() { printf '%s  warning:%s %s\n' "$C_YELLOW" "$C_OFF" "$*" >&2; }
 die()  { printf '%serror:%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; exit 1; }
+# need MESSAGE: a precondition failed. Stops a real run; a dry run only notes it, so the rest of the plan still shows.
+need() { if [[ "$DRY_RUN" == 1 ]]; then warn "$* (a real run would stop here)"; else die "$*"; fi; }
 
 # Makes a change, or only prints it when DRY_RUN=1. Use it for everything that creates, updates or deploys;
 # read-only gcloud calls (describe, list, versions access) are made directly.
