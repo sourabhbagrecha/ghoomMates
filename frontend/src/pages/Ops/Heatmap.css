@@ -1,0 +1,165 @@
+/* Sites × hours heatmap. Bleeds to the card edges and scrolls sideways with the site names pinned. */
+.ops-heat {
+  margin: 0 -14px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.ops-heat__table {
+  width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* The explanation is for screen readers; the card heading says the same to everyone else */
+.ops-heat__caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Zero specificity, so the classes below set their own padding */
+:where(.ops-heat__table) th {
+  padding: 0;
+}
+
+:where(.ops-heat__table) td {
+  padding: 1.5px;
+}
+
+/* Pinned first column. It carries the card's own surface and the 14px gutter so cells never show through. */
+.ops-heat__corner,
+.ops-heat__site {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 118px;
+  min-width: 118px;
+  max-width: 118px;
+  padding: 0 6px 0 14px;
+  background: var(--color-surface);
+  text-align: left;
+}
+
+.ops-heat__corner {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.ops-heat__hour {
+  padding: 0 1.5px 4px;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.ops-heat__hour-label {
+  display: block;
+  width: 32px;
+  border-radius: 6px;
+}
+
+/* The hour it is right now */
+.ops-heat__hour-label--now {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.ops-heat__site-button {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 29px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+.ops-heat__site-button:focus-visible,
+.ops-heat__cell:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Hours that have already gone, when looking at today */
+.ops-heat__past {
+  opacity: 0.45;
+}
+
+/* One slot: a number on the crowd colour, so the colour is never the only signal */
+.ops-heat__cell {
+  position: relative;
+  display: block;
+  width: 32px;
+  height: 29px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.ops-heat__cell:disabled {
+  cursor: default;
+}
+
+.ops-heat__cell--quiet { background: var(--color-crowd-quiet); }
+.ops-heat__cell--moderate { background: var(--color-crowd-moderate); }
+.ops-heat__cell--busy { background: var(--color-crowd-busy); }
+.ops-heat__cell--packed { background: var(--color-crowd-packed); }
+.ops-heat__cell--closed { background: var(--color-tint-cool); }
+
+/* The squads' plans tip this slot into a worse band than the modelled day */
+.ops-heat__cell--tipped::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+
+.ops-heat__cell--selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Top row: squads starting a stop across the city, hour by hour (the squad data series is sky) */
+.ops-heat__demand-label {
+  display: block;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 29px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.ops-heat__demand-cell {
+  display: flex;
+  align-items: flex-end;
+  width: 32px;
+  height: 29px;
+  border-radius: 8px;
+  background: var(--color-tint);
+}
+
+.ops-heat__demand-bar {
+  width: 100%;
+  border-radius: 6px;
+  background: var(--color-sky);
+}

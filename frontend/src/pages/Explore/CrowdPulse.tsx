@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CrowdChip } from '../../components/crowd/Crowd'
 import { SectionHeader } from '../../components/SectionHeader'
 import { heritageApi, type LiveCrowds, type LiveSite } from '../../services/heritageService'
+import { AdvisoryBanners, OpsConsoleLink } from '../Ops/TravelerAdvisory'
 import { LAKES, MAP_HEIGHT, MAP_WIDTH, project } from './crowdMapData'
 import './CrowdPulse.css'
 
@@ -60,6 +61,7 @@ export function CrowdPulse({ city }: { city: string }) {
           )
         }
       />
+      <AdvisoryBanners city={city} onPickSite={setSelectedId} />
       <section className="card crowd-pulse">
         <svg
           className="crowd-pulse__map"
@@ -144,6 +146,7 @@ export function CrowdPulse({ city }: { city: string }) {
         ) : (
           <p className="crowd-pulse__summary">Checking the crowds…</p>
         )}
+        <OpsConsoleLink />
       </section>
     </>
   )

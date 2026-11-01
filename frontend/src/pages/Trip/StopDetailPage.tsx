@@ -18,6 +18,7 @@ import { CrowdBars, CrowdChip } from '../../components/crowd/Crowd'
 import { CROWD_LABELS, SITE_PHOTOS, applySuggestion } from '../../components/crowd/crowdData'
 import type { StopCrowd } from '../../services/heritageService'
 import { useToast } from '../../hooks/useToast'
+import { SiteAdvisory } from '../Ops/TravelerAdvisory'
 import './StopDetailPage.css'
 
 export function StopDetailPage({ stopId }: { stopId: string }) {
@@ -89,6 +90,8 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
             </p>
           )}
         </section>
+
+        <SiteAdvisory stop={stop} />
 
         {stop.crowd && (
           <CrowdCard
