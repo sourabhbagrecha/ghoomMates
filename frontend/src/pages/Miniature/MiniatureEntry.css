@@ -1,0 +1,70 @@
+/* The Photos tab card that opens Squad Miniature */
+.miniature-entry {
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  transition: transform 120ms ease-out;
+}
+
+.miniature-entry:active {
+  transform: scale(0.98);
+}
+
+.miniature-entry__art {
+  position: relative;
+  flex-shrink: 0;
+  width: 96px;
+  height: 72px;
+}
+
+.miniature-entry__art > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint-cool);
+  object-fit: cover;
+}
+
+.miniature-entry__badge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.miniature-entry__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.miniature-entry__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.miniature-entry__hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miniature-entry {
+    transition: none;
+  }
+}

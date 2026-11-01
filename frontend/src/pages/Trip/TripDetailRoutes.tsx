@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
 import { MakerDetailPage } from '../Makers/MakerDetailPage'
 import { MakersListPage } from '../Makers/MakersListPage'
+import { MiniaturePage } from '../Miniature/MiniaturePage'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -28,6 +29,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   photos/view/<index>     Photo viewer (0-based)
  *   photos/upload           Upload photos
  *   photos/reel             Generated reel
+ *   photos/miniature        Squad Miniature: paint a squad photo in a Udaipur tradition
  *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
  *   explore/makers[/<id>]   Makers of Udaipur: the list, or one maker
  *   members                 Squad members
@@ -53,6 +55,7 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
     case 'photos': {
       if (route === 'photos/upload') return <PhotoUploadPage />
       if (route === 'photos/reel') return <ReelResultPage />
+      if (route === 'photos/miniature') return <MiniaturePage />
       // The viewer waits for the album to load, so any index is accepted here
       if (page === 'view' && /^\d+$/.test(param ?? '')) return <PhotoViewerPage index={Number(param)} />
       return null

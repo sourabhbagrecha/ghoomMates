@@ -22,9 +22,11 @@ export interface ServerModules {
   frontend?: Router;
   // Heritage Ops: crowd forecasts from squads' plans and advisories, mounted under /api/ops. Works without a database.
   ops?: Router;
+  // Squad Miniature: trip photos painted in Udaipur's painting traditions, mounted under /api/artworks. Omitted without a database.
+  artworks?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -55,6 +57,9 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   }));
   app.use('/api/voice', voice ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+  }));
+  app.use('/api/artworks', artworks ?? (() => {
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Artworks need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (makers) app.use('/api/makers', makers);

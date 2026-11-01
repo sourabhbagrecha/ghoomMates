@@ -1,0 +1,152 @@
+/* Read by screen readers only */
+.miniature__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.miniature__body {
+  gap: 14px;
+  padding-top: 40px;
+}
+
+/* Footer button with a leading icon */
+.miniature__action {
+  gap: 8px;
+}
+
+.miniature__fine-print {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.miniature__problem {
+  padding: 10px 14px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.miniature__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.miniature__loading-tiles {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+
+/* The finished painting (or the framed photo): the picture fills its frame at the picture's own shape */
+.miniature__result {
+  animation: miniature-reveal 0.5s ease-out;
+}
+
+.miniature__art {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@keyframes miniature-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.miniature__caption {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.miniature__caption-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.miniature__style-name {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--color-ink);
+}
+
+.miniature__byline {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.miniature__tradition {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.miniature__icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+}
+
+/* Why the painter couldn't help: sky blue, never red */
+.miniature__notice {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.miniature__notice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.miniature__notice-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.miniature__notice-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miniature__result {
+    animation: none;
+  }
+}

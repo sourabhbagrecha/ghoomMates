@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Router } from 'express';
@@ -20,6 +20,8 @@ export interface MediaStorage {
   size(key: string): Promise<number | null>;
   // Writes a small object server-side (e.g. a selfie already held in memory).
   put(key: string, data: Buffer, contentType: string): Promise<void>;
+  // The object's bytes, or null when it does not exist (e.g. a photo handed to Gemini). Check size() first for big files.
+  read(key: string): Promise<Buffer | null>;
 }
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -84,6 +86,17 @@ class GcsStorage implements MediaStorage {
     assertKey(key);
     await this.bucket.file(key).save(data, { contentType, resumable: false });
   }
+
+  async read(key: string) {
+    assertKey(key);
+    try {
+      const [data] = await this.bucket.file(key).download();
+      return data;
+    } catch (err: any) {
+      if (err?.code === 404) return null;
+      throw err;
+    }
+  }
 }
 
 // Fallback when GCS is not configured: files live in backend/uploads and are served by /api/media
@@ -146,6 +159,15 @@ class LocalStorage implements MediaStorage {
     const target = this.path(key);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, data);
+  }
+
+  async read(key: string) {
+    try {
+      return await readFile(this.path(key));
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') return null;
+      throw err;
+    }
   }
 }
 
