@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
+import { storyRoutes } from '../Stories/StoryRoutes'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -27,6 +28,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   photos/upload           Upload photos
  *   photos/reel             Generated reel
  *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
+ *   explore/story/<id>      Kaavad Tales story for a heritage site; explore/passport is the Heritage Passport
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -34,6 +36,8 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
   const [section, page, param, ...rest] = path
   const route = [section, page, param].filter(Boolean).join('/')
   if (rest.length) return null
+  const story = storyRoutes(path)
+  if (story) return story
 
   switch (section) {
     case 'itinerary':

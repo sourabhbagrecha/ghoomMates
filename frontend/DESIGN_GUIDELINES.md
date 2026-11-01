@@ -277,6 +277,7 @@ The rest of the app hangs off those screens:
 | Create a trip | `#/create/destination` → `dates` → `squad` → `vibe` → `generating` → `draft` | `src/pages/CreateTrip/` |
 | Before the trip (planning mode) | `#/plan`, `#/plan/vote/<id>`, `#/plan/bookings`, `#/plan/checklist`, `#/plan/budget` | `src/pages/Plan/` |
 | During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
+| Kaavad Tales (heritage stories) | `#/trip/explore/story/<siteId>`, `#/trip/explore/passport` | `src/pages/Stories/` |
 | Profile and account | `#/profile`, `…/edit`, `…/settings`, `…/help` ("Retake vibe quiz" opens `#/quiz`) | `src/pages/Profile/` |
 | System states gallery | `#/states` (loading, empty, error, offline) | `src/pages/States/` |
 | After the trip | `#/past/<id>` (recap), `…/album`, `…/days`, `…/expenses` (final tally + settle up), `…/rate[/<stars>]` | `src/pages/PastTrip/` |
@@ -298,6 +299,18 @@ Used by the Itinerary, Stop detail and Explore screens for heritage-site crowds 
 | [`CrowdPulse`](src/pages/Explore/CrowdPulse.tsx) | Explore's live map of the old city with site dots coloured by crowd, an hour scrubber and quiet gems |
 
 Crowd colours are tokens (`--color-crowd-{quiet,moderate,busy,packed,closed}` plus `-tint` fills). Packed uses a coral, not red, to show status rather than an error.
+
+### Kaavad Tales components
+Heritage stories told like a Kavadiya Bhat's Kaavad, with a quiz and a Heritage Passport stamp (see `backend/docs/stories.md`). They live in [`src/pages/Stories/`](src/pages/Stories/).
+
+| Component | What it is |
+|---|---|
+| `KaavadStage` | The painted shrine: a vermilion frame (coral mixed with amber, never a new colour), doors that swing open and panels that fold in 3D. With `prefers-reduced-motion` it is a plain fade |
+| `StampSeal` | The passport seal in primary with the Sun of Mewar and the score; gold, silver and bronze change the disc. It thumps onto the page when `animate` |
+| `HearTheStory` | Entry point to a story: a `card` in a stop's story section, a `link` under a site in Crowd pulse |
+| `StoriesOfMewar` | Explore's carousel of painted stories, with a link to the passport |
+
+Right answers are green and wrong ones sky blue, never red. Everything around a story switches to Hindi with the story (`copy` in `storiesData.ts`), and Devanagari gets taller line heights through `:lang(hi)`.
 
 ### Utility classes: [`src/styles/ui.css`](src/styles/ui.css)
 

@@ -1,0 +1,337 @@
+/*
+ * The Kaavad: a painted wooden shrine from Bassi whose doors open and whose panels unfold one by one.
+ * Its vermilion and gold come from the app's own palette (coral mixed with amber), not new colours.
+ */
+.kaavad {
+  --kaavad-red: color-mix(in srgb, var(--color-crowd-packed) 70%, var(--color-amber));
+  --kaavad-red-deep: color-mix(in srgb, var(--kaavad-red) 70%, var(--color-ink));
+  --kaavad-red-light: color-mix(in srgb, var(--kaavad-red) 80%, var(--color-surface));
+  --kaavad-gold: var(--color-amber);
+  --kaavad-paper: color-mix(in srgb, var(--color-amber) 8%, var(--color-surface));
+  --kaavad-fold: 820ms;
+  position: relative;
+}
+
+.kaavad__frame {
+  position: relative;
+  padding: 10px;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 14px 14px, var(--kaavad-gold) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) 14px, var(--kaavad-gold) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 14px calc(100% - 14px), var(--kaavad-gold) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), var(--kaavad-gold) 0 3px, transparent 3.5px),
+    linear-gradient(165deg, var(--kaavad-red-light), var(--kaavad-red) 42%, var(--kaavad-red-deep));
+  box-shadow:
+    inset 0 0 0 2px var(--kaavad-gold),
+    inset 0 0 0 4px var(--kaavad-red-deep);
+  filter: var(--shadow-card);
+}
+
+/* The open shrine: panels stack in one cell, so it keeps the height of the tallest */
+.kaavad__stage {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border-radius: 17px;
+  background: var(--kaavad-red-deep);
+  perspective: 1400px;
+  touch-action: pan-y;
+  transition: opacity 200ms ease;
+}
+
+.kaavad__stage:focus-visible {
+  outline: 3px solid var(--color-yellow);
+  outline-offset: 2px;
+}
+
+.kaavad--busy .kaavad__stage {
+  opacity: 0.55;
+}
+
+.kaavad__panel {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 17px;
+  background: var(--kaavad-paper);
+  transform-origin: left center;
+  backface-visibility: hidden;
+  /* The panel on show unfolds at once; the ones leaving stay visible until they have folded away */
+  transition:
+    transform var(--kaavad-fold) cubic-bezier(0.22, 0.8, 0.24, 1),
+    opacity calc(var(--kaavad-fold) * 0.75) ease,
+    visibility 0s linear var(--kaavad-fold);
+}
+
+.kaavad__panel[data-state='current'] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+/* Hinged on their left edge like the leaves of a folding screen: folded away on the left, still closed on the right */
+.kaavad__panel[data-state='past'] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-100%) rotateY(78deg);
+}
+
+.kaavad__panel[data-state='future'] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(100%) rotateY(78deg);
+}
+
+.kaavad__art {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--color-sky-light);
+  border-bottom: 3px solid var(--kaavad-gold);
+}
+
+.kaavad__art > img:not(.kaavad__art-mark) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A site without painted panels: a patterned panel with the landmark's mark */
+.kaavad__art--plain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-tint) 0 10px,
+    color-mix(in srgb, var(--color-sky-light) 45%, var(--color-tint)) 10px 20px
+  );
+}
+
+.kaavad__count {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-ink) 62%, transparent);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: #fff;
+}
+
+.kaavad__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+
+.kaavad__heading {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--color-ink);
+}
+
+.kaavad__text {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+.kaavad__look {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.kaavad__look > img {
+  flex: none;
+  margin-top: 1px;
+}
+
+.kaavad__look-label {
+  display: block;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+/* Devanagari stands taller than Latin: give it more room */
+.kaavad__heading:lang(hi) {
+  line-height: 31px;
+}
+
+.kaavad__text:lang(hi) {
+  line-height: 26px;
+}
+
+.kaavad__look:lang(hi) {
+  line-height: 23px;
+}
+
+/* The painted doors */
+.kaavad__door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 50%;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--kaavad-gold) 65%, transparent) 0 2.5px, transparent 3px) 0 0 / 26px 26px,
+    linear-gradient(160deg, var(--kaavad-red-light), var(--kaavad-red) 45%, var(--kaavad-red-deep));
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--kaavad-gold) 88%, var(--kaavad-red-deep));
+  backface-visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 900ms cubic-bezier(0.55, 0, 0.2, 1),
+    opacity 280ms ease 640ms;
+}
+
+/* An arched niche on each leaf */
+.kaavad__door::before {
+  content: '';
+  position: absolute;
+  inset: 13% 15% 9%;
+  border: 2px solid color-mix(in srgb, var(--kaavad-gold) 80%, transparent);
+  border-radius: 90px 90px 10px 10px;
+  background: color-mix(in srgb, var(--kaavad-red-deep) 35%, transparent);
+}
+
+.kaavad__door::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--color-yellow), var(--kaavad-gold));
+}
+
+.kaavad__door--left {
+  left: 0;
+  border-radius: 17px 0 0 17px;
+  transform-origin: left center;
+}
+
+.kaavad__door--left::after {
+  right: 12px;
+}
+
+.kaavad__door--right {
+  right: 0;
+  border-radius: 0 17px 17px 0;
+  transform-origin: right center;
+}
+
+.kaavad__door--right::after {
+  left: 12px;
+}
+
+/* The doors swing into the shrine, like shutters thrown open */
+.kaavad--open .kaavad__door--left {
+  opacity: 0;
+  transform: rotateY(98deg);
+}
+
+.kaavad--open .kaavad__door--right {
+  opacity: 0;
+  transform: rotateY(-98deg);
+}
+
+.kaavad__plaque {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: min(78%, 250px);
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--kaavad-paper);
+  box-shadow: inset 0 0 0 2px var(--kaavad-gold);
+  filter: var(--shadow-float);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease,
+    visibility 0s linear 260ms;
+}
+
+.kaavad--open .kaavad__plaque {
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+.kaavad__plaque-over {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.kaavad__plaque-title {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--color-ink);
+}
+
+.kaavad__plaque-hint {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kaavad__panel,
+  .kaavad__panel[data-state] {
+    transform: none;
+    transition:
+      opacity 200ms ease,
+      visibility 0s linear 200ms;
+  }
+
+  .kaavad__panel[data-state='current'] {
+    transition-delay: 0s;
+  }
+
+  .kaavad__door,
+  .kaavad--open .kaavad__door--left,
+  .kaavad--open .kaavad__door--right {
+    transform: none;
+    transition: opacity 200ms ease;
+  }
+
+  .kaavad__plaque,
+  .kaavad--open .kaavad__plaque {
+    transition: opacity 200ms ease;
+  }
+}

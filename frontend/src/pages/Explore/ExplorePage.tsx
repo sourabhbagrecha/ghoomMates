@@ -15,6 +15,7 @@ import { useVoice } from '../../components/voice/voiceContext'
 import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
+import { StoriesOfMewar } from '../Stories/StoriesOfMewar'
 import { formatINR } from '../Trip/tripFormat'
 import { CrowdPulse } from './CrowdPulse'
 import { CATEGORIES, TRENDING } from './exploreData'
@@ -63,6 +64,7 @@ export function ExplorePage() {
         </div>
 
         {city === 'Udaipur' && <CrowdPulse city={city} />}
+        {city === 'Udaipur' && <StoriesOfMewar />}
 
         <SectionHeader
           title="Trending this weekend"
