@@ -14,6 +14,7 @@ import { CreateTripRoutes } from './pages/CreateTrip/CreateTripRoutes'
 import { ExpensesPage } from './pages/Expenses/ExpensesPage'
 import { ExplorePage } from './pages/Explore/ExplorePage'
 import { HomePage } from './pages/Home/HomePage'
+import { HostRoutes } from './pages/Hospitality/HostRoutes'
 import { ItineraryPage } from './pages/Itinerary/ItineraryPage'
 import { JoinTripPage } from './pages/Onboarding/JoinTripPage'
 import { NotificationsPage } from './pages/Notifications/NotificationsPage'
@@ -67,6 +68,7 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/past/<id>[/…]    After the trip: recap, album, days, expenses, rate[/<stars>]
  *   #/quiz[/…]         Personality quiz: intro, cards 1–8, persona (after onboarding; retaken from Profile)
  *   #/profile[/…]      Your profile: edit, settings, help
+ *   #/host[/<id>]      Host kitchen (partner tools): a farm-to-table kitchen's covers, farm orders, menu and leftovers
  *   #/states           Gallery of loading / empty / error / offline states
  *   #/join[/<code>]    Join a trip from an invite link (works before signing in)
  *   #/auth/callback    OAuth callback redirect
@@ -259,6 +261,8 @@ function App() {
     screen = <CreateTripRoutes path={segments.slice(1)} />
   } else if (profileScreen) {
     screen = profileScreen
+  } else if (section === 'host') {
+    screen = <HostRoutes path={segments.slice(1)} />
   } else if (section === 'states') {
     screen = <StatesPage />
   } else if (section === 'ops') {

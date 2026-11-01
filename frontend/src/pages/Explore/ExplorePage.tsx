@@ -15,6 +15,7 @@ import { useVoice } from '../../components/voice/voiceContext'
 import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
+import { FarmToTableSection } from '../Hospitality/FarmToTableSection'
 import { formatINR } from '../Trip/tripFormat'
 import { CrowdPulse } from './CrowdPulse'
 import { MakersSection } from '../Makers/MakersSection'
@@ -98,6 +99,8 @@ export function ExplorePage() {
             </article>
           ))}
         </div>
+
+        {city === 'Udaipur' && <FarmToTableSection />}
 
         <SectionHeader
           title="Trips by local guides"

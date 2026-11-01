@@ -4,6 +4,7 @@ import { MakerDetailPage } from '../Makers/MakerDetailPage'
 import { MakersListPage } from '../Makers/MakersListPage'
 import { MiniaturePage } from '../Miniature/MiniaturePage'
 import { ImpactPage } from '../Impact/ImpactPage'
+import { FoodRoutes } from '../Hospitality/FoodRoutes'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -34,6 +35,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   photos/miniature        Squad Miniature: paint a squad photo in a Udaipur tradition
  *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
  *   explore/makers[/<id>]   Makers of Udaipur: the list, or one maker
+ *   explore/food[/<id>]     Farm-to-table kitchens, and one kitchen with its squad thali sheet
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -65,6 +67,7 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
     }
     case 'explore': {
       if (page === 'makers') return param ? <MakerDetailPage key={param} makerId={param} /> : <MakersListPage />
+      if (page === 'food') return <FoodRoutes hostId={param} />
       if (page !== 'guide') return null
       const experience = param ? experienceById(param) : EXPERIENCES[0]
       return experience ? <GuideTripPage key={experience.id} experience={experience} /> : null

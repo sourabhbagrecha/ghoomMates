@@ -6,6 +6,7 @@ import iconPencil from '../../assets/figma/icon-pencil-primary.svg'
 import iconSettings from '../../assets/figma/icon-settings-primary.svg'
 import iconSettingsWhite from '../../assets/figma/icon-settings-white.svg'
 import iconSparkles from '../../assets/figma/icon-sparkles-primary-20.svg'
+import iconChefHat from '../../assets/icons/icon-chef-hat-primary.svg'
 import { AvatarStack } from '../../components/Avatar'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { EmptyState } from '../../components/states/EmptyState'
@@ -26,6 +27,7 @@ const MENU = [
   { icon: iconPencil, title: 'Edit profile', detail: 'Photo, name, colour and selfie', to: 'profile/edit' },
   { icon: iconSparkles, title: 'Vibe quiz', detail: '8 quick cards · about a minute', to: 'quiz' },
   { icon: octopus, title: 'What GhoomMate remembers', detail: 'Your preferences it plans around', to: 'profile/ghoomate' },
+  { icon: iconChefHat, title: 'Host kitchen', detail: 'Partner tools · farm orders, covers and leftovers', to: 'host' },
   { icon: iconSettings, title: 'Settings', detail: 'Account, notifications and privacy', to: 'profile/settings' },
   { icon: iconHelp, title: 'Help & FAQ', detail: 'Splits, UPI, face match and more', to: 'profile/help' },
 ]

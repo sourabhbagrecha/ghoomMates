@@ -12,10 +12,13 @@ import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { createMakersApp, createPostgresMakers } from './makers/app.ts';
 import { createImpactApp } from './impact/app.ts';
+import { createHospitalityApp } from './hospitality/app.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
+import { ItineraryService } from './trips/itinerary.ts';
+import { TripService } from './trips/service.ts';
 import { createVoiceApp } from './voice/app.ts';
 import { liveKitConfig } from './voice/session.ts';
 
@@ -116,6 +119,14 @@ const app = createServer({
   impact,
   heritage: createHeritageApp(),
   makers: createMakersApp({ gemini, authenticate, ...(db ? createPostgresMakers(db, storage, clientOrigin) : {}) }),
+  // Hosts and the dashboard work without a database; squad tables reuse the trips module's membership check and stop insert
+  hospitality: createHospitalityApp({
+    authenticate,
+    gemini,
+    db,
+    trips: db ? new TripService(db, storage, clientOrigin) : undefined,
+    stops: db ? new ItineraryService(db) : undefined,
+  }),
   media: createMediaRouter(storage),
   // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
   ops: createOpsApp({ db, authenticate, gemini }),

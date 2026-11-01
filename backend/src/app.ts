@@ -18,6 +18,8 @@ export interface ServerModules {
   makers?: Router;
   // Green Trip impact (footprint, crowd-hours, local spend, pledges), mounted under /api/impact. Omitted without a database.
   impact?: Router;
+  // Farm-to-table hosts, squad table bookings and the host kitchen tools, mounted under /api/hospitality.
+  hospitality?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
   // The built web app (frontend/dist) with a single-page-app fallback, mounted after every API route. Production only (SERVE_FRONTEND_DIR).
@@ -28,7 +30,7 @@ export interface ServerModules {
   artworks?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks, impact }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks, impact, hospitality }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -68,6 +70,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (makers) app.use('/api/makers', makers);
+  if (hospitality) app.use('/api/hospitality', hospitality);
   if (media) app.use('/api/media', media);
   if (ops) app.use('/api/ops', ops);
   app.use('/api', expenses ?? (() => {

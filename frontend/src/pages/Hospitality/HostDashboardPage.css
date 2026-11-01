@@ -1,0 +1,752 @@
+/* The body rides up over the blue header, under the kitchen picker */
+.host-dash__body {
+  padding-top: 20px;
+  gap: 14px;
+}
+
+.host-dash__picker {
+  display: flex;
+  gap: 6px;
+  padding: 16px 20px 0;
+  overflow-x: auto;
+}
+
+.host-dash__picker-skeleton {
+  flex-shrink: 0;
+  width: 110px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  background: var(--color-glass);
+}
+
+.host-dash__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.host-dash__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.host-dash__note {
+  padding: 0 4px;
+}
+
+/* The kitchen in view; a card so it can ride up over the blue header */
+.host-dash__intro {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.host-dash__intro-text {
+  min-width: 0;
+}
+
+.host-dash__name {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.host-dash__where {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Four numbers for the week */
+.host-dash__kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.kpi {
+  gap: 2px;
+  padding: 12px;
+}
+
+.kpi--lit {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: -2px;
+}
+
+.kpi__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  background: var(--color-tint);
+}
+
+.kpi__label {
+  letter-spacing: 0.4px;
+}
+
+.kpi__value {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.kpi__sub {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+/* Demand for the next seven days */
+.demand {
+  gap: 12px;
+}
+
+.demand__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.demand__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.demand__legend {
+  display: flex;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.demand__key::before,
+.waste__key::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 50%;
+}
+
+.demand__key--booked::before {
+  background: var(--color-primary);
+}
+
+.demand__key--walkin::before {
+  background: var(--color-sky-light);
+}
+
+.demand__chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin: 0 -6px;
+}
+
+.demand__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0 4px;
+  border-radius: 12px;
+}
+
+.demand__col--on {
+  background: var(--color-tint);
+}
+
+.demand__value {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.demand__plot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 96px;
+}
+
+.demand__stack {
+  display: flex;
+  flex-direction: column;
+  width: 70%;
+  max-width: 28px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.demand__walkin,
+.demand__booked {
+  flex: 1 1 0;
+}
+
+.demand__walkin {
+  background: var(--color-sky-light);
+}
+
+.demand__booked {
+  background: var(--color-primary);
+}
+
+.demand__weekday {
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+.demand__date {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.demand__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.demand__detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 8px;
+}
+
+.demand__detail-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.demand__detail-title span {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.demand__detail-total {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.demand__detail-total strong {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--color-ink);
+}
+
+/* The squads' effect on the day */
+.demand__lift {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-primary);
+}
+
+.demand__note {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.demand__meals {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+.demand__meals li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.demand__meals .overline {
+  min-width: 52px;
+}
+
+.demand__meals strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.demand__squads {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.demand__squad {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.demand__squad-name {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.demand__squad-meta,
+.demand__empty,
+.demand__diets {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.demand__diets strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* Farm orders */
+.order {
+  gap: 10px;
+}
+
+.order__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.order__photo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.order__photo--icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-tint);
+}
+
+.order__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.order__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.order__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.order__total {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.order__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-divider);
+  list-style: none;
+}
+
+.order__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.order__name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.order__squad {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.order__reason {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.order__kg {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.order__send {
+  align-self: flex-start;
+  padding: 8px 14px;
+  text-decoration: none;
+}
+
+/* The Gemini menu and the leftover log */
+.menu-card,
+.waste {
+  gap: 12px;
+}
+
+.menu-card__head,
+.waste__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.menu-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.menu-card__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.menu-card__sub {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.menu-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.menu-card__row,
+.waste__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.menu-card__row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.menu-card__row-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.menu-card__row-text span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Something to fix is blue and bold, never red */
+.menu-card__error,
+.waste__message {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.menu-card__busy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.menu-card__busy-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.menu-card__busy-lines p {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.menu-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.menu-result__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.menu-result__title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.menu-result__source--gemini {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.menu-result__source--curated {
+  background: var(--color-tint-cool);
+  color: var(--color-muted);
+}
+
+.menu-result__intro {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.menu-result__fallback {
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.menu-result__dishes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.menu-result__dish {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-result__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.menu-result__name [lang='hi'] {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.menu-result__story {
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.menu-result__from {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.menu-result__diet {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.menu-result__totals {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.menu-result__totals strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* Leftover trend */
+.waste__chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  align-items: end;
+}
+
+.waste__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.waste__kg,
+.waste__day {
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+.waste__plot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 64px;
+}
+
+.waste__bar {
+  width: 60%;
+  max-width: 26px;
+  border-radius: 6px 6px 3px 3px;
+}
+
+.waste__bar--logged {
+  background: var(--color-success);
+}
+
+.waste__bar--estimate {
+  background: var(--color-track-muted);
+}
+
+.waste__legend {
+  display: flex;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+.waste__key--logged::before {
+  background: var(--color-success);
+}
+
+.waste__key--estimate::before {
+  background: var(--color-track-muted);
+}
+
+.waste__summary {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.waste__summary strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
