@@ -5,6 +5,7 @@ import { MakersListPage } from '../Makers/MakersListPage'
 import { MiniaturePage } from '../Miniature/MiniaturePage'
 import { ImpactPage } from '../Impact/ImpactPage'
 import { FoodRoutes } from '../Hospitality/FoodRoutes'
+import { storyRoutes } from '../Stories/StoryRoutes'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -36,6 +37,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
  *   explore/makers[/<id>]   Makers of Udaipur: the list, or one maker
  *   explore/food[/<id>]     Farm-to-table kitchens, and one kitchen with its squad thali sheet
+ *   explore/story/<id>      Kaavad Tales story for a heritage site; explore/passport is the Heritage Passport
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -43,6 +45,8 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
   const [section, page, param, ...rest] = path
   const route = [section, page, param].filter(Boolean).join('/')
   if (rest.length) return null
+  const story = storyRoutes(path)
+  if (story) return story
 
   switch (section) {
     case 'itinerary':

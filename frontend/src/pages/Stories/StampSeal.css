@@ -1,0 +1,145 @@
+.seal-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.seal {
+  display: block;
+  transform: rotate(-6deg);
+}
+
+.seal__edge {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 6.4;
+}
+
+.seal__ring {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+
+.seal__ring--inner {
+  stroke-width: 1.5;
+}
+
+.seal__disc {
+  fill: var(--color-amber);
+}
+
+.seal--silver .seal__disc {
+  fill: var(--color-sky-light);
+}
+
+.seal--bronze .seal__disc {
+  fill: color-mix(in srgb, var(--color-amber) 38%, var(--color-surface));
+}
+
+.seal__arc {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 1.6px;
+  fill: var(--color-primary);
+}
+
+.seal__sun line {
+  stroke: var(--color-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.seal__sun circle {
+  fill: var(--color-primary);
+}
+
+.seal__score {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 19px;
+  fill: var(--color-primary);
+}
+
+/* Not stamped yet: a dashed ring with a question mark */
+.seal--empty .seal__edge {
+  stroke: var(--color-border);
+}
+
+.seal--empty .seal__ring {
+  stroke: var(--color-border);
+  stroke-dasharray: 5 6;
+}
+
+.seal--empty .seal__disc {
+  fill: var(--color-tint);
+}
+
+.seal__score--empty {
+  font-size: 46px;
+  fill: var(--color-disabled);
+}
+
+/* The stamp lands: a thump from above, then an ink ring ripples out */
+.seal-wrap--animate .seal {
+  animation: seal-thump 720ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
+.seal-wrap--animate::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border: 3px solid var(--color-primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: seal-ripple 900ms 420ms ease-out both;
+}
+
+@keyframes seal-thump {
+  0% {
+    opacity: 0;
+    transform: scale(1.8) rotate(-22deg);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(0.9) rotate(-5deg);
+  }
+
+  78% {
+    transform: scale(1.04) rotate(-7deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-6deg);
+  }
+}
+
+@keyframes seal-ripple {
+  from {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-wrap--animate .seal,
+  .seal-wrap--animate::after {
+    animation: none;
+  }
+
+  .seal-wrap--animate::after {
+    display: none;
+  }
+}
