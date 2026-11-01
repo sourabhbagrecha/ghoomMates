@@ -40,6 +40,7 @@
   position: absolute;
   right: 20px;
   top: calc(var(--top-inset) + 8px);
+  z-index: 1; /* above the full-bleed slide layer so taps reach it */
   padding: 0 4px;
   font-weight: 700;
   font-size: 13px;
