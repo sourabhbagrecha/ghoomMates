@@ -1,5 +1,7 @@
 import { describe, test } from 'node:test';
+import { Router } from 'express';
 import { expect } from '../expect.ts';
+import { createServer } from '../../src/app.ts';
 import { createEventsApp } from '../../src/events/app.ts';
 import { mount, serve } from '../helpers.ts';
 import { authenticate, fakeTrips, TOKEN, TRIP_ID, type FakeTripOptions } from './fakes.ts';
@@ -164,5 +166,20 @@ describe('adding an event to the squad’s plan', () => {
     await withApi({ trip: { failAddStop: true } }, async (api) => {
       expect((await add(api, 'dharohar-show', dharohar)).status).toBe(500);
     });
+  });
+});
+
+describe('on the server', () => {
+  test('is mounted ahead of the expenses ledger, whose catch-all would otherwise answer /api/events', async () => {
+    const stub = (name: string) => Router().use((_req, res) => { res.json({ handledBy: name }); });
+    const server = await serve(createServer({ auth: stub('auth'), expenses: stub('expenses'), events: createEventsApp({ now: NOW }) }));
+    try {
+      const events = await server.request('/api/events?from=2026-11-01&to=2026-11-14');
+      expect(events.status).toBe(200);
+      expect((await events.json() as { items: unknown[] }).items).toHaveLength(2);
+      expect(((await (await server.request('/api/groups/abc/balances')).json()) as { handledBy: string }).handledBy).toBe('expenses');
+    } finally {
+      await server.close();
+    }
   });
 });
