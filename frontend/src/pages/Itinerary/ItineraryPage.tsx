@@ -234,7 +234,7 @@ function DayPlan({ trip, days, today }: { trip: TripDetail; days: ItineraryDay[]
 function TimelineStop({ tripId, stop, squadSize, done }: { tripId: string; stop: ItineraryStop; squadSize: number; done: boolean }) {
   const navigate = useNavigate()
   const [moving, setMoving] = useState(false)
-  const reaction = stop.going.length === 0 ? 'No RSVPs yet' : stop.going.length === squadSize && squadSize > 1 ? 'Whole squad' : `${stop.going.length}/${squadSize} going`
+  const reaction = stop.going.length === 0 ? 'Nobody going' : stop.going.length === squadSize && squadSize > 1 ? 'Whole squad' : `${stop.going.length}/${squadSize} going`
   const crowd = stop.crowd
   const nudge = !done ? crowd?.suggestion : null
   const photo = (crowd && SITE_PHOTOS[crowd.siteId]) ?? TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill

@@ -111,6 +111,10 @@ export class ItineraryService {
        FROM trip_stops s WHERE s.trip_id = $1 ORDER BY s.day_number, s.minutes, s.created_at`,
       [trip.id],
     );
+    const { rows: members } = await this.pool.query<{ ledger_member_id: string }>(
+      'SELECT ledger_member_id FROM trip_members WHERE trip_id = $1 ORDER BY joined_at',
+      [trip.id],
+    );
     const { rows: [row] } = await this.pool.query<{ day_titles: string[] }>('SELECT day_titles FROM trips WHERE id = $1', [trip.id]);
     const titles = row?.day_titles ?? [];
     const length = Math.max(tripLength(trip), titles.length, ...stops.map(s => s.day_number));
@@ -126,10 +130,14 @@ export class ItineraryService {
             const rsvps = s.rsvps as { memberId: string; userId: string; rsvp: string }[];
             const minutes = s.time ? minutesOf(s.time) : null;
             const taken = dayStops.filter(o => o.id !== s.id && o.time).map(o => minutesOf(o.time));
+            const out = new Set(rsvps.filter(r => r.rsvp !== 'going').map(r => r.memberId));
+            const mine = rsvps.find(r => r.userId === userId)?.rsvp;
             return {
               id: s.id, dayNumber: s.day_number, time: s.time, title: s.title, tag: s.tag, place: s.place, notes: s.notes,
-              going: rsvps.filter(r => r.rsvp === 'going').map(r => r.memberId),
-              myRsvp: rsvps.find(r => r.userId === userId)?.rsvp ?? null,
+              // Everyone is going unless they said otherwise
+              going: members.map(m => m.ledger_member_id).filter(id => !out.has(id)),
+              myRsvp: mine ?? 'going',
+              answered: mine !== undefined,
               // How busy the heritage site is at that time, and a nudge off-peak
               crowd: CROWDLESS_TAGS.has(s.tag) ? null : crowdForStop({ title: s.title, place: s.place, minutes }, { city, date, taken }),
             };

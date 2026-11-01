@@ -26,7 +26,7 @@ Every route except the invite preview needs `Authorization: Bearer <session toke
 | GET / PUT | `/api/trips/:id/itinerary` | Days and stops with RSVPs / replace the whole plan |
 | POST | `/api/trips/:id/itinerary/draft` | Suggested plan (`{ day? }` for one day); nothing is saved |
 | POST / PATCH / DELETE | `/api/trips/:id/stops[/:stopId]` | Add / edit / remove a stop |
-| PUT | `/api/trips/:id/stops/:stopId/rsvp` | `{ rsvp: going \| maybe \| skip }` |
+| PUT | `/api/trips/:id/stops/:stopId/rsvp` | `{ rsvp: going \| maybe \| skip }`. A member who hasn't answered counts as going; `answered` on the stop says whether you have |
 
 Errors use the shared `{ "error": { "code", "message" } }` envelope.
 

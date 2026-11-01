@@ -177,8 +177,16 @@ test('draft, share and edit an itinerary with RSVPs', async () => {
   const sunrise = plan.days[1].stops[0];
   expect(sunrise.title).toBe('Sunrise at Nahargarh Fort');
   expect(sunrise.time).toBe('06:00 AM');
-  expect(sunrise.going).toHaveLength(1);
-  expect(sunrise.myRsvp).toBe(null);
-  expect(plan.days[0].stops[0].going).toHaveLength(1);
+  // Everyone is going until they say otherwise
+  expect(sunrise.going).toHaveLength(2);
+  expect(sunrise.myRsvp).toBe('going');
+  expect(sunrise.answered).toBe(false);
+  expect(plan.days[0].stops[0].going).toHaveLength(2);
+
+  expect((await call(asha, `/api/trips/${trip.id}/stops/${added.data.id}/rsvp`, { rsvp: 'skip' }, 'PUT')).status).toBe(200);
+  const skipped = (await call(asha, `/api/trips/${trip.id}/itinerary`)).data.days[1].stops[0];
+  expect(skipped.going).toHaveLength(1);
+  expect(skipped.myRsvp).toBe('skip');
+  expect(skipped.answered).toBe(true);
   expect((await call(asha, `/api/trips/${trip.id}/stops/${added.data.id}`, undefined, 'DELETE')).status).toBe(204);
 });

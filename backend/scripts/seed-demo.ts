@@ -130,7 +130,7 @@ async function signIn(base: string, mate: Mate, name: string): Promise<Account> 
 
 /* Steps */
 
-type Stop = { id: string; dayNumber: number; time: string; title: string; tag: string; going: string[]; myRsvp: string | null; crowd?: { label: string | null } | null };
+type Stop = { id: string; dayNumber: number; time: string; title: string; tag: string; going: string[]; myRsvp: string; answered: boolean; crowd?: { label: string | null } | null };
 
 const stopsOf = (itinerary: Json): Stop[] => (itinerary.days as { stops: Stop[] }[]).flatMap(d => d.stops);
 
@@ -219,7 +219,7 @@ async function setRsvps(base: string, tripId: string, squad: Signed[]) {
     const stops = stopsOf(await call(base, member.token, 'GET', `/api/trips/${tripId}/itinerary`));
     for (const [index, stop] of stops.entries()) {
       // Only what this mate has not answered yet: a changed answer is never overwritten
-      if (stop.myRsvp !== null) continue;
+      if (stop.answered) continue;
       await call(base, member.token, 'PUT', `/api/trips/${tripId}/stops/${stop.id}/rsvp`, { rsvp: rsvpFor(stop, index, mateIndex) });
       set++;
     }

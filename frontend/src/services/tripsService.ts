@@ -139,7 +139,7 @@ export type ItineraryStop = {
   notes: string
   /** Member ids of everyone going */
   going: string[]
-  myRsvp: Rsvp | null
+  myRsvp: Rsvp
   /** Crowd forecast when the stop is a known heritage site */
   crowd?: StopCrowd | null
 }

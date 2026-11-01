@@ -86,7 +86,7 @@ function StopForm({ tripId, tripName, startDate, dayCount, existing }: StopFormP
         </>
       }
     >
-      {!existing && <GhoomMateTip>You’ll be marked as going. Mates RSVP from the stop.</GhoomMateTip>}
+      {!existing && <GhoomMateTip>The whole squad is marked as going. Mates can change that from the stop.</GhoomMateTip>}
 
       <TextField label="What’s the plan?" placeholder="Sunset at Ambrai Ghat" value={title} onChange={(e) => setTitle(e.target.value)} />
 
