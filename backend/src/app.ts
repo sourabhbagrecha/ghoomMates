@@ -14,11 +14,13 @@ export interface ServerModules {
   voice?: Router;
   // Live crowd levels at heritage sites, mounted under /api/heritage. Needs no database.
   heritage?: Router;
+  // Kaavad Tales: heritage stories, narration and the Heritage Passport, mounted under /api/stories.
+  stories?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, stories, media }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -48,6 +50,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (heritage) app.use('/api/heritage', heritage);
+  if (stories) app.use('/api/stories', stories);
   if (media) app.use('/api/media', media);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');

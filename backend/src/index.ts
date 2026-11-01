@@ -6,8 +6,10 @@ import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth
 import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
+import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { logger } from './logger.ts';
+import { createStoriesApp } from './stories/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
 import { createVoiceApp } from './voice/app.ts';
@@ -66,6 +68,9 @@ const authService = new OAuthService(authDb, authConfig);
 
 const authenticate = async (token: string) => (await authService.verifySessionToken(token)).user;
 
+// One Gemini client for every AI feature; each feature falls back to hand-written content when it is off.
+const gemini = createGemini();
+
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
 if (db) {
@@ -80,6 +85,17 @@ if (db) {
 } else {
   logger.warn('Server', 'Trips API (/api/trips/*) and voice (/api/voice/*) are disabled: requires a database');
 }
+
+// Kaavad Tales: hand-written stories and shipped narration need no database, stamps and the passport do. Speech goes through
+// Vertex AI when it is set up, since the API key's free tier allows only 10 speech requests a day.
+const noDatabase = { pool: { query: async () => { throw new Error('No database configured'); } } };
+const stories = createStoriesApp({
+  db: db ?? noDatabase,
+  storage,
+  gemini,
+  vertex: process.env.VERTEX_PROJECT ? createGemini({ ...process.env, GEMINI_API_KEY: '' }) : undefined,
+  authenticate,
+});
 
 const app = createServer({
   auth: createAuthApp(authDb, {
@@ -97,6 +113,7 @@ const app = createServer({
   trips,
   voice,
   heritage: createHeritageApp(),
+  stories,
   media: createMediaRouter(storage),
 });
 
