@@ -91,7 +91,7 @@ export function FootprintSection({ report, tripId, startDate }: Props) {
       </div>
       <div className="day-line">
         <p className="day-line__title">
-          Day {day.number} · {tripDayLabel(startDate, day.number)}
+          {startDate ? `Day ${day.number} · ${tripDayLabel(startDate, day.number)}` : `Day ${day.number}`}
         </p>
         <p className="day-line__kg">{fmtKg(day.kg)} kg</p>
       </div>

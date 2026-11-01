@@ -31,6 +31,8 @@ type Extra = { id: string; name: string; aliases: string[]; lat: number; lng: nu
 // Coordinates from OpenStreetMap (Nominatim), rounded to ~10 m. Aliases are matched as whole words, case-insensitively.
 // `generic` places ("old city") only win when nothing more specific is named.
 const EXTRAS: Extra[] = [
+  { id: 'city-palace-complex', name: 'City Palace', aliases: ['shiv niwas', 'fateh prakash', 'crystal gallery'], lat: 24.5764, lng: 73.6835, shore: 'east' },
+  { id: 'sajjangarh-spelling', name: 'Sajjangarh Monsoon Palace', aliases: ['sajjan garh'], lat: 24.5946, lng: 73.642 },
   { id: 'lal-ghat', name: 'Lal Ghat', aliases: ['lal ghat'], lat: 24.5795, lng: 73.6827, shore: 'east' },
   { id: 'jagdish-chowk', name: 'Jagdish Chowk', aliases: ['jagdish chowk'], lat: 24.5785, lng: 73.6842 },
   { id: 'bada-bazaar', name: 'Bada Bazaar', aliases: ['bada bazaar', 'bada bazar', 'bara bazaar'], lat: 24.5814, lng: 73.69 },
@@ -42,13 +44,14 @@ const EXTRAS: Extra[] = [
   { id: 'city-station', name: 'Udaipur City station', aliases: ['railway station', 'city station', 'train station', 'udaipur station'], lat: 24.5675, lng: 73.6996 },
   { id: 'airport', name: 'Maharana Pratap Airport', aliases: ['airport', 'dabok'], lat: 24.6174, lng: 73.8942 },
   // Day trips
-  { id: 'eklingji', name: 'Eklingji temple', aliases: ['eklingji', 'eklingji temple'], lat: 24.7469, lng: 73.7233 },
+  { id: 'eklingji', name: 'Eklingji temple', aliases: ['eklingji', 'kailashpuri'], lat: 24.7469, lng: 73.7233 },
   { id: 'haldighati', name: 'Haldighati', aliases: ['haldighati'], lat: 24.89, lng: 73.694 },
   { id: 'nathdwara', name: 'Nathdwara', aliases: ['nathdwara', 'shrinathji'], lat: 24.9283, lng: 73.816 },
   { id: 'menar', name: 'Menar', aliases: ['menar'], lat: 24.5996, lng: 74.112 },
   { id: 'kumbhalgarh', name: 'Kumbhalgarh fort', aliases: ['kumbhalgarh'], lat: 25.1527, lng: 73.5863 },
   { id: 'ranakpur', name: 'Ranakpur', aliases: ['ranakpur'], lat: 25.117, lng: 73.472 },
   { id: 'jaisamand', name: 'Jaisamand Lake', aliases: ['jaisamand', 'dhebar lake'], lat: 24.2643, lng: 73.967 },
+  { id: 'chittorgarh', name: 'Chittorgarh Fort', aliases: ['chittorgarh', 'chittaurgarh', 'chittor'], lat: 24.8817, lng: 74.6467 },
   // Generic: the walled old city around the palace, Jagdish Chowk and the ghats
   { id: 'old-city', name: 'Old city', aliases: ['old city', 'old town', 'walled city', 'city centre', 'city center'], lat: 24.579, lng: 73.6835, generic: true },
 ];

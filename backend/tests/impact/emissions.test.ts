@@ -193,6 +193,16 @@ describe('placing stops', () => {
     expect(locate({ title: 'Lunch at Ahar', place: '', tag: 'Food' }, 'Udaipur')?.id).toBe('ahar');
   });
 
+  test('spelling variants and the day trips resolve too', () => {
+    expect(locate({ title: 'Sunset at Sajjan Garh', place: '', tag: 'Chill' }, 'Udaipur')?.name).toBe('Sajjangarh Monsoon Palace');
+    expect(locate({ title: 'Dinner at Shiv Niwas Palace', place: '', tag: 'Food' }, 'Udaipur')?.shore).toBe('east');
+    expect(locate({ title: 'Day trip to Chittorgarh Fort', place: '', tag: 'Culture' }, 'Udaipur')?.id).toBe('chittorgarh');
+    // A day trip is a long ride: nothing but a cab is practical
+    const trip = estimateDistances(CITY_PALACE, locate({ title: 'Chittorgarh', place: '', tag: 'Culture' }, 'Udaipur')!);
+    assert.ok(trip.driveKm > 100);
+    expect(allowedModes(trip)).toEqual(['cab']);
+  });
+
   test('a trip to a city we have no places for places nothing', () => {
     expect(locate({ title: 'City Palace', place: '', tag: 'Culture' }, null)).toBe(null);
     expect(locate({ title: 'Pick up from the airport', place: '', tag: 'Travel' }, null)).toBe(null);

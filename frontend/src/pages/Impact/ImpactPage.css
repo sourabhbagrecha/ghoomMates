@@ -344,8 +344,8 @@
 .leg__kg {
   flex-shrink: 0;
   font-weight: 800;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 21px;
   color: var(--color-ink);
   white-space: nowrap;
 }

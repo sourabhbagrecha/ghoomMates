@@ -31,14 +31,21 @@ function cachedAnswer(value: unknown): { class: LocalClass; local: boolean } | n
 }
 
 const numbers = (text: string) => text.match(/\d+(?:\.\d+)?/g) ?? [];
+/** Place names in a tip: capitalised words after the opening verb */
+const placeWords = (text: string) => (text.match(/\b[A-Z][a-z]{3,}\b/g) ?? []).slice(1);
 
-/** A re-wording is only used if it keeps every number of the original and stays a short single line */
+/**
+ * A re-wording is only used if it keeps every number of the original, still names at least one of its places, and
+ * stays a short single line. Anything else means the model drifted, so the rule-based sentence stays.
+ */
 export function keepsFacts(original: string, rewritten: unknown): rewritten is string {
   if (typeof rewritten !== 'string') return false;
   const text = rewritten.trim();
   if (text.length < 20 || text.length > 170 || /[\n\r]/.test(text)) return false;
   const present = new Set(numbers(text));
-  return numbers(original).every(n => present.has(n));
+  if (!numbers(original).every(n => present.has(n))) return false;
+  const places = placeWords(original);
+  return places.length === 0 || places.some(word => text.includes(word));
 }
 
 export class ImpactAi {
@@ -157,12 +164,17 @@ export class ImpactAi {
       const out = await this.gemini!.json<{ tips?: { i?: number; text?: string }[] }>({
         label: 'Impact',
         timeoutMs: TIMEOUT_MS,
-        temperature: 0.5,
-        system: 'You are GhoomMate, a warm, upbeat travel buddy for a group of friends in Udaipur. Plain words, no emoji.',
+        temperature: 0.7,
+        system: 'You are GhoomMate, a warm, upbeat travel buddy for a squad of friends in Udaipur. Plain words, no emoji, no arrows.',
         prompt: [
-          'Re-word each tip in one short sentence (under 120 characters), speaking to the squad as “you”.',
-          'Keep every number, unit and place name exactly as written. Do not add facts.',
+          'Say each tip the way a friend would, in one short sentence (under 120 characters).',
+          'Keep every number and unit exactly as written (like 460 m, 2.4 kg, 71%). You may shorten place names but do not invent places or facts.',
           '',
+          'Examples:',
+          '- “Walk Gulab Bagh → Vintage car collection: 650 m, 8 min. Saves 0.3 kg.” becomes “Stroll from Gulab Bagh to the vintage cars: just 650 m, 8 min, and 0.3 kg off our footprint.”',
+          '- “Take an e-rickshaw instead of a cab for Sajjangarh → Fateh Sagar: saves 1.2 kg, 65% less on this ride.” becomes “Ride an e-rickshaw down from Sajjangarh to Fateh Sagar and we save 1.2 kg, 65% less on that ride.”',
+          '',
+          'Tips to say:',
           ...swaps.map((s, i) => `${i + 1}. ${s.text}`),
         ].join('\n'),
         schema: {

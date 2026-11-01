@@ -153,29 +153,32 @@ function spaced(ctx: CanvasRenderingContext2D, text: string, x: number, y: numbe
 
 /** Breaks text into at most `maxLines` lines that fit `maxWidth`, with an ellipsis if it runs over */
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
   const lines: string[] = []
   let line = ''
-  const words = text.split(/\s+/)
-  for (let i = 0; i < words.length; i++) {
-    const next = line ? `${line} ${words[i]}` : words[i]
-    if (ctx.measureText(next).width <= maxWidth || !line) {
-      line = next
+  let overflow = false
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (!line || ctx.measureText(candidate).width <= maxWidth) {
+      line = candidate
       continue
     }
     lines.push(line)
-    line = words[i]
-    if (lines.length === maxLines - 1) {
-      line = words.slice(i).join(' ')
+    if (lines.length === maxLines) {
+      overflow = true
+      line = ''
       break
     }
+    line = word
   }
   if (line) lines.push(line)
-  return lines.map((l, i) => {
-    if (i < lines.length - 1 || ctx.measureText(l).width <= maxWidth) return l
+  // Trim a line that is still too wide (one long word), and mark the last line when words were left out
+  const trim = (l: string) => {
     let cut = l
-    while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxWidth) cut = cut.slice(0, -1)
-    return `${cut.trimEnd()}…`
-  })
+    while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxWidth) cut = cut.slice(0, -1).trimEnd()
+    return `${cut}…`
+  }
+  return lines.map((l, i) => (i === lines.length - 1 && overflow) || ctx.measureText(l).width > maxWidth ? trim(l) : l)
 }
 
 /** One sentence under the numbers: the footprint saving when there is one, else what the squad did right */
@@ -287,10 +290,27 @@ export async function renderSquadCard(data: SquadCardData): Promise<Blob> {
     ctx.fillText(member.initial, cx, 400)
     ctx.textAlign = 'left'
   })
+  let rowEnd = MARGIN + diameter + (shown.length - 1) * step
+  if (data.squadSize > shown.length) {
+    const cx = rowEnd - diameter / 2 + step
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(cx, 384, diameter / 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = t.primary
+    ctx.beginPath()
+    ctx.arc(cx, 384, diameter / 2 - 6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#fff'
+    ctx.font = `800 40px ${FONT}`
+    ctx.textAlign = 'center'
+    ctx.fillText(`+${data.squadSize - shown.length}`, cx, 398)
+    ctx.textAlign = 'left'
+    rowEnd = cx + diameter / 2
+  }
   ctx.fillStyle = '#fff'
   ctx.font = `700 34px ${FONT}`
-  const more = data.squadSize > shown.length ? ` +${data.squadSize - shown.length}` : ''
-  ctx.fillText(`${data.squadSize} ${data.squadSize === 1 ? 'mate' : 'mates'}${more}`, MARGIN + diameter + (shown.length - 1) * step + 24, 396)
+  ctx.fillText(`${data.squadSize} ${data.squadSize === 1 ? 'mate' : 'mates'}`, rowEnd + 24, 396)
 
   // The three numbers
   const panelY = 470

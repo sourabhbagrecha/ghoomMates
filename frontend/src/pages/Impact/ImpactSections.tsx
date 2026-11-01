@@ -209,6 +209,13 @@ export function PledgesSection({ pledges, tripId, me }: { pledges: PledgeSummary
   )
 }
 
+/** 0 → "0", 0.153 → "0.153", 0.1135 → "0.1135" */
+function factorText(kg: number): string {
+  if (kg === 0) return '0'
+  const text = kg.toFixed(4)
+  return text.endsWith('0') ? text.slice(0, -1) : text
+}
+
 /** The factors and sources behind every number, for anyone who asks "says who?" */
 export function HowWeCount({ method }: { method: ImpactReport['method'] }) {
   const modes = Object.entries(method.factors)
@@ -234,7 +241,7 @@ export function HowWeCount({ method }: { method: ImpactReport['method'] }) {
           {modes.map(([mode, f]) => (
             <tr key={mode}>
               <th scope="row">{f.label}</th>
-              <td>{f.kgPerVehicleKm === 0 ? '0' : f.kgPerVehicleKm.toFixed(3)}</td>
+              <td>{factorText(f.kgPerVehicleKm)}</td>
               <td>{f.seats === 1 && mode === 'walk' ? '–' : f.seats}</td>
             </tr>
           ))}

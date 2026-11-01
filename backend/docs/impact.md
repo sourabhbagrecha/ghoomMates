@@ -117,6 +117,13 @@ Score (0–100) = lighter rides 30 (saving against solo cabs, full marks at 85%)
 
 Rule-based, from the plan as it stands, best first: walk a short hop, swap an auto or cab for an e-rickshaw, cross Pichola by boat, visit a packed site at a quieter hour or swap to a quiet site (the heritage module's own nudge), and a buy-direct nudge when no crafts are logged. Each names the places, the distance and the saving, and carries an action the app can apply (`mode` for rides, `stop` to open a stop, `expense`). If Gemini is on it may re-word the three texts in GhoomMate's voice, but a re-wording is only used if it keeps every number of the original; the result is cached.
 
+## In the app
+
+- **Itinerary tab:** `<GreenTripCard tripId days />` (`frontend/src/pages/Impact/GreenTripCard.tsx`, one line in `ItineraryPage`) shows the three numbers (kg CO2e per person, crowd-hours avoided, ₹ kept local), the badge, and opens the page. It refetches when the plan changes.
+- **`#/trip/itinerary/impact`** (`ImpactPage`, registered in `TripDetailRoutes`): the score and badge on the header, the three numbers, the footprint against solo cabs, every ride with a walk / e-rickshaw / auto / cab / boat switcher, three swaps with a one-tap action, quiet hours, where the money went, the pledges with member avatars, and "How we count". Each switcher button shows what that choice costs the squad; the totals are re-added on the spot from the leg `options` and then reconciled with the server's answer (a failed save puts the numbers back and says so).
+- **Squad Impact Card:** drawn on a canvas as a 1080 × 1350 PNG (squad name, member initials, the three numbers, the badge, "Planned with Ghoomates") with the design tokens, shown on the page, and shared with `navigator.share({ files })` where the phone allows it, otherwise downloaded.
+- `useImpact` is a small shared store, so the card and the page always agree.
+
 ## Fallbacks
 
 Gemini, the Routes API, the cache table and an empty itinerary are all optional: the report is complete with rules, curated data and straight-line estimates. A Gemini or Routes failure is logged once and the module leaves that service alone for a minute (Gemini) or five (Routes). Ride and pledge edits never wait on Gemini; they use only what is already cached.

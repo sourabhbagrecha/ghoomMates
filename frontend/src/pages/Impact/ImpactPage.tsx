@@ -46,6 +46,17 @@ function cardData(report: ImpactReport, trip: TripDetail): SquadCardData {
   }
 }
 
+/** Whether the plan has any rides or timed heritage visits to count */
+const planned = (report: ImpactReport) => report.footprint.days.some((d) => d.legs.length > 0) || report.crowdSmart.heritageStops > 0
+
+/** GhoomMate's line at the top: the best swap, else what to do next */
+function tipFor(report: ImpactReport): string {
+  if (report.swaps[0]) return report.swaps[0].text
+  return planned(report)
+    ? 'Every ride is already light. Tick a pledge or two, then share the card.'
+    : 'Add a few stops with places and times, and I’ll count the rides, the crowds and the rupees.'
+}
+
 /** Draws the Squad Impact Card whenever the numbers change, and keeps the PNG ready so sharing is instant */
 function useSquadCard(report: ImpactReport | null, trip: TripDetail | null) {
   const [card, setCard] = useState<{ blob: Blob; url: string } | null>(null)
@@ -130,6 +141,7 @@ export function ImpactPage() {
         headerHeight={262}
         bodyClassName="impact__body"
         headerExtra={
+          error && !report ? undefined : (
           <div className="impact-hero" style={{ '--score': score } as CSSProperties}>
             {report && badge ? (
               <>
@@ -157,11 +169,12 @@ export function ImpactPage() {
               </>
             )}
           </div>
+          )
         }
         actions={
           <Button variant="primary" disabled={!card} onClick={() => void share()}>
             <img src={iconShare} alt="" width={18} height={18} className="impact__share-icon" />
-            {card ? 'Share our impact card' : 'Drawing your card…'}
+            {card || !report ? 'Share our impact card' : 'Drawing your card…'}
           </Button>
         }
       >
@@ -183,9 +196,9 @@ export function ImpactPage() {
             <section className="card impact-kpis" aria-label="Your squad’s impact in three numbers">
               <KpiTiles report={report} />
             </section>
-            <GhoomMateTip>{report.swaps[0]?.text ?? 'Every ride is already light. Tick a pledge or two, then share the card.'}</GhoomMateTip>
+            <GhoomMateTip>{tipFor(report)}</GhoomMateTip>
             <FootprintSection report={report} tripId={trip.id} startDate={trip.startDate} />
-            <SwapsSection swaps={report.swaps} tripId={trip.id} />
+            {(planned(report) || report.swaps.length > 0) && <SwapsSection swaps={report.swaps} tripId={trip.id} />}
             <QuietHoursSection crowd={report.crowdSmart} squad={report.squad.size} />
             <KeptLocalSection local={report.local} />
             <PledgesSection pledges={report.pledges} tripId={trip.id} me={trip.memberId} />

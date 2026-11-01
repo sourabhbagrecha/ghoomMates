@@ -95,6 +95,10 @@ describe('re-wording the swaps', () => {
     expect(keepsFacts(original, 'Stroll from City Palace to Jagdish Temple: 460 m, 6 min, and 0.4 kg off the squad’s footprint!')).toBe(true);
     expect(keepsFacts(original, 'Stroll from City Palace to Jagdish Temple: 500 m, 6 min, saves 0.4 kg for everyone.')).toBe(false);
     expect(keepsFacts(original, 'Walk it!')).toBe(false);
+    // The numbers are right but the places have gone: the model drifted
+    expect(keepsFacts(original, 'Just stroll over there instead, 460 m and 6 min, which is 0.4 kg lighter.')).toBe(false);
+    // Shortening a place name is fine
+    expect(keepsFacts(original, 'Stroll over to Jagdish instead: just 460 m, 6 min, and 0.4 kg off our footprint.')).toBe(true);
     expect(keepsFacts(original, 'x'.repeat(200))).toBe(false);
     expect(keepsFacts(original, 42)).toBe(false);
     expect(keepsFacts(original, 'Line one 460 6 0.4\nline two')).toBe(false);
