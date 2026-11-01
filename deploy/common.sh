@@ -7,7 +7,7 @@
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 
-# --- Where things live (facts about the shared Ghoomates project) -------------------------------------------------
+# --- Where things live (facts about the shared Ghoommates project) -------------------------------------------------
 PROJECT_ID="${PROJECT_ID:-optimal-comfort-510810-d1}"
 REGION="${REGION:-asia-south1}"                      # Mumbai: the Cloud SQL instance and the bucket are here too
 REPO="${REPO:-ghoomates}"                            # Artifact Registry repository (created by cloud/deploy.sh registry)
@@ -20,10 +20,10 @@ DB_NAME="${DB_NAME:-ghoomates}"
 FACE_SEARCH_SERVICE="${FACE_SEARCH_SERVICE:-face-search}"
 
 # --- What gets deployed -------------------------------------------------------------------------------------------
-WEB_SERVICE="${WEB_SERVICE:-ghoomates}"              # the URL is https://<service>-<project number>.<region>.run.app
-AGENT_SERVICE="${AGENT_SERVICE:-ghoomates-agent}"
-WEB_SA_NAME="${WEB_SA_NAME:-ghoomates-web}"
-AGENT_SA_NAME="${AGENT_SA_NAME:-ghoomates-agent}"
+WEB_SERVICE="${WEB_SERVICE:-ghoommates}"              # the URL is https://<service>-<project number>.<region>.run.app
+AGENT_SERVICE="${AGENT_SERVICE:-ghoommates-agent}"
+WEB_SA_NAME="${WEB_SA_NAME:-ghoommates-web}"
+AGENT_SA_NAME="${AGENT_SA_NAME:-ghoommates-agent}"
 # A dedicated voice-agent name for the deployed pair, so a teammate's laptop worker (default name "ghoomate") never
 # receives a jury member's session.
 AGENT_NAME="${AGENT_NAME:-ghoomate-prod}"
@@ -100,9 +100,9 @@ preflight() {
 }
 
 # --- Secrets and settings -----------------------------------------------------------------------------------------
-# Sensitive settings live in Secret Manager, one secret per setting, named ghoomates-<setting in kebab case>:
-# JWT_SECRET -> ghoomates-jwt-secret. deploy/secrets.sh creates them; deploy/cloudrun.sh mounts them as env vars.
-secret_name() { printf 'ghoomates-%s' "$(printf '%s' "$1" | tr 'A-Z_' 'a-z-')"; }
+# Sensitive settings live in Secret Manager, one secret per setting, named ghoommates-<setting in kebab case>:
+# JWT_SECRET -> ghoommates-jwt-secret. deploy/secrets.sh creates them; deploy/cloudrun.sh mounts them as env vars.
+secret_name() { printf 'ghoommates-%s' "$(printf '%s' "$1" | tr 'A-Z_' 'a-z-')"; }
 
 secret_exists() { gcloud secrets describe "$1" --project="$PROJECT_ID" >/dev/null 2>&1; }
 

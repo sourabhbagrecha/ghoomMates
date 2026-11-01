@@ -10,7 +10,7 @@ const TEST_SECRET = 'a-very-secret-test-key-32-characters-minimum';
 test('JWT signing and verification', () => {
   const payload = {
     userId: 'usr_12345',
-    email: 'traveler@ghoomates.com',
+    email: 'traveler@ghoommates.com',
     name: 'Traveler One',
   };
 
@@ -20,7 +20,7 @@ test('JWT signing and verification', () => {
 
   const decoded = verifyJwt(token, TEST_SECRET);
   assert.equal(decoded.userId, 'usr_12345');
-  assert.equal(decoded.email, 'traveler@ghoomates.com');
+  assert.equal(decoded.email, 'traveler@ghoommates.com');
   assert.equal(decoded.name, 'Traveler One');
 });
 
@@ -58,7 +58,7 @@ test('OAuth app health and dev mock login endpoints', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'test.user@ghoomates.com',
+        email: 'test.user@ghoommates.com',
         name: 'Test Explorer',
         picture: 'https://example.com/avatar.png',
     }),
@@ -66,7 +66,7 @@ test('OAuth app health and dev mock login endpoints', async () => {
   assert.equal(loginRes.status, 200);
   const loginBody = await loginRes.json();
   assert.ok(loginBody.token);
-  assert.equal(loginBody.user.email, 'test.user@ghoomates.com');
+  assert.equal(loginBody.user.email, 'test.user@ghoommates.com');
   assert.equal(loginBody.user.name, 'Test Explorer');
 
   // Verify /auth/me with Bearer token
@@ -76,7 +76,7 @@ test('OAuth app health and dev mock login endpoints', async () => {
   assert.equal(meRes.status, 200);
   const meBody = await meRes.json();
   assert.equal(meBody.user.id, loginBody.user.id);
-  assert.equal(meBody.user.email, 'test.user@ghoomates.com');
+  assert.equal(meBody.user.email, 'test.user@ghoommates.com');
 
   await server.close();
   await db.terminate();

@@ -50,7 +50,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   app.get(['/', '/health'], (_req, res) => {
     res.json({
       status: 'ok',
-      service: 'ghoomates-backend',
+      service: 'ghoommates-backend',
       version: '0.1.0',
       modules: { auth: 'enabled', trips: trips ? 'enabled' : 'disabled', expenses: expenses ? 'enabled' : 'disabled' },
       endpoints: ['/health', '/auth/*', '/api/trips/*', '/api/voice/session', '/api/heritage/:city/live', '/api/groups/*'],

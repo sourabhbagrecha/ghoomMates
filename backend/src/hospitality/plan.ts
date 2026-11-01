@@ -328,7 +328,7 @@ export function orderMessage(host: Host, order: FarmOrder, range: { from: string
     `This is ${host.name}, ${host.area}, Udaipur.`,
     `We'd like to order for ${dateLabel(range.from)} to ${dateLabel(range.to)}, delivered by 7 AM on ${dateLabel(range.from)}:`,
     ...lines,
-    `Planned covers: ${covers}${squadCovers ? `, including ${squadCovers} from squads booked on Ghoomates` : ''}.`,
+    `Planned covers: ${covers}${squadCovers ? `, including ${squadCovers} from squads booked on Ghoommates` : ''}.`,
     'Please confirm the quantities and rate. Dhanyavaad!',
   ].join('\n');
 }

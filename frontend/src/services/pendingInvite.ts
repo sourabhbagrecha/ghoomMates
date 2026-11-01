@@ -1,5 +1,5 @@
 // An invite link opened before signing in, joined once onboarding is done.
-const KEY = 'ghoomates:pendingInvite'
+const KEY = 'ghoommates:pendingInvite'
 
 export function getPendingInvite(): string | null {
   try {

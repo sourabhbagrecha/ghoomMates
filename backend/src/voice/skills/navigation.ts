@@ -18,7 +18,7 @@ export const navigation: Skill = {
   tools: (ctx) => [
     llm.tool({
       name: 'open_screen',
-      description: 'Open a screen in the Ghoomates app for the user.',
+      description: 'Open a screen in the Ghoommates app for the user.',
       parameters: z.object({ screen: z.enum(SCREENS).describe('Which screen to open') }),
       execute: async ({ screen }) => {
         void ctx.ui({ type: 'navigate', screen });

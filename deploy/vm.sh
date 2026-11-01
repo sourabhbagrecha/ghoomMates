@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Redeploy the current code to the Ghoomates VM (https://ghoomates.sourabh.org).
+# Redeploy the current code to the Ghoommates VM (https://ghoommates.sourabh.org).
 #
 #   deploy/vm.sh            build the web app locally, ship backend + dist, npm ci, restart
 #   deploy/vm.sh --env      also replace the server's backend/.env with backend/.env plus the production overrides
 #
-# The VM: GCE "ghoomates" (e2-small, asia-south1-b, static IP ghoomates-ip). Node 24 runs
-# /opt/ghoomates/app/backend/src/index.ts as the systemd unit "ghoomates" on 127.0.0.1:8080; Caddy terminates TLS for
-# ghoomates.sourabh.org (Cloudflare A record, DNS only) and proxies to it. Logs: deploy/vm.sh logs
+# The VM: GCE "ghoommates" (e2-small, asia-south1-b, static IP ghoomates-ip). Node 24 runs
+# /opt/ghoommates/app/backend/src/index.ts as the systemd unit "ghoommates" on 127.0.0.1:8080; Caddy terminates TLS for
+# ghoommates.sourabh.org (Cloudflare A record, DNS only) and proxies to it. Logs: deploy/vm.sh logs
 set -euo pipefail
 
-VM="${VM:-ghoomates}"
+VM="${VM:-ghoommates}"
 ZONE="${ZONE:-asia-south1-b}"
-PUBLIC_URL="${PUBLIC_URL:-https://ghoomates.sourabh.org}"
+PUBLIC_URL="${PUBLIC_URL:-https://ghoommates.sourabh.org}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -19,7 +19,7 @@ trap 'rm -rf "$TMP"' EXIT
 ssh_vm() { gcloud compute ssh "$VM" --zone "$ZONE" --quiet --command "$1"; }
 
 if [[ "${1:-}" == logs ]]; then
-  ssh_vm 'sudo journalctl -u ghoomates --no-pager -n 100'
+  ssh_vm 'sudo journalctl -u ghoommates --no-pager -n 100'
   exit 0
 fi
 
@@ -40,7 +40,7 @@ PORT=8080
 NODE_ENV=production
 CLIENT_ORIGIN=$PUBLIC_URL
 GOOGLE_REDIRECT_URI=$PUBLIC_URL/auth/callback
-SERVE_FRONTEND_DIR=/opt/ghoomates/app/frontend/dist
+SERVE_FRONTEND_DIR=/opt/ghoommates/app/frontend/dist
 GHOOMATE_AGENT_NAME=ghoomate-prod
 EOF
   )
@@ -50,17 +50,17 @@ gcloud compute scp --zone "$ZONE" --quiet "${files[@]}" "$VM:/tmp/"
 
 echo "==> Install and restart"
 ssh_vm 'set -e
-cd /opt/ghoomates/app
+cd /opt/ghoommates/app
 sudo rm -rf backend/src backend/migrations frontend/dist
 sudo tar xzf /tmp/app.tgz && rm /tmp/app.tgz
 if [ -f /tmp/prod.env ]; then
   # Keep the generated JWT secret so existing sessions stay valid
   sudo grep "^JWT_SECRET=" backend/.env >> /tmp/prod.env || echo "JWT_SECRET=$(openssl rand -hex 32)" >> /tmp/prod.env
-  sudo install -m 600 -o ghoomates -g ghoomates /tmp/prod.env backend/.env && rm /tmp/prod.env
+  sudo install -m 600 -o ghoommates -g ghoommates /tmp/prod.env backend/.env && rm /tmp/prod.env
 fi
-sudo chown -R ghoomates:ghoomates /opt/ghoomates/app
-cd backend && sudo -u ghoomates npm ci --omit=dev --no-audit --no-fund --loglevel=error
-sudo systemctl restart ghoomates'
+sudo chown -R ghoommates:ghoommates /opt/ghoommates/app
+cd backend && sudo -u ghoommates npm ci --omit=dev --no-audit --no-fund --loglevel=error
+sudo systemctl restart ghoommates'
 
 echo "==> Check $PUBLIC_URL"
 for _ in 1 2 3 4 5 6 7 8 9 10; do

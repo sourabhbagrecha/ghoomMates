@@ -68,7 +68,7 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
   router.get('/health', (_req, res) => {
     res.json({
       status: 'ok',
-      service: 'ghoomates-oauth',
+      service: 'ghoommates-oauth',
       version: '0.1.0',
       frontendUrl: clientOrigin,
       endpoints: [

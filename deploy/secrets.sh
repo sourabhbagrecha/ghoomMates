@@ -5,7 +5,7 @@
 #   deploy/secrets.sh            create the secrets, or add a new version when a value changed
 #   deploy/secrets.sh --check    list which secrets exist (names only) and which settings are set locally
 #
-# One secret per setting, named ghoomates-<setting in kebab case> (JWT_SECRET -> ghoomates-jwt-secret):
+# One secret per setting, named ghoommates-<setting in kebab case> (JWT_SECRET -> ghoommates-jwt-secret):
 #   JWT_SECRET             a fresh random value, never the one in backend/.env (that is the dev secret, and the
 #                          dev default is public in this repo, so anyone could forge sessions with it)
 #   DB_PASSWORD, GOOGLE_CLIENT_SECRET, GCS_CREDENTIALS_BASE64, GEMINI_API_KEY, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
@@ -95,7 +95,7 @@ for key in $SECRET_KEYS; do
       how="generated, 64 hex characters"
     fi
     (( ${#value} >= 32 )) || die "PRODUCTION_JWT_SECRET must be at least 32 characters"
-    if [[ "$value" == "$(env_value JWT_SECRET)" || "$value" == ghoomates-oauth-jwt-secret-key-32chars-min-dev-2026 ]]; then
+    if [[ "$value" == "$(env_value JWT_SECRET)" || "$value" == ghoommates-oauth-jwt-secret-key-32chars-min-dev-2026 ]]; then
       die "PRODUCTION_JWT_SECRET is the dev JWT secret from backend/.env or the repo. Production needs its own: leave it unset to generate one."
     fi
     # store runs in a subshell, so its failure is checked here rather than inside report's arguments

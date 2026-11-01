@@ -106,7 +106,7 @@ const NOTES: Record<string, FailureNote> = {
   },
   NETWORK_ERROR: {
     title: 'No connection',
-    text: 'Can’t reach Ghoomates right now. Here’s your squad in a miniature frame.',
+    text: 'Can’t reach Ghoommates right now. Here’s your squad in a miniature frame.',
     retry: true,
   },
 }

@@ -328,7 +328,7 @@ export class TripService {
     const body = object(input);
     requireThat(body.fromMemberId === access.memberId || body.toMemberId === access.memberId, 'You can only record payments you sent or received');
     const groupId = access.trip.expense_group_id;
-    const ledgerInput = { fromMemberId: body.fromMemberId, toMemberId: body.toMemberId, amountPaise: body.amountPaise, confirmed: true, note: body.note || 'Settled in Ghoomates' };
+    const ledgerInput = { fromMemberId: body.fromMemberId, toMemberId: body.toMemberId, amountPaise: body.amountPaise, confirmed: true, note: body.note || 'Settled in Ghoommates' };
     return this.ledger.mutate(`${groupId}/settlements`, idempotencyKey || randomUUID(), ledgerInput, (tx) => this.ledger.addSettlement(groupId, ledgerInput, tx));
   }
 

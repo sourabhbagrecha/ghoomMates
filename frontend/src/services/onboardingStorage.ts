@@ -1,7 +1,7 @@
 // Remembers on this device that sign-up is finished, and the name used to greet
 // the user. Replace with the real session/profile once auth is wired up.
-const ONBOARDED_KEY = 'ghoomates:onboarded'
-const NAME_KEY = 'ghoomates:name'
+const ONBOARDED_KEY = 'ghoommates:onboarded'
+const NAME_KEY = 'ghoommates:name'
 
 function read(key: string): string | null {
   try {

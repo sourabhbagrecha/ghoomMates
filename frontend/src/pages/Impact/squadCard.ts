@@ -2,7 +2,7 @@ import { fmtHours, fmtKg, fmtRupees } from './impactData'
 
 /**
  * The shareable Squad Impact Card, drawn straight onto a canvas (no server, no screenshot): squad name, who is in it,
- * the three numbers, the badge and "Planned with Ghoomates". A 4:5 portrait that fits an Instagram post or a story card.
+ * the three numbers, the badge and "Planned with Ghoommates". A 4:5 portrait that fits an Instagram post or a story card.
  * Colours come from the design tokens at draw time; sizes are canvas pixels.
  */
 
@@ -380,7 +380,7 @@ export async function renderSquadCard(data: SquadCardData): Promise<Blob> {
   ctx.font = `600 36px ${FONT}`
   wrap(ctx, cardLine(data), inner, 2).forEach((line, n) => ctx.fillText(line, MARGIN, 1168 + n * 50))
   ctx.font = `800 34px ${FONT}`
-  ctx.fillText('Planned with Ghoomates', MARGIN, 1292)
+  ctx.fillText('Planned with Ghoommates', MARGIN, 1292)
   ctx.textAlign = 'right'
   ctx.fillStyle = t.onBrandMuted
   ctx.font = `600 24px ${FONT}`
@@ -396,7 +396,7 @@ export type ShareResult = 'shared' | 'saved' | 'cancelled'
 
 /** The phone's share sheet when it can send an image, otherwise a download */
 export async function shareSquadCard(blob: Blob, text: string, title: string): Promise<ShareResult> {
-  const file = new File([blob], 'ghoomates-squad-impact.png', { type: 'image/png' })
+  const file = new File([blob], 'ghoommates-squad-impact.png', { type: 'image/png' })
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title, text })
@@ -414,7 +414,7 @@ export function downloadSquadCard(blob: Blob) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = 'ghoomates-squad-impact.png'
+  link.download = 'ghoommates-squad-impact.png'
   document.body.appendChild(link)
   link.click()
   link.remove()

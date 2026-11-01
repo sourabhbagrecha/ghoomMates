@@ -19,7 +19,7 @@ OBJECT = {"bucket": "ghoomates", "name": f"trips/{TRIP_A}/photos/a.jpg", "genera
 def test_parse_binary_mode_event():
     e = parse_event({"ce-id": "42", "ce-type": FINALIZED}, OBJECT)
     assert (e.id, e.type, e.bucket, e.name, e.generation, e.content_type, e.size) == (
-        "42", FINALIZED, "ghoomates", OBJECT["name"], 1730000000000001, "image/jpeg", 12345)
+        "42", FINALIZED, "ghoommates", OBJECT["name"], 1730000000000001, "image/jpeg", 12345)
 
 
 def test_parse_structured_mode_event():

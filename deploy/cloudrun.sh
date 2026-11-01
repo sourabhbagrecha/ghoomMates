@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys Ghoomates to Google Cloud Run: builds the image with Cloud Build, deploys the web service (the API and the
+# Deploys Ghoommates to Google Cloud Run: builds the image with Cloud Build, deploys the web service (the API and the
 # web app in one) and, optionally, the GhoomMate voice agent worker. Safe to run again: each step creates what is
 # missing and updates the rest, and every run deploys a new revision of the current code.
 #
@@ -190,12 +190,12 @@ setup() {
     ok "exists"
   else
     run gcloud artifacts repositories create "$REPO" --project="$PROJECT_ID" --location="$REGION" \
-      --repository-format=docker --description="Ghoomates container images"
+      --repository-format=docker --description="Ghoommates container images"
   fi
 
   step "Service accounts"
-  ensure_service_account "$WEB_SA_NAME" "Ghoomates web (Cloud Run runtime)"
-  ensure_service_account "$AGENT_SA_NAME" "Ghoomates voice agent (Cloud Run runtime)"
+  ensure_service_account "$WEB_SA_NAME" "Ghoommates web (Cloud Run runtime)"
+  ensure_service_account "$AGENT_SA_NAME" "Ghoommates voice agent (Cloud Run runtime)"
 
   step "What the web service may do ($(web_sa))"
   grant_project_role "$(web_sa)" roles/cloudsql.client        # the Cloud SQL connector (CLOUD_SQL_INSTANCE)
@@ -393,7 +393,7 @@ deploy_agent() {
 # --- Status, pause, resume ------------------------------------------------------------------------------------------
 cmd_status() {
   step "Cloud Run services"
-  gcloud run services list --project="$PROJECT_ID" --region="$REGION" --filter='metadata.name~^ghoomates' \
+  gcloud run services list --project="$PROJECT_ID" --region="$REGION" --filter='metadata.name~^ghoommates' \
     --format='table(metadata.name,status.url,status.latestReadyRevisionName,spec.template.spec.serviceAccountName)'
   resolve_public_url
   verify_web
@@ -409,7 +409,7 @@ set_min_instances() { # SERVICE COUNT
 
 # --- Summary --------------------------------------------------------------------------------------------------------
 summary() {
-  local client_id headline="Ghoomates is on Cloud Run:  $PUBLIC_URL"
+  local client_id headline="Ghoommates is on Cloud Run:  $PUBLIC_URL"
   client_id="$(env_value GOOGLE_CLIENT_ID)"
   if [[ "$DRY_RUN" == 1 ]]; then headline="Dry run done, nothing was deployed. It would live at:  $PUBLIC_URL"; fi
   cat >&2 <<EOF
