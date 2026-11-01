@@ -288,6 +288,7 @@ The rest of the app hangs off those screens:
 | During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
 | Profile and account | `#/profile`, `…/edit`, `…/settings`, `…/help` ("Retake vibe quiz" opens `#/quiz`) | `src/pages/Profile/` |
 | System states gallery | `#/states` (loading, empty, error, offline) | `src/pages/States/` |
+| Mewar Utsav: Udaipur's festivals, fairs and nightly shows, with crowd warnings, “Add to our itinerary” and “Plan around it” (opened from Explore's “This week in Mewar”; `?e=<id>` scrolls to one) | `#/trip/explore/events` | `src/pages/Events/` |
 | Partner tools: Heritage Ops console for site managers (opened from Settings or Explore's crowd map); its sky-blue "heads up" advisories show on Explore and stop pages | `#/ops` | `src/pages/Ops/` |
 | After the trip | `#/past/<id>` (recap), `…/album`, `…/days`, `…/expenses` (final tally + settle up), `…/rate[/<stars>]` | `src/pages/PastTrip/` |
 

@@ -176,6 +176,15 @@ export const crowdPhrase = (label: CrowdLabel) =>
 export const festivalLine = (name: string, site: Pick<SiteCrowd, 'siteName' | 'windowLabel' | 'peak'>) =>
   `${name}: ${crowdPhrase(site.peak.label)} at ${site.siteName}, ${site.windowLabel}`
 
+/** “Quieter: Neemach Mata hilltop (moderate) or go at 04:00 PM.”, or null when the model finds nothing calmer that day */
+export function quieterLine(site: Pick<SiteCrowd, 'quieterSite' | 'quieterTime'>) {
+  const options = [
+    site.quieterSite && `${site.quieterSite.name} (${site.quieterSite.label})`,
+    site.quieterTime && `go at ${site.quieterTime.time}`,
+  ].filter(Boolean)
+  return options.length ? `Quieter: ${options.join(' or ')}.` : null
+}
+
 export type SiteFestival = {
   item: EventInstance
   site: SiteCrowd

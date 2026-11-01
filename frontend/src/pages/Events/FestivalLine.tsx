@@ -1,7 +1,7 @@
 import { iconUrl } from '../../assets/icons'
 import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
-import { festivalForSite, festivalLine } from './eventsLogic'
+import { festivalForSite, festivalLine, quieterLine } from './eventsLogic'
 import { useEventList } from './useEventList'
 import './FestivalLine.css'
 
@@ -20,6 +20,7 @@ export function FestivalLine({ siteId }: { siteId: string }) {
   if (!found) return null
 
   const { item, site, when, dayNumber } = found
+  const quiet = quieterLine(site)
   const badge = when === 'today' ? 'Festival today' : when === 'tomorrow' ? 'Festival tomorrow' : `Day ${dayNumber} of your trip`
 
   return (
@@ -29,6 +30,7 @@ export function FestivalLine({ siteId }: { siteId: string }) {
         {badge}
       </span>
       <p className="festival-line__text">{festivalLine(item.name, site)}</p>
+      {quiet && <p className="festival-line__quiet">{quiet}</p>}
       <button type="button" className="text-link" onClick={() => navigate(`trip/explore/events?e=${item.id}`)}>
         Plan around it
       </button>

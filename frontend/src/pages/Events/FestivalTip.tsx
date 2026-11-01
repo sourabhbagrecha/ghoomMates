@@ -2,6 +2,7 @@ import { tripPhase } from '../../data/tripDates'
 import { GhoomMateTip } from '../../components/GhoomMate'
 import { useNavigate } from '../../hooks/navigation'
 import type { TripDetail } from '../../services/tripsService'
+import { experienceCityFor } from '../Explore/experiencesData'
 import { tipText, tripOverlaps } from './eventsLogic'
 import { useEventList } from './useEventList'
 import './FestivalTip.css'
@@ -13,7 +14,8 @@ import './FestivalTip.css'
 export function FestivalTip({ trip }: { trip: TripDetail }) {
   const navigate = useNavigate()
   const { list } = useEventList()
-  if (!list || !trip.startDate || tripPhase(trip) === 'past') return null
+  // The calendar is Udaipur's: a trip to another city has nothing to say about it
+  if (!list || !trip.startDate || tripPhase(trip) === 'past' || experienceCityFor(trip.destination) !== 'Udaipur') return null
 
   const [first, ...rest] = tripOverlaps(list.items, trip).filter((o) => o.item.tripTip)
   if (!first) return null

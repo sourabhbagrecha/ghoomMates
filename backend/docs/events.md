@@ -12,6 +12,7 @@ This module holds a **verified calendar** from November 2026 to December 2027, m
 | `src/events/lift.ts` | Pure lookups the crowd model calls inside `levelAt`: the multiplier, floor and late opening a festival gives a site at a minute of a day. Imports only the calendar, so `heritage/crowd.ts` can use it without a cycle. |
 | `src/events/logic.ts` | Pure functions: which events fall in a window, each event’s crowd at the sites it touches, and “plan around it” (a quieter time, a quieter site, where else is calm). |
 | `src/events/service.ts` | Adds an event to a trip’s itinerary through the trips module’s own `ItineraryService.addStop`. |
+| `src/events/ask.ts` | “Ask GhoomMate about this festival”: Gemini answers from the event’s facts only; the best matching curated note answers otherwise. |
 | `src/events/app.ts` | The router, mounted at `/api/events` before the catch-all `/api` ledger in `src/app.ts`, and `createPostgresEvents()` which wires the trips bridge. |
 | `src/events/dates.ts` | Calendar-day maths on `YYYY-MM-DD` strings in India’s time. |
 | `src/voice/skills/events.ts` | A GhoomMate voice skill, `whats_on`: “is Diwali during our trip?”, “aaj kuch special hai?” |
@@ -23,6 +24,7 @@ This module holds a **verified calendar** from November 2026 to December 2027, m
 | Method | Route | What it does |
 | --- | --- | --- |
 | GET | `/api/events?city=Udaipur&from=YYYY-MM-DD&to=YYYY-MM-DD` | Public, needs no database. Defaults to today and the next 120 days (at most 800). Returns `items` (one per run of days that touches the window, soonest first), `recurring` (the nightly shows) and `undated` (events whose dates aren’t announced yet). |
+| POST | `/api/events/:id/ask` | Public. `{ question }` (at most 300 characters) → `{ answer, source: gemini \| faq, matched }`. 20 questions a minute per client, then `429`. |
 | POST | `/api/events/:id/stops` | Signed-in trip member: `{ tripId, date, time?, dayNumber? }` adds the event’s stop to that day of the plan. `201` with the stop and what the crowd model says about it. |
 
 Each item carries: dates and the `basis` that verifies them, `status` (`today`, `tomorrow`, `ongoing`, `upcoming`), places with map points, hours, significance, `join` (etiquette, dress, photography), tips, price, sources, a `tripTip` template for the itinerary, and `crowd`:
@@ -108,7 +110,7 @@ Events with no Udaipur site (Annakut and Janmashtami at Nathdwara, Maha Shivratr
 
 ## Plan around it
 
-For each touched site on the day the numbers are for (today while the event is on, else its first main day), `logic.ts` finds:
+Each touched site is measured on the day that matters for it (today if the event touches it today, else the run’s main day, else the next day it does), over each stretch of the day the event touches it (dawn and dusk for Kartik Purnima), and sites are listed busiest first, ties going to the site the event names first. `logic.ts` finds:
 
 - **the peak** inside the window and the same minute without the festival (`usual`), plus an hourly curve with and without it;
 - **a quieter time**: the nearest half hour outside the event’s window that is below “busy” and at least 20 points lower, on the same day (“50% fewer people than at 5 PM”);
@@ -116,6 +118,10 @@ For each touched site on the day the numbers are for (today while the event is o
 - **calm elsewhere**: up to three other sites open and below “busy” an hour either side of the peak, preferring gems and short trips from the busiest site.
 
 The itinerary’s existing nudge (`suggestFor`) and the Ops advisory draft use the same festival-aware levels, so a stop at Gangaur Ghat on Mewar Festival evening is offered the quieter hour or a hilltop swap.
+
+## Ask GhoomMate
+
+`POST /api/events/:id/ask` sends Gemini (`gemini.json`, an 8-second timeout, temperature 0.2) the event’s own facts as the only allowed source (when and where, what it is about, how to join respectfully, what to wear, photography, the crowd and where it bites, tips, the ticket) and asks for `{ answer, grounded }`. Only a grounded answer is used. If Gemini is off, slow, errors, is unsure or returns something malformed, the best matching curated note is returned (`source: "faq"`): nine questions built from the event’s own data, matched by keywords; if nothing matches, the answer points to a local guide or the hotel host. The visitor’s question is passed as quoted text and the prompt tells the model to ignore instructions inside it.
 
 ## Dates: how each was checked
 
@@ -145,7 +151,7 @@ Things we could not pin down are said so in the app: the Nathdwara darshan times
 
 ## Without a database, Gemini or GCS
 
-Browsing, the crowd model and “plan around it” are pure code over curated data: no database, no Gemini, no storage. Only adding to a plan needs the database (it answers `503 SERVICE_UNAVAILABLE` without one). The voice skill and the frontend degrade the same way: a failed events request just hides the Explore section, the CrowdPulse line and the itinerary tip.
+Browsing, the crowd model and “plan around it” are pure code over curated data: no database, no Gemini, no storage. Asking a question works without Gemini too, from the curated notes. Only adding to a plan needs the database (it answers `503 SERVICE_UNAVAILABLE` without one). The voice skill and the frontend degrade the same way: a failed events request just hides the Explore section, the CrowdPulse line and the itinerary tip.
 
 ## Frontend
 
@@ -154,8 +160,8 @@ All in `frontend/src/pages/Events/`, with the API client in `src/services/events
 | Where | What |
 | --- | --- |
 | Explore tab → “This week in Mewar” (`EventsSection`, Udaipur trips only) | A row of the next few festivals and shows, each with its date, place, hours and a crowd chip; “Coming up in Mewar” when nothing is on this week. |
-| `#/trip/explore/events[?e=<id>]` (`EventsPage`) | The upcoming list grouped by week, with the nightly shows and the events whose dates aren’t out. Each card (`EventCard`): date, place, significance, how to join respectfully, a crowd warning chip, **Add to our itinerary** (`AddToTripSheet`: pick a day) and **Plan around it** (`PlanAroundSheet`: the hour-by-hour forecast with and without the festival, the quieter time and site per place, where else is calm). |
-| CrowdPulse → the selected site (`FestivalLine`) | A line when a festival touches that site today or tomorrow (“Rath Yatra: very heavy crowds near Jagdish Temple 2–7 PM”), or on a day of the squad’s trip. |
+| `#/trip/explore/events[?e=<id>]` (`EventsPage`) | The upcoming list grouped by week (this week is the next seven days), with the nightly shows and the events whose dates aren’t out. Each card (`EventCard`): date, place, significance, how to join respectfully with an “Ask GhoomMate” box (`AskEvent`), a crowd warning chip, **Add to our itinerary** (`AddToTripSheet`: pick a day) and **Plan around it** (`PlanAroundSheet`: the hour-by-hour forecast with and without the festival, the quieter time and site per place, where else is calm). |
+| CrowdPulse → the selected site (`FestivalLine`) | A badge and a line when a festival touches that site today or tomorrow (“Jagannath Rath Yatra: very heavy crowds at Jagdish Temple, 2–7:30 PM”), or on a day of the squad’s trip, with the quieter hour or place from the model and a link to “Plan around it”. |
 | Itinerary → top of the plan (`FestivalTip`) | A GhoomMate tip when the trip’s dates overlap a festival: “Your Day 2 is Diwali. The City Palace lights up after dark, but the old-city lanes are packed from about 6 PM.” |
 
 ## Known gaps

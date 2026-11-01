@@ -100,6 +100,9 @@ export type AddedEventStop = {
   crowd: { siteName: string; level: number | null; label: CrowdLabel | null; dayNote: string | null } | null
 }
 
+/** GhoomMate's answer to a question about an event: written by Gemini from the event's facts, or a curated note */
+export type EventAnswer = { answer: string; source: 'gemini' | 'faq'; matched: string | null }
+
 export type NewEventStop = { tripId: string; date?: string | null; time?: string; dayNumber?: number }
 
 const TTL_MS = 5 * 60_000
@@ -119,6 +122,7 @@ export const eventsApi = {
     pending.catch(() => cache.delete(key))
     return pending
   },
+  ask: (eventId: string, question: string) => request<EventAnswer>(`/api/events/${encodeURIComponent(eventId)}/ask`, { body: { question } }),
   addToTrip: (eventId: string, input: NewEventStop) =>
     request<AddedEventStop>(`/api/events/${encodeURIComponent(eventId)}/stops`, { body: input }),
 }

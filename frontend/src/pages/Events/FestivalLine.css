@@ -31,3 +31,10 @@
   line-height: 18px;
   color: var(--color-ink);
 }
+
+.festival-line__quiet {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}

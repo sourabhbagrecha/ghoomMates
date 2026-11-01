@@ -1,4 +1,5 @@
 import { ApiError } from '../../src/http.ts';
+import type { Gemini } from '../../src/gemini.ts';
 import type { User } from '../../src/auth/types.ts';
 import type { EventsTrips } from '../../src/events/service.ts';
 import type { TripAccess } from '../../src/trips/service.ts';
@@ -34,3 +35,24 @@ export const authenticate = async (token: string) => {
   if (token !== TOKEN) throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');
   return asha;
 };
+
+/** A Gemini whose json() is whatever the test says */
+export function fakeGemini(json: (request: { prompt: unknown; system?: unknown }) => unknown, enabled = true): Gemini & { calls: number } {
+  const gemini = {
+    enabled,
+    imageEnabled: false,
+    calls: 0,
+    models: { lite: 'fake-lite', smart: 'fake-smart', image: 'fake-image', tts: 'fake-tts' },
+    async json(request: { prompt: unknown; system?: unknown }) {
+      gemini.calls++;
+      return json(request);
+    },
+    async image() {
+      throw new Error('not used');
+    },
+    async speech() {
+      throw new Error('not used');
+    },
+  };
+  return gemini as unknown as Gemini & { calls: number };
+}

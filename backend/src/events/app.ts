@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import { ApiError, jsonBody } from '../http.ts';
+import { object, text } from '../expenses/domain.ts';
+import type { Gemini } from '../gemini.ts';
 import type { Database } from '../db.ts';
 import type { User } from '../auth/types.ts';
 import { cityOf } from '../heritage/crowd.ts';
 import type { MediaStorage } from '../storage.ts';
 import { ItineraryService } from '../trips/itinerary.ts';
 import { TripService } from '../trips/service.ts';
+import { answerQuestion, MAX_QUESTION } from './ask.ts';
 import { EVENT_BY_ID } from './calendar.ts';
 import { addDays, daysBetween, isIsoDate, todayInIndia } from './dates.ts';
 import { DEFAULT_SPAN_DAYS, MAX_SPAN_DAYS, listEvents } from './logic.ts';
@@ -15,6 +18,8 @@ import { EventsService, type EventsTrips } from './service.ts';
 export type Authenticate = (token: string) => Promise<User>;
 
 export type EventsAppOptions = {
+  /** Answers questions about an event when it is on; the curated notes answer otherwise */
+  gemini?: Gemini;
   /** Needed for adding to a plan: turns a session token into the signed-in user */
   authenticate?: Authenticate;
   /** Needed for adding to a plan: trip membership and the itinerary stop */
@@ -29,11 +34,24 @@ function bearer(req: Request) {
 
 const oneOf = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
+/** At most `limit` calls per client per minute, for the one route that costs a Gemini call */
+function rateLimiter(limit: number, now: () => number = Date.now) {
+  const calls = new Map<string, number[]>();
+  return (client: string) => {
+    const cutoff = now() - 60_000;
+    const recent = (calls.get(client) ?? []).filter(t => t > cutoff);
+    if (recent.length >= limit) return false;
+    calls.set(client, [...recent, now()]);
+    return true;
+  };
+}
+
 // Mewar Utsav: Udaipur's festivals, fairs and nightly shows with the crowd each brings, plus a way to put one in a squad's
 // plan. Mount under /api/events. Browsing is public and needs no database; adding to a plan needs a signed-in trip member.
-export function createEventsApp({ authenticate, trips, now = () => new Date() }: EventsAppOptions = {}) {
+export function createEventsApp({ gemini, authenticate, trips, now = () => new Date() }: EventsAppOptions = {}) {
   const router = Router();
   const service = trips ? new EventsService(trips) : null;
+  const allowAsk = rateLimiter(20);
 
   const requireUser: RequestHandler = async (req, res, next) => {
     if (!service || !authenticate) {
@@ -59,6 +77,16 @@ export function createEventsApp({ authenticate, trips, now = () => new Date() }:
     if (to < from) throw new ApiError(400, 'VALIDATION_ERROR', 'to must not be before from');
     if (daysBetween(from, to) > MAX_SPAN_DAYS) throw new ApiError(400, 'VALIDATION_ERROR', `Ask for at most ${MAX_SPAN_DAYS} days at a time`);
     res.json(listEvents({ from, to, today }));
+  });
+
+  // A visitor's question about an event ({ question }, at most 300 characters), answered from its facts only: by Gemini when it
+  // is on and sure, else by the best matching curated note. 20 questions a minute per client. Public.
+  router.post('/:id/ask', jsonBody, async (req, res) => {
+    const event = EVENT_BY_ID.get(String(req.params.id));
+    if (!event) throw new ApiError(404, 'NOT_FOUND', 'We don’t know that event');
+    const question = text(object(req.body).question, 'question', MAX_QUESTION);
+    if (!allowAsk(req.ip ?? 'unknown')) throw new ApiError(429, 'RATE_LIMITED', 'That’s a lot of questions at once. Give it a minute.');
+    res.json(await answerQuestion(event, question, gemini));
   });
 
   // Add the event to a day of the squad's plan: { tripId, date, time?, dayNumber? }. Members only. 201 with the new stop and

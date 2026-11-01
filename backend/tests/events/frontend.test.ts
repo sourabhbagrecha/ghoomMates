@@ -3,7 +3,7 @@ import { expect } from '../expect.ts';
 import { listEvents } from '../../src/events/logic.ts';
 // The Mewar Utsav screens' helpers are plain TypeScript with no React or CSS, so the backend tests can run them too
 import {
-  crowdPhrase, dateTile, exploreRow, festivalForSite, festivalLine, groupByWeek, isInstance, isRecurring, pickableDays, relativeLabel,
+  crowdPhrase, dateTile, exploreRow, festivalForSite, festivalLine, groupByWeek, isInstance, isRecurring, pickableDays, quieterLine, relativeLabel,
   startingDay, tipText, tripOverlaps, weekStart, whenLabel,
 } from '../../../frontend/src/pages/Events/eventsLogic.ts';
 import type { EventList } from '../../../frontend/src/services/eventsService.ts';
@@ -132,6 +132,14 @@ describe('the line on CrowdPulse', () => {
     const found = festivalForSite(rath, 'jagdish-temple', '2027-07-05', null)!;
     expect(found.when).toBe('today');
     expect(festivalLine(found.item.name, found.site)).toBe('Jagannath Rath Yatra: very heavy crowds at Jagdish Temple, 2–7:30 PM');
+  });
+  test('says where it is calmer: the quieter place and the quieter time', () => {
+    const diwali = fetchList('2026-11-01', '2026-11-12', '2026-11-08').items;
+    const ghat = festivalForSite(diwali, 'gangaur-ghat', '2026-11-08', null)!.site;
+    expect(quieterLine(ghat)).toBe('Quieter: Neemach Mata hilltop (moderate) or go at 03:00 PM.');
+    // Jagdish Temple has no twin, so only the hour
+    expect(quieterLine(festivalForSite(diwali, 'jagdish-temple', '2026-11-08', null)!.site)).toBe('Quieter: go at 04:00 PM.');
+    expect(quieterLine({ quieterSite: null, quieterTime: null })).toBe(null);
   });
   test('looks at today, then tomorrow, then days of the squad’s trip', () => {
     expect(festivalForSite(rath, 'jagdish-temple', '2027-07-05', null)!.when).toBe('today');

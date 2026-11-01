@@ -117,7 +117,7 @@ const app = createServer({
   // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
   ops: createOpsApp({ db, authenticate, gemini }),
   // Mewar Utsav: browsing needs no database, adding an event to a plan does
-  events: createEventsApp({ authenticate, ...(db ? { trips: createPostgresEvents(db, storage, clientOrigin) } : {}) }),
+  events: createEventsApp({ gemini, authenticate, ...(db ? { trips: createPostgresEvents(db, storage, clientOrigin) } : {}) }),
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {

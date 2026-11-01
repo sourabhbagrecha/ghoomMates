@@ -26,3 +26,12 @@ export const weekdayOf = (date: string) => new Date(`${date}T00:00:00Z`).getUTCD
 
 /** Today's date in India */
 export const todayInIndia = (now: Date = new Date()) => new Date(now.getTime() + 330 * 60_000).toISOString().slice(0, 10);
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Sat, 7 Nov", the way the app writes dates */
+export const formatDay = (date: string) => `${WEEKDAYS[weekdayOf(date)]}, ${Number(date.slice(8))} ${MONTHS[Number(date.slice(5, 7)) - 1]}`;
+
+/** "Sun, 8 Nov", or "Fri, 6 Nov to Sun, 8 Nov" for a run */
+export const formatRange = (from: string, to: string) => (from === to ? formatDay(from) : `${formatDay(from)} to ${formatDay(to)}`);

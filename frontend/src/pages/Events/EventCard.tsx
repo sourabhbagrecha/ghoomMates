@@ -6,10 +6,12 @@ import iconClock from '../../assets/figma/icon-clock-sky.svg'
 import iconCompass from '../../assets/figma/icon-compass-primary.svg'
 import iconMapPin from '../../assets/figma/icon-map-pin-sky.svg'
 import iconPlus from '../../assets/figma/icon-plus.svg'
+import iconTicket from '../../assets/figma/icon-ticket-sky.svg'
 import iconUsers from '../../assets/figma/icon-users-primary.svg'
 import { iconUrl } from '../../assets/icons'
 import { CrowdChip } from '../../components/crowd/Crowd'
 import type { AnyEvent } from '../../services/eventsService'
+import { AskEvent } from './AskEvent'
 import { directionsUrl, isInstance, isRecurring, relativeLabel, tileFor } from './eventsLogic'
 import './EventCard.css'
 
@@ -76,7 +78,7 @@ export function EventCard({ event, tripDay, addedDays, canAdd, focus = false, on
         </li>
         {event.price && (
           <li>
-            <img src={iconCalendar} alt="" width={14} height={14} />
+            <img src={iconTicket} alt="" width={14} height={14} />
             <span>{event.price}</span>
           </li>
         )}
@@ -124,10 +126,12 @@ export function EventCard({ event, tripDay, addedDays, canAdd, focus = false, on
             </ul>
             {mapPlace && (
               <a className="text-link event-card__link" href={directionsUrl({ lat: mapPlace.lat!, lng: mapPlace.lng! })} target="_blank" rel="noopener noreferrer">
-                Directions to {mapPlace.name.split(' (')[0]}
+                Walking directions on Google Maps
               </a>
             )}
           </section>
+
+          <AskEvent eventId={event.id} name={event.name} />
 
           <section className="event-card__section">
             <h4 className="overline">

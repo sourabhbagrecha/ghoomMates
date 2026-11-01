@@ -223,10 +223,15 @@ function calmSites(origin: SiteCrowd, touched: Set<string>): CalmSite[] {
  * matters for it: today if the event is on at the site today, else the next day it is.
  */
 export function crowdFor(event: MewarEvent, occurrence: Occurrence | null, today: string): EventCrowd {
+  // Busiest first; where two tie (a lot of sites hit 100), the one the event names first, so the headline site is the story's
+  const rank = (siteId: string) => {
+    const at = event.places.findIndex(p => p.siteId === siteId);
+    return at === -1 ? event.places.length : at;
+  };
   const sites = watchedSites(event, occurrence, today)
     .map(siteCrowd)
     .filter((s): s is SiteCrowd => s !== null)
-    .sort((a, b) => b.peak.level - a.peak.level);
+    .sort((a, b) => b.peak.level - a.peak.level || rank(a.siteId) - rank(b.siteId));
   if (!sites.length) {
     const date = occurrence ? (today >= occurrence.from && today <= occurrence.to ? today : (occurrence.peak?.[0] ?? occurrence.from)) : today;
     return { date, label: event.intensity, level: null, headline: event.crowdNote, modelled: false, sites: [], calm: [] };

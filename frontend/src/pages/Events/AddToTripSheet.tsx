@@ -122,7 +122,10 @@ export function AddToTripSheet({ event, trip, days, onClose }: AddToTripSheetPro
               <div className="event-sheet__summary-text">
                 <p className="event-sheet__summary-title">{stop.title}</p>
                 <p className="event-sheet__summary-meta">
-                  <img src={iconClock} alt="" width={12} height={12} /> {stop.time} · {stop.place}
+                  <img src={iconClock} alt="" width={12} height={12} />
+                  <span>
+                    {stop.time} · {stop.place}
+                  </span>
                 </p>
               </div>
             </div>
@@ -146,7 +149,7 @@ export function AddToTripSheet({ event, trip, days, onClose }: AddToTripSheetPro
               </div>
               {!day && <p className="event-sheet__hint">None of your trip days work for this one. Try another event, or change your dates.</p>}
               {!trip.startDate && <p className="event-sheet__hint">Your trip has no dates yet, so pick a day of the plan.</p>}
-              {!('key' in event) && 'datesNote' in event && <p className="event-sheet__hint">{event.datesNote}</p>}
+              {'datesNote' in event && <p className="event-sheet__hint">{event.datesNote}</p>}
             </div>
 
             {error && (
