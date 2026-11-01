@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Player } from '@remotion/player'
 import headerBg from '../../assets/figma/explore-header-bg.svg'
-import iconDownload from '../../assets/figma/icon-download-primary.svg'
+import iconDownload from '../../assets/figma/icon-download-white.svg'
 import iconFilm from '../../assets/figma/icon-film.svg'
 import iconRefresh from '../../assets/figma/icon-refresh-primary.svg'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
@@ -178,12 +178,12 @@ export function ReelResultPage() {
               <h3 className="overline">Share to</h3>
               <div className="reel__targets">
                 {SHARE_TARGETS.map((t) => (
-                  <button key={t.id} type="button" className="reel__target" aria-label={`Share to ${t.label}`} title={t.label} disabled={rendering !== null || cutting} onClick={() => void exportVideo(t.label)}>
-                    <img src={t.icon} alt="" width={24} height={24} />
+                  <button key={t.id} type="button" className={`reel__target reel__target--${t.id}`} aria-label={`Share to ${t.label}`} title={t.label} disabled={rendering !== null || cutting} onClick={() => void exportVideo(t.label)}>
+                    <img src={t.icon} alt="" width={28} height={28} />
                   </button>
                 ))}
-                <button type="button" className="reel__target" aria-label="Save to your phone" title="Save" disabled={rendering !== null || cutting} onClick={() => void exportVideo('save')}>
-                  <img src={iconDownload} alt="" width={24} height={24} />
+                <button type="button" className="reel__target reel__target--save" aria-label="Save to your phone" title="Save" disabled={rendering !== null || cutting} onClick={() => void exportVideo('save')}>
+                  <img src={iconDownload} alt="" width={26} height={26} />
                 </button>
               </div>
             </section>

@@ -6,8 +6,8 @@ import photoReel from '../../assets/figma/photo-reel.svg'
 import photoSeafood from '../../assets/figma/photo-seafood.svg'
 import photoSunrise from '../../assets/figma/photo-sunrise.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
-import iconInstagram from '../../assets/icons/icon-instagram-primary.svg'
-import iconWhatsApp from '../../assets/icons/icon-whatsapp-primary.svg'
+import iconInstagram from '../../assets/brands/instagram-white.svg'
+import iconWhatsApp from '../../assets/brands/whatsapp-white.svg'
 
 export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel']
 

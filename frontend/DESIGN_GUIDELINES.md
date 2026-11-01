@@ -94,6 +94,7 @@ Each squad member keeps one colour everywhere: avatars, charts and legends. Defi
 | `--gradient-sky` (sky → primary, 135°) | GhoomMate button |
 | `--gradient-deep` (primary → primary-bright, 152°) | Hero feature card on blue (Reel studio) |
 | `--gradient-sunshine` (yellow → amber, left → right) | The single most important CTA on a screen (Settle all) |
+| `--gradient-brand-instagram` / `--color-brand-whatsapp` | Share tiles in those apps' own colours, with their white logos from `src/assets/brands/` (reel screen). Only for pointing at those apps |
 
 Each screen's **header background** is an exported SVG (`src/assets/figma/*-header-bg.svg`) containing the blue gradient, rounded bottom corners and decorative circles. Don't rebuild it in CSS.
 
