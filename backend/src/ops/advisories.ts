@@ -80,15 +80,6 @@ export function addDays(date: string, days: number) {
   return day.toISOString().slice(0, 10);
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "Mon 2 Nov" */
-export function dateLabel(date: string) {
-  const day = new Date(`${date}T00:00:00Z`);
-  return `${WEEKDAYS[day.getUTCDay()]} ${day.getUTCDate()} ${MONTHS[day.getUTCMonth()]}`;
-}
-
 /* Validation */
 
 export function parseWindow(start: unknown, end: unknown) {

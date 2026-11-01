@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
 import {
-  MemoryAdvisoryStore, PostgresAdvisoryStore, addDays, dateLabel, isActive, isIsoDate, parseNewAdvisory, parseWindow, partnerAdvisory,
+  MemoryAdvisoryStore, PostgresAdvisoryStore, addDays, isActive, isIsoDate, parseNewAdvisory, parseWindow, partnerAdvisory,
   publicAdvisory, type NewAdvisory, type OpsDb,
 } from '../../src/ops/advisories.ts';
 
@@ -77,12 +77,11 @@ describe('validating an advisory', () => {
     rejects({ ...valid, altMinutes: 1500 });
   });
 
-  test('windows, dates and day labels', () => {
+  test('windows and dates', () => {
     expect(parseWindow(600, 720)).toEqual({ startMinutes: 600, endMinutes: 720 });
     expect(isIsoDate('2026-02-29')).toBe(false);
     expect(isIsoDate('2028-02-29')).toBe(true);
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
-    expect(dateLabel('2026-11-02')).toBe('Mon 2 Nov');
   });
 });
 

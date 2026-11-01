@@ -10,13 +10,9 @@ export type AdvisoryLevel = 'busy' | 'packed';
 export type DraftFacts = {
   siteId: string;
   siteName: string;
-  /** "Mon 2 Nov" */
-  dateLabel: string;
   startMinutes: number;
   endMinutes: number;
   level: AdvisoryLevel;
-  /** Squads planning to arrive in the window */
-  squads: number;
   alternativeSite: AlternativeSite | null;
   alternativeTime: AlternativeTime | null;
 };
@@ -48,11 +44,13 @@ export function templateMessages(f: DraftFacts): Messages {
   return { messageEn: en, messageHi: hi };
 }
 
+// Gemini polishes a baseline that already carries every fact. That keeps names, times and options exact while the
+// wording gets warmer, and the small model answers in about a second.
 const SYSTEM = [
-  'You write short visitor advisories for the heritage sites of Udaipur, on behalf of the site manager.',
-  'Tone: warm, calm and concrete, like a friendly local guide. It is a gentle heads-up, never an alarm: say "expected busy", not "dangerous".',
-  'Always name the site and the time window, and give one easy way out using ONLY the alternatives provided. Never invent numbers, prices, rules or places.',
-  'Write the same message twice: in English, and in Hindi (Devanagari script, simple spoken Hindi, not formal or Sanskritised). Each at most 200 characters.',
+  'You polish visitor advisories for the heritage sites of Udaipur, written for a site manager to publish.',
+  'Keep every fact exactly: site names, times, the crowd word (busy or packed) and every calmer option. It is a forecast, so say "expected" or "likely", never state the crowd as a fact. Make the wording warm, natural and calm, like a friendly local guide: a gentle heads-up, never an alarm. No greetings.',
+  'English starts with "Heads up:". Hindi is Devanagari only (no English words), simple spoken Hindi rather than formal Hindi, and starts with "ध्यान दें:".',
+  'Never add a date, today or tomorrow, or how many people are coming. Never invent numbers, prices, rules or places. Each message is at most 190 characters.',
 ].join('\n');
 
 const SCHEMA = {
@@ -62,29 +60,36 @@ const SCHEMA = {
 };
 
 export function promptFor(f: DraftFacts) {
+  const baseline = templateMessages(f);
   const site = f.alternativeSite;
   const time = f.alternativeTime;
   const options = [
-    site && `- ${site.name} (Hindi: ${hindiName(site.id, site.name)}): calm during that window${site.calmUntilMinutes !== null ? `, stays quiet until ${enTime(site.calmUntilMinutes)}` : ''}`,
-    time && `- ${f.siteName} itself is calmer at ${enTime(time.minutes)}`,
+    site && `- ${site.name} (Hindi: ${hindiName(site.id, site.name)}) stays calm through that window${site.calmUntilMinutes !== null ? `, quiet until ${enTime(site.calmUntilMinutes)} (Hindi: ${hiTime(site.calmUntilMinutes)})` : ''}`,
+    time && `- ${f.siteName} is calmer at ${enTime(time.minutes)} (Hindi: ${hiTime(time.minutes)})`,
   ].filter(Boolean);
   return [
     `Site: ${f.siteName} (Hindi: ${hindiName(f.siteId, f.siteName)}), Udaipur`,
-    `Day: ${f.dateLabel}`,
-    `Expected: ${f.level} from ${enTime(f.startMinutes)} to ${enTime(f.endMinutes)}`,
-    f.squads >= 3 && `About ${f.squads} travel squads (groups of friends and families) already plan to arrive then.`,
-    options.length ? `Calmer options (use only these):\n${options.join('\n')}` : 'There is no calmer option to offer; suggest allowing extra time instead.',
-    'Write the advisory the manager will publish to visitors’ phones. Do not mention the number of squads.',
-  ].filter(Boolean).join('\n');
+    `Expected crowd: ${f.level} (Hindi: ${f.level === 'packed' ? 'बहुत भीड़' : 'काफ़ी भीड़'})`,
+    `Window: ${enWindow(f.startMinutes, f.endMinutes)} (Hindi: ${hiWindow(f.startMinutes, f.endMinutes)})`,
+    options.length ? `Calmer options:\n${options.join('\n')}` : 'There is no calmer option; visitors are asked to allow a little extra time.',
+    `English draft: ${baseline.messageEn}`,
+    `Hindi draft: ${baseline.messageHi}`,
+    'Return better-worded versions of both, keeping all the facts.',
+  ].join('\n');
 }
 
-/** Validated messages, or null when either is missing, too short or long, or in the wrong script */
+const RELATIVE_DAY = /\b(today|tonight|tomorrow|yesterday)\b/i;
+const HINDI_RELATIVE_DAY = /(^|\s)(आज|कल|परसों)(\s|[,।]|$)/;
+
+/** Validated messages, or null when either is missing, too short or long, in the wrong script, or tied to a day */
 export function cleanMessages(value: { messageEn?: unknown; messageHi?: unknown } | null | undefined): Messages | null {
   const tidy = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
   const en = tidy(value?.messageEn);
   const hi = tidy(value?.messageHi);
-  if (en.length < MIN_LENGTH || en.length > MAX_EN || DEVANAGARI.test(en)) return null;
-  if (hi.length < MIN_LENGTH || hi.length > MAX_HI || !DEVANAGARI.test(hi)) return null;
+  if (en.length < MIN_LENGTH || en.length > MAX_EN || DEVANAGARI.test(en) || RELATIVE_DAY.test(en)) return null;
+  // The Hindi may carry a stray Latin letter or two, but not English sentences
+  if (hi.length < MIN_LENGTH || hi.length > MAX_HI || !DEVANAGARI.test(hi) || HINDI_RELATIVE_DAY.test(hi)) return null;
+  if ((hi.match(/[A-Za-z]/g) ?? []).length > 4) return null;
   return { messageEn: en, messageHi: hi };
 }
 
@@ -93,7 +98,7 @@ export async function draftMessages(gemini: Gemini | undefined, facts: DraftFact
   if (gemini?.enabled) {
     try {
       const raw = await gemini.json<{ messageEn?: unknown; messageHi?: unknown }>({
-        prompt: promptFor(facts), schema: SCHEMA, system: SYSTEM, temperature: 0.5, timeoutMs: 12_000, label: 'Ops',
+        prompt: promptFor(facts), schema: SCHEMA, system: SYSTEM, temperature: 0.4, timeoutMs: 12_000, label: 'Ops',
       });
       const clean = cleanMessages(raw);
       if (clean) return { source: 'gemini', ...clean };

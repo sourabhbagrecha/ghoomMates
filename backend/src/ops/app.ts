@@ -8,7 +8,7 @@ import { PACKED_FROM, BUSY_FROM, cityOf, dayFactor, formatTime, indiaNow } from 
 import type { HeritageCity } from '../heritage/sites.ts';
 import { object } from '../expenses/domain.ts';
 import {
-  MemoryAdvisoryStore, PostgresAdvisoryStore, dateLabel, isActive, isIsoDate, isUuid, parseNewAdvisory, parseSiteId, parseWindow,
+  MemoryAdvisoryStore, PostgresAdvisoryStore, isActive, isIsoDate, isUuid, parseNewAdvisory, parseSiteId, parseWindow,
   partnerAdvisory, publicAdvisory, type AdvisoryStore, type OpsDb,
 } from './advisories.ts';
 import { loadPlannedStops } from './demand.ts';
@@ -58,6 +58,17 @@ function cityParam(value: unknown): HeritageCity {
   return city;
 }
 
+/** Reach as shown to partners: small groups hidden, plus an estimate of how many people leave the crunch if some squads swap */
+function reachSummary(reach: ReturnType<typeof reachOf>) {
+  return {
+    squads: shownSquads(reach.squads),
+    people: shownPeople(reach.squads, reach.people),
+    includesSample: reach.includesSample,
+    relief: reach.squads >= MIN_SQUADS ? reliefOf(reach.people) : null,
+    pickup: ADVISORY_PICKUP,
+  };
+}
+
 // Heritage Ops: smart crowd management for site managers and the city. It reads where squads plan to be (itinerary
 // stops with times), adds that to the modelled crowd curves to forecast the day, and lets a manager publish an advisory
 // that reaches every squad planned into the crunch. Partner access is a demo stub: any signed-in user can use it.
@@ -103,13 +114,14 @@ export function createOpsApp({ db, authenticate, gemini, env = process.env, now 
     });
   });
 
-  // Active advisories, public so every traveller's app can show them. Signed-in partners also see how many squads each reached.
+  // Active advisories, public so every traveller's app can show them. The console asks for `reach=1` (and signs in) to also
+  // see how many squads each one reached.
   router.get('/advisories', async (req, res) => {
     const city = req.query.city === undefined ? undefined : cityParam(req.query.city);
     const date = typeof req.query.date === 'string' && req.query.date !== '' ? dateOr(req.query.date, '') : undefined;
     const today = indiaNow(now());
     const token = bearer(req);
-    const partner = token ? await authenticate(token).then(() => true, () => false) : false;
+    const partner = req.query.reach === '1' && token ? await authenticate(token).then(() => true, () => false) : false;
     // Travellers' screens must never break on this: if the store fails they simply see no advisories
     const stored = await store.list({ city, fromDate: today.date, date }).catch((err) => {
       logger.warn('Ops', `Could not read advisories (${err instanceof Error ? err.message : String(err)})`);
@@ -140,10 +152,7 @@ export function createOpsApp({ db, authenticate, gemini, env = process.env, now 
     const alternativeTime = alternativeTimeFor(forecast, site.id, startMinutes, endMinutes);
     const reach = reachOf(stops, site.id, startMinutes, endMinutes);
 
-    const facts: DraftFacts = {
-      siteId: site.id, siteName: site.name, dateLabel: dateLabel(date), startMinutes, endMinutes, level,
-      squads: reach.squads, alternativeSite, alternativeTime,
-    };
+    const facts: DraftFacts = { siteId: site.id, siteName: site.name, startMinutes, endMinutes, level, alternativeSite, alternativeTime };
     const drafted = await draftMessages(gemini, facts);
     res.json({
       source: drafted.source,
@@ -164,6 +173,16 @@ export function createOpsApp({ db, authenticate, gemini, env = process.env, now 
     });
   });
 
+  // Who an advisory for this site and window would reach right now (the composer shows it while the manager adjusts the window)
+  router.post('/advisories/reach', requireUser, jsonBody, async (req, res) => {
+    const body = object(req.body);
+    const site = parseSiteId(body.siteId);
+    const date = dateOr(body.date, indiaNow(now()).date);
+    const { startMinutes, endMinutes } = parseWindow(body.startMinutes, body.endMinutes);
+    const { stops } = await plannedStops(site.city, date, flag(body.sample, sampleByDefault));
+    res.json(reachSummary(reachOf(stops, site.id, startMinutes, endMinutes)));
+  });
+
   // Publishes an advisory and estimates who it reaches: the squads and people planned into that site and window
   router.post('/advisories', requireUser, jsonBody, async (req, res) => {
     const user = res.locals.user as User;
@@ -174,17 +193,7 @@ export function createOpsApp({ db, authenticate, gemini, env = process.env, now 
     const reach = reachOf(stops, input.siteId, input.startMinutes, input.endMinutes);
     const saved = await store.create({ ...input, reachSquads: reach.squads, reachPeople: reach.people, createdBy: user.id });
     logger.info('Ops', `${user.email} published a ${saved.level} advisory for ${saved.siteId} on ${saved.date} (${reach.squads} squads in reach)`);
-    res.status(201).json({
-      advisory: partnerAdvisory(saved),
-      reach: {
-        squads: shownSquads(reach.squads),
-        people: shownPeople(reach.squads, reach.people),
-        includesSample: reach.includesSample,
-        // If a share of those squads take the swap, this many people leave the crunch (an estimate)
-        relief: reach.squads >= MIN_SQUADS ? reliefOf(reach.people) : null,
-        pickup: ADVISORY_PICKUP,
-      },
-    });
+    res.status(201).json({ advisory: partnerAdvisory(saved), reach: reachSummary(reach) });
   });
 
   // Withdraws an advisory; travellers stop seeing it straight away

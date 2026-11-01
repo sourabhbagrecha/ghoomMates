@@ -6,7 +6,7 @@ import { cleanMessages, draftMessages, promptFor, templateMessages, type DraftFa
 import { DEVANAGARI, HINDI_NAMES, enTime, enWindow, hiTime, hiWindow } from '../../src/ops/hindi.ts';
 
 const facts: DraftFacts = {
-  siteId: 'city-palace', siteName: 'City Palace', dateLabel: 'Mon 2 Nov', startMinutes: 600, endMinutes: 720, level: 'packed', squads: 41,
+  siteId: 'city-palace', siteName: 'City Palace', startMinutes: 600, endMinutes: 720, level: 'packed',
   alternativeSite: { id: 'bagore-ki-haveli', name: 'Bagore ki Haveli', level: 31, label: 'quiet', km: 0.4, calmUntilMinutes: 1080 },
   alternativeTime: { hour: 9, minutes: 570, time: '09:30 AM', level: 39, label: 'quiet' },
 };
@@ -85,21 +85,31 @@ describe('validating what Gemini returns', () => {
     expect(cleanMessages({ messageEn: 42, messageHi: hi })).toBe(null);
   });
 
-  test('the prompt carries the facts but tells Gemini not to quote the count', () => {
+  test('rejects wording tied to a day, and Hindi that is really English', () => {
+    expect(cleanMessages({ messageEn: 'Heads up: City Palace will be packed tomorrow 10 AM–12 PM.', messageHi: hi })).toBe(null);
+    expect(cleanMessages({ messageEn: en, messageHi: 'ध्यान दें: कल सुबह 10 से दोपहर 12 बजे तक सिटी पैलेस में बहुत भीड़ रहेगी।' })).toBe(null);
+    expect(cleanMessages({ messageEn: en, messageHi: 'ध्यान दें: Or visit Jagdish Temple at 7 AM instead, when it is calmer.' })).toBe(null);
+    // "कला" (as in Lok Kala Mandal) contains "कल" but is not "tomorrow"
+    expect(cleanMessages({ messageEn: en, messageHi: 'ध्यान दें: भारतीय लोक कला मंडल में शाम 6 से 7 बजे तक काफ़ी भीड़ रहेगी।' })?.messageHi.includes('कला')).toBe(true);
+  });
+
+  test('the prompt hands Gemini the facts and the baseline wording to polish', () => {
     const prompt = promptFor(facts);
-    expect(prompt.includes('City Palace')).toBe(true);
-    expect(prompt.includes('Bagore ki Haveli')).toBe(true);
-    expect(prompt.includes('packed from 10 AM to 12 PM')).toBe(true);
-    expect(prompt.includes('Do not mention the number of squads')).toBe(true);
-    expect(promptFor({ ...facts, alternativeSite: null, alternativeTime: null }).includes('no calmer option')).toBe(true);
+    expect(prompt.includes('Site: City Palace (Hindi: सिटी पैलेस)')).toBe(true);
+    expect(prompt.includes('Expected crowd: packed')).toBe(true);
+    expect(prompt.includes('Window: 10 AM–12 PM (Hindi: सुबह 10 से दोपहर 12 बजे तक)')).toBe(true);
+    expect(prompt.includes('Bagore ki Haveli (Hindi: बागोर की हवेली) stays calm through that window, quiet until 6 PM')).toBe(true);
+    expect(prompt.includes('City Palace is calmer at 9:30 AM (Hindi: सुबह 9:30 बजे)')).toBe(true);
+    expect(prompt.includes(`English draft: ${templateMessages(facts).messageEn}`)).toBe(true);
+    expect(promptFor({ ...facts, alternativeSite: null, alternativeTime: null }).includes('There is no calmer option')).toBe(true);
   });
 });
 
 describe('drafting', () => {
   test('uses Gemini when it answers well', async () => {
     const gemini = fakeGemini(async () => ({
-      messageEn: 'City Palace will be packed 10 AM–12 PM tomorrow. Bagore ki Haveli is calm, or arrive at 9:30 AM.',
-      messageHi: 'कल सुबह 10 से दोपहर 12 बजे सिटी पैलेस में बहुत भीड़ रहेगी। बागोर की हवेली शांत है।',
+      messageEn: 'City Palace will be packed 10 AM–12 PM. Bagore ki Haveli is calm, or arrive at 9:30 AM.',
+      messageHi: 'सुबह 10 से दोपहर 12 बजे सिटी पैलेस में बहुत भीड़ रहेगी। बागोर की हवेली शांत है।',
     }) as never);
     const drafted = await draftMessages(gemini, facts);
     expect(drafted.source).toBe('gemini');

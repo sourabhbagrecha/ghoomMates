@@ -20,7 +20,7 @@ const TOMORROW = '2026-11-02';
 type PlannedRow = { trip_id: string; title: string; place: string; tag: string; minutes: number; destination: string; name: string; people: number };
 const planned = (n: number, title: string, minutes: number, extra: Partial<PlannedRow> = {}): PlannedRow[] =>
   Array.from({ length: n }, (_, i) => ({
-    trip_id: `trip-secret-${title}-${i}`, title, place: '', tag: 'Culture', minutes, destination: 'Udaipur', name: 'Secret Squad Trip', people: 4, ...extra,
+    trip_id: `trip-secret-${title}-${minutes}-${i}`, title, place: '', tag: 'Culture', minutes, destination: 'Udaipur', name: 'Secret Squad Trip', people: 4, ...extra,
   }));
 
 /** In-memory stand-in for the queries the ops routes run */
@@ -209,9 +209,11 @@ describe('advisories', () => {
       expect('reach' in items[0]).toBe(false);
       expect(JSON.stringify(items).includes('usr_1')).toBe(false);
 
-      // Partners also see how many squads it reached
-      const partner = (await (await call('GET', '/advisories?city=Udaipur')).json()).items;
+      // Signing in alone doesn't show the reach; the console asks for it
+      expect('reach' in (await (await call('GET', '/advisories?city=Udaipur')).json()).items[0]).toBe(false);
+      const partner = (await (await call('GET', '/advisories?city=Udaipur&reach=1')).json()).items;
       expect(partner[0].reach).toEqual({ squads: 6, people: 24 });
+      expect('reach' in (await (await call('GET', '/advisories?city=Udaipur&reach=1', undefined, null)).json()).items[0]).toBe(false);
 
       expect((await call('GET', '/advisories?city=Udaipur&date=2026-11-05', undefined, null).then(r => r.json())).items).toHaveLength(0);
 
@@ -237,6 +239,20 @@ describe('advisories', () => {
       expect(body.reach.includesSample).toBe(true);
       expect(body.reach.squads > 20).toBe(true);
       expect(body.reach.relief > 0).toBe(true);
+    });
+  });
+
+  test('previews the reach of a window while the manager adjusts it', async () => {
+    const { db } = fakeDb([...planned(4, 'City Palace museum', 600), ...planned(3, 'City Palace museum', 780)]);
+    await withServer({ db }, async (call) => {
+      const window = (startMinutes: number, endMinutes: number) =>
+        call('POST', '/advisories/reach', { siteId: 'city-palace', date: TOMORROW, startMinutes, endMinutes, sample: false });
+      expect((await call('POST', '/advisories/reach', {}, null)).status).toBe(401);
+      expect(await (await window(600, 720)).json()).toEqual({ squads: 4, people: 16, includesSample: false, relief: 5, pickup: 0.3 });
+      expect((await (await window(600, 840)).json()).squads).toBe(7);
+      expect((await (await window(840, 900)).json()).squads).toBe(0);
+      expect((await window(720, 600)).status).toBe(400);
+      expect((await call('POST', '/advisories/reach', { siteId: 'nowhere', startMinutes: 600, endMinutes: 700 })).status).toBe(400);
     });
   });
 
