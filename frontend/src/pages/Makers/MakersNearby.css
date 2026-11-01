@@ -1,0 +1,153 @@
+.makers-nearby {
+  gap: 8px;
+}
+
+.makers-nearby__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.makers-nearby__lead {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.makers-nearby__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.nearby-maker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  text-align: left;
+}
+
+.nearby-maker__cover {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--color-sky-light);
+  object-fit: cover;
+}
+
+.nearby-maker__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nearby-maker__name {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.nearby-maker__craft {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.nearby-maker__where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.nearby-maker__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-primary);
+}
+
+.nearby-maker__price small {
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+/* The stop is a booked workshop */
+.your-workshop {
+  gap: 4px;
+}
+
+.your-workshop__cover {
+  width: 100%;
+  height: 96px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-tile);
+  background: var(--color-sky-light);
+  object-fit: cover;
+}
+
+.your-workshop__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.your-workshop__check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-success-tint);
+}
+
+.your-workshop__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.your-workshop__who {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.your-workshop__facts {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.your-workshop__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+}

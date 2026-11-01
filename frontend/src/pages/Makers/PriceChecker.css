@@ -1,0 +1,334 @@
+.price-checker {
+  gap: 12px;
+}
+
+.price-checker__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.price-checker__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-sky-light);
+}
+
+.price-checker__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.price-checker__lead {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.price-checker__crafts {
+  display: flex;
+  gap: 6px;
+  margin: 0 -14px;
+  padding: 0 14px;
+  overflow-x: auto;
+}
+
+/* Small, medium, large with the usual range under each */
+.price-checker__sizes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.price-checker__size {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 4px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+}
+
+.price-checker__size--selected {
+  border-color: var(--color-primary);
+  background: var(--color-tint);
+}
+
+.price-checker__size-name {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.price-checker__size-range {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.price-checker__item {
+  margin-top: -6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.price-checker__quote {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.price-checker__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.price-checker__input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--color-primary);
+}
+
+.price-checker__input:focus-within {
+  border-color: var(--color-primary);
+}
+
+.price-checker__input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  color: var(--color-ink);
+  caret-color: var(--color-primary);
+}
+
+.price-checker__input input::placeholder {
+  color: var(--color-subtle);
+}
+
+.price-checker__toggles {
+  display: flex;
+}
+
+.price-checker__answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price-checker__example {
+  align-self: flex-start;
+}
+
+.price-checker__note {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.price-checker__fineprint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* The verdict. Tone colours come from the crowd palette: coral for a tourist price, never red. */
+.price-result {
+  --tone: var(--color-success);
+  --tone-tint: var(--color-success-tint);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-tile);
+  background: var(--tone-tint);
+  transition: opacity 0.15s;
+}
+
+.price-result--high {
+  --tone: var(--color-crowd-busy);
+  --tone-tint: var(--color-crowd-busy-tint);
+}
+
+.price-result--tourist {
+  --tone: var(--color-crowd-packed);
+  --tone-tint: var(--color-crowd-packed-tint);
+}
+
+.price-result--low {
+  --tone: var(--color-sky);
+  --tone-tint: var(--color-tint);
+}
+
+.price-result--checking {
+  opacity: 0.6;
+}
+
+.price-result__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.price-result__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.price-result__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.price-result__multiple {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.price-result__advice {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.price-result__moves {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.price-result__moves > div {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.price-result__moves dt {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.price-result__moves dd {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--color-primary);
+}
+
+.price-result__antique {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.price-result__antique strong {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+/* Fair band on a track, with the quote as a marker */
+.range-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.range-bar__scale {
+  position: relative;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}
+
+.range-bar__fair {
+  position: absolute;
+  top: 3px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success);
+}
+
+.range-bar__marker {
+  position: absolute;
+  top: -2px;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  border: 3px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: var(--shadow-cover-card);
+}
+
+.range-bar__labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.range-bar__labels strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}

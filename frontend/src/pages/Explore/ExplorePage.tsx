@@ -17,6 +17,7 @@ import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { formatINR } from '../Trip/tripFormat'
 import { CrowdPulse } from './CrowdPulse'
+import { MakersSection } from '../Makers/MakersSection'
 import { CATEGORIES, TRENDING } from './exploreData'
 import { nextRunLabel } from './experienceSchedule'
 import { EXPERIENCES, experienceCityFor, type Experience, type ExperienceCity } from './experiencesData'
@@ -63,6 +64,7 @@ export function ExplorePage() {
         </div>
 
         {city === 'Udaipur' && <CrowdPulse city={city} />}
+        {city === 'Udaipur' && <MakersSection />}
 
         <SectionHeader
           title="Trending this weekend"

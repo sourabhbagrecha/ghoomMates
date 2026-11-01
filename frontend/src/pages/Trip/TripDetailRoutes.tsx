@@ -1,5 +1,7 @@
 import type { JSX } from 'react'
 import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
+import { MakerDetailPage } from '../Makers/MakerDetailPage'
+import { MakersListPage } from '../Makers/MakersListPage'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -27,6 +29,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   photos/upload           Upload photos
  *   photos/reel             Generated reel
  *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
+ *   explore/makers[/<id>]   Makers of Udaipur: the list, or one maker
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -55,6 +58,7 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
       return null
     }
     case 'explore': {
+      if (page === 'makers') return param ? <MakerDetailPage key={param} makerId={param} /> : <MakersListPage />
       if (page !== 'guide') return null
       const experience = param ? experienceById(param) : EXPERIENCES[0]
       return experience ? <GuideTripPage key={experience.id} experience={experience} /> : null
