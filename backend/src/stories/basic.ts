@@ -7,7 +7,7 @@ import type { StoryBody } from './types.ts';
 // when it is quietest and how to visit lightly. Used when Gemini is off, slow or not trusted, so every site still opens.
 
 const KIND_LABEL: Record<SiteKind, string> = {
-  Palace: 'a palace', Temple: 'a temple', Haveli: 'a haveli, a grand old house', Ghat: 'a ghat, steps down to the water', Garden: 'a garden',
+  Palace: 'a palace', Temple: 'a temple', Haveli: 'one of the grand old mansions of Mewar’s nobles', Ghat: 'one of the old stone stairways down to the water', Garden: 'a garden',
   Lake: 'a lake', Viewpoint: 'a viewpoint', Museum: 'a museum', Crafts: 'a crafts village', Bazaar: 'a bazaar',
 };
 
