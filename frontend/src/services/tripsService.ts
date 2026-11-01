@@ -146,10 +146,27 @@ export type ItineraryStop = {
 
 export type ItineraryDay = { number: number; title: string; stops: ItineraryStop[] }
 
-export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string }
+/** forMembers: who GhoomMate planned it for (empty = whole squad). split: the slot's options run in parallel for different mates */
+export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string; forMembers?: string[]; axis?: string; split?: boolean }
 
-/** A suggested plan: each slot lists the pick first, then alternatives to swap to */
-export type DraftPlan = { days: { title: string; slots: DraftStop[][] }[]; tip: string; source: 'gemini' | 'template' }
+/** How well the plan suits each mate (0–1), from their vibe quiz */
+export type DraftFairness = { members: { name: string; score: number; spotlights: number }[]; min: number; mean: number }
+
+/** A suggested plan: each slot lists the pick first, then alternatives to swap to (or, when split, one option per camp) */
+export type DraftPlan = {
+  days: { title: string; slots: DraftStop[][] }[]
+  tip: string
+  source: 'gemini' | 'template'
+  fairness?: DraftFairness | null
+  squad?: { sharedLoves: string[]; splits: string[]; vetoes: string[] } | null
+}
+
+/** A split slot saves every option as its own stop at the same time, noting who each one is for */
+export const splitSlotStops = (options: DraftStop[]): DraftStop[] =>
+  options.map((o) => ({
+    ...o,
+    notes: [o.forMembers?.length ? `Split plan for ${o.forMembers.join(', ')}.` : 'Split plan.', o.notes].filter(Boolean).join(' '),
+  }))
 
 export type StopInput = { dayNumber: number; time: string; title: string; tag: string; place?: string; notes?: string }
 

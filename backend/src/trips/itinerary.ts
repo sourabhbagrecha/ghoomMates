@@ -4,19 +4,22 @@ import { transaction, type Database, type Pool, type Tx } from '../db.ts';
 import { logger } from '../logger.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { TripAccess } from './service.ts';
+import { allocateSpotlights, rebalance, squadBrief, squadProfile, VIBE_AXES, type Fairness, type SquadProfile, type Vibe } from './vibe.ts';
 
 export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel'] as const;
 const RSVPS = ['going', 'maybe', 'skip'] as const;
 // A meal or a check-in near a ghat isn't a visit to it, so these stops get no crowd meter
 const CROWDLESS_TAGS = new Set(['Food', 'Stay', 'Travel']);
-const VIBE_AXES = ['adventure', 'food', 'nightlife', 'culture', 'chill', 'shops'] as const;
 const MAX_DAYS = 14;
 const TIME = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
 
-export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string };
+// forMembers: who the stop was planned for (empty for whole-group stops). axis: the vibe it serves, or 'group'.
+// split: a split slot, where the options run in parallel for different members instead of pick-then-alternative.
+export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string; forMembers?: string[]; axis?: string; split?: boolean };
 // Each slot holds the suggested stop first, then alternatives the app can swap to.
 export type DraftDay = { title: string; slots: DraftStop[][] };
 export type Draft = { days: DraftDay[]; tip: string; source: 'gemini' | 'template' };
+export type SquadSummary = { sharedLoves: string[]; splits: string[]; vetoes: string[] };
 
 function minutesOf(time: string) {
   const match = TIME.exec(time.trim());
@@ -218,7 +221,7 @@ export class ItineraryService {
 
   /* Draft generation */
 
-  // The squad's vibe: every member's quiz scores (0–1 per axis), averaged.
+  // The squad's vibe: every member's quiz scores (0–1 per axis), kept per member rather than averaged.
   private async squadVibe(tripId: string) {
     const { rows } = await this.pool.query(
       `SELECT u.name, u.preferences FROM trip_members m JOIN users u ON u.id = m.user_id WHERE m.trip_id = $1`,
@@ -227,10 +230,7 @@ export class ItineraryService {
     const vibes = rows
       .map(r => ({ name: String(r.name).split(' ')[0], vibe: r.preferences?.vibe as Record<string, number> | undefined }))
       .filter(r => r.vibe && VIBE_AXES.every(a => typeof r.vibe![a] === 'number'));
-    const blended = vibes.length
-      ? Object.fromEntries(VIBE_AXES.map(a => [a, Math.round(vibes.reduce((s, v) => s + v.vibe![a], 0) / vibes.length * 100) / 100]))
-      : null;
-    return { size: rows.length, vibes, blended };
+    return { size: rows.length, profile: squadProfile(vibes.map(v => ({ name: v.name, vibe: v.vibe as Vibe }))) };
   }
 
   async draft(access: TripAccess, input: unknown) {
@@ -244,15 +244,16 @@ export class ItineraryService {
     const squad = await this.squadVibe(trip.id);
     const place = trip.destination || trip.name;
 
+    let draft: Draft | null = null;
     if (this.geminiKey) {
       try {
-        const draft = await this.generate({ place, days, startDate: trip.start_date, budget: String(details.budgetLabel ?? trip.budget ?? ''), tweaks, squad, onlyDay });
-        return { ...draft, source: 'gemini' as const };
+        draft = { ...await this.generate({ place, days, startDate: trip.start_date, budget: String(details.budgetLabel ?? trip.budget ?? ''), tweaks, squad, onlyDay }), source: 'gemini' };
       } catch (err: any) {
         logger.warn('Itinerary', `Gemini draft failed (${err.message}); using the template plan`);
       }
     }
-    return cityOf(place) === 'Udaipur' ? udaipurDraft(onlyDay ? 1 : days, onlyDay) : templateDraft(place, onlyDay ? 1 : days);
+    draft ??= cityOf(place) === 'Udaipur' ? udaipurDraft(onlyDay ? 1 : days, onlyDay) : templateDraft(place, onlyDay ? 1 : days);
+    return withFairness(draft, squad.profile);
   }
 
   private async generate(args: {
@@ -261,12 +262,13 @@ export class ItineraryService {
   }): Promise<Omit<Draft, 'source'>> {
     const { place, days, startDate, budget, tweaks, squad, onlyDay } = args;
     const city = cityOf(place);
-    const people = squad.vibes.map(v => `${v.name}: ${VIBE_AXES.map(a => `${a} ${v.vibe![a]}`).join(', ')}`).join('\n');
+    const { profile } = squad;
+    // Spotlights are planned across the whole trip so a regenerated day keeps its share of the rotation
+    const spotlights = profile ? allocateSpotlights(profile, days) : [];
     const prompt = [
       `Plan a ${days}-day group trip to ${place}${startDate ? ` starting ${startDate}` : ''} for ${squad.size} friend${squad.size === 1 ? '' : 's'} from India.`,
       budget && `Budget per person: ${budget}.`,
-      squad.blended && `The squad's blended vibe (0 = not into it, 1 = loves it): ${VIBE_AXES.map(a => `${a} ${squad.blended![a]}`).join(', ')}.`,
-      people && `Individual vibes:\n${people}`,
+      profile && squadBrief(profile, onlyDay ? spotlights.slice(onlyDay - 1, onlyDay) : spotlights, onlyDay ?? 1),
       tweaks.length && `Requested tweaks: ${tweaks.join(', ')}.`,
       onlyDay ? `Only plan day ${onlyDay} of ${days}, with fresh ideas.` : `Plan every day from day 1 to day ${days}.`,
       'Day 1 starts with arriving and checking in; the last day ends with heading home.',
@@ -283,6 +285,7 @@ export class ItineraryService {
       properties: {
         time: { type: 'STRING' }, title: { type: 'STRING' }, tag: { type: 'STRING', enum: [...STOP_TAGS] },
         place: { type: 'STRING' }, notes: { type: 'STRING' },
+        axis: { type: 'STRING', enum: [...VIBE_AXES, 'group'] }, forMembers: { type: 'ARRAY', items: { type: 'STRING' } }, split: { type: 'BOOLEAN' },
       },
       required: ['time', 'title', 'tag', 'place', 'notes'],
     };
@@ -324,17 +327,26 @@ export class ItineraryService {
       const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
       const raw = data.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? '';
       const parsed = JSON.parse(raw) as { days?: { title?: string; slots?: { options?: Partial<DraftStop>[] }[] }[]; tip?: string };
+      const names = new Set(profile?.members.map(m => m.name) ?? []);
       const clean = (s: Partial<DraftStop>): DraftStop | null => {
         if (!s.title) return null;
         const time = TIME.test(String(s.time ?? '').trim()) ? normaliseTime(s.time) : '';
+        const tag = STOP_TAGS.includes(s.tag as never) ? s.tag! : 'Chill';
+        const axis = VIBE_AXES.includes(s.axis as never) || s.axis === 'group' ? s.axis! : VIBE_AXES.find(a => a === tag.toLowerCase()) ?? 'group';
         return {
-          time, title: String(s.title).slice(0, 200), tag: STOP_TAGS.includes(s.tag as never) ? s.tag! : 'Chill',
+          time, title: String(s.title).slice(0, 200), tag,
           place: String(s.place ?? '').slice(0, 200), notes: String(s.notes ?? '').slice(0, 500),
+          axis, forMembers: Array.isArray(s.forMembers) ? s.forMembers.filter(n => names.has(n)) : [], split: s.split === true,
         };
       };
       const planned = (parsed.days ?? []).slice(0, onlyDay ? 1 : days).map(d => ({
         title: String(d.title ?? '').slice(0, 120),
-        slots: (d.slots ?? []).map(s => (s.options ?? []).map(clean).filter((o): o is DraftStop => o !== null)).filter(o => o.length > 0).slice(0, 6),
+        slots: (d.slots ?? []).map(s => (s.options ?? []).map(clean).filter((o): o is DraftStop => o !== null)).filter(o => o.length > 0).slice(0, 6)
+          // A split slot needs both camps' options; with one left it's an ordinary stop
+          .map(o => {
+            const split = o.length > 1 && o.some(x => x.split);
+            return o.map(x => ({ ...x, split }));
+          }),
       }));
       if (!planned.length || planned.every(d => !d.slots.length)) throw new Error('empty plan');
       logger.info('Itinerary', `Gemini (${this.geminiModel}) drafted ${planned.length} day(s) for ${place} in ${Date.now() - started}ms`);
@@ -346,6 +358,17 @@ export class ItineraryService {
 }
 
 // Used when Gemini isn't configured or fails, so trip creation never blocks on the AI.
+/** Reorders options for fairness and adds the per-member scores and squad summary; unchanged without quiz results */
+export function withFairness(draft: Draft, profile: SquadProfile | null): Draft & { fairness: Fairness | null; squad: SquadSummary | null } {
+  if (!profile) return { ...draft, fairness: null, squad: null };
+  const { days, fairness } = rebalance(draft.days, profile);
+  const byClass = (cls: string) => VIBE_AXES.filter(a => profile.axes[a].class === cls);
+  return {
+    ...draft, days, fairness,
+    squad: { sharedLoves: byClass('love'), splits: byClass('split'), vetoes: VIBE_AXES.filter(a => profile.axes[a].min < 0.2) },
+  };
+}
+
 export function templateDraft(place: string, days: number): Draft {
   const day = (i: number): DraftDay => {
     if (i === 0) {

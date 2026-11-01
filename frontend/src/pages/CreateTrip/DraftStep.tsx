@@ -7,7 +7,7 @@ import { Button, LinkButton } from '../../components/Button'
 import { GhoomMateTip } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { tripDayLabel } from '../../data/activeTrip'
-import type { DraftPlan, DraftStop } from '../../services/tripsService'
+import { splitSlotStops, type DraftPlan, type DraftStop } from '../../services/tripsService'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './DraftStep.css'
 
@@ -37,6 +37,9 @@ const slotKey = (day: number, index: number) => `${day}-${index}`
 /** "Sat, 12 Dec" → "Sat 12" for the day pills */
 const shortDay = (startDate: string | null, n: number) =>
   startDate ? tripDayLabel(startDate, n).replace(',', '').replace(/ \w+$/, '') : `Day ${n}`
+
+/** "For Aarav · Meera" when GhoomMate planned the stop for specific mates */
+const forLabel = (stop: DraftStop) => (stop.forMembers?.length ? `For ${stop.forMembers.join(' · ')}` : null)
 
 export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, error, onBack, onEditDetails, onRegenerateDay, onShare }: DraftStepProps) {
   const [days, setDays] = useState(plan.days)
@@ -82,7 +85,11 @@ export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, 
     onShare(
       days.map((d, i) => ({
         title: d.title,
-        stops: d.slots.flatMap((options, j) => (removed.includes(slotKey(i, j)) ? [] : [pick(slotKey(i, j), options)])),
+        stops: d.slots.flatMap((options, j) => {
+          const key = slotKey(i, j)
+          if (removed.includes(key)) return []
+          return options[0]?.split ? splitSlotStops(options) : [pick(key, options)]
+        }),
       })),
     )
 
@@ -156,6 +163,38 @@ export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, 
         <ol className={`create-draft__stops${isRegenerating ? ' create-draft__stops--loading' : ''}`} aria-busy={isRegenerating}>
           {stops.map(({ key, options }) => {
             const stop = pick(key, options)
+            if (options[0].split) {
+              return (
+                <li key={key} className="list-card create-stop">
+                  <img className="create-stop__photo" src={TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill} alt="" width={52} height={52} />
+                  <div className="create-stop__info">
+                    <p className="create-stop__meta">
+                      <span className="create-stop__time">{stop.time}</span>
+                      <span className="tag">Split up</span>
+                    </p>
+                    <ul className="create-stop__split">
+                      {options.map((o, i) => (
+                        <li key={i}>
+                          <h3 className="create-stop__title">{o.title}</h3>
+                          {forLabel(o) && <p className="create-stop__for">{forLabel(o)}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="create-stop__actions">
+                    <button
+                      type="button"
+                      className="create-stop__action"
+                      aria-label={`Remove the split plan at ${stop.time}`}
+                      disabled={isRegenerating}
+                      onClick={() => remove(key, options.map((o) => o.title).join(' / '))}
+                    >
+                      <img src={iconTrash} alt="" width={16} height={16} />
+                    </button>
+                  </div>
+                </li>
+              )
+            }
             return (
               <li key={key} className="list-card create-stop">
                 <img className="create-stop__photo" src={TAG_PHOTOS[stop.tag] ?? TAG_PHOTOS.Chill} alt="" width={52} height={52} />
@@ -165,6 +204,7 @@ export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, 
                     <span className="tag">{stop.tag}</span>
                   </p>
                   <h3 className="create-stop__title">{stop.title}</h3>
+                  {forLabel(stop) && <p className="create-stop__for">{forLabel(stop)}</p>}
                 </div>
                 <div className="create-stop__actions">
                   <button
@@ -195,6 +235,21 @@ export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, 
           <p className="create-draft__empty-title">A free day!</p>
           <p className="create-draft__empty-text">Keep it lazy, or regenerate it for fresh ideas.</p>
         </div>
+      )}
+
+      {plan.fairness && plan.fairness.members.length > 1 && (
+        <section className="create-draft__fairness" aria-label="How the plan suits each mate">
+          <p className="overline">Everyone’s covered</p>
+          <ul className="create-draft__fairness-list">
+            {plan.fairness.members.map((m) => (
+              <li key={m.name}>
+                <span className="create-draft__fairness-name">{m.name}</span>
+                <span className="create-draft__fairness-score">{Math.round(m.score * 100)}% match</span>
+                {m.spotlights > 0 && <span className="create-draft__fairness-spots">{m.spotlights} picked for them</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <GhoomMateTip>{plan.tip || 'Swap or remove anything, then share it with the squad.'}</GhoomMateTip>

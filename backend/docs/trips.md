@@ -84,7 +84,17 @@ base64 < key.json | tr -d '\n'   # → GCS_CREDENTIALS_BASE64 in backend/.env; t
 
 ## Itinerary drafts
 
-`POST /itinerary/draft` sends the destination, dates (or flexible length), budget, chosen tweaks and every member's personality-quiz scores (`users.preferences.vibe`) to Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash-lite`) with a JSON response schema. Each day has a title and time slots; each slot lists the suggested stop first and alternatives the app can swap to. Sharing the draft (`PUT /itinerary`) saves the picked stops.
+`POST /itinerary/draft` sends the destination, dates (or flexible length), budget, chosen tweaks and a squad brief built from every member's personality-quiz scores (`users.preferences.vibe`) to Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash-lite`) with a JSON response schema. Each day has a title and time slots; each slot lists the suggested stop first and alternatives the app can swap to. Sharing the draft (`PUT /itinerary`) saves the picked stops.
+
+### Group-fair personalisation (`src/trips/vibe.ts`)
+
+Averaging quiz scores flattens a split squad (two thrill-seekers and two chillers average to "medium everything"), so the draft keeps the group's shape instead:
+
+1. **Squad profile.** Each of the six axes gets a class: `love` (mean ≥ 0.65, spread < 0.35), `split` (spread ≥ 0.45), `veto` (someone below 0.2 and nobody at 0.65 or more) or `neutral`.
+2. **Spotlights.** Each day gets up to one spotlight slot per member, leaving room for logistics. The member with the fewest spotlights so far picks next, using their top axis; everyone else who loves that axis shares the slot. A `split` axis becomes a **split slot**: option 1 is for the fans and option 2, at the same time and nearby, is for everyone else, so the squad splits up and regroups. The brief also tells Gemini about shared loves and about anyone who dislikes an axis, so it never puts that axis in a whole-group slot.
+3. **Fairness post-check.** After Gemini answers (or on the template fallback), `rebalance` swaps a whole-group slot's pick and alternative when that demotes something a member dislikes, or lifts the least-served member's score without costing the group more than 0.05 on average. Each member's score is their mean quiz score over the stops they'd do (spotlights count ×1.5; in a split slot they take whichever option suits them).
+
+Stops add `axis`, `forMembers` (first names) and `split`. The response adds `fairness: { members: [{ name, score, spotlights }], min, mean }` and `squad: { sharedLoves, splits, vetoes }`; both are `null` when nobody has taken the quiz. Sharing a split slot saves both options as stops at the same time, each with a "Split plan for …" note.
 
 ## Data
 

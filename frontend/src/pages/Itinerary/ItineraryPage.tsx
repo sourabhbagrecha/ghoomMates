@@ -18,7 +18,7 @@ import { blendVibes, personaFor, vibeMatch } from '../../data/vibe'
 import { useNavigate } from '../../hooks/navigation'
 import { loadVibe } from '../../services/vibeStorage'
 import type { CrowdLabel } from '../../services/heritageService'
-import { tripsApi, type ItineraryDay, type ItineraryStop, type TripDetail } from '../../services/tripsService'
+import { splitSlotStops, tripsApi, type ItineraryDay, type ItineraryStop, type TripDetail } from '../../services/tripsService'
 import { GreenTripCard } from '../Impact/GreenTripCard'
 import { FestivalTip } from '../Events/FestivalTip'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
@@ -167,8 +167,11 @@ function GeneratePlan({ trip, hasPlan }: { trip: TripDetail; hasPlan: boolean })
     setError(null)
     try {
       const plan = await tripsApi.draft(trip.id)
-      // Each slot lists GhoomMate's pick first, then alternatives
-      const days = plan.days.map((d) => ({ title: d.title, stops: d.slots.flatMap((slot) => slot.slice(0, 1)) }))
+      // Each slot lists GhoomMate's pick first, then alternatives; a split slot keeps every camp's option
+      const days = plan.days.map((d) => ({
+        title: d.title,
+        stops: d.slots.flatMap((slot) => (slot[0]?.split ? splitSlotStops(slot) : slot.slice(0, 1))),
+      }))
       activeTrip.setItinerary(trip.id, await tripsApi.saveItinerary(trip.id, days))
       setConfirming(false)
     } catch (err) {

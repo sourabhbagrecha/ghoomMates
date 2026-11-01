@@ -168,6 +168,68 @@
   color: var(--color-ink);
 }
 
+.create-stop__for {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-sky);
+}
+
+/* Split slot: one option per camp, at the same time */
+.create-stop__split {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.create-stop__split > li + li {
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Per-mate match scores */
+.create-draft__fairness {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.create-draft__fairness-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+}
+
+.create-draft__fairness-list > li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.create-draft__fairness-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.create-draft__fairness-score {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.create-draft__fairness-spots {
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
 .create-stop__actions {
   display: flex;
   flex-shrink: 0;
