@@ -217,4 +217,18 @@ deploy/vm.sh --env    # same, and also push backend/.env again (keeps the server
 deploy/vm.sh logs     # last 100 lines of the server log
 ```
 
+**Automatic deploys.** Every push to `main` runs `.github/workflows/deploy.yml`: it builds the web app and runs `deploy/vm.sh` over plain SSH (no tests, no `.env` push). It logs in as user `deploy` with a dedicated key that is only in the VM's own `ssh-keys` metadata, and reads three repository secrets: `VM_SSH` (`deploy@35.244.28.91`), `VM_SSH_KEY` (the private key) and `VM_KNOWN_HOSTS` (the VM's host key line). One-time setup, from the repo root:
+
+```bash
+ssh-keygen -q -t ed25519 -N '' -C gh-actions-deploy -f /tmp/deploy_key
+gcloud compute instances add-metadata ghoommates --zone asia-south1-b --metadata ssh-keys="deploy:$(cat /tmp/deploy_key.pub)"
+gh secret set VM_SSH --body 'deploy@35.244.28.91'
+gh secret set VM_SSH_KEY < /tmp/deploy_key
+gcloud compute ssh ghoommates --zone asia-south1-b --quiet --command 'cat /etc/ssh/ssh_host_ed25519_key.pub' \
+  | awk '{print "35.244.28.91", $1, $2}' | gh secret set VM_KNOWN_HOSTS
+rm /tmp/deploy_key /tmp/deploy_key.pub
+```
+
+To revoke CI's access, remove the `ssh-keys` item from the instance metadata. Changes to `backend/.env` still need a manual `deploy/vm.sh --env`.
+
 The Google OAuth client needs `https://ghoommates.sourabh.org/auth/callback` as an authorized redirect URI and `https://ghoommates.sourabh.org` as a JavaScript origin. The voice worker is not on the VM; run it with `deploy/cloudrun.sh agent` (with `PUBLIC_URL=https://ghoommates.sourabh.org`) or from a laptop.

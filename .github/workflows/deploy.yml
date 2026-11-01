@@ -1,0 +1,44 @@
+# Every push to main builds the web app and redeploys it to the VM (https://ghoommates.sourabh.org) with deploy/vm.sh.
+# No tests here. Needs repository secrets VM_SSH (deploy@35.244.28.91), VM_SSH_KEY (private key whose public half is in
+# the VM's ssh-keys metadata) and VM_KNOWN_HOSTS (the VM's host key line). See backend/docs/deploy.md.
+name: Deploy to VM
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install web app dependencies
+        run: npm ci --prefix frontend --no-audit --no-fund
+
+      - name: Set up SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VM_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Build and deploy
+        env:
+          VM_SSH: ${{ secrets.VM_SSH }}
+        run: deploy/vm.sh

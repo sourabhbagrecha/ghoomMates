@@ -7,6 +7,8 @@
 # The VM: GCE "ghoommates" (e2-small, asia-south1-b, static IP ghoomates-ip). Node 24 runs
 # /opt/ghoommates/app/backend/src/index.ts as the systemd unit "ghoommates" on 127.0.0.1:8080; Caddy terminates TLS for
 # ghoommates.sourabh.org (Cloudflare A record, DNS only) and proxies to it. Logs: deploy/vm.sh logs
+#
+# With VM_SSH=user@host it uses plain ssh/scp instead of gcloud (GitHub Actions does this, see .github/workflows/deploy.yml).
 set -euo pipefail
 
 VM="${VM:-ghoommates}"
@@ -16,7 +18,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-ssh_vm() { gcloud compute ssh "$VM" --zone "$ZONE" --quiet --command "$1"; }
+if [[ -n "${VM_SSH:-}" ]]; then
+  ssh_vm() { ssh -o BatchMode=yes "$VM_SSH" "$1"; }
+  scp_vm() { scp -o BatchMode=yes "$@" "$VM_SSH:/tmp/"; }
+else
+  ssh_vm() { gcloud compute ssh "$VM" --zone "$ZONE" --quiet --command "$1"; }
+  scp_vm() { gcloud compute scp --zone "$ZONE" --quiet "$@" "$VM:/tmp/"; }
+fi
 
 if [[ "${1:-}" == logs ]]; then
   ssh_vm 'sudo journalctl -u ghoommates --no-pager -n 100'
@@ -46,7 +54,7 @@ EOF
   )
   files+=("$TMP/prod.env")
 fi
-gcloud compute scp --zone "$ZONE" --quiet "${files[@]}" "$VM:/tmp/"
+scp_vm "${files[@]}"
 
 echo "==> Install and restart"
 ssh_vm 'set -e
