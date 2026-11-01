@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { BalancesCard } from './BalancesCard'
 import { ExpenseDraftCard } from './ExpenseDraftCard'
-import type { UiCard } from './uiEvents'
+import { ReelProgressCard } from './ReelProgressCard'
+import { reelRoute, type UiCard } from './uiEvents'
 import type { CardAction } from './useGhoomMateUi'
 
 type CardProps<K extends UiCard['kind']> = {
@@ -25,6 +26,7 @@ const RENDERERS: { [K in UiCard['kind']]: (props: CardProps<K>) => ReactNode } =
     />
   ),
   balances: ({ card }) => <BalancesCard balances={card.balances} transfers={card.transfers} />,
+  reel: ({ card, onNavigate }) => <ReelProgressCard reel={card.reel} onWatch={() => onNavigate(reelRoute(card.reel.id))} />,
 }
 
 /** Whatever GhoomMate last put on screen */

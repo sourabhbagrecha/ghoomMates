@@ -45,6 +45,8 @@ export type SkillContext = {
   api: BackendClient;
   /** Push a UI event to the user's screen. Never rejects; safe to `void`. */
   ui: (event: UiEvent) => Promise<void>;
+  /** Make GhoomMate speak up unprompted (e.g. a background job finished). `instructions` say what to say. */
+  say: (instructions: string) => void;
   state: SessionState;
 };
 

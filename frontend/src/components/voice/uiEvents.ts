@@ -1,5 +1,5 @@
 import { formatINR } from '../../pages/Trip/tripFormat'
-import { SCREEN_ROUTES, type BalanceLine, type ExpenseDraft, type TransferLine, type UiEvent } from './protocol'
+import { SCREEN_ROUTES, type BalanceLine, type ExpenseDraft, type ReelJob, type TransferLine, type UiEvent } from './protocol'
 import type { Notice } from './voiceContext'
 
 /*
@@ -17,6 +17,10 @@ import type { Notice } from './voiceContext'
 export type UiCard =
   | { kind: 'expense'; draft: ExpenseDraft; status: 'draft' | 'added' }
   | { kind: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
+  | { kind: 'reel'; reel: ReelJob }
+
+/** Route of the reel player for one reel */
+export const reelRoute = (reelId: string) => `${SCREEN_ROUTES.reel}/${reelId}`
 
 /** Side effects a handler can use */
 export type UiEffects = {
@@ -60,6 +64,17 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
   navigate: ({ screen }, fx) => {
     const route = SCREEN_ROUTES[screen]
     if (route) fx.navigate(route)
+  },
+
+  // A late progress poll never takes a finished reel back to “rendering”
+  'reel.progress': ({ reel }, fx) =>
+    fx.setCard((card) =>
+      card?.kind === 'reel' && card.reel.id === reel.id && card.reel.status === 'ready' ? card : { kind: 'reel', reel },
+    ),
+
+  'reel.ready': ({ reel }, fx) => {
+    fx.setCard(() => ({ kind: 'reel', reel }))
+    fx.notify({ message: `Reel ready: ${reel.title}`, action: { label: 'Watch', route: reelRoute(reel.id) } })
   },
 }
 

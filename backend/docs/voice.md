@@ -56,6 +56,8 @@ Agent → frontend, RPC `ghoomate.ui`, payload JSON `UiEvent`:
 | `expense.cancelled` | `draftId` | Card dismissed |
 | `balances` | `currency, balances[{memberId,name,balancePaise}], transfers[{from,to,amountPaise}]` (`from`/`to` are display names) | Who-owes-whom card |
 | `navigate` | `screen` (route in `SCREEN_ROUTES`) | Navigates; the session stays alive |
+| `reel.progress` | `reel: ReelJob` (title, music, clips, `progress` 0–1, `stages[]`, `photos[]`, cover) | Reel studio card: poster, filmstrip, progress bar, stage list. Updated in place. |
+| `reel.ready` | `reel: ReelJob` | Card shows Watch reel; notice pill with Watch → `trip/photos/reel/<id>` |
 
 Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'confirm'|'cancel', draftId}`. The agent answers `{ok:true}` or `{ok:false,error}` and then speaks a short follow-up. A tap and a spoken "yes" share `commitDraft` / `cancelDraft` in `skills/expenses.ts`. The draft's idempotency key makes a repeated confirm a no-op.
 
@@ -67,15 +69,28 @@ Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'conf
 - An unclear amount, description or name makes the tool throw `llm.ToolError("…")`, and the model asks that as one clarifying question (for example "Which Riya, Riya S or Riya K?").
 - The equal-split preview uses the backend's `splitExpense`, so the card matches what gets saved.
 
-## How to add a skill (example: "make a reel from my photos")
+## Reels
 
-1. **Skill file.** Create `src/voice/skills/reel.ts` exporting a `Skill`:
-   - `instructions(ctx)` returns a short `## Reels` section: when to use the tools and what to ask.
-   - `tools(ctx)` returns `llm.tool({ name: 'make_reel', description, parameters: z.object({...}), execute })`. `execute` calls the backend through `ctx.api`, never media work inline. For example `POST /api/trips/:id/reels` enqueues a render on the cloud function.
-   - Throw `llm.ToolError('question to ask')` for anything unclear. For mutating calls, call `run.disallowInterruptions()`, keep a confirm step if it writes, and pass an idempotency key.
+"Make a reel", "Kabir ki funny reel bana do", or Generate reel on the Photos tab (it opens GhoomMate with that prompt) → `make_reel` in `skills/reel.ts`:
+
+1. Spoken names in `featuring` resolve like expense names (unknown or ambiguous → one clarifying question; everyone → whole squad). The model invents the title and picks the vibe; it doesn't ask about either.
+2. `POST /api/trips/:id/reels` with a fresh idempotency key, then `reel.progress` puts the card on screen. No confirm step: a reel adds nothing to the ledger and can be cut again.
+3. `watch()` polls `GET /reels/:id` every second in the background (the tool has already returned, so GhoomMate keeps talking) and pushes `reel.progress` each time. A newer reel takes the watch over.
+4. When it's ready it pushes `reel.ready` and calls `ctx.say(...)`, so GhoomMate announces it unprompted. `ctx.say` is the hook for any background job that finishes later.
+
+`reel_status` reports the latest reel and puts its card back on screen. The render itself is stubbed (about 11s); see `trips.md`.
+
+## How to add a skill
+
+`skills/reel.ts` is the most complete example (backend call, live card, background follow-up).
+
+1. **Skill file.** Create `src/voice/skills/<name>.ts` exporting a `Skill`:
+   - `instructions(ctx)` returns a short `## <Name>` section: when to use the tools and what to ask.
+   - `tools(ctx)` returns `llm.tool({ name, description, parameters: z.object({...}), execute })`. `execute` calls the backend through `ctx.api`, never media work inline.
+   - Throw `llm.ToolError('question to ask')` for anything unclear. For mutating calls, call `run.disallowInterruptions()`, keep a confirm step if it writes to shared data like the ledger, and pass an idempotency key.
    - Use `onAction(action, ctx)` only if the skill's card has buttons.
-2. **Register.** Add `reel` to `SKILLS` in `skills/index.ts`.
-3. **UI (optional).** Add a variant such as `{ type: 'reel.started'; jobId }` to `UiEvent` (and `UiAction` if needed) in `protocol.ts`, and mirror it in the frontend `protocol.ts`. Push it with `void ctx.ui(event)`, then register a renderer in the frontend `uiEvents.ts`.
-4. **Fallback copy.** Remove the "reel is coming soon" line from `skills/navigation.ts`.
+2. **Register.** Add it to `SKILLS` in `skills/index.ts`.
+3. **UI (optional).** Add a variant to `UiEvent` (and `UiAction` if needed) in `protocol.ts`, and mirror it in the frontend `protocol.ts`. Push it with `void ctx.ui(event)`, then register a handler in the frontend `uiEvents.ts` and a card in `GhoomMateCard.tsx`.
+4. **Fallback copy.** Remove any "coming soon" line for it from `skills/navigation.ts`.
 5. **Backend.** If the skill needs a new endpoint, follow the usual module checklist: `src/<module>/`, a migration, the route in `src/app.ts`, and a doc.
 6. **Tests.** Put pure parsing and validation in a helper and unit-test it with `node:test`, as `members.ts` is tested. Then try it by voice and by "Type instead".

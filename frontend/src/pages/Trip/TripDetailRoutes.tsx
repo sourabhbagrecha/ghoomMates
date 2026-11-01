@@ -24,7 +24,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   expenses/settle/done    Payment sent
  *   photos/view/<index>     Photo viewer (0-based)
  *   photos/upload           Upload photos
- *   photos/reel             Generated reel
+ *   photos/reel[/<id>]      Reel player (latest reel without an id)
  *   explore/guide           Guide trip detail
  *   members                 Squad members
  *   settings                Trip settings
@@ -48,7 +48,8 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
       return null
     case 'photos': {
       if (route === 'photos/upload') return <PhotoUploadPage />
-      if (route === 'photos/reel') return <ReelResultPage />
+      // Same instance across reels, so a regenerated cut swaps in without remounting
+      if (page === 'reel') return <ReelResultPage reelId={param} />
       // The viewer waits for the album to load, so any index is accepted here
       if (page === 'view' && /^\d+$/.test(param ?? '')) return <PhotoViewerPage index={Number(param)} />
       return null

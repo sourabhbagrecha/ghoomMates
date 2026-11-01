@@ -22,3 +22,6 @@ export function to12h(time: string) {
 /** ["Riya", "Kabir", "Dev"] → "Riya, Kabir and Dev" */
 export const listNames = (names: string[]) =>
   names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '')
+
+/** 30 → “0:30” */
+export const formatReelDuration = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`

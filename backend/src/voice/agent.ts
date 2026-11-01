@@ -82,9 +82,10 @@ export default defineAgent({
     const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
     const participant = await ctx.waitForParticipant();
     const state: SessionState = { pendingDraft: null, lastAdded: null };
-    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, api, ui: createUiPusher(ctx.room, participant.identity), state };
-
     const session = newSession();
+    const say = (instructions: string) => void session.generateReply({ instructions });
+    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, api, ui: createUiPusher(ctx.room, participant.identity), say, state };
+
     session.on(voice.AgentSessionEventTypes.Error, (ev) => logger.warn('Voice', `Session error: ${(ev.error as { error?: Error })?.error?.message ?? String(ev.error)}`));
     await session.start({ agent: new voice.Agent(buildAgentConfig(skillCtx)), room: ctx.room });
     logger.info('Voice', `GhoomMate joined ${ctx.room.name} for ${me.name} on "${trip.name}"`);

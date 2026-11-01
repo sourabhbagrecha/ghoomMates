@@ -185,10 +185,15 @@ function ReelStudio() {
           ))}
         </div>
         <div className="reel-studio__actions">
-          <button type="button" className="reel-studio__generate" onClick={() => navigate('trip/photos/reel')}>
+          {/* GhoomMate cuts the reel and shows its progress in the sheet */}
+          <button
+            type="button"
+            className="reel-studio__generate"
+            onClick={() => voice.open(preset ? `Make a ${preset.toLowerCase()} reel` : 'Make a reel of our trip')}
+          >
             Generate reel
           </button>
-          <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice" onClick={() => voice.open('Make a reel of Kabir')}>
+          <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice" onClick={() => voice.open()}>
             <img src={iconMicWhite} alt="" width={18} height={18} />
           </button>
         </div>

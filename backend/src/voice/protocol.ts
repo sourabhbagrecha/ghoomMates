@@ -55,6 +55,26 @@ export type AddedExpense = {
 export type BalanceLine = { memberId: string; name: string; balancePaise: number };
 export type TransferLine = { from: string; to: string; amountPaise: number };
 
+export type ReelStage = { id: string; label: string; status: 'done' | 'current' | 'pending' };
+
+/** A reel GhoomMate is cutting (or has cut), as GET /api/trips/:id/reels/:reelId returns it. */
+export type ReelJob = {
+  id: string;
+  title: string;
+  prompt: string;
+  music: string;
+  durationSec: number;
+  clips: number;
+  /** Ledger member ids the reel is about; empty = the whole squad */
+  featuring: string[];
+  status: 'rendering' | 'ready';
+  /** 0–1 */
+  progress: number;
+  stages: ReelStage[];
+  photos: { id: string; url: string }[];
+  coverUrl: string | null;
+};
+
 export type Screen = 'expenses' | 'itinerary' | 'photos' | 'explore' | 'members' | 'reel';
 
 /** Agent → frontend. Add new variants here when a new skill needs UI. */
@@ -63,7 +83,9 @@ export type UiEvent =
   | { type: 'expense.added'; expense: AddedExpense }
   | { type: 'expense.cancelled'; draftId: string }
   | { type: 'balances'; currency: string; balances: BalanceLine[]; transfers: TransferLine[] }
-  | { type: 'navigate'; screen: Screen };
+  | { type: 'navigate'; screen: Screen }
+  | { type: 'reel.progress'; reel: ReelJob }
+  | { type: 'reel.ready'; reel: ReelJob };
 
 /** Frontend → agent. */
 export type UiAction =

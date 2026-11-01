@@ -108,6 +108,31 @@ export type TripPhoto = {
   createdAt: string
 }
 
+export type ReelVibe = 'bollywood' | 'chill' | 'party' | 'cinematic' | 'retro'
+
+/** A reel cut from the album. The render is stubbed server-side: poll until `status` is `ready` (~11s). */
+export type TripReel = {
+  id: string
+  title: string
+  prompt: string
+  vibe: ReelVibe
+  music: string
+  durationSec: number
+  clips: number
+  /** Ledger member ids the reel is about; empty = the whole squad */
+  featuring: string[]
+  status: 'rendering' | 'ready'
+  /** 0–1 */
+  progress: number
+  stages: { id: string; label: string; status: 'done' | 'current' | 'pending' }[]
+  photos: { id: string; url: string }[]
+  coverUrl: string | null
+  createdBy: { userId: string; name: string }
+  createdAt: string
+}
+
+export type NewReel = Pick<TripReel, 'title' | 'prompt' | 'vibe' | 'durationSec' | 'featuring'>
+
 export type Rsvp = 'going' | 'maybe' | 'skip'
 
 export type ItineraryStop = {
@@ -207,6 +232,9 @@ export const tripsApi = {
   photos: (id: string) => request<{ items: TripPhoto[]; total: number }>(`${trip(id)}/photos?limit=500`),
   addPhotos: (id: string, photos: { key: string; width?: number; height?: number }[]) =>
     request<{ added: number }>(`${trip(id)}/photos`, { body: { photos } }),
+  reels: (id: string) => request<{ items: TripReel[] }>(`${trip(id)}/reels`).then((r) => r.items),
+  reel: (id: string, reelId: string) => request<TripReel>(`${trip(id)}/reels/${encodeURIComponent(reelId)}`),
+  makeReel: (id: string, input: NewReel, idempotencyKey: string) => request<TripReel>(`${trip(id)}/reels`, { body: input, idempotencyKey }),
   itinerary: (id: string) => request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`).then((r) => r.days),
   saveItinerary: (id: string, days: { title: string; stops: DraftStop[] }[]) =>
     request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`, { method: 'PUT', body: { days } }).then((r) => r.days),

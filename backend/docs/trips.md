@@ -26,6 +26,8 @@ Every route except the invite preview needs `Authorization: Bearer <session toke
 | POST | `/api/trips/:id/itinerary/draft` | Suggested plan (`{ day? }` for one day); nothing is saved |
 | POST / PATCH / DELETE | `/api/trips/:id/stops[/:stopId]` | Add / edit / remove a stop |
 | PUT | `/api/trips/:id/stops/:stopId/rsvp` | `{ rsvp: going \| maybe \| skip }` |
+| GET / POST | `/api/trips/:id/reels` | Latest 20 reels / start a reel (see [Reels](#reels)) |
+| GET | `/api/trips/:id/reels/:reelId` | One reel with its render progress; poll it until `status` is `ready` |
 
 Errors use the shared `{ "error": { "code", "message" } }` envelope.
 
@@ -76,9 +78,15 @@ base64 < key.json | tr -d '\n'   # → GCS_CREDENTIALS_BASE64 in backend/.env; t
 
 `POST /itinerary/draft` sends the destination, dates (or flexible length), budget, chosen tweaks and every member's personality-quiz scores (`users.preferences.vibe`) to Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash-lite`) with a JSON response schema. Each day has a title and time slots; each slot lists the suggested stop first and alternatives the app can swap to. Sharing the draft (`PUT /itinerary`) saves the picked stops.
 
+## Reels
+
+`POST /reels { title, prompt?, vibe?, durationSec?, featuring? }` (send an `Idempotency-Key`) picks one photo per 2.5s of reel, spread evenly across the album, and returns the reel at once with `status: rendering`. `vibe` is `bollywood` (default), `chill`, `party`, `cinematic` or `retro` and sets the `music` label. `featuring` is a list of ledger member ids; until face matching runs, it prefers photos those mates uploaded when there are at least 3. An empty album is `409 NO_PHOTOS`.
+
+**The render is stubbed** (`src/trips/reels.ts`). Status, `stage`, `progress` (0–1) and `stages[]` are worked out from `created_at`: pick → faces → beat → render, about 11s in all (`REEL_STAGES`). A cloud function writing the real video would replace `reelProgress` with stored status. The app "plays" a reel as a slideshow of its `photos`. GhoomMate's `make_reel` tool uses these routes (see `voice.md`).
+
 ## Data
 
-Migrations `003_trips.sql` and `004_itinerary.sql`:
+Migrations `003_trips.sql`, `004_itinerary.sql` and `005_reels.sql`:
 
 ```text
 trips             id, name, group_name, destination, start_date, end_date, budget, cover, details, day_titles,
@@ -87,6 +95,7 @@ trip_members      trip_id, user_id, ledger_member_id → group_members, role (or
 trip_photos       id, trip_id, uploaded_by, object_key, content_type, size_bytes, width, height, caption
 trip_stops        id, trip_id, day_number, time, minutes, title, tag, place, notes, created_by
 trip_stop_rsvps   stop_id, user_id, rsvp
+trip_reels        id, trip_id, created_by, title, prompt, vibe, duration_sec, photo_ids[], featuring[], idempotency_key
 expenses          + category, receipt_key, created_by
 ```
 

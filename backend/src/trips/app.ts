@@ -7,6 +7,7 @@ import type { Database } from '../db.ts';
 import type { MediaStorage } from '../storage.ts';
 import type { User } from '../auth/types.ts';
 import { ItineraryService } from './itinerary.ts';
+import { ReelService } from './reels.ts';
 import { TripService, type TripAccess } from './service.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
@@ -25,6 +26,7 @@ function page(req: Request, max = 100) {
 export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string) {
   const service = new TripService(db, storage, clientOrigin);
   const itinerary = new ItineraryService(db);
+  const reels = new ReelService(db, storage);
   const router = Router();
   const user = (res: { locals: Record<string, any> }) => res.locals.user as User;
   const access = (res: { locals: Record<string, any> }) => res.locals.access as TripAccess;
@@ -112,6 +114,21 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
     const result = await service.addPhotos(access(res), user(res).id, req.body);
     logger.info('Trips', `${result.added} photo(s) added to trip ${access(res).trip.id}`);
     res.status(201).json(result);
+  });
+
+  // Reels cut from the album. The render is stubbed: poll GET until status is "ready" (about 11s).
+  router.get('/:tripId/reels', async (_req, res) => {
+    res.json({ items: await reels.list(access(res)) });
+  });
+
+  router.post('/:tripId/reels', jsonBody, async (req, res) => {
+    const reel = await reels.create(access(res), user(res).id, idempotencyKey(req), req.body);
+    logger.info('Trips', `Reel "${reel.title}" (${reel.clips} clips) started for trip ${access(res).trip.id}`);
+    res.status(201).json(reel);
+  });
+
+  router.get('/:tripId/reels/:reelId', async (req, res) => {
+    res.json(await reels.get(access(res), req.params.reelId as string));
   });
 
   router.get('/:tripId/itinerary', async (_req, res) => {
