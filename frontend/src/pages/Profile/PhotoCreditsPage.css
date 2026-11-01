@@ -1,0 +1,49 @@
+/* Photo credits: a plain list of who took each picture */
+.credits__body {
+  gap: 8px;
+  padding-top: 32px;
+  padding-bottom: 40px;
+}
+
+.credits__intro {
+  padding: 0 4px 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.credits__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.credits__row {
+  padding: 0;
+}
+
+.credits__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.credits__alt {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.credits__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

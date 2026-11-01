@@ -17,6 +17,7 @@ import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { FarmToTableSection } from '../Hospitality/FarmToTableSection'
 import { StoriesOfMewar } from '../Stories/StoriesOfMewar'
+import { PhotoCreditLine } from '../../components/PhotoCreditLine'
 import { formatINR } from '../Trip/tripFormat'
 import { CrowdPulse } from './CrowdPulse'
 import { MakersSection } from '../Makers/MakersSection'
@@ -131,6 +132,7 @@ export function ExplorePage() {
           </span>
           <img src={iconArrowPrimary} alt="" width={18} height={18} />
         </button>
+        <PhotoCreditLine from="trip/explore" />
       </main>
     </ScreenLayout>
     <Toast message={toast} />

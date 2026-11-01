@@ -10,6 +10,7 @@ import { GhoomMateAvatar, GhoomMateFab } from '../../components/GhoomMate'
 import { ScreenBackContext } from '../../components/screenBack'
 import { ScreenLayout } from '../../components/ScreenLayout'
 import { SectionHeader } from '../../components/SectionHeader'
+import { PhotoCreditLine } from '../../components/PhotoCreditLine'
 import { PEOPLE } from '../../data/people'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import {
@@ -72,6 +73,7 @@ export function PlanOverviewPage({ plan }: PlanProps) {
 
             <SectionHeader title="Budget" action={link('Details', 'plan/budget')} />
             <BudgetSummary plan={plan} />
+            <PhotoCreditLine from="plan" />
           </main>
         </ScreenLayout>
       </ScreenBackContext.Provider>
