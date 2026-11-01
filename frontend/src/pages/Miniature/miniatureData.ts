@@ -77,7 +77,7 @@ export const COMMISSION = {
   title: 'Want the real thing?',
   text: 'A Mewar miniature painter near City Palace can paint this squad by hand.',
   action: 'Meet painters near City Palace',
-  href: '#/trip/explore/makers?craft=miniature-painting',
+  href: '#/trip/explore/makers?craft=miniature',
 }
 
 /** What the screen says when a painting can't be made; the photo then gets a miniature frame instead. */
