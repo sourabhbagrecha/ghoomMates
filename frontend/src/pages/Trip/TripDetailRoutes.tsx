@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
+import { FoodRoutes } from '../Hospitality/FoodRoutes'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -27,6 +28,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   photos/upload           Upload photos
  *   photos/reel             Generated reel
  *   explore/guide/<id>      Guide trip detail (bare explore/guide opens the first one)
+ *   explore/food[/<id>]     Farm-to-table kitchens, and one kitchen with its squad thali sheet
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -55,6 +57,7 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
       return null
     }
     case 'explore': {
+      if (page === 'food') return <FoodRoutes hostId={param} />
       if (page !== 'guide') return null
       const experience = param ? experienceById(param) : EXPERIENCES[0]
       return experience ? <GuideTripPage key={experience.id} experience={experience} /> : null

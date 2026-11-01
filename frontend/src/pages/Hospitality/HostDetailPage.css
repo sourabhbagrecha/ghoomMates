@@ -1,0 +1,462 @@
+.food-detail__loading {
+  gap: 14px;
+}
+
+/* Summary */
+.food-detail__summary {
+  gap: 6px;
+}
+
+.food-detail__title {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.food-detail__place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.food-detail__place .text-link {
+  margin-left: auto;
+}
+
+.food-detail__tagline {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.food-detail__highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  list-style: none;
+}
+
+.food-detail__price {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+}
+
+.food-detail__note {
+  padding: 0 4px 8px;
+}
+
+/* The squad's table */
+.food-tables {
+  gap: 8px;
+  background: var(--color-success-tint);
+}
+
+.food-tables ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.food-tables__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.food-tables__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.food-tables__text strong {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+/* Green Host score */
+.green-card {
+  gap: 12px;
+}
+
+.green-card__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.green-card__score {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 76px;
+  height: 76px;
+  padding-top: 24px;
+  border: 5px solid var(--color-success-tint);
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 3px var(--color-success);
+  color: var(--color-ink);
+}
+
+.green-card__score strong {
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: -0.6px;
+}
+
+.green-card__score span {
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+.green-card__titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.green-card__tier {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.green-card__sub {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.green-card__parts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.green-card__part {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.green-card__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.green-card__label {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.green-card__points {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.green-card__detail {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.green-card__next {
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.green-card__next strong {
+  display: block;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+/* Sourcing story and food miles */
+.food-story {
+  gap: 10px;
+}
+
+.food-story__text {
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.miles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.miles__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.miles__row {
+  display: grid;
+  grid-template-columns: 62px 1fr 64px;
+  align-items: center;
+  gap: 8px;
+}
+
+.miles__label {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.miles__km {
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: right;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.miles__note {
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+/* Partner farms */
+.food-farms {
+  gap: 10px;
+}
+
+.food-farms__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.food-farm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.food-farm + .food-farm {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.food-farm__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.food-farm__photo {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+}
+
+.food-farm__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.food-farm__text strong {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.food-farm__chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease-out;
+}
+
+.food-farm__chevron--open {
+  transform: rotate(180deg);
+}
+
+.food-farm__produce,
+.food-farms__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.food-farm__story {
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.food-farm__story em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+
+/* What a farm has this month: fresh off the fields, last harvest in the store, or not now */
+.produce {
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 10.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.produce--fresh {
+  background: var(--color-success-tint);
+  color: var(--color-ink);
+}
+
+.produce--stored {
+  background: var(--color-tint);
+  color: var(--color-primary);
+}
+
+.produce--off {
+  border: 1px dashed var(--color-border);
+  color: var(--color-subtle);
+  text-decoration: line-through;
+}
+
+.food-farms__legend .produce--off {
+  text-decoration: none;
+}
+
+/* This month's thali */
+.food-thali {
+  gap: 12px;
+}
+
+.food-thali__dishes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.food-thali__dish {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  align-items: start;
+  gap: 10px;
+}
+
+.food-thali__dish .tag {
+  justify-self: start;
+  text-align: center;
+}
+
+.food-thali__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.food-thali__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.food-thali__name [lang='hi'] {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* In season now: quiet green, so the one yellow thing on the page stays the badge up top */
+.food-thali__peak {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-tint);
+  font-weight: 800;
+  font-size: 9.5px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.food-thali__story {
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.food-thali__supply {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+

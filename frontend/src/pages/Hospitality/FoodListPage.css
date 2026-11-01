@@ -1,0 +1,201 @@
+.food-list__body {
+  gap: 14px;
+}
+
+.food-list__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.food-list__count {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.food-list__note {
+  padding: 0 4px 8px;
+}
+
+/* This month on the farms */
+.food-season {
+  gap: 4px;
+}
+
+.food-season__photo {
+  width: 100%;
+  height: 110px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+}
+
+.food-season__title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.food-season__note {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.food-season__fresh {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  list-style: none;
+}
+
+/* A kitchen */
+.food-host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-cover-card);
+}
+
+.food-host__open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.food-host__cover {
+  position: relative;
+  height: 150px;
+  background: var(--color-sky-light);
+}
+
+.food-host__cover > img,
+.food-host__cover > .photo-fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.food-host__badge {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+}
+
+.food-host__tier {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.food-host__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+
+.food-host__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.food-host__names {
+  min-width: 0;
+}
+
+.food-host__title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.food-host__meta {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.food-host__price {
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.food-host__price span {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.food-host__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+}
+
+.food-host__facts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.food-host__facts strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.food-host__special {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.food-host__special strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* Sits above the card-wide tap target, so both lead to the kitchen */
+.food-host__cta {
+  position: relative;
+  z-index: 2;
+  align-self: flex-start;
+  padding: 7px 14px;
+}

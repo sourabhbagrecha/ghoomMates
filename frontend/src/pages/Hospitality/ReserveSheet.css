@@ -1,0 +1,178 @@
+/* Bottom sheet over the kitchen's page */
+.reserve {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Ink-to-blue scrim (one-off translucent values, see DESIGN_GUIDELINES.md section 2) */
+.reserve__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 42, 200, 0.45) 0%, rgba(11, 23, 71, 0.72) 100%);
+  cursor: default;
+  animation: reserve-fade-in 0.2s ease-out;
+}
+
+.reserve__sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100% - 54px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 8px 20px 0;
+  border-radius: 26px 26px 0 0;
+  background: var(--color-surface);
+  filter: drop-shadow(0 -6px 12px rgba(7, 42, 200, 0.1));
+  outline: none;
+  animation: reserve-sheet-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.reserve__sheet::-webkit-scrollbar {
+  display: none;
+}
+
+.reserve__grabber {
+  align-self: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-track-muted);
+}
+
+.reserve__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reserve__title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--color-ink);
+}
+
+.reserve__meta {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.reserve__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-tint);
+}
+
+.reserve__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Rows of chips bleed to the sheet edge and scroll sideways */
+.reserve__chips {
+  display: flex;
+  gap: 6px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.reserve__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.reserve__row + .reserve__row {
+  border-top: 1px solid var(--color-divider);
+}
+
+.reserve__row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reserve__row-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.reserve__row-text span,
+.reserve__hint,
+.reserve__fine {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.reserve__hint {
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+/* Stays in view while the sections scroll */
+.reserve__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 12px 20px 34px;
+  background: var(--color-surface);
+}
+
+.reserve__fine {
+  text-align: center;
+}
+
+/* Something to fix is sky-blue and bold, never red */
+.reserve__error {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+@keyframes reserve-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes reserve-sheet-in {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reserve__scrim,
+  .reserve__sheet {
+    animation: none;
+  }
+}
