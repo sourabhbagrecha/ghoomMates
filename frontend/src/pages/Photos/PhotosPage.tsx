@@ -20,6 +20,7 @@ import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { ApiRequestError, tripsApi, type FaceSummary } from '../../services/tripsService'
+import { MiniatureEntry } from '../Miniature/MiniatureEntry'
 import { useProfileStore } from '../Profile/profileStore'
 import { faceSummaryOf, hasMatched, markMatched, sizeSelfie, useFacePolling } from './faceSearch'
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
@@ -66,6 +67,7 @@ export function PhotosPage() {
             summary={summary}
             matched={hasMatched(trip?.id ?? null)}
           />
+          <MiniatureEntry />
           {!photos ? (
             <Skeleton variant="card" height={230} />
           ) : matchedIds && !visible.length ? (
