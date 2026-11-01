@@ -200,3 +200,21 @@ A local build is for your CPU (arm64 on an M-series Mac); `deploy/cloudrun.sh` b
 | `backend/src/frontend.ts` | The router that serves `frontend/dist` (`SERVE_FRONTEND_DIR`) |
 | `backend/src/auth/devLogin.ts` | When the test sign-in works and for whom |
 | `backend/tests/deploy/production.test.ts` | Tests for both |
+
+## The VM at ghoomates.sourabh.org
+
+The live demo runs on a plain Compute Engine VM instead of Cloud Run:
+
+- VM `ghoomates` (e2-small, Debian 12, `asia-south1-b`), static IP `ghoomates-ip` (35.244.28.91), network tag `lagaan-web` (opens 80 and 443).
+- Cloudflare: `ghoomates.sourabh.org` A record to that IP, DNS only (not proxied), so Caddy gets its own Let's Encrypt certificate.
+- Caddy (`/etc/caddy/Caddyfile`) terminates TLS and proxies to Node on `127.0.0.1:8080`.
+- systemd unit `ghoomates` runs `node src/index.ts` from `/opt/ghoomates/app/backend` as user `ghoomates`, with `NODE_ENV=production`. Its `backend/.env` is the local one with the production overrides (`CLIENT_ORIGIN`, `GOOGLE_REDIRECT_URI`, a generated `JWT_SECRET`, `SERVE_FRONTEND_DIR`).
+- The database is reached through `DATABASE_URL`, the same as local dev.
+
+```bash
+deploy/vm.sh          # build the web app, ship the code, npm ci, restart, check /health
+deploy/vm.sh --env    # same, and also push backend/.env again (keeps the server's JWT secret)
+deploy/vm.sh logs     # last 100 lines of the server log
+```
+
+The Google OAuth client needs `https://ghoomates.sourabh.org/auth/callback` as an authorized redirect URI and `https://ghoomates.sourabh.org` as a JavaScript origin. The voice worker is not on the VM; run it with `deploy/cloudrun.sh agent` (with `PUBLIC_URL=https://ghoomates.sourabh.org`) or from a laptop.
