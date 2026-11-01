@@ -1,0 +1,419 @@
+.maker-detail__plain {
+  padding-top: 20px;
+}
+
+.maker-detail__gi {
+  background: var(--color-yellow);
+}
+
+/* Pinned footer */
+.maker-detail__hint {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-sky);
+}
+
+.maker-detail__booked {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-tint);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-success);
+}
+
+/* Who they are */
+.maker-summary {
+  gap: 10px;
+}
+
+.maker-summary__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.maker-summary__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-sky-light);
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+}
+
+.maker-summary__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.maker-summary__name {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.maker-summary__craft {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.maker-summary__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.maker-summary__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.maker-summary__facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.maker-summary__facts img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.maker-summary__price {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--color-primary);
+}
+
+.maker-summary__price span {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+/* Story and craft */
+.maker-block {
+  gap: 8px;
+}
+
+.maker-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.maker-text {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.maker-text--soft {
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.maker-craft__gi {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.maker-detail__crafts {
+  display: flex;
+  gap: 6px;
+  margin: 0 -14px;
+  padding: 0 14px;
+  overflow-x: auto;
+}
+
+.maker-craft__name {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.maker-craft__name span {
+  margin-left: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.maker-craft__gi-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.maker-craft__gi-note img {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.maker-craft__steps-title {
+  padding-top: 4px;
+}
+
+.maker-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.maker-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.maker-steps__number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+/* How to spot the real thing */
+.maker-spot {
+  gap: 12px;
+}
+
+.maker-spot__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-success-tint);
+}
+
+.maker-spot__group--machine {
+  background: var(--color-tint);
+}
+
+.maker-spot__title {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.maker-spot ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.maker-spot li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.maker-spot li img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* The workshop */
+.maker-workshop {
+  gap: 8px;
+}
+
+.maker-workshop__title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.maker-workshop__facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.maker-workshop__facts > div {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.maker-workshop__facts dt {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.maker-workshop__facts dd {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.maker-workshop__makes {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-success-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.maker-workshop__makes strong {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.maker-workshop__line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.maker-workshop__line img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Map placeholder with a pin, like the stop screen's */
+.maker-map {
+  gap: 12px;
+}
+
+.maker-map__art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 112px;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+  background:
+    linear-gradient(transparent 46%, var(--color-surface) 46%, var(--color-surface) 54%, transparent 54%),
+    linear-gradient(90deg, transparent 30%, var(--color-surface) 30%, var(--color-surface) 35%, transparent 35%),
+    linear-gradient(90deg, transparent 72%, var(--color-sky-light) 72%, var(--color-sky-light) 100%),
+    var(--color-tint);
+}
+
+.maker-map__pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--color-yellow);
+  border-radius: 50%;
+  background: var(--color-surface);
+  filter: var(--shadow-float);
+}
+
+.maker-map__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.maker-map__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.maker-map__place {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.maker-map__away {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.maker-detail__footnote {
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

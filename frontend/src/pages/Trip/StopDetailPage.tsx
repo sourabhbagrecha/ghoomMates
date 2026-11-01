@@ -19,6 +19,7 @@ import { CROWD_LABELS, SITE_PHOTOS, applySuggestion } from '../../components/cro
 import type { StopCrowd } from '../../services/heritageService'
 import { useToast } from '../../hooks/useToast'
 import { SiteAdvisory } from '../Ops/TravelerAdvisory'
+import { MakersNearby } from '../Makers/MakersNearby'
 import './StopDetailPage.css'
 
 export function StopDetailPage({ stopId }: { stopId: string }) {
@@ -115,6 +116,8 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
             </p>
           </section>
         )}
+
+        <MakersNearby stop={stop} />
 
         <section className="card stop-detail__map-card">
           <div className="stop-detail__map" aria-hidden="true">

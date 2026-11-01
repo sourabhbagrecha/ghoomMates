@@ -9,6 +9,7 @@ import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
+import { createMakersApp, createPostgresMakers } from './makers/app.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
@@ -106,6 +107,7 @@ const app = createServer({
   trips,
   voice,
   heritage: createHeritageApp(),
+  makers: createMakersApp({ gemini, authenticate, ...(db ? createPostgresMakers(db, storage, clientOrigin) : {}) }),
   media: createMediaRouter(storage),
   // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
   ops: createOpsApp({ db, authenticate, gemini }),

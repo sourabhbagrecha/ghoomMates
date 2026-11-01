@@ -1,0 +1,140 @@
+.makers-list__body {
+  padding-top: 20px;
+  gap: 14px;
+}
+
+/* Filter chips bleed to the screen edge */
+.makers-list__chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.makers-list__sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.makers-list__sort-label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.makers-list__caption {
+  margin-top: -6px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.makers-list__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.makers-list__footnote {
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* One maker */
+.maker-card {
+  position: relative;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 20px;
+}
+
+/* Invisible tap target over the whole card (stretched-link pattern) */
+.maker-card__open {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.maker-card__cover {
+  flex-shrink: 0;
+  width: 78px;
+  height: 96px;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+  background: var(--color-sky-light);
+}
+
+.maker-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.maker-card__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.maker-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.maker-card__name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.maker-card__craft {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.maker-card__where {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+.maker-card__footer {
+  padding-top: 2px;
+}
+
+.maker-card__price {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-primary);
+}
+
+.maker-card__price span {
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--color-muted);
+}
