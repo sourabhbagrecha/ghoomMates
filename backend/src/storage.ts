@@ -40,6 +40,9 @@ export const IMAGE_TYPES: Record<string, string> = {
   'image/heif': 'heif',
 };
 
+// Narration recordings are served from the same bucket (Kaavad Tales)
+const AUDIO_TYPES: Record<string, string> = { wav: 'audio/wav', m4a: 'audio/mp4', mp3: 'audio/mpeg' };
+
 function assertKey(key: string) {
   if (!KEY.test(key) || key.includes('..')) throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid object key');
 }
@@ -221,8 +224,21 @@ export function createMediaRouter(storage: MediaStorage) {
     const size = await storage.size(key);
     if (size === null) throw new ApiError(404, 'NOT_FOUND', 'Media not found');
     const ext = key.split('.').pop() ?? '';
-    const type = Object.entries(IMAGE_TYPES).find(([, e]) => e === ext)?.[0] ?? 'application/octet-stream';
-    res.set({ 'Content-Type': type, 'Content-Length': String(size), 'Cache-Control': 'private, max-age=21600' });
+    const type = Object.entries(IMAGE_TYPES).find(([, e]) => e === ext)?.[0] ?? AUDIO_TYPES[ext] ?? 'application/octet-stream';
+    // Audio needs byte ranges: iPhones refuse to play (or seek in) a recording that can't be fetched in pieces
+    const range = AUDIO_TYPES[ext] ? /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '') : null;
+    if (range && (range[1] || range[2])) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+      if (start > end || start >= size) {
+        res.status(416).set('Content-Range', `bytes */${size}`).end();
+        return;
+      }
+      res.status(206).set({ 'Content-Type': type, 'Content-Length': String(end - start + 1), 'Content-Range': `bytes ${start}-${end}/${size}`, 'Accept-Ranges': 'bytes', 'Cache-Control': 'private, max-age=21600' });
+      await pipeline(createReadStream(storage.path(key), { start, end }), res);
+      return;
+    }
+    res.set({ 'Content-Type': type, 'Content-Length': String(size), 'Cache-Control': 'private, max-age=21600', ...(AUDIO_TYPES[ext] ? { 'Accept-Ranges': 'bytes' } : {}) });
     await pipeline(createReadStream(storage.path(key)), res);
   });
 

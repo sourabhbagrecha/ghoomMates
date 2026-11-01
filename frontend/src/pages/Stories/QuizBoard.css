@@ -1,0 +1,143 @@
+.quiz {
+  gap: 14px;
+  padding: 16px;
+}
+
+.quiz__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quiz__steps {
+  display: flex;
+  flex: 1;
+  max-width: 120px;
+  gap: 5px;
+}
+
+.quiz__step {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-track);
+}
+
+.quiz__step--done {
+  background: var(--color-primary);
+}
+
+.quiz__question {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 25px;
+  color: var(--color-ink);
+}
+
+.quiz__question:lang(hi) {
+  line-height: 30px;
+}
+
+.quiz__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quiz__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  text-align: left;
+  font-weight: 700;
+  font-size: 13.5px;
+  line-height: 20px;
+  color: var(--color-ink);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease;
+}
+
+.quiz__option:lang(hi) {
+  line-height: 24px;
+}
+
+.quiz__option:not(:disabled):active {
+  background: var(--color-tint);
+}
+
+.quiz__option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.quiz__letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+/* Right: green. Not right: sky blue, never red; the right answer lights up so the squad learns it. */
+.quiz__option--right {
+  border-color: var(--color-success);
+  background: var(--color-success-tint);
+}
+
+.quiz__option--right .quiz__letter {
+  background: var(--color-success);
+}
+
+.quiz__option--wrong {
+  border-color: var(--color-sky);
+  background: var(--color-tint);
+}
+
+.quiz__option--wrong .quiz__letter {
+  background: var(--color-sky-light);
+}
+
+.quiz__option--dim {
+  opacity: 0.55;
+}
+
+.quiz__feedback {
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+.quiz__feedback:lang(hi) {
+  line-height: 23px;
+}
+
+.quiz__feedback strong {
+  font-weight: 800;
+}
+
+.quiz__feedback--right {
+  background: var(--color-success-tint);
+}
+
+.quiz__feedback--wrong {
+  background: var(--color-tint);
+}

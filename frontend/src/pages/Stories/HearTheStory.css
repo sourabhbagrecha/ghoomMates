@@ -1,0 +1,75 @@
+.hear-story {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-tint);
+  text-align: left;
+}
+
+.hear-story__cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+  background: var(--color-sky-light);
+}
+
+.hear-story__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hear-story__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hear-story__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.hear-story__sub {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.hear-story__stamped {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
+/* The quiet version: a text action under a site's story */
+.hear-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}

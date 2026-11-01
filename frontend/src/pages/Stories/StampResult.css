@@ -1,0 +1,154 @@
+.stamp-card {
+  align-items: center;
+  gap: 12px;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+
+.stamp-card__title {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.stamp-card__title:lang(hi) {
+  line-height: 34px;
+}
+
+.stamp-card__line {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+.stamp-card__count {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.stamp-card__hint {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.stamp-card__hint:lang(hi),
+.stamp-card__line:lang(hi),
+.stamp-card__count:lang(hi),
+.squad-stamps__count:lang(hi) {
+  line-height: 22px;
+}
+
+.stamp-card__note {
+  padding: 8px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.stamp-card__listeners {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.stamp-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 10px;
+  padding-top: 8px;
+}
+
+.stamp-card__cta {
+  margin-top: 4px;
+}
+
+/* The squad's stamps: those who have it in colour, the rest waiting */
+.squad-stamps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.squad-stamps__count {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.squad-stamps__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 12px;
+  list-style: none;
+}
+
+.squad-stamps__person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 50px;
+}
+
+.squad-stamps__person:not(.squad-stamps__person--stamped) .avatar {
+  opacity: 0.35;
+}
+
+.squad-stamps__avatar {
+  position: relative;
+  display: flex;
+}
+
+.squad-stamps__check {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-tint);
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.squad-stamps__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.squad-stamps__person--stamped .squad-stamps__name {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.stamp-card .button {
+  width: 100%;
+}

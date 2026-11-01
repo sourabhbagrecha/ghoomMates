@@ -15,6 +15,7 @@ import { createImpactApp } from './impact/app.ts';
 import { createHospitalityApp } from './hospitality/app.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
+import { createStoriesApp } from './stories/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
 import { ItineraryService } from './trips/itinerary.ts';
@@ -98,6 +99,17 @@ if (db) {
   logger.warn('Server', 'Trips API (/api/trips/*) and voice (/api/voice/*) are disabled: requires a database');
 }
 
+// Kaavad Tales: hand-written stories and shipped narration need no database, stamps and the passport do. Speech goes through
+// Vertex AI when it is set up, since the API key's free tier allows only 10 speech requests a day.
+const noDatabase = { pool: { query: async () => { throw new Error('No database configured'); } } };
+const stories = createStoriesApp({
+  db: db ?? noDatabase,
+  storage,
+  gemini,
+  vertex: process.env.VERTEX_PROJECT ? createGemini({ ...process.env, GEMINI_API_KEY: '' }) : undefined,
+  authenticate,
+});
+
 const app = createServer({
   // Production: also serve the built web app from this server (SERVE_FRONTEND_DIR, set in the Docker image)
   frontend: createFrontendRouter(process.env.SERVE_FRONTEND_DIR),
@@ -127,6 +139,7 @@ const app = createServer({
     trips: db ? new TripService(db, storage, clientOrigin) : undefined,
     stops: db ? new ItineraryService(db) : undefined,
   }),
+  stories,
   media: createMediaRouter(storage),
   // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
   ops: createOpsApp({ db, authenticate, gemini }),

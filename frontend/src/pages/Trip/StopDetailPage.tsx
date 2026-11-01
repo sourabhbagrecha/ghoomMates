@@ -17,6 +17,7 @@ import { RSVP_OPTIONS, TAG_PHOTOS } from './tripDetailData'
 import { CrowdBars, CrowdChip } from '../../components/crowd/Crowd'
 import { CROWD_LABELS, SITE_PHOTOS, applySuggestion } from '../../components/crowd/crowdData'
 import type { StopCrowd } from '../../services/heritageService'
+import { HearTheStory } from '../Stories/HearTheStory'
 import { useToast } from '../../hooks/useToast'
 import { SiteAdvisory } from '../Ops/TravelerAdvisory'
 import { MakersNearby } from '../Makers/MakersNearby'
@@ -114,6 +115,7 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
               <strong>Visit lightly</strong>
               {stop.crowd.care}
             </p>
+            <HearTheStory siteId={stop.crowd.siteId} siteName={stop.crowd.siteName} />
           </section>
         )}
 
