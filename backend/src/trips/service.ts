@@ -3,7 +3,7 @@ import { ApiError, integer, object, requireThat, text } from '../expenses/domain
 import { ExpenseService } from '../expenses/service.ts';
 import { transaction, type Database, type Pool, type Tx } from '../db.ts';
 import { IMAGE_TYPES, type MediaStorage } from '../storage.ts';
-import { mapMatches, parseSelfies, type FaceSearch } from './faces.ts';
+import { mapMatches, parseSelfies, selfieHash, type FaceSearch, type FaceSearchResult } from './faces.ts';
 import { fitStopsToLength, tripLength } from './itinerary.ts';
 
 export const EXPENSE_CATEGORIES = ['food', 'stays', 'travel', 'fun', 'other'] as const;
@@ -431,10 +431,34 @@ export class TripService {
     };
   }
 
-  // Selfie search over the trip's indexed faces; the selfies are passed through and never stored.
-  async findMe(access: TripAccess, body: unknown, faceSearch: FaceSearch) {
+  // Selfie search over the trip's indexed faces. The selfie itself is never stored, only its embedding: after the
+  // first search the 512-float vector is cached per user (keyed by the selfie's hash), and later searches send just
+  // the vector, so face-search skips detection and embedding.
+  async findMe(access: TripAccess, userId: string, body: unknown, faceSearch: FaceSearch) {
     const selfies = parseSelfies(body);
-    const result = await faceSearch.search(access.trip.id, selfies);
+    const hashes = selfies.map(selfieHash);
+    const { rows: cached } = await this.pool.query(
+      'SELECT selfie_hash, embedding FROM user_face_embeddings WHERE user_id = $1 AND selfie_hash = ANY($2::text[])',
+      [userId, hashes],
+    );
+    const byHash = new Map(cached.map(r => [r.selfie_hash as string, (r.embedding as (number | string)[]).map(Number)]));
+    let result: FaceSearchResult;
+    if (hashes.every(h => byHash.has(h))) {
+      result = await faceSearch.searchByEmbeddings(access.trip.id, hashes.map(h => byHash.get(h)!));
+    } else {
+      result = await faceSearch.search(access.trip.id, selfies);
+      const fresh = result.embeddings;
+      if (fresh?.length === hashes.length) {
+        // A failed cache write must not fail the search; the next one just embeds again.
+        await this.pool.query('DELETE FROM user_face_embeddings WHERE user_id = $1 AND selfie_hash <> ALL($2::text[])', [userId, hashes])
+          .then(() => Promise.all(hashes.map((h, i) => this.pool.query(
+            `INSERT INTO user_face_embeddings (user_id, selfie_hash, embedding) VALUES ($1, $2, $3::real[])
+             ON CONFLICT (user_id, selfie_hash) DO UPDATE SET embedding = EXCLUDED.embedding`,
+            [userId, h, fresh[i]],
+          ))))
+          .catch(() => undefined);
+      }
+    }
     const names = result.matches.map(m => m.object_name);
     const { rows } = names.length
       ? await this.pool.query('SELECT id, object_key FROM trip_photos WHERE trip_id = $1 AND object_key = ANY($2::text[])', [access.trip.id, names])

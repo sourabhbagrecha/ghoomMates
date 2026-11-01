@@ -1,4 +1,4 @@
-"""face-search: private HTTP API the backend calls with 1 to 3 selfies and a trip id.
+"""face-search: private HTTP API the backend calls with a trip id and 1 to 3 selfies (or their cached embeddings).
 
 Selfies are decoded, embedded and dropped in memory. They are never written to storage, the database or logs.
 """
@@ -12,12 +12,14 @@ import time
 import uuid
 from typing import Any
 
+import numpy as np
+
 from flask import Flask, Response, jsonify, request
 
 from faces import store
 from faces.config import Settings
 from faces.logs import log
-from faces.pipeline import BadImage, FaceEngine, NoFace
+from faces.pipeline import BadImage, FaceEngine, NoFace, l2_normalize
 
 logger = logging.getLogger("face-search")
 
@@ -57,6 +59,22 @@ def parse_request(body: Any, settings: Settings) -> tuple[str, list[bytes]]:
     return trip_id, [decode_selfie(s, i, settings) for i, s in enumerate(selfies)]
 
 
+def parse_embeddings(body: dict[str, Any], settings: Settings) -> list[np.ndarray]:
+    """Query vectors computed earlier by this service (the `embedding` of a /search response)."""
+    raw = body.get("embeddings")
+    if not isinstance(raw, list) or not 1 <= len(raw) <= settings.max_selfies:
+        raise InvalidRequest("VALIDATION_ERROR", f"embeddings must be a list of 1 to {settings.max_selfies} vectors")
+    out = []
+    for i, vector in enumerate(raw):
+        if not isinstance(vector, list) or not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in vector):
+            raise InvalidRequest("VALIDATION_ERROR", f"embeddings[{i}] must be a list of numbers")
+        normalized = l2_normalize(vector, settings.embedding_dim)
+        if normalized is None:
+            raise InvalidRequest("VALIDATION_ERROR", f"embeddings[{i}] must be {settings.embedding_dim} finite numbers")
+        out.append(normalized)
+    return out
+
+
 def create_app(settings: Settings, engine: FaceEngine, pool: Any) -> Flask:
     app = Flask("face-search")
     # Base64 adds a third; this stays under Cloud Run's 32 MiB request limit with the defaults.
@@ -77,21 +95,32 @@ def create_app(settings: Settings, engine: FaceEngine, pool: Any) -> Flask:
     @app.post("/search")
     def search() -> tuple[Response, int]:
         started = time.monotonic()
-        trip_id, selfies = parse_request(request.get_json(silent=True), settings)
-
-        t = time.monotonic()
-        queries, selfie_faces = [], []
-        for i, data in enumerate(selfies):
+        body = request.get_json(silent=True)
+        selfie_faces: list[dict[str, Any]] = []
+        embed_ms = 0
+        if isinstance(body, dict) and "embeddings" in body:
+            # Vectors from an earlier /search: skips detection and embedding entirely.
             try:
-                face = engine.selfie_embedding(data)
-            except BadImage as exc:
-                raise InvalidRequest("INVALID_IMAGE", f"selfies[{i}] is not a readable image", 422, selfie=i) from exc
-            except NoFace as exc:
-                raise InvalidRequest("NO_FACE", f"No face found in selfies[{i}]", 422, selfie=i) from exc
-            queries.append(face.embedding)
-            selfie_faces.append({"confidence": round(face.confidence, 4)})
-        del selfies
-        embed_ms = round((time.monotonic() - t) * 1000)
+                trip_id = str(uuid.UUID(str(body.get("trip_id", ""))))
+            except ValueError as exc:
+                raise InvalidRequest("VALIDATION_ERROR", "trip_id must be a UUID") from exc
+            queries = parse_embeddings(body, settings)
+        else:
+            trip_id, selfies = parse_request(body, settings)
+            t = time.monotonic()
+            queries = []
+            for i, data in enumerate(selfies):
+                try:
+                    face = engine.selfie_embedding(data)
+                except BadImage as exc:
+                    raise InvalidRequest("INVALID_IMAGE", f"selfies[{i}] is not a readable image", 422, selfie=i) from exc
+                except NoFace as exc:
+                    raise InvalidRequest("NO_FACE", f"No face found in selfies[{i}]", 422, selfie=i) from exc
+                queries.append(face.embedding)
+                # The embedding is returned so the backend can cache it and search by vector next time.
+                selfie_faces.append({"confidence": round(face.confidence, 4), "embedding": face.embedding.tolist()})
+            del selfies
+            embed_ms = round((time.monotonic() - t) * 1000)
 
         t = time.monotonic()
         try:

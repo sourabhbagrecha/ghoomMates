@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
-import { createFaceSearch, mapMatches, parseSelfies } from '../../src/trips/faces.ts';
+import { createFaceSearch, mapMatches, parseSelfies, selfieHash } from '../../src/trips/faces.ts';
 
 const TRIP = '7d444840-9dc0-4f4a-9e0e-3a0e5b1c2f10';
 const reply = (status: number, body: unknown) => (async () => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })) as typeof fetch;
@@ -37,7 +37,30 @@ describe('mapMatches', () => {
   });
 });
 
+describe('selfieHash', () => {
+  test('ignores the data-URL wrapper but not the pixels', () => {
+    expect(selfieHash('data:image/jpeg;base64,AAAA')).toBe(selfieHash('AAAA'));
+    expect(selfieHash('data:image/png;base64,AAAA')).toBe(selfieHash('data:image/jpeg;base64,AAAA'));
+    expect(selfieHash('AAAA') === selfieHash('BBBB')).toBe(false);
+  });
+});
+
 describe('face-search client', () => {
+  test('returns the selfie embeddings, and searchByEmbeddings posts vectors instead of images', async () => {
+    const seen: any[] = [];
+    const vector = Array.from({ length: 512 }, (_, i) => i / 512);
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      seen.push(body);
+      const selfies = body.selfies ? [{ confidence: 0.99, embedding: vector }] : [];
+      return new Response(JSON.stringify({ matches: [], threshold: 0.4, truncated: false, selfies }));
+    }) as unknown as typeof fetch;
+    const c = client(fetchImpl);
+    expect((await c.search(TRIP, ['AAAA'])).embeddings).toEqual([vector]);
+    const byVector = await c.searchByEmbeddings(TRIP, [vector]);
+    expect(byVector.embeddings).toBe(undefined);
+    expect(seen[1]).toEqual({ trip_id: TRIP, embeddings: [vector] });
+  });
   test('returns matches, threshold and truncated, and posts trip_id and selfies', async () => {
     let seen: any;
     const fetchImpl = (async (url: string, init: RequestInit) => {

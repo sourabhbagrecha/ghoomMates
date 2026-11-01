@@ -167,6 +167,10 @@ Two tests cover this:
 - **Transient failures return 500,** so Eventarc retries: database unavailable, or GCS download error.
 - **Logs.** Each event logs one JSON line with `severity`, `message`, `event_id`, `bucket`, `object`, `generation`, `trip_id`, `status`, `face_count`, and `timings_ms` (`db_read`, `download`, `analyze`, `db_write`, `total`).
 
+## Searching by cached embedding
+
+Detecting and embedding the selfie is the slow part of a search. The backend caches it: the first search sends the selfie and `face-search` returns each selfie's embedding (`selfies[].embedding`, 512 floats). The backend stores it in `user_face_embeddings` (migration `028`, keyed by user and a hash of the selfie) and later sends `{ "trip_id": "…", "embeddings": [[…512 floats…]] }` instead of images. That request skips decoding, RetinaFace and Facenet and runs only the SQL below. Changing the profile selfie changes the hash, so it misses the cache and is embedded again. The response has the same shape, except `selfies` is empty.
+
 ## face-search API
 
 `POST /search` with `Content-Type: application/json`:

@@ -9,7 +9,7 @@ import pytest
 from faces.config import Settings
 from faces.db import normalize_dsn
 from faces.indexer import FINALIZED, parse_event, route
-from faces.search import InvalidRequest, decode_selfie, parse_request
+from faces.search import InvalidRequest, decode_selfie, parse_embeddings, parse_request
 from tests.conftest import TRIP_A
 
 OBJECT = {"bucket": "ghoomates", "name": f"trips/{TRIP_A}/photos/a.jpg", "generation": "1730000000000001",
@@ -117,3 +117,18 @@ def test_oversized_selfies_are_rejected():
     with pytest.raises(InvalidRequest) as err:
         decode_selfie(base64.b64encode(b"x" * 100).decode(), 0, s)
     assert err.value.status == 413
+
+
+def test_embeddings_are_validated_and_normalized(settings):
+    out = parse_embeddings({"embeddings": [[3.0] + [0.0] * 511]}, settings)
+    assert len(out) == 1 and out[0].shape == (512,) and abs(float(out[0][0]) - 1.0) < 1e-6
+
+
+@pytest.mark.parametrize(
+    "embeddings",
+    [None, [], [[0.1] * 511], [[0.0] * 512], [["x"] * 512], [[True] * 512], [[0.1] * 512] * 4, "nope"],
+)
+def test_invalid_embeddings_are_rejected(embeddings, settings):
+    with pytest.raises(InvalidRequest) as err:
+        parse_embeddings({"embeddings": embeddings}, settings)
+    assert err.value.code == "VALIDATION_ERROR"

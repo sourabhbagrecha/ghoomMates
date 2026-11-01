@@ -118,7 +118,7 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
   // Selfies travel as base64 in the JSON body, so this route allows up to 25 MiB.
   router.post('/:tripId/photos/find-me', largeJsonBody('25mb'), async (req, res) => {
     const started = Date.now();
-    const result = await service.findMe(access(res), req.body, faceSearch);
+    const result = await service.findMe(access(res), user(res).id, req.body, faceSearch);
     logger.info('Trips', `${user(res).email} found ${result.matches.length} photo(s) of themselves in trip ${access(res).trip.id} (${Date.now() - started} ms)`);
     res.json(result);
   });
