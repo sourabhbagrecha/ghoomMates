@@ -39,12 +39,16 @@ export type SiteCrowd = {
   siteName: string;
   kind: string;
   gem: boolean;
-  /** The hours the event touches this site */
+  /** The span of hours the event touches this site, and each stretch of it (dawn and dusk, say) */
   from: number;
   to: number;
+  windows: { from: number; to: number }[];
+  /** "5–10 PM", or "5:30–8:30 AM, 5–9 PM" */
   windowLabel: string;
   /** Days of the run on which it does (the main days only, for some events) */
   dates: string[];
+  /** The day these numbers are for: today when the event touches the site today, else the next day it does */
+  date: string;
   note: string;
   peak: { minutes: number; time: string; level: number; label: CrowdLabel };
   /** The same minute on an ordinary day of that season, for comparison */
@@ -58,7 +62,7 @@ export type SiteCrowd = {
 export type CalmSite = { id: string; name: string; kind: string; gem: boolean; level: number; label: CrowdLabel; km: number };
 
 export type EventCrowd = {
-  /** The day these numbers are for */
+  /** The day the busiest site's numbers are for */
   date: string;
   label: CrowdLabel;
   /** The highest level across the touched sites; null when the number comes from the curated note alone */
@@ -92,11 +96,26 @@ function hourly(site: HeritageSite, date: string) {
   return first === -1 ? [] : out.slice(first, last + 1);
 }
 
+type Window = { from: number; to: number };
+
+/** Overlapping or touching stretches of the day joined into one */
+function mergeWindows(windows: Window[]): Window[] {
+  const out: Window[] = [];
+  for (const w of [...windows].sort((a, b) => a.from - b.from)) {
+    const last = out.at(-1);
+    if (last && w.from <= last.to) last.to = Math.max(last.to, w.to);
+    else out.push({ from: w.from, to: w.to });
+  }
+  return out;
+}
+
+const inside = (windows: Window[], minutes: number, slack = 0) => windows.some(w => minutes > w.from - slack && minutes < w.to + slack);
+
 /** The nearest clearly quieter time outside the event's hours, on the same day */
-function quieterTimeFor(site: HeritageSite, date: string, peak: SiteCrowd['peak'], from: number, to: number): QuieterTime | null {
+function quieterTimeFor(site: HeritageSite, date: string, peak: SiteCrowd['peak'], windows: Window[]): QuieterTime | null {
   let best: { minutes: number; level: number; score: number } | null = null;
   for (let m = FIRST_MINUTE; m <= LAST_MINUTE; m += 30) {
-    if (m > from - 30 && m < to + 30) continue;
+    if (inside(windows, m, 30)) continue;
     const level = levelAt(site, m, date);
     if (level === null || level >= BUSY_FROM || level > peak.level - 20) continue;
     const score = level + Math.abs(m - peak.minutes) / 10;
@@ -123,67 +142,70 @@ function quieterSiteFor(site: HeritageSite, date: string, peak: SiteCrowd['peak'
   };
 }
 
-type Watched = { site: HeritageSite; from: number; to: number; note: string; dates: string[] };
+type Watched = { site: HeritageSite; date: string; windows: Window[]; note: string; dates: string[] };
+
+/** The day a site's numbers are for: today when the event touches it today, else the run's main day, else the next day it does */
+const siteDate = (dates: string[], today: string, main?: string) =>
+  dates.includes(today) ? today : main && dates.includes(main) ? main : (dates.find(d => d > today) ?? dates[0]);
 
 /**
- * The sites an event touches on `focus` and their hours. Events with impacts use those; one without (a nightly show)
- * watches the heritage sites among its places during its own hours.
+ * The sites an event touches and their hours, each on the day that matters for it. Events with impacts use those; one
+ * without (a nightly show) watches the heritage sites among its places during its own hours.
  */
-function watchedSites(event: MewarEvent, occurrence: Occurrence | null, focus: string): Watched[] {
-  const bySite = new Map<string, Watched>();
+function watchedSites(event: MewarEvent, occurrence: Occurrence | null, today: string): Watched[] {
+  const watched: Watched[] = [];
   if (event.impacts.length) {
     if (!occurrence) return [];
     const days = datesBetween(occurrence.from, occurrence.to);
-    for (const impact of impactsOn(event, occurrence, focus)) {
-      const site = SITE_BY_ID.get(impact.siteId);
-      if (!site) continue;
-      const known = bySite.get(site.id);
-      if (!known) {
-        bySite.set(site.id, { site, from: impact.from, to: impact.to, note: impact.note, dates: [] });
-      } else {
-        known.from = Math.min(known.from, impact.from);
-        known.to = Math.max(known.to, impact.to);
-      }
-    }
-    for (const watched of bySite.values()) {
-      watched.dates = days.filter(date => impactsOn(event, occurrence, date).some(i => i.siteId === watched.site.id));
+    for (const siteId of new Set(event.impacts.map(i => i.siteId))) {
+      const site = SITE_BY_ID.get(siteId);
+      const dates = days.filter(date => impactsOn(event, occurrence, date).some(i => i.siteId === siteId));
+      if (!site || !dates.length) continue;
+      const date = siteDate(dates, today, occurrence.peak?.[0]);
+      const impacts = impactsOn(event, occurrence, date).filter(i => i.siteId === siteId);
+      const strongest = impacts.reduce((top, i) => (i.factor > top.factor ? i : top), impacts[0]);
+      watched.push({ site, date, windows: mergeWindows(impacts), note: strongest.note, dates });
     }
   } else {
+    const dates = occurrence ? datesBetween(occurrence.from, occurrence.to) : [];
     for (const place of event.places) {
       const site = place.siteId ? SITE_BY_ID.get(place.siteId) : undefined;
-      if (site) bySite.set(site.id, { site, from: event.time.from, to: event.time.to, note: event.crowdNote, dates: occurrence ? datesBetween(occurrence.from, occurrence.to) : [] });
+      if (site) watched.push({ site, date: occurrence ? siteDate(dates, today, occurrence.peak?.[0]) : today, windows: [{ from: event.time.from, to: event.time.to }], note: event.crowdNote, dates });
     }
   }
-  return [...bySite.values()];
+  return watched;
 }
 
-function siteCrowd(watched: Watched, date: string): SiteCrowd | null {
-  const { site, from, to } = watched;
+function siteCrowd({ site, date, windows, note, dates }: Watched): SiteCrowd | null {
   let peak: SiteCrowd['peak'] | null = null;
-  for (let m = from; m <= to; m += SCAN) {
-    const level = levelAt(site, m, date);
-    if (level !== null && (!peak || level > peak.level)) peak = { minutes: m, time: formatTime(m), level, label: labelFor(level) };
+  for (const w of windows) {
+    for (let m = w.from; m <= w.to; m += SCAN) {
+      const level = levelAt(site, m, date);
+      if (level !== null && (!peak || level > peak.level)) peak = { minutes: m, time: formatTime(m), level, label: labelFor(level) };
+    }
   }
   if (!peak) return null;
   const usual = levelAt(site, peak.minutes, date, false);
   return {
     siteId: site.id, siteName: site.name, kind: site.kind, gem: site.gem,
-    from, to, windowLabel: windowLabel(from, to), dates: watched.dates, note: watched.note,
+    from: windows[0].from, to: windows[windows.length - 1].to, windows,
+    windowLabel: windows.map(w => windowLabel(w.from, w.to)).join(', '),
+    dates, date, note,
     peak, usual: { level: usual, label: labelFor(usual) },
     forecast: hourly(site, date),
-    quieterTime: quieterTimeFor(site, date, peak, from, to),
+    quieterTime: quieterTimeFor(site, date, peak, windows),
     quieterSite: quieterSiteFor(site, date, peak),
   };
 }
 
 /** Sites outside the event that are open and calm around the peak, preferring gems and short trips from the busiest site */
-function calmSites(origin: SiteCrowd, touched: Set<string>, date: string): CalmSite[] {
+function calmSites(origin: SiteCrowd, touched: Set<string>): CalmSite[] {
   const from = SITE_BY_ID.get(origin.siteId)!;
   const times = [origin.peak.minutes - 60, origin.peak.minutes, origin.peak.minutes + 60];
   const options: (CalmSite & { score: number })[] = [];
   for (const site of SITES) {
     if (touched.has(site.id)) continue;
-    const levels = times.map(m => levelAt(site, m, date));
+    const levels = times.map(m => levelAt(site, m, origin.date));
     if (levels.some(l => l === null)) continue;
     const worst = Math.max(...(levels as number[]));
     if (worst >= BUSY_FROM) continue;
@@ -196,19 +218,23 @@ function calmSites(origin: SiteCrowd, touched: Set<string>, date: string): CalmS
   return options.sort((a, b) => a.score - b.score).slice(0, 3).map(({ score: _, ...rest }) => rest);
 }
 
-/** How an event moves the crowd on one day, from the same model as the heritage map */
-export function crowdFor(event: MewarEvent, occurrence: Occurrence | null, date: string): EventCrowd {
-  const sites = watchedSites(event, occurrence, date)
-    .map(watched => siteCrowd(watched, date))
+/**
+ * How an event moves the crowd, from the same model as the heritage map. Each touched site is measured on the day that
+ * matters for it: today if the event is on at the site today, else the next day it is.
+ */
+export function crowdFor(event: MewarEvent, occurrence: Occurrence | null, today: string): EventCrowd {
+  const sites = watchedSites(event, occurrence, today)
+    .map(siteCrowd)
     .filter((s): s is SiteCrowd => s !== null)
     .sort((a, b) => b.peak.level - a.peak.level);
   if (!sites.length) {
+    const date = occurrence ? (today >= occurrence.from && today <= occurrence.to ? today : (occurrence.peak?.[0] ?? occurrence.from)) : today;
     return { date, label: event.intensity, level: null, headline: event.crowdNote, modelled: false, sites: [], calm: [] };
   }
   const top = sites[0];
   return {
-    date, label: top.peak.label, level: top.peak.level, headline: event.crowdNote, modelled: true,
-    sites, calm: calmSites(top, new Set(sites.map(s => s.siteId)), date),
+    date: top.date, label: top.peak.label, level: top.peak.level, headline: event.crowdNote, modelled: true,
+    sites, calm: calmSites(top, new Set(sites.map(s => s.siteId))),
   };
 }
 
@@ -281,12 +307,6 @@ function statusOf(today: string, from: string, to: string): EventInstance['statu
   return daysBetween(today, from) === 1 ? 'tomorrow' : 'upcoming';
 }
 
-/** The day an instance's crowd numbers are for: today while it is on, else its first main day */
-function focusDate(today: string, occurrence: Occurrence) {
-  if (today >= occurrence.from && today <= occurrence.to) return today;
-  return occurrence.peak?.[0] ?? occurrence.from;
-}
-
 export function instanceOf(event: MewarEvent, occurrence: Occurrence, today: string): EventInstance {
   return {
     ...baseOf(event),
@@ -295,7 +315,7 @@ export function instanceOf(event: MewarEvent, occurrence: Occurrence, today: str
     status: statusOf(today, occurrence.from, occurrence.to),
     daysAway: daysBetween(today, occurrence.from),
     tripTip: event.tripTip ?? null,
-    crowd: crowdFor(event, occurrence, focusDate(today, occurrence)),
+    crowd: crowdFor(event, occurrence, today),
   };
 }
 

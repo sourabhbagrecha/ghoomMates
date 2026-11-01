@@ -131,11 +131,26 @@ describe('the crowd an event brings', () => {
     expect(gavri.crowd.label).toBe('quiet');
     expect(gavri.status).toBe('today');
   });
-  test('the numbers are for today while the event is on, otherwise for its first main day', () => {
-    expect(item(week('2026-11-07'), 'diwali').crowd.date).toBe('2026-11-07');
+  test('each site is measured today if the event touches it today, else on the run’s main day', () => {
+    const dateOf = (today: string, siteId: string) => item(week(today), 'diwali').crowd.sites.find(s => s.siteId === siteId)!.date;
+    // Two days before Diwali night: the bazaar and the ghat are both measured on the night itself
+    expect(dateOf('2026-11-01', 'hathi-pol')).toBe('2026-11-08');
+    expect(dateOf('2026-11-01', 'gangaur-ghat')).toBe('2026-11-08');
     expect(item(week('2026-11-01'), 'diwali').crowd.date).toBe('2026-11-08');
-    expect(item(listEvents({ from: '2027-04-01', to: '2027-04-30', today: '2027-04-10' }), 'gangaur-mewar-festival').crowd.date).toBe('2027-04-10');
-    expect(item(listEvents({ from: '2027-04-01', to: '2027-04-30', today: '2027-04-01' }), 'gangaur-mewar-festival').crowd.date).toBe('2027-04-09');
+    // On Dhanteras the bazaar is busy today, but the ghat only fills on the 8th
+    expect(dateOf('2026-11-06', 'hathi-pol')).toBe('2026-11-06');
+    expect(dateOf('2026-11-06', 'gangaur-ghat')).toBe('2026-11-08');
+    const festival = (today: string) => item(listEvents({ from: '2027-04-01', to: '2027-04-30', today }), 'gangaur-mewar-festival').crowd.date;
+    expect(festival('2027-04-10')).toBe('2027-04-10');
+    expect(festival('2027-04-01')).toBe('2027-04-09');
+  });
+  test('an event with two stretches in a day (dawn and dusk) shows both, and the quieter time avoids both', () => {
+    const kartik = item(week('2026-11-20', '2026-11-30'), 'kartik-purnima');
+    const ghat = kartik.crowd.sites.find(s => s.siteId === 'gangaur-ghat')!;
+    expect(ghat.windowLabel).toBe('5:30–8:30 AM, 5–9 PM');
+    expect(ghat.windows).toEqual([{ from: 330, to: 510 }, { from: 1020, to: 1260 }]);
+    const quiet = ghat.quieterTime!.minutes;
+    expect(ghat.windows.some(w => quiet > w.from - 30 && quiet < w.to + 30)).toBe(false);
   });
   test('the nightly shows are measured at their own site: Dharohar sells out, the puppet show is easier', () => {
     const list = week('2026-11-01');

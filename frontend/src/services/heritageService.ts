@@ -2,6 +2,9 @@ import { request } from './tripsService'
 
 export type CrowdLabel = 'quiet' | 'moderate' | 'busy' | 'packed' | 'closed'
 
+/** A festival that lifts a site's crowd that day (see services/eventsService.ts for the full calendar) */
+export type SiteEvent = { id: string; name: string; nameHi: string; phrase: string; from: number; to: number; note: string }
+
 export type CrowdSuggestion =
   | { type: 'shift'; time: string; minutes: number; level: number; label: CrowdLabel; reason: string }
   | { type: 'swap'; siteId: string; siteName: string; title: string; place: string; tag: string; notes: string; level: number; label: CrowdLabel; reason: string }
@@ -25,6 +28,8 @@ export type StopCrowd = {
   story: string
   care: string
   suggestion: CrowdSuggestion | null
+  /** Festivals that lift this site's crowd that day, strongest first */
+  events?: SiteEvent[]
 }
 
 export type LiveSite = {
@@ -42,6 +47,8 @@ export type LiveSite = {
   best: { time: string; level: number } | null
   story: string
   care: string
+  /** Festivals that lift this site's crowd today, with their hours */
+  events?: SiteEvent[]
 }
 
 export type LiveCrowds = {

@@ -1,0 +1,33 @@
+.events-page__body {
+  padding-top: 20px;
+  gap: 14px;
+}
+
+/* Filter chips bleed to the screen edge */
+.events-filters {
+  display: flex;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.events-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.events-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.events-footnote {
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
