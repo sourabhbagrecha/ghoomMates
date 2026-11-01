@@ -20,6 +20,7 @@ import { loadVibe } from '../../services/vibeStorage'
 import type { CrowdLabel } from '../../services/heritageService'
 import { tripsApi, type ItineraryDay, type ItineraryStop, type TripDetail } from '../../services/tripsService'
 import { GreenTripCard } from '../Impact/GreenTripCard'
+import { FestivalTip } from '../Events/FestivalTip'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './ItineraryPage.css'
 
@@ -48,6 +49,7 @@ export function ItineraryPage() {
         </div>
 
         <main className="screen__body">
+          {trip && <FestivalTip trip={trip} />}
           {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={!!live} />}
           {trip && itinerary && <CrowdPlanCard trip={trip} days={itinerary} />}
           {trip && itinerary && <GreenTripCard tripId={trip.id} days={itinerary} />}

@@ -6,6 +6,7 @@ import { createApp as createAuthApp } from './auth/app.ts';
 import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth/database.ts';
 import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
+import { createEventsApp, createPostgresEvents } from './events/app.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
 import { createGemini } from './gemini.ts';
@@ -143,6 +144,8 @@ const app = createServer({
   media: createMediaRouter(storage),
   // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
   ops: createOpsApp({ db, authenticate, gemini }),
+  // Mewar Utsav: browsing needs no database, adding an event to a plan does
+  events: createEventsApp({ gemini, authenticate, ...(db ? { trips: createPostgresEvents(db, storage, clientOrigin) } : {}) }),
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {

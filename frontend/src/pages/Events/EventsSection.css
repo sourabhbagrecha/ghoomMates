@@ -1,0 +1,165 @@
+/* A row of festival cards that bleeds to the screen edge. Extra padding keeps the card shadows from being clipped. */
+.utsav-row {
+  display: flex;
+  gap: 12px;
+  margin: -12px -16px -24px;
+  padding: 12px 16px 24px;
+  overflow-x: auto;
+}
+
+.utsav-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 6px;
+  width: 244px;
+  padding: 12px;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-cover-card);
+}
+
+.utsav-card--loading {
+  gap: 10px;
+  min-height: 140px;
+}
+
+/* Invisible tap target over the whole card */
+.utsav-card__open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.utsav-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.utsav-card__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 52px;
+  padding: 6px 2px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.utsav-card__tile-top,
+.utsav-card__tile-bottom {
+  font-weight: 800;
+  font-size: 9px;
+  line-height: 14px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.utsav-card__tile-big {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 24px;
+  letter-spacing: -0.4px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.utsav-card__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.utsav-card__badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint-cool);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* Yellow marks the one thing to notice: this is close */
+.utsav-card__badge--soon {
+  background: var(--color-yellow);
+  color: var(--color-primary);
+}
+
+.utsav-card__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin-top: 2px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.utsav-card__hindi {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.utsav-card__fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.utsav-card__fact img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.utsav-card__fact span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.utsav-card__crowd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.utsav-card__plan {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+}
+
+.utsav-caption {
+  margin-top: -6px;
+  padding: 0 2px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

@@ -1,0 +1,372 @@
+/* Bottom sheet over the Mewar Utsav list, inside the phone frame: “Plan around it” and “Add to our itinerary” */
+.event-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.event-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  animation: event-sheet-fade 0.2s ease-out;
+}
+
+.event-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 92%;
+  padding: 10px 16px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  border-radius: 24px 24px 0 0;
+  background: var(--color-bg);
+  outline: none;
+  animation: event-sheet-up 0.24s ease-out;
+}
+
+.event-sheet__panel::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes event-sheet-up {
+  from {
+    transform: translateY(32px);
+    opacity: 0;
+  }
+}
+
+@keyframes event-sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-sheet__panel,
+  .event-sheet__scrim {
+    animation: none;
+  }
+}
+
+.event-sheet__handle {
+  align-self: center;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-track-muted);
+}
+
+.event-sheet__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-sheet__title {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.event-sheet__sub {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.event-sheet__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-sheet__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.event-sheet__hint {
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.event-sheet__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-sheet__error {
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+/* Day choices: the Chip look with a small line underneath */
+.event-sheet__chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+}
+
+.day-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 1px;
+  min-width: 96px;
+  padding: 6px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.day-chip__text {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.day-chip__sub {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.day-chip--selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.day-chip--selected .day-chip__sub {
+  color: var(--color-on-brand-muted);
+}
+
+.day-chip:disabled {
+  border-color: var(--color-divider);
+  background: var(--color-tint-cool);
+  color: var(--color-disabled);
+  cursor: default;
+}
+
+.day-chip:disabled .day-chip__sub {
+  color: var(--color-subtle);
+}
+
+/* What is being added */
+.event-sheet__summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.event-sheet__summary-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.event-sheet__summary-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.event-sheet__summary-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.event-sheet__summary-meta img {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* After adding: a warm confirmation with the crowd heads-up */
+.event-sheet__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 0;
+  text-align: center;
+}
+
+.event-sheet__done-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-success-tint);
+}
+
+.event-sheet__done-title {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--color-ink);
+}
+
+.event-sheet__done-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* “Plan around it” rows */
+.plan-site {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.plan-site__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-site__name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.plan-site__when {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.plan-site__options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.plan-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.plan-option img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.plan-option strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.plan-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-list-card);
+  background: var(--color-surface);
+  filter: var(--shadow-list-card);
+}
+
+.plan-chart__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.plan-chart__caption {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.plan-calm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.plan-calm li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+}
+
+.plan-calm__name {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.plan-calm__name span {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}

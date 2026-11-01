@@ -19,6 +19,7 @@ import { FarmToTableSection } from '../Hospitality/FarmToTableSection'
 import { StoriesOfMewar } from '../Stories/StoriesOfMewar'
 import { formatINR } from '../Trip/tripFormat'
 import { CrowdPulse } from './CrowdPulse'
+import { EventsSection } from '../Events/EventsSection'
 import { MakersSection } from '../Makers/MakersSection'
 import { CATEGORIES, TRENDING } from './exploreData'
 import { nextRunLabel } from './experienceSchedule'
@@ -65,6 +66,7 @@ export function ExplorePage() {
           ))}
         </div>
 
+        {city === 'Udaipur' && <EventsSection />}
         {city === 'Udaipur' && <CrowdPulse city={city} />}
         {city === 'Udaipur' && <MakersSection />}
         {city === 'Udaipur' && <StoriesOfMewar />}

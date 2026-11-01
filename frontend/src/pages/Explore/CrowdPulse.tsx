@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CrowdChip } from '../../components/crowd/Crowd'
 import { SectionHeader } from '../../components/SectionHeader'
 import { heritageApi, type LiveCrowds, type LiveSite } from '../../services/heritageService'
+import { FestivalLine } from '../Events/FestivalLine'
 import { AdvisoryBanners, OpsConsoleLink } from '../Ops/TravelerAdvisory'
 import { HearTheStory } from '../Stories/HearTheStory'
 import { LAKES, MAP_HEIGHT, MAP_WIDTH, project } from './crowdMapData'
@@ -180,6 +181,7 @@ function SiteDetail({ site, now }: { site: LiveSite; now: boolean }) {
         <CrowdChip label={site.label} detail={site.level === null ? undefined : `${site.level}/100`} />
       </div>
       {when && <p className="crowd-pulse__detail-when">{when}</p>}
+      <FestivalLine siteId={site.id} />
       <p className="crowd-pulse__detail-story">{site.story}</p>
       <HearTheStory siteId={site.id} siteName={site.name} variant="link" />
     </div>

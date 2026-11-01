@@ -1,5 +1,6 @@
 // Crowd forecasts for heritage sites, and the nudges that move a squad off-peak. Pure functions, no I/O,
 // so the API, the itinerary and the voice agent all share them.
+import { NO_LIFT, eventForStop, eventLift, eventReason, siteEvents, type SiteEvent } from '../events/lift.ts';
 import { HERITAGE_CITIES, SITE_BY_ID, SITES, type HeritageCity, type HeritageSite } from './sites.ts';
 
 export type CrowdLabel = 'quiet' | 'moderate' | 'busy' | 'packed' | 'closed';
@@ -11,10 +12,13 @@ const STEP = 30;
 const EARLIEST = 6 * 60;
 const LATEST = 21 * 60 + 30;
 
-// Days when the old city fills up beyond a normal weekend
+// Days when the whole city fills up beyond a normal weekend. Site-by-site festival crowds (Rath Yatra at Jagdish Temple,
+// Gangaur at the ghat) live in events/calendar.ts and multiply on top of this.
 const FESTIVALS: { from: string; to: string; factor: number; name: string }[] = [
   { from: '2026-11-06', to: '2026-11-10', factor: 1.2, name: 'Diwali' },
   { from: '2026-12-23', to: '2027-01-02', factor: 1.3, name: 'the year-end holidays' },
+  { from: '2027-10-27', to: '2027-10-31', factor: 1.2, name: 'Diwali' },
+  { from: '2027-12-23', to: '2028-01-02', factor: 1.3, name: 'the year-end holidays' },
 ];
 
 export function cityOf(destination?: string | null): HeritageCity | null {
@@ -46,12 +50,14 @@ export function formatTime(minutes: number) {
   return `${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
+const festivalOn = (date: string) => FESTIVALS.find(f => date >= f.from && date <= f.to);
+
 /** How much busier than a peak-season weekday: weekends, festivals, the summer and monsoon lulls */
 export function dayFactor(date: string | null): { factor: number; reason: string | null } {
   if (!date) return { factor: 1, reason: null };
   const day = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(day.getTime())) return { factor: 1, reason: null };
-  const festival = FESTIVALS.find(f => date >= f.from && date <= f.to);
+  const festival = festivalOn(date);
   if (festival) return { factor: festival.factor, reason: festival.name };
   const month = day.getUTCMonth();
   const season = month >= 3 && month <= 5 ? 0.65 : month >= 6 && month <= 8 ? 0.85 : 1;
@@ -59,16 +65,30 @@ export function dayFactor(date: string | null): { factor: number; reason: string
   return { factor: season * (weekend ? 1.12 : 1), reason: weekend ? 'weekend' : null };
 }
 
-export const isOpen = (site: HeritageSite, minutes: number) => site.hours.some(([open, close]) => minutes >= open && minutes < close);
+/** What the day is called on a traveller's screen: a festival period, else the festivals on, else "weekend" */
+export function dayNoteFor(date: string | null): string | null {
+  if (!date) return null;
+  return festivalOn(date)?.name ?? eventReason(date) ?? dayFactor(date).reason;
+}
 
-/** 0–100, or null while the site is closed */
-export function levelAt(site: HeritageSite, minutes: number, date: string | null): number | null {
-  if (!isOpen(site, minutes)) return null;
+const hasUsualHours = (site: HeritageSite, minutes: number) => site.hours.some(([open, close]) => minutes >= open && minutes < close);
+
+/** Open at that minute: in its usual hours or, on the day of a festival that opens it late, in the festival's */
+export const isOpen = (site: HeritageSite, minutes: number, date: string | null = null) =>
+  hasUsualHours(site, minutes) || eventLift(site.id, minutes, date).opens;
+
+/**
+ * 0–100, or null while the site is closed. A festival that day lifts the usual level at the sites and hours it touches
+ * (events/calendar.ts); pass `withEvents: false` for the level without it.
+ */
+export function levelAt(site: HeritageSite, minutes: number, date: string | null, withEvents = true): number | null {
+  const lift = withEvents ? eventLift(site.id, minutes, date) : NO_LIFT;
+  if (!hasUsualHours(site, minutes) && !lift.opens) return null;
   const hour = Math.floor(minutes / 60);
   const from = site.curve[hour];
   const to = site.curve[(hour + 1) % 24] || from;
   const base = from + (to - from) * (minutes % 60) / 60;
-  return Math.max(0, Math.min(100, Math.round(base * dayFactor(date).factor)));
+  return Math.max(0, Math.min(100, Math.round(Math.max(base * dayFactor(date).factor * lift.factor, lift.floor))));
 }
 
 export function labelFor(level: number | null): CrowdLabel {
@@ -79,16 +99,16 @@ export function labelFor(level: number | null): CrowdLabel {
 /** Rough ticket-and-entry queue */
 export const waitMinutes = (level: number | null) => (level === null || level < 50 ? 0 : Math.round((level - 45) * 0.9 / 5) * 5);
 
-function openSlots(site: HeritageSite, from = EARLIEST, to = LATEST) {
+function openSlots(site: HeritageSite, date: string | null, from = EARLIEST, to = LATEST) {
   const slots: number[] = [];
-  for (let m = Math.ceil(from / STEP) * STEP; m <= to; m += STEP) if (isOpen(site, m)) slots.push(m);
+  for (let m = Math.ceil(from / STEP) * STEP; m <= to; m += STEP) if (isOpen(site, m, date)) slots.push(m);
   return slots;
 }
 
 /** The quietest half-hour of the day, earliest on a tie */
 export function bestWindow(site: HeritageSite, date: string | null) {
   let best: { minutes: number; level: number } | null = null;
-  for (const minutes of openSlots(site)) {
+  for (const minutes of openSlots(site, date)) {
     const level = levelAt(site, minutes, date)!;
     if (!best || level < best.level) best = { minutes, level };
   }
@@ -121,7 +141,7 @@ export function suggestFor(site: HeritageSite, minutes: number, date: string | n
   if (level !== null && level < BUSY_FROM) return null;
 
   let shift: { minutes: number; level: number; score: number } | null = null;
-  for (const m of openSlots(site, minutes - 180, minutes + 180)) {
+  for (const m of openSlots(site, date, minutes - 180, minutes + 180)) {
     if (m === minutes || taken.some(t => Math.abs(t - m) < 50)) continue;
     const l = levelAt(site, m, date)!;
     if (l >= BUSY_FROM || (level !== null && l > level - 20)) continue;
@@ -165,6 +185,8 @@ export type StopCrowd = {
   story: string;
   care: string;
   suggestion: Suggestion | null;
+  /** Festivals that lift this site's crowd that day (events/calendar.ts), strongest first */
+  events: SiteEvent[];
 };
 
 /** Crowd facts for one itinerary stop, or null when it isn't a known heritage site */
@@ -182,13 +204,18 @@ export function crowdForStop(
   if (stop.minutes === null && best) {
     suggestion = { type: 'shift', time: best.time, minutes: best.minutes, level: best.level, label: labelFor(best.level), reason: 'The quietest time of the day' };
   }
-  const { reason } = dayFactor(date);
+  // A stop added from the festival calendar keeps the event's own time (the procession, the show), so there is nothing to move
+  const fromEvent = eventForStop(stop.title);
+  if (fromEvent?.stop?.fixedTime) suggestion = null;
+  const events = siteEvents(site.id, date);
+  // A festival period, else the festivals that touch this very site, else the weekend
+  const reason = (date && festivalOn(date)?.name) || (events.length ? events.map(e => e.phrase).join(' and ') : null) || dayFactor(date).reason;
   return {
     siteId: site.id, siteName: site.name, kind: site.kind, gem: site.gem,
     level, label: stop.minutes === null ? null : labelFor(level), waitMinutes: waitMinutes(level),
     best, forecast: forecast(site, date),
     dayNote: reason ? `Busier than usual: it’s ${reason}` : null,
-    story: site.story, care: site.care, suggestion,
+    story: site.story, care: fromEvent?.stop?.care ?? site.care, suggestion, events,
   };
 }
 
@@ -221,6 +248,8 @@ export type LiveSite = {
   best: { time: string; level: number } | null;
   story: string;
   care: string;
+  /** Festivals that lift this site's crowd today, with the hours */
+  events: SiteEvent[];
 };
 
 /** Every site in the city right now, busiest first */
@@ -233,21 +262,21 @@ export function liveCrowds(city: HeritageCity, now = new Date()) {
     const trend = level === null || later === null ? 'steady' : later - level > 6 ? 'rising' : level - later > 6 ? 'falling' : 'steady';
     const quiet = level !== null && level < QUIET_BELOW
       ? null
-      : openSlots(site, minutes + 1).find(m => levelAt(site, m, date)! < QUIET_BELOW);
+      : openSlots(site, date, minutes + 1).find(m => levelAt(site, m, date)! < QUIET_BELOW);
     const best = bestWindow(site, date);
     return {
       id: site.id, name: site.name, kind: site.kind, gem: site.gem, lat: site.lat, lng: site.lng,
       level, label: labelFor(level), trend, waitMinutes: waitMinutes(level),
       quietAt: quiet === undefined || quiet === null ? null : formatTime(quiet),
       best: best && { time: best.time, level: best.level },
-      story: site.story, care: site.care,
+      story: site.story, care: site.care, events: siteEvents(site.id, date),
     };
   });
   sites.sort((a, b) => (b.level ?? -1) - (a.level ?? -1));
   const open = sites.filter(s => s.level !== null);
   return {
     city, date, time: formatTime(minutes),
-    dayNote: dayFactor(date).reason,
+    dayNote: dayNoteFor(date),
     packed: open.filter(s => s.level! >= BUSY_FROM).length,
     quiet: open.filter(s => s.level! < QUIET_BELOW).length,
     sites,
@@ -257,7 +286,7 @@ export function liveCrowds(city: HeritageCity, now = new Date()) {
 /** Quiet and packed windows for every site, for the itinerary prompt */
 export function crowdBrief(city: HeritageCity, date: string | null) {
   const ranges = (site: HeritageSite) => {
-    const busy = openSlots(site).filter(m => levelAt(site, m, date)! >= BUSY_FROM);
+    const busy = openSlots(site, date).filter(m => levelAt(site, m, date)! >= BUSY_FROM);
     const spans: [number, number][] = [];
     for (const m of busy) {
       const last = spans.at(-1);

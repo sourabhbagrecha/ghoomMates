@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { EventsPage } from '../Events/EventsPage'
 import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
 import { MakerDetailPage } from '../Makers/MakerDetailPage'
 import { MakersListPage } from '../Makers/MakersListPage'
@@ -38,6 +39,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   explore/makers[/<id>]   Makers of Udaipur: the list, or one maker
  *   explore/food[/<id>]     Farm-to-table kitchens, and one kitchen with its squad thali sheet
  *   explore/story/<id>      Kaavad Tales story for a heritage site; explore/passport is the Heritage Passport
+ *   explore/events          Mewar Utsav: festivals, fairs and nightly shows (?e=<id> scrolls to one)
  *   members                 Squad members
  *   settings                Trip settings
  */
@@ -72,6 +74,7 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
     case 'explore': {
       if (page === 'makers') return param ? <MakerDetailPage key={param} makerId={param} /> : <MakersListPage />
       if (page === 'food') return <FoodRoutes hostId={param} />
+      if (route === 'explore/events') return <EventsPage />
       if (page !== 'guide') return null
       const experience = param ? experienceById(param) : EXPERIENCES[0]
       return experience ? <GuideTripPage key={experience.id} experience={experience} /> : null

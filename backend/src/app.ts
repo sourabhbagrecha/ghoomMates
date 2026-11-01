@@ -30,9 +30,11 @@ export interface ServerModules {
   ops?: Router;
   // Squad Miniature: trip photos painted in Udaipur's painting traditions, mounted under /api/artworks. Omitted without a database.
   artworks?: Router;
+  // Mewar Utsav: Udaipur's festivals, fairs and nightly shows with the crowd each brings, mounted under /api/events. Browsing needs no database.
+  events?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks, impact, hospitality, stories }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks, impact, hospitality, stories, events }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -76,6 +78,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   if (stories) app.use('/api/stories', stories);
   if (media) app.use('/api/media', media);
   if (ops) app.use('/api/ops', ops);
+  if (events) app.use('/api/events', events);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));

@@ -1,0 +1,8 @@
+/* The link ends GhoomMate's festival tip on the same line as the sentence */
+.festival-tip__more {
+  display: inline;
+  padding: 0;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 17px;
+}

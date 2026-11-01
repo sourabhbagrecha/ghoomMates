@@ -1,0 +1,298 @@
+/* One festival, fair or show (extends .card) */
+.event-card {
+  gap: 12px;
+  scroll-margin-top: 16px;
+}
+
+/* Opened from a link: a primary ring so the eye finds it */
+.event-card--focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.event-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* The little calendar: weekday, day, month */
+.event-card__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 60px;
+  padding: 8px 4px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.event-card__tile-top,
+.event-card__tile-bottom {
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.event-card__tile-big {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 26px;
+  letter-spacing: -0.6px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.event-card__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.event-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.event-card__badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint-cool);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/* Yellow marks the one thing to notice: this is close */
+.event-card__badge--soon {
+  background: var(--color-yellow);
+  color: var(--color-primary);
+}
+
+.event-card__badge--trip {
+  background: var(--color-sky-light);
+  color: var(--color-primary);
+}
+
+.event-card__name {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.event-card__hindi {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.event-card__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+}
+
+.event-card__facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.event-card__facts img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* The crowd warning: a soft panel in the crowd level's own tint, with the chip and one line */
+.event-card__crowd {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-crowd-moderate-tint);
+}
+
+.event-card__crowd--quiet {
+  background: var(--color-crowd-quiet-tint);
+}
+
+.event-card__crowd--busy {
+  background: var(--color-crowd-busy-tint);
+}
+
+.event-card__crowd--packed {
+  background: var(--color-crowd-packed-tint);
+}
+
+.event-card__crowd > img {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.event-card__crowd p {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.event-card__about {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.event-card__about--clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.event-card__more {
+  align-self: flex-start;
+}
+
+.event-card__details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.event-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-card__section .overline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.event-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+}
+
+.event-card__list li {
+  position: relative;
+  padding-left: 14px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.event-card__list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-sky);
+}
+
+.event-card__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.event-card__row img {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.event-card__link {
+  align-self: flex-start;
+  white-space: normal;
+}
+
+.event-card__source {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.event-card__source a {
+  font-weight: 700;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.event-card__added {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.event-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A thumb-sized pill: .pill-button is 30px tall, the design asks for 36 where it can */
+.event-card__primary {
+  padding: 10px 14px;
+}
+
+.event-card__primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.event-card__ghost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
