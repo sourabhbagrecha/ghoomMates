@@ -11,6 +11,7 @@ import { createFrontendRouter } from './frontend.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { createMakersApp, createPostgresMakers } from './makers/app.ts';
+import { createImpactApp } from './impact/app.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
@@ -78,6 +79,7 @@ const gemini = createGemini();
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
 let artworks: ReturnType<typeof createArtworksApp> | undefined;
+let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
   trips = createTripsApp(db, storage, authenticate, clientOrigin);
   artworks = createArtworksApp({ db, storage, gemini, authenticate });
@@ -88,6 +90,7 @@ if (db) {
     agentToken: (user) => signJwt({ userId: user.id, email: user.email, name: user.name }, jwtSecret, 2 * 60 * 60),
     env: process.env,
   });
+  impact = createImpactApp({ db, authenticate, gemini, env: process.env });
 } else {
   logger.warn('Server', 'Trips API (/api/trips/*) and voice (/api/voice/*) are disabled: requires a database');
 }
@@ -110,6 +113,7 @@ const app = createServer({
   trips,
   voice,
   artworks,
+  impact,
   heritage: createHeritageApp(),
   makers: createMakersApp({ gemini, authenticate, ...(db ? createPostgresMakers(db, storage, clientOrigin) : {}) }),
   media: createMediaRouter(storage),

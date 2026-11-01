@@ -19,6 +19,7 @@ import { useNavigate } from '../../hooks/navigation'
 import { loadVibe } from '../../services/vibeStorage'
 import type { CrowdLabel } from '../../services/heritageService'
 import { tripsApi, type ItineraryDay, type ItineraryStop, type TripDetail } from '../../services/tripsService'
+import { GreenTripCard } from '../Impact/GreenTripCard'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './ItineraryPage.css'
 
@@ -49,6 +50,7 @@ export function ItineraryPage() {
         <main className="screen__body">
           {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={!!live} />}
           {trip && itinerary && <CrowdPlanCard trip={trip} days={itinerary} />}
+          {trip && itinerary && <GreenTripCard tripId={trip.id} days={itinerary} />}
           {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
         </main>
       </ScreenLayout>

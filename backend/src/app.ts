@@ -16,6 +16,8 @@ export interface ServerModules {
   heritage?: Router;
   // Makers of Udaipur: crafts, makers, fair prices and workshop bookings, mounted under /api/makers. Browsing needs no database.
   makers?: Router;
+  // Green Trip impact (footprint, crowd-hours, local spend, pledges), mounted under /api/impact. Omitted without a database.
+  impact?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
   // The built web app (frontend/dist) with a single-page-app fallback, mounted after every API route. Production only (SERVE_FRONTEND_DIR).
@@ -26,7 +28,7 @@ export interface ServerModules {
   artworks?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks, impact }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -60,6 +62,9 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   }));
   app.use('/api/artworks', artworks ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Artworks need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+  }));
+  app.use('/api/impact', impact ?? (() => {
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Impact needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (makers) app.use('/api/makers', makers);
