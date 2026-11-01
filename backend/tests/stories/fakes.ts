@@ -105,6 +105,7 @@ export function fakeStorage() {
     createUpload: async () => { throw new Error('unused'); },
     readUrl: async (key: string) => `https://media.test/${key}`,
     size: async (key: string) => objects.get(key)?.data.length ?? null,
+    read: async (key: string) => objects.get(key)?.data ?? null,
     put: async (key: string, data: Buffer, type: string) => { objects.set(key, { data, type }); },
   } as MediaStorage;
   return { storage, objects };
