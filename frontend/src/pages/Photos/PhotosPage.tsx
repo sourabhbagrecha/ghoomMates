@@ -25,7 +25,7 @@ import { PastReels } from '../Reel/PastReels'
 import { useTripReels } from '../Reel/useTripReels'
 import { useTripStore } from '../Trip/tripStore'
 import { useProfileStore } from '../Profile/profileStore'
-import { faceSummaryOf, hasMatched, markMatched, sizeSelfie, useFacePolling } from './faceSearch'
+import { faceSummaryOf, hasMatched, markMatched, setMatchedIds, sizeSelfie, useFacePolling, useMatchedIds } from './faceSearch'
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
@@ -39,7 +39,7 @@ export function PhotosPage() {
   const summary = faceSummaryOf(photos)
   const [toast, showToast] = useToast()
   // Photo ids found by the face filter, or null while it is off
-  const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null)
+  const matchedIds = useMatchedIds()
   const [searching, setSearching] = useState(false)
   const { reels } = useTripReels(trip?.id ?? null)
   useFacePolling(summary?.pending ?? 0)

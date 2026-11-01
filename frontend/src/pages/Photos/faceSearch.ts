@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { activeTrip } from '../../data/activeTrip'
 import type { FaceSummary, TripPhotos } from '../../services/tripsService'
 
@@ -10,6 +10,19 @@ const SELFIE_EDGE = 640
 const matchedTrips = new Set<string>()
 export const markMatched = (tripId: string) => matchedTrips.add(tripId)
 export const hasMatched = (tripId: string | null) => !!tripId && matchedTrips.has(tripId)
+
+/** Photo ids the find-me filter matched, or null while it is off. Shared so the viewer follows the same filter as the grid. */
+let matchedIds: Set<string> | null = null
+const matchListeners = new Set<() => void>()
+export const setMatchedIds = (ids: Set<string> | null) => {
+  matchedIds = ids
+  matchListeners.forEach((l) => l())
+}
+export const useMatchedIds = () =>
+  useSyncExternalStore(
+    (l) => (matchListeners.add(l), () => matchListeners.delete(l)),
+    () => matchedIds,
+  )
 
 /** The server's trip-wide summary, or the same counts worked out from the loaded photos */
 export function faceSummaryOf(photos: TripPhotos | null): FaceSummary | null {

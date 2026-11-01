@@ -11,6 +11,7 @@ import { TopSafeArea } from '../../components/TopSafeArea'
 import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { Toast } from '../../components/Toast'
+import { useMatchedIds } from '../Photos/faceSearch'
 import { tripActions, useTripStore } from './tripStore'
 import { useToast } from '../../hooks/useToast'
 import './PhotoViewerPage.css'
@@ -21,22 +22,28 @@ export function PhotoViewerPage({ index }: { index: number }) {
   const { trip, photos } = useActiveTrip()
   const [toast, showToast] = useToast()
   const touchX = useRef<number | null>(null)
-  const total = photos?.items.length ?? 0
+  const matchedIds = useMatchedIds()
+  // Indexes into the full list that the viewer steps through: only photos of you while the filter is on
+  const shown = (photos?.items ?? []).flatMap((p, i) => (!matchedIds || matchedIds.has(p.id) ? [i] : []))
+  const pos = Math.max(0, shown.indexOf(index))
+  const total = shown.length
+  const prevIndex = shown[pos - 1]
+  const nextIndex = shown[pos + 1]
   const photo = photos?.items[index]
   const uploader = trip?.members.find((m) => m.userId === photo?.uploadedBy.userId)
   const inReel = reelPicks.includes(index)
-  const hasPrev = index > 0
-  const hasNext = index < total - 1
+  const hasPrev = prevIndex !== undefined
+  const hasNext = nextIndex !== undefined
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' && index > 0) navigate(`trip/photos/view/${index - 1}`, { replace: true })
-      if (e.key === 'ArrowRight' && index < total - 1) navigate(`trip/photos/view/${index + 1}`, { replace: true })
+      if (e.key === 'ArrowLeft' && prevIndex !== undefined) navigate(`trip/photos/view/${prevIndex}`, { replace: true })
+      if (e.key === 'ArrowRight' && nextIndex !== undefined) navigate(`trip/photos/view/${nextIndex}`, { replace: true })
       if (e.key === 'Escape') navigate('trip/photos')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [index, total, navigate])
+  }, [prevIndex, nextIndex, navigate])
 
   // Replace, so Back leaves the viewer instead of stepping through every photo
   const go = (i: number) => navigate(`trip/photos/view/${i}`, { replace: true })
@@ -84,7 +91,7 @@ export function PhotoViewerPage({ index }: { index: number }) {
           <img src={iconBack} alt="" width={20} height={20} />
         </button>
         <p className="viewer__counter" aria-live="polite">
-          {index + 1} of {total}
+          {pos + 1} of {total}
         </p>
         <span className="viewer__spacer" />
       </div>
@@ -96,15 +103,15 @@ export function PhotoViewerPage({ index }: { index: number }) {
           if (touchX.current === null) return
           const dx = e.changedTouches[0].clientX - touchX.current
           touchX.current = null
-          if (dx > 50 && hasPrev) go(index - 1)
-          if (dx < -50 && hasNext) go(index + 1)
+          if (dx > 50 && hasPrev) go(prevIndex!)
+          if (dx < -50 && hasNext) go(nextIndex!)
         }}
       >
         {photo && <img className="viewer__photo" src={photo.url} alt={`Trip photo ${index + 1}${photo.caption ? `: ${photo.caption}` : ''}`} />}
         <button
           type="button"
           className="viewer__nav viewer__nav--prev"
-          onClick={() => go(index - 1)}
+          onClick={() => go(prevIndex!)}
           disabled={!hasPrev}
           aria-label="Previous photo"
         >
@@ -113,7 +120,7 @@ export function PhotoViewerPage({ index }: { index: number }) {
         <button
           type="button"
           className="viewer__nav viewer__nav--next"
-          onClick={() => go(index + 1)}
+          onClick={() => go(nextIndex!)}
           disabled={!hasNext}
           aria-label="Next photo"
         >
