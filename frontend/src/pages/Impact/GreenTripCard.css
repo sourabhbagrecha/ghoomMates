@@ -1,0 +1,86 @@
+/* Itinerary tab: Green trip summary card. The whole card opens the Impact page (stretched button, like the stop cards). */
+.green-card {
+  position: relative;
+  gap: 12px;
+}
+
+.green-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.green-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.green-card__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.green-card__title .overline {
+  color: var(--color-sky);
+}
+
+.green-card__heading {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+/* The one spark on the card: the squad's badge */
+.green-card__badge {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.green-card__empty {
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.green-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-top: -2px;
+}
+
+.green-card__open {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.green-card .pill-button {
+  position: relative;
+  z-index: 1;
+}

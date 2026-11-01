@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { EXPERIENCES, experienceById } from '../Explore/experiencesData'
+import { ImpactPage } from '../Impact/ImpactPage'
 import { AddExpensePage } from './AddExpensePage'
 import { GuideTripPage } from './GuideTripPage'
 import { MembersPage } from './MembersPage'
@@ -20,6 +21,7 @@ import { TripSettingsPage } from './TripSettingsPage'
  *   itinerary/stop/<id>     Stop detail
  *   itinerary/add           Add a stop
  *   itinerary/edit/<id>     Edit a stop
+ *   itinerary/impact        Green trip: footprint, quiet hours, money kept local, pledges
  *   expenses/add            Add expense
  *   expenses/settle         Settle up
  *   expenses/settle/done    Payment sent
@@ -40,6 +42,7 @@ export function TripDetailRoutes({ path }: { path: string[] }): JSX.Element | nu
       // Stop screens wait for the itinerary to load and handle unknown ids themselves
       if (page === 'stop' && param) return <StopDetailPage key={param} stopId={param} />
       if (route === 'itinerary/add') return <StopFormPage key="new" />
+      if (route === 'itinerary/impact') return <ImpactPage />
       if (page === 'edit' && param) return <StopFormPage key={param} stopId={param} />
       return null
     case 'expenses':

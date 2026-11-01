@@ -1,0 +1,62 @@
+/* Three tiles in a row: a number, what it counts, and one line of context */
+.kpi-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kpi-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.kpi-tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.kpi-tile__value {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.kpi-tile__unit {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.kpi-tile__label {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--color-ink);
+}
+
+.kpi-tile__note {
+  margin-top: 3px;
+  font-weight: 600;
+  font-size: 10.5px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+.kpi-tile__note strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
