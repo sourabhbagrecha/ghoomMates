@@ -41,7 +41,7 @@ export function EventsPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [planning, setPlanning] = useState<(AnyEvent & { crowd: EventCrowd }) | null>(null)
   const [adding, setAdding] = useState<AnyEvent | null>(null)
-  const focusId = linkedEvent()
+  const linked = linkedEvent()
 
   const dated = !!trip?.startDate
   const overlaps = useMemo(() => (list && trip ? tripOverlaps(list.items, trip) : []), [list, trip])
@@ -66,11 +66,11 @@ export function EventsPage() {
   const everyEvening = list?.recurring ?? []
   const undated = filter === 'all' ? (list?.undated ?? []) : []
 
-  // A link to one event scrolls to it once the list is on screen
+  // A link to one event points at its next run (Diwali is on the list for 2026 and 2027) and scrolls to it once the list is on screen
+  const focusKey = list && linked ? (list.items.find((i) => i.id === linked)?.key ?? linked) : null
   useEffect(() => {
-    if (!list || !focusId) return
-    document.getElementById(`event-${focusId}`)?.scrollIntoView({ block: 'start' })
-  }, [list, focusId])
+    if (focusKey) document.getElementById(`event-${focusKey}`)?.scrollIntoView({ block: 'start' })
+  }, [focusKey])
 
   const card = (event: AnyEvent) => (
     <EventCard
@@ -79,7 +79,7 @@ export function EventsPage() {
       tripDay={tripDayOf(event)}
       addedDays={event.stop ? daysWithStop(itinerary, event.stop.title) : []}
       canAdd={!!trip}
-      focus={focusId === event.id}
+      focus={('key' in event ? event.key : event.id) === focusKey}
       onAdd={() => setAdding(event)}
       onPlan={() => 'crowd' in event && setPlanning(event)}
     />

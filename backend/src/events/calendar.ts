@@ -165,11 +165,11 @@ export const EVENTS: MewarEvent[] = [
     time: { label: 'Darshan through the day', from: h(6), to: h(20) },
     places: [{ name: 'Shrinathji Temple, Nathdwara (48 km from Udaipur)', lat: 24.9376, lng: 73.8236 }],
     significance:
-      'Annakut means “mountain of food”. On the day after Diwali the Shrinathji Temple offers its deity a towering mound of rice and dozens of dishes, remembering Krishna lifting Govardhan hill to shelter his village. It is one of Nathdwara’s biggest days of the year, and families from the temple town and the villages around come for darshan.',
+      'Annakut means “mountain of food”. On the first day of Kartik’s bright fortnight, just after Diwali, the Shrinathji Temple offers its deity a towering mound of rice and dozens of dishes, remembering Krishna lifting Govardhan hill to shelter his village. It is one of Nathdwara’s biggest days of the year, and families from the temple town and the villages around come for darshan.',
     join: {
       etiquette: [
         'Darshan comes in short windows with long lines. Join early, stay patient and let families with small children and elders go ahead.',
-        'At the end of the day Bhil families from the surrounding villages are invited to take the rice mound home as prasad, a custom the temple honours as a favour. Watch from the side and let it be their moment.',
+        'At the end of the day Bhil families from the surrounding villages are traditionally allowed to take the rice mound home as prasad, a custom the temple describes as a special favour. Watch from the side and let it be their moment.',
         'Prasad is for sharing: take what you are offered and waste none of it.',
       ],
       ...NATHDWARA_JOIN,
@@ -179,7 +179,7 @@ export const EVENTS: MewarEvent[] = [
       'One taxi for the squad of 4–10 beats five scooters on a road full of devotees.',
       'Phones stay in the lockers, so agree a meeting point outside before you go in.',
     ],
-    tripTip: 'Your {day} is Annakut, Shrinathji’s biggest day after Diwali at Nathdwara, 48 km out. Leave Udaipur before 6 AM and give it the whole day.',
+    tripTip: 'Your {day} is Annakut, one of Shrinathji’s biggest days at Nathdwara, 48 km out. Leave Udaipur before 6 AM and give it the whole day.',
     intensity: 'packed',
     crowdNote: 'Thousands queue at Nathdwara from early morning; expect lines of an hour or more.',
     impacts: [],
@@ -189,7 +189,7 @@ export const EVENTS: MewarEvent[] = [
       time: '07:00 AM',
       tag: 'Culture',
       fixedTime: true,
-      notes: 'Shrinathji’s Annakut: a mountain of rice and dishes offered the day after Diwali. Nathdwara is 48 km from Udaipur (about 1.5 hours), so leave before dawn. Shoes, socks and phones go in the lockers by the gate; no photos inside. The temple board confirms darshan times a few days ahead.',
+      notes: 'Shrinathji’s Annakut: a mountain of rice and dishes offered just after Diwali. Nathdwara is 48 km from Udaipur (about 1.5 hours), so leave before dawn. Shoes, socks and phones go in the lockers by the gate; no photos inside. The temple board confirms darshan times a few days ahead.',
       care: 'Leave Udaipur before dawn, store phones and shoes in the free lockers, and expect a long, slow queue.',
     },
     sources: [
@@ -367,7 +367,7 @@ export const EVENTS: MewarEvent[] = [
       { name: 'Sajjangarh Monsoon Palace', siteId: 'sajjangarh' },
     ],
     significance:
-      'Makar Sankranti marks the sun’s turn northward, and across Rajasthan it is kept with kites, til-gur sweets and giving. In Udaipur the old city’s rooftops fill with families calling “wo kata!” as strings cross, and the tourism department hosts kite sessions at the lakeside and the hill viewpoints.',
+      'Makar Sankranti marks the sun’s turn northward, and across Rajasthan it is kept with kites, til-gur sweets and giving. In Udaipur the old city’s rooftops fill with families calling “wo kata!” as strings cross, and in 2026 the tourism department hosted kite sessions at the lakeside and the hill viewpoints.',
     join: {
       etiquette: [
         'Use plain cotton thread, never glass-coated or nylon manjha: it cuts birds and people on scooters.',
@@ -388,8 +388,8 @@ export const EVENTS: MewarEvent[] = [
     crowdNote: 'Lakeside and hill viewpoints fill from about 3 PM; rooftops are calmer.',
     impacts: [
       { siteId: 'moti-magri', from: h(15), to: h(17, 30), factor: 1.7, floor: 66, peakOnly: true, note: 'A favourite kite spot above the lake' },
-      { siteId: 'fateh-sagar', from: h(15), to: h(18, 30), factor: 1.35, peakOnly: true, note: 'Official kite session on the embankment' },
-      { siteId: 'gangaur-ghat', from: h(15, 30), to: h(18, 30), factor: 1.3, peakOnly: true, note: 'Kite session on the ghat' },
+      { siteId: 'fateh-sagar', from: h(15), to: h(18, 30), factor: 1.35, peakOnly: true, note: 'Kite flyers fill the embankment' },
+      { siteId: 'gangaur-ghat', from: h(15, 30), to: h(18, 30), factor: 1.3, peakOnly: true, note: 'Kite flyers on the ghat steps' },
       { siteId: 'sajjangarh', from: h(15), to: h(18), factor: 1.3, peakOnly: true, note: 'The single hill road jams' },
     ],
     stop: {
@@ -398,7 +398,7 @@ export const EVENTS: MewarEvent[] = [
       time: '03:30 PM',
       tag: 'Chill',
       fixedTime: false,
-      notes: 'Kite day. The tourism department runs sessions at Fateh Sagar, Gangaur Ghat, Moti Magri and Sajjangarh; rooftops across the old city fill too. Use cotton thread, stay away from roads and power lines, and share til-gur.',
+      notes: 'Kite day. Last year the tourism department ran sessions at Fateh Sagar, Gangaur Ghat, Moti Magri and Sajjangarh; rooftops across the old city fill too. Use cotton thread, stay away from roads and power lines, and share til-gur.',
       care: 'Use cotton thread, keep away from roads and power lines, and go before 3 PM for space.',
     },
     sources: [
@@ -430,13 +430,13 @@ export const EVENTS: MewarEvent[] = [
       photography: 'No phones or cameras inside the temple. Outside, ask before photographing devotees.',
     },
     tips: [
-      'Lines are longest on the festival day itself. The small hours after midnight are calmer than the afternoon.',
+      'Devotees queue through the night and the day, so go with water, patience and a plan to stay together.',
       'Arrange a driver for the late return: it is 22 km and buses thin out at night.',
-      'A quiet Monday visit is a good rehearsal if you cannot be there on the night.',
+      'If you cannot be there on the night, pick a weekday that is not a Monday: Mondays draw crowds to Eklingji too.',
     ],
     tripTip: 'Your {day} is Maha Shivratri. Eklingji, 22 km out, stays open through the night with thousands in line. Go after sunset and plan a late ride back.',
     intensity: 'packed',
-    crowdNote: 'Thousands queue at Eklingji through the night; the afternoon is the heaviest.',
+    crowdNote: 'Thousands queue at Eklingji through the night and the day.',
     impacts: [],
     stop: {
       title: 'Maha Shivratri at Eklingji Temple',
@@ -466,7 +466,7 @@ export const EVENTS: MewarEvent[] = [
     time: { label: 'Procession about 6 PM, fire at twilight', from: h(17, 30), to: h(20, 30) },
     places: [{ name: 'Manek Chowk, City Palace', siteId: 'city-palace' }],
     significance:
-      'On the eve of Holi the Mewar royal family lights the Holika fire in Manek Chowk, inside the City Palace. A parade of decorated horses, liveried palace staff and a band walks from the royal residence to the chowk; at twilight the fire is lit and local people dance the Gair. It celebrates devotion winning over arrogance, and it is the best-known Holi ceremony in the city.',
+      'On the eve of Holi the Mewar royal family lights the Holika fire in Manek Chowk, inside the City Palace. A parade of decorated horses, liveried palace staff and a band walks from the royal residence to the chowk; at twilight the fire is lit and local people dance the Gair. It celebrates devotion winning over arrogance.',
     join: {
       etiquette: [
         'Entry is by pass from the City Palace office. Book early and arrive well before six to be seated.',
@@ -568,7 +568,7 @@ export const EVENTS: MewarEvent[] = [
       { name: 'Gogunda village mela (40 km)' },
     ],
     significance:
-      'Gangaur honours Gauri (Parvati) and her union with Shiva. Women and girls who have kept the 18-day festival since Holi carry painted Gauri images in procession through the old city down to Lake Pichola. The three-day Mewar Festival, run by the district administration and the tourism office, adds folk dances, decorated boats on the lake and fireworks over Gangaur Ghat.',
+      'Gangaur honours Gauri (Parvati) and her union with Shiva. Women and girls who have kept the 18-day festival since Holi carry decorated Gauri images in procession through the old city down to Lake Pichola. The three-day Mewar Festival, run by the district administration and the tourism office, adds folk dances, decorated boats on the lake and fireworks over Gangaur Ghat.',
     join: {
       etiquette: [
         'Gangaur is led by women and girls. Stand back, let them lead, and ask before photographing women or the idols.',
@@ -684,7 +684,7 @@ export const EVENTS: MewarEvent[] = [
       { name: 'Saheliyon ki Bari', siteId: 'saheliyon-ki-bari' },
     ],
     significance:
-      'Hariyali Amavasya greets the monsoon, when the Aravallis turn green. The Udaipur Municipal Corporation runs a two-day fair at Fateh Sagar and Saheliyon ki Bari with swings under the trees, a haat bazaar of toys and handicrafts, Rajasthani street food and folk performances. Local tradition credits Maharana Fateh Singh with starting it, and families from the villages around come in their brightest clothes.',
+      'Hariyali Amavasya greets the monsoon, when the Aravallis turn green. The Udaipur Municipal Corporation runs a two-day fair at Fateh Sagar and Saheliyon ki Bari with swings for every age, a haat bazaar of toys and handicrafts, Rajasthani street food and folk performances. Local tradition credits Maharana Fateh Singh with starting it, and families from the villages around come in their brightest clothes.',
     join: {
       etiquette: [
         'The second day is only for women and girls. Men and boys should plan to come on the first day.',
@@ -795,7 +795,7 @@ export const EVENTS: MewarEvent[] = [
     ],
     tripTip: 'Your {day} is Janmashtami: Nathdwara’s Shrinathji Temple fills in the evening for the midnight birth darshan. It is a late night 48 km from Udaipur, so arrange the ride back.',
     intensity: 'packed',
-    crowdNote: 'Lakhs of devotees come to Nathdwara; the temple and its lanes are packed from the evening.',
+    crowdNote: 'Very large crowds (reports say lakhs of devotees): the temple and its lanes are packed from the evening.',
     impacts: [],
     stop: {
       title: 'Janmashtami at Shrinathji Temple, Nathdwara',
@@ -874,7 +874,7 @@ export const EVENTS: MewarEvent[] = [
     places: [{ name: 'Bagore ki Haveli, Gangaur Ghat', siteId: 'bagore-ki-haveli' }],
     price: 'Roughly ₹90–125 for an Indian adult (listings differ), more for foreign visitors, plus a camera fee. Pay at the counter.',
     significance:
-      'An hour of Rajasthani folk dance, music and puppetry in the courtyard of Bagore ki Haveli, the 18th-century mansion of Mewar’s prime minister Amar Chand Badwa, now a museum run by the West Zone Cultural Centre. It is the easiest way for a squad to meet living Rajasthani culture in an evening.',
+      'An hour of Rajasthani folk dance and music in the courtyard of Bagore ki Haveli, the 18th-century mansion of Mewar’s prime minister Amar Chand Badwa, now a museum run by the West Zone Cultural Centre. It is the easiest way for a squad to meet living Rajasthani culture in an evening.',
     join: {
       etiquette: [
         'Seats are unreserved and tickets go on sale at the counter from about 6 PM. Send one of you ahead to queue.',
@@ -919,7 +919,7 @@ export const EVENTS: MewarEvent[] = [
     places: [{ name: 'Bhartiya Lok Kala Mandal', siteId: 'lok-kala-mandal' }],
     price: 'Roughly ₹120–170 for an Indian adult (listings differ). The museum ticket is separate.',
     significance:
-      'Since 1952 the Bhartiya Lok Kala Mandal has kept Rajasthani puppetry and folk art alive. Its daily kathputli show brings string puppets, folk songs and a dance act to a small hall, played by artists from puppeteer families, the Nat and Bhat communities who made the craft.',
+      'Since 1952 the Bhartiya Lok Kala Mandal has kept Rajasthani puppetry and folk art alive. Its daily kathputli show brings string puppets, folk songs and a dance act to the stage. Kathputli is the string-puppet craft of the Nat and Bhat communities.',
     join: {
       etiquette: [
         'Tip the puppeteers directly: it is their living.',
@@ -934,7 +934,7 @@ export const EVENTS: MewarEvent[] = [
       'Visit the museum of folk art, masks and puppets earlier in the day.',
     ],
     intensity: 'moderate',
-    crowdNote: 'A small hall that rarely sells out, but tour groups arrive at 6 PM.',
+    crowdNote: 'A calmer evening than the Dharohar show: arrive a few minutes early for a front seat.',
     impacts: [],
     stop: {
       title: 'Kathputli puppet show',
@@ -942,7 +942,7 @@ export const EVENTS: MewarEvent[] = [
       time: '06:00 PM',
       tag: 'Culture',
       fixedTime: true,
-      notes: 'The daily string-puppet show at Bhartiya Lok Kala Mandal, kept alive since 1952 by puppeteer families. Shows run at 12 noon, 6 PM and 7:15 PM. Tip the puppeteers directly and keep flash off.',
+      notes: 'The daily string-puppet show at Bhartiya Lok Kala Mandal, which has kept Rajasthani puppetry alive since 1952. Shows run at 12 noon, 6 PM and 7:15 PM. Tip the puppeteers directly and keep flash off.',
       care: 'Tip the puppeteers directly and keep the flash off.',
     },
     sources: [

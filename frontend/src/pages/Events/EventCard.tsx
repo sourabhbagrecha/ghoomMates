@@ -44,9 +44,11 @@ export function EventCard({ event, tripDay, addedDays, canAdd, focus = false, on
   const firstPlace = event.places[0]
   const mapPlace = event.places.find((p) => p.lat !== null && p.lng !== null)
   const tone = crowd?.label ?? 'moderate'
+  // Diwali is on the list twice (2026 and 2027): a run's key keeps the ids unique
+  const anchor = instance ? instance.key : event.id
 
   return (
-    <article className={`card event-card${focus ? ' event-card--focus' : ''}`} id={`event-${event.id}`} aria-labelledby={`event-${event.id}-name`}>
+    <article className={`card event-card${focus ? ' event-card--focus' : ''}`} id={`event-${anchor}`} aria-labelledby={`event-${anchor}-name`}>
       <header className="event-card__head">
         <div className="event-card__tile" aria-hidden="true">
           <span className="event-card__tile-top">{tile.top}</span>
@@ -58,7 +60,7 @@ export function EventCard({ event, tripDay, addedDays, canAdd, focus = false, on
             <span className={`event-card__badge${badge.soon ? ' event-card__badge--soon' : ''}`}>{badge.text}</span>
             {tripDay !== null && <span className="event-card__badge event-card__badge--trip">Day {tripDay} of your trip</span>}
           </div>
-          <h3 id={`event-${event.id}-name`} className="event-card__name">
+          <h3 id={`event-${anchor}-name`} className="event-card__name">
             {event.name}
           </h3>
           <p className="event-card__hindi" lang="hi">

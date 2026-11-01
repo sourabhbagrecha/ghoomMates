@@ -24,8 +24,10 @@ describe('the calendar', () => {
   test('every event is written for travellers: names in both scripts, a respectful way to join, tips and sources', () => {
     for (const e of EVENTS) {
       expect(DEVANAGARI.test(e.nameHi)).toBe(true);
-      expect(e.significance.split('. ').length >= 2).toBe(true);
-      expect(e.significance.length < 700).toBe(true);
+      // Two or three sentences, respectful and short enough for a phone
+      const sentences = e.significance.split(/(?<=[.!?])\s+/).filter(Boolean).length;
+      expect(sentences >= 2 && sentences <= 3).toBe(true);
+      expect(e.significance.length < 450).toBe(true);
       expect(e.join.etiquette.length >= 2).toBe(true);
       expect(e.join.dress.length > 20).toBe(true);
       expect(e.join.photography.length > 20).toBe(true);
