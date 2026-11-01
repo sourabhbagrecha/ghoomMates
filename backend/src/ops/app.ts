@@ -4,7 +4,7 @@ import { ApiError, jsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { User } from '../auth/types.ts';
 import type { Gemini } from '../gemini.ts';
-import { PACKED_FROM, BUSY_FROM, cityOf, dayFactor, formatTime, indiaNow } from '../heritage/crowd.ts';
+import { PACKED_FROM, BUSY_FROM, cityOf, dayNoteFor, formatTime, indiaNow } from '../heritage/crowd.ts';
 import type { HeritageCity } from '../heritage/sites.ts';
 import { object } from '../expenses/domain.ts';
 import {
@@ -109,7 +109,7 @@ export function createOpsApp({ db, authenticate, gemini, env = process.env, now 
     const includeSample = flag(req.query.sample, sampleByDefault);
     const { stops, live, sampleSquads } = await plannedStops(city, date, includeSample);
     res.json({
-      ...buildForecast(city, date, dayFactor(date).reason, stops),
+      ...buildForecast(city, date, dayNoteFor(date), stops),
       meta: { live, sample: includeSample, sampleSquads },
     });
   });
@@ -139,7 +139,7 @@ export function createOpsApp({ db, authenticate, gemini, env = process.env, now 
     const date = dateOr(body.date, indiaNow(now()).date);
     const includeSample = flag(body.sample, sampleByDefault);
     const { stops } = await plannedStops(site.city, date, includeSample);
-    const forecast = buildForecast(site.city, date, dayFactor(date).reason, stops);
+    const forecast = buildForecast(site.city, date, dayNoteFor(date), stops);
     const siteForecast = forecast.sites.find(s => s.id === site.id)!;
 
     const window = body.startMinutes === undefined && body.endMinutes === undefined

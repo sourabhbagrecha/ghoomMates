@@ -21,7 +21,11 @@ No migration: forecasts are computed, not stored.
 
 ## Day factors
 
-Weekends ×1.12, Apr–Jun ×0.65, Jul–Sep ×0.85, and festival windows (Diwali, the year-end holidays) ×1.2–1.3. Add festival dates in `FESTIVALS` in `crowd.ts`.
+Weekends ×1.12, Apr–Jun ×0.65, Jul–Sep ×0.85, and festival periods (Diwali, the year-end holidays) ×1.2–1.3. Add festival periods in `FESTIVALS` in `crowd.ts`.
+
+## Festivals at a site
+
+On top of the day factor, a festival lifts the sites and hours it touches: the Rath Yatra fills Jagdish Chowk from 2 to 7 PM (and opens the temple through its usual 2–4 PM closure), Gangaur fills the ghat, Diwali night packs the old city from about 6 PM. The calendar, the multipliers and how `levelAt` applies them are in [events.md](events.md); a day with no festival is exactly the model above. `crowdForStop` adds `events` (what touches the site that day), `liveCrowds` adds `events` per site, and `dayNoteFor(date)` names the day for travellers (festival period, else the festivals on, else “weekend”).
 
 ## Data
 

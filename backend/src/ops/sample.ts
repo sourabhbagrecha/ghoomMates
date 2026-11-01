@@ -2,6 +2,7 @@
 // deterministic sample on top: the same city, day and seed always give the same squads, shaped by each site's own
 // crowd curve (squads arrive about half a stay before the site peaks). They are flagged `sample: true`, can be switched
 // off (`?sample=0`, or OPS_SAMPLE_SQUADS=off) and are always labelled as simulated in the console.
+import { eventLift } from '../events/lift.ts';
 import { dayFactor, isOpen, sitesIn } from '../heritage/crowd.ts';
 import type { HeritageCity } from '../heritage/sites.ts';
 import { SITE_BY_ID } from '../heritage/sites.ts';
@@ -73,8 +74,9 @@ export function sampleStops(city: HeritageCity, date: string): PlannedStop[] {
     const dwell = DWELL_MINUTES[site.kind];
     // Half-hour slots across the day; the curve is read half a stay ahead because squads arrive before the site peaks
     for (let slot = 6 * 60; slot < 22 * 60; slot += 30) {
-      if (!isOpen(site, slot)) continue;
-      const expected = popularity * SQUADS_AT_FULL * factor * (curveAt(site, slot + dwell / 2) / 100) ** HERDING / 2;
+      if (!isOpen(site, slot, date)) continue;
+      // A festival at the site that day (events/calendar.ts) draws more squads into its hours
+      const expected = popularity * SQUADS_AT_FULL * factor * eventLift(site.id, slot, date).factor * (curveAt(site, slot + dwell / 2) / 100) ** HERDING / 2;
       // Fractions become an occasional extra squad, so quiet gems still see the odd visitor
       const wanted = expected * (0.9 + 0.2 * random());
       const count = Math.floor(wanted) + (random() < wanted % 1 ? 1 : 0);

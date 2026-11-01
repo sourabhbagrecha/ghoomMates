@@ -43,6 +43,7 @@ export const crowds: Skill = {
         const now = site.level === null ? 'closed right now' : `${site.label} right now (${site.level}/100${site.waitMinutes ? `, about ${site.waitMinutes} minutes of queue` : ''}, ${site.trend})`;
         return [
           `It's ${live.time}. ${site.name} is ${now}.${day}`,
+          site.events[0] && `${site.events[0].name} is on today: ${site.events[0].note}.`,
           site.best && `Quietest today around ${site.best.time}.`,
           site.quietAt && `It next gets quiet around ${site.quietAt}.`,
           alternatives.length && `Quieter with a similar feel: ${alternatives.map(a => `${a.name} (${a.label})`).join(', ')}.`,

@@ -39,7 +39,7 @@ uplift(site, hour)    = present ÷ CAPACITY_PER_HOUR[site kind] × 100          
 projected(site, hour) = min(100, modelled baseline + uplift)
 ```
 
-- **Modelled baseline** is `heritage/crowd.ts` (the hand-tuned curve × the day factor for weekends, festivals and season).
+- **Modelled baseline** is `heritage/crowd.ts` (the hand-tuned curve × the day factor for weekends, festivals and season, × the festival factor at the sites and hours a festival touches: see [events.md](events.md)). On Rath Yatra day the forecast shows Jagdish Temple open and packed through its usual 2–4 PM closure, and the day note names the festival.
 - **A planned stop** is an itinerary stop with a time, on that date (trip start date + day number), in a trip to the city, at a site `matchSite()` recognises. Food, Stay and Travel stops are skipped, like the itinerary does. People = the trip's member count.
 - **Dwell:** a squad arrives at the stop's time and stays `DWELL_MINUTES[kind]` (palace 120, museum, bazaar and crafts 75, haveli, ghat, lake, garden and viewpoint 60, temple 45), so it loads every hour it overlaps.
 - **Capacity** (people an hour before a site feels full): palace 340, ghat 380, garden 320, temple 300, lake 220, viewpoint 200, museum and crafts 170, haveli 150, bazaar 480.
@@ -63,7 +63,7 @@ Real planned stops are a handful while the app is young, so the console layers a
 - per request: `?sample=0` (the console has a switch for it);
 - server-wide default: `OPS_SAMPLE_SQUADS=off`.
 
-On a normal weekday the sample puts about 40 squads into City Palace between 10 AM and noon, which is the demo moment: the baseline calls that window moderate-then-busy, and the squads tip it to packed. Real plans are always counted on top.
+On a festival day the sample draws more squads to the sites the festival touches, in its hours. On a normal weekday the sample puts about 40 squads into City Palace between 10 AM and noon, which is the demo moment: the baseline calls that window moderate-then-busy, and the squads tip it to packed. Real plans are always counted on top.
 
 ## Advisories
 
