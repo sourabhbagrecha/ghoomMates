@@ -95,7 +95,20 @@ The fair-price bands, workshop prices, workshop durations and drive times are **
 
 ## Cover art
 
-`frontend/public/makers/<craftId>.jpg` (900 px wide, under 150 KB each) was generated once with `gemini.image()` (Vertex AI, `gemini-2.5-flash-image`, 4:3) from one prompt per craft: a warm documentary photograph of hands at work, with no text and no faces. Where the model put a stray face at the edge of the frame, the picture was cropped.
+`frontend/public/makers/<craftId>.jpg` (900 px wide, under 150 KB each) was generated once with `gemini.image()` (Vertex AI, `gemini-2.5-flash-image`, 4:3) from one prompt per craft: a warm documentary photograph of hands at work, with no text and no faces. Where the model put a stray face at the edge of the frame, the picture was cropped. The prompts live in `scripts/makers-covers.ts` (`node scripts/makers-covers.ts <outDir> [craftId ...]`, then crop and compress with `sips`).
+
+## Frontend
+
+All in `frontend/src/pages/Makers/`, with the API client in `src/services/makersService.ts`. Three entry points reach it:
+
+| Where | What |
+| --- | --- |
+| Explore tab → “Makers of Udaipur” (`MakersSection`, Udaipur trips only) | A row of the 14 craft cards (cover art, Hindi name, maker count, GI badge). A card opens the list filtered to that craft. |
+| `#/trip/explore/makers[?craft=<id>&near=<siteId>]` (`MakersListPage`) | Craft filter chips and a “Near <your next heritage stop>” sort (or “Our picks”). Measured from the `near` site, else the next heritage stop in the itinerary, else City Palace. |
+| `#/trip/explore/makers/<id>` (`MakerDetailPage`) | Hero art, story, the craft explainer (steps, GI note), how to spot the real thing, the fair-price checker (`PriceChecker`), the workshop, an ask box (`AskMaker`), a Google Maps directions link, and the booking sheet (`BookingSheet`: day, time, headcount defaulting to the squad size, total in ₹). Booking shows a toast, and the new stop is in the itinerary. |
+| Stop screen (`MakersNearby`, one line in `StopDetailPage`) | For a stop at a heritage site: the makers within 1.5 km, nearest first, opening the maker page with the stop to come back to. For the stop a booking created: a “Your workshop is booked” card with studio directions. |
+
+The pages use the craft cover as hero art. Back goes to wherever the screen was opened from (`?from=trip/itinerary/stop/<id>`), and the booking sheet starts on the day of that stop. Loading, error and empty states use the shared `Skeleton`, `ErrorState` and `EmptyState`; the Explore row hides itself if the crafts can't load.
 
 ## Known gaps
 

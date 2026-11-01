@@ -25,7 +25,10 @@ export type BookingView = BookingRecord & {
   lat: number;
   lng: number;
   workshopTitle: string;
+  craftId: string;
   craftName: string;
+  /** The craft's cover art, for the stop screen */
+  cover: string;
 };
 
 export function bookingView(record: BookingRecord): BookingView {
@@ -39,7 +42,9 @@ export function bookingView(record: BookingRecord): BookingView {
     lat: maker?.lat ?? 0,
     lng: maker?.lng ?? 0,
     workshopTitle: maker?.workshop.title ?? 'Workshop',
+    craftId: craft?.id ?? '',
     craftName: craft?.name ?? '',
+    cover: craft?.cover ?? '',
   };
 }
 

@@ -232,11 +232,12 @@ describe('booking a workshop for the squad', () => {
       });
       expect(String(stops[0].input.notes).includes('₹4,500')).toBe(true);
       expect(String(stops[0].input.notes).includes('Pay Mahendra directly')).toBe(true);
+      expect(String(stops[0].input.notes).includes('You take away your own hand-painted miniature')).toBe(true);
 
       const list = await api(`/bookings?tripId=${TRIP_ID}`, { token: TOKEN });
       expect(list.status).toBe(200);
       expect(list.data.items).toHaveLength(1);
-      expectFields(list.data.items[0], { makerName: 'Mahendra Chitera', studio: 'Chitera Kala Niwas', stopId: 'stop-1', total: 4500 });
+      expectFields(list.data.items[0], { makerName: 'Mahendra Chitera', studio: 'Chitera Kala Niwas', stopId: 'stop-1', total: 4500, craftId: 'miniature', cover: '/makers/miniature.jpg' });
       expect(list.data.items[0].lat > 24).toBe(true);
 
       // Six of the eight places in that session are taken

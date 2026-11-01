@@ -226,7 +226,7 @@ export function fairPriceCheck(craftId: string, size: ItemSize, quoted: number, 
     overBy,
     multiple,
     antiqueNote: options.antique
-      ? `Anything over 100 years old needs ASI clearance to leave India (Antiquities and Art Treasures Act, 1972), and a genuine antique is priced by a dealer’s certificate, not by a bazaar quote. At ${inr(quoted)}, treat “antique” as new work aged with tea and judge it as new work.`
+      ? `Anything over 100 years old needs ASI clearance to leave India (Antiquities and Art Treasures Act, 1972), and a genuine antique is priced by a dealer’s certificate, not by a bazaar quote. At ${inr(quoted)}, treat it as new work aged to look old and judge it by the fair range.`
       : null,
   };
 }
@@ -312,7 +312,7 @@ export function stopNotes(maker: Maker, people: number, total: number, note: str
   return [
     `${people} ${people === 1 ? 'person' : 'people'} · ${durationLabel(workshop.durationMin)} · ${inr(total)} (${inr(workshop.pricePerPerson)} each). Pay ${maker.name.split(' ')[0]} directly on the day, by UPI or cash.`,
     `At ${maker.studio}, ${maker.area}.`,
-    `You take away: ${workshop.makes}.`,
+    `You take away ${workshop.makes.charAt(0).toLowerCase()}${workshop.makes.slice(1)}.`,
     note && `Your note: ${note}`,
   ].filter(Boolean).join(' ');
 }
