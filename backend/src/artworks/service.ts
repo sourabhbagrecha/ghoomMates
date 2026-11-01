@@ -163,7 +163,9 @@ export class ArtworkService {
         logger.info('Artworks', `The ${style.name} shows ${seen} people for a photo of ${cast.people}; painting it once more`);
         const again = await this.paint(style, image, cast, deadline).catch(() => null);
         if (again) {
-          const seenAgain = await countPeople(this.gemini, inline(again.data), 15_000);
+          // Counting the second painting must not push the request past its deadline either
+          const left = deadline - Date.now();
+          const seenAgain = left > 3_000 ? await countPeople(this.gemini, inline(again.data), Math.min(15_000, left)) : null;
           if (seenAgain !== null && Math.abs(seenAgain - cast.people) < Math.abs(seen - cast.people)) painted = again;
         }
       }
