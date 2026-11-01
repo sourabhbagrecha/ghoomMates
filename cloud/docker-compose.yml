@@ -4,7 +4,7 @@ x-faces: &faces
   build:
     context: .
     target: runtime
-  image: ghoomates-faces:local
+  image: ghoommates-faces:local
   environment: &faces-env
     DATABASE_URL: postgresql://faces:faces@db:5432/faces
     LOCAL_MEDIA_DIR: /media
@@ -57,7 +57,7 @@ services:
     build:
       context: .
       target: test
-    image: ghoomates-faces:test
+    image: ghoommates-faces:test
     profiles: ["test"]
     environment:
       TEST_DATABASE_URL: postgresql://faces:faces@db:5432/faces

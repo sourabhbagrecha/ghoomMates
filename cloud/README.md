@@ -303,7 +303,7 @@ cd cloud
 cat .env                          # cloud/.env (gitignored) already holds the real DATABASE_URL
 gcloud auth login                 # if needed; your account must be able to change IAM in the project
 gcloud auth application-default login   # only needed for ./deploy.sh backfill
-docker compose build migrate      # builds ghoomates-faces:local, used by the migrate and backfill steps
+docker compose build migrate      # builds ghoommates-faces:local, used by the migrate and backfill steps
 
 ./deploy.sh apis         # 1. enable APIs (Cloud Run is currently disabled in the project)
 ./deploy.sh registry     # 2. Artifact Registry repository
@@ -323,9 +323,9 @@ Steps 9 and 10 come after the deploys because IAM bindings on a service, and tri
 
 **About the database URL.** As agreed, the connection is the public IP URL and there is no Secret Manager secret. The URL, including the password, is set as a plain environment variable on both services. It is visible to anyone in the project with `run.services.get`. To move it into Secret Manager later:
 
-1. Create a secret `ghoomates-db-url`.
+1. Create a secret `ghoommates-db-url`.
 2. Grant `roles/secretmanager.secretAccessor` (the commented lines in `deploy.sh iam`).
-3. Replace the `DATABASE_URL` line of the env file with `--set-secrets=DATABASE_URL=ghoomates-db-url:latest`.
+3. Replace the `DATABASE_URL` line of the env file with `--set-secrets=DATABASE_URL=ghoommates-db-url:latest`.
 
 ### Commands and flags
 
@@ -372,11 +372,11 @@ These roles are not granted. Each is commented in `deploy.sh` with the reason:
 - **Cloud SQL Client** is only needed with the Cloud SQL connector. The services connect straight to the public IP.
 - **Secret Manager Secret Accessor** is not needed because no secret is used.
 
-`docker run --rm -e DATABASE_URL=… ghoomates-faces:local python -m faces.migrate` (step `migrate`):
+`docker run --rm -e DATABASE_URL=… ghoommates-faces:local python -m faces.migrate` (step `migrate`):
 
 - `--rm`: deletes the container when it exits.
 - `-e DATABASE_URL`: passes the connection URL.
-- `ghoomates-faces:local`: the image `docker compose build` creates.
+- `ghoommates-faces:local`: the image `docker compose build` creates.
 - `python -m faces.migrate`: applies `migrations/*.sql` once each, under an advisory lock.
 
 The `ghoomates` user is a member of `cloudsqlsuperuser`, which Cloud SQL requires for `CREATE EXTENSION vector`.

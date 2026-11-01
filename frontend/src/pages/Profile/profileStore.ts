@@ -32,7 +32,7 @@ type ProfileState = {
 // The face-match selfie stays on this device, per account (too big for the profile request)
 const selfieKey = () => {
   const id = getStoredUser()?.id
-  return id ? `ghoomates:selfie:${id}` : null
+  return id ? `ghoommates:selfie:${id}` : null
 }
 const storedSelfie = () => {
   const key = selfieKey()

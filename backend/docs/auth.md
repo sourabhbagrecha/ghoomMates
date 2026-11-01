@@ -1,6 +1,6 @@
-# Ghoomates OAuth Service
+# Ghoommates OAuth Service
 
-Authentication module of the unified Ghoomates backend (routes under `/auth/*`), handling Google OAuth 2.0 login and sign-up flows.
+Authentication module of the unified Ghoommates backend (routes under `/auth/*`), handling Google OAuth 2.0 login and sign-up flows.
 
 ## Features
 
@@ -24,7 +24,7 @@ PORT=3000
 CLIENT_ORIGIN=http://localhost:5173
 
 # Secret for signing session JWTs (minimum 32 characters)
-JWT_SECRET=ghoomates-oauth-jwt-secret-key-32chars-min-dev-2026
+JWT_SECRET=ghoommates-oauth-jwt-secret-key-32chars-min-dev-2026
 
 # Google Cloud OAuth Credentials (from Google Cloud Console -> APIs & Services -> Credentials)
 GOOGLE_CLIENT_ID=

@@ -78,7 +78,7 @@ const stopFor = (host: Host, b: { time: string; headcount: number; dietary: Diet
   title: `Mewari thali at ${host.name}`,
   tag: 'Food',
   place: `${host.name}, ${host.area}`,
-  notes: `Table for ${b.headcount}${describeMix(b.dietary) ? ` (${describeMix(b.dietary)})` : ''}. Cooked to your head-count from farms around Udaipur. Booked on Ghoomates.`,
+  notes: `Table for ${b.headcount}${describeMix(b.dietary) ? ` (${describeMix(b.dietary)})` : ''}. Cooked to your head-count from farms around Udaipur. Booked on Ghoommates.`,
 });
 
 // Farm-to-table: sample partner kitchens and farms, squad table bookings, and the host's own forecast, orders and menu.

@@ -44,7 +44,7 @@ export function dayName(date: string, today: string, label: string) {
 }
 
 /** Remembers which host kitchen was open last on this device */
-const HOST_KEY = 'ghoomates:hostKitchen'
+const HOST_KEY = 'ghoommates:hostKitchen'
 
 export function rememberHost(id: string) {
   try {
