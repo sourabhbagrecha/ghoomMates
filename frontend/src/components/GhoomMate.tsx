@@ -1,5 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import octopus from '../assets/figma/ghoommate-octopus.png'
+import mascotWaving from '../assets/mascot/ghoommate-waving.webp'
+import mascotStill from '../assets/mascot/ghoommate-still.png'
 import iconMic from '../assets/figma/icon-mic.svg'
 import { useVoice } from './voice/voiceContext'
 import './GhoomMate.css'
@@ -10,9 +12,11 @@ export function GhoomMateFab() {
 
   return (
     <button type="button" className="ghoommate-fab" aria-label="Talk to GhoomMate" aria-haspopup="dialog" onClick={() => open()}>
-      <span className="ghoommate-fab__bubble">
-        <img className="ghoommate-fab__mascot" src={octopus} alt="" width={64} height={64} />
-      </span>
+      {/* Full-body waving mascot, free-standing; a still frame when motion is reduced */}
+      <picture className="ghoommate-fab__mascot">
+        <source srcSet={mascotStill} media="(prefers-reduced-motion: reduce)" />
+        <img src={mascotWaving} alt="" width={84} height={88} />
+      </picture>
       <span className="ghoommate-fab__mic">
         <img src={iconMic} alt="" width={14} height={14} />
       </span>
