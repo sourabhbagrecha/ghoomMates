@@ -16,9 +16,11 @@ export interface ServerModules {
   heritage?: Router;
   // Signed upload/download routes for the local media fallback, mounted under /api/media.
   media?: Router;
+  // Squad Miniature: trip photos painted in Udaipur's painting traditions, mounted under /api/artworks. Omitted without a database.
+  artworks?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, artworks }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -46,6 +48,9 @@ export function createServer({ auth, expenses, trips, voice, heritage, media }: 
   }));
   app.use('/api/voice', voice ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+  }));
+  app.use('/api/artworks', artworks ?? (() => {
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Artworks need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (media) app.use('/api/media', media);
