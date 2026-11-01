@@ -116,17 +116,17 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
           </div>
         </div>
 
-        {/* Local developer testing accounts */}
+        {/* Test accounts: on for local dev, and on a deployed demo when ALLOW_DEV_LOGIN is set */}
         {config?.devModeEnabled && (
           <>
             <div className="sign-in__divider">
-              <span>Local Dev Test Accounts</span>
+              <span>Test accounts</span>
             </div>
 
             <div className="sign-in__dev-box">
               <div className="sign-in__dev-label">
-                <span>Quick Test Sign-In</span>
-                <span className="sign-in__dev-badge">Local Mode</span>
+                <span>Quick test sign-in</span>
+                <span className="sign-in__dev-badge">Demo mode</span>
               </div>
               <div className="sign-in__dev-accounts">
                 <button

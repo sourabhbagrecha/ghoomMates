@@ -30,6 +30,20 @@ const PALETTE = [
   'var(--color-person-you)',
 ]
 
+// A member's colour is saved as a design token ("var(--color-person-riya)") by sign-up and as a colour id ("pink") by
+// Edit profile (see COLOURS in pages/Onboarding/onboardingData.ts). Both have to end up as a colour the avatar can paint:
+// an id such as "sunshine" is not a CSS colour, and "pink" would be the browser's pink, not ours.
+const COLOUR_IDS: Record<string, string> = {
+  sunshine: 'var(--color-amber)',
+  sky: 'var(--color-sky)',
+  pink: 'var(--color-person-kabir)',
+  purple: 'var(--color-person-meera)',
+  green: 'var(--color-person-dev)',
+  blue: 'var(--color-primary)',
+}
+
+const avatarColour = (colour?: string | null) => (colour ? (COLOUR_IDS[colour] ?? (/^(var\(|#|rgb)/.test(colour) ? colour : undefined)) : undefined)
+
 /** Unknown ids still render (grey initial) instead of crashing a screen */
 export const personOf = (id: PersonId): Person =>
   PEOPLE[id] ?? { id, name: 'Mate', initial: '?', color: 'var(--color-subtle)' }
@@ -45,7 +59,7 @@ export function registerPeople(
       id: m.memberId,
       name: m.memberId === meId ? 'You' : first,
       initial: first[0]?.toUpperCase() ?? '?',
-      color: m.colour || PALETTE[i % PALETTE.length],
+      color: avatarColour(m.colour) ?? PALETTE[i % PALETTE.length],
       picture: m.picture,
     }
   })

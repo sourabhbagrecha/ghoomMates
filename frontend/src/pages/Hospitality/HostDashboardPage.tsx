@@ -104,10 +104,10 @@ export function HostDashboardPage({ hostId }: { hostId?: string }) {
             <>
               <Kpis forecast={f} />
               {/* Keyed by kitchen so the picked day, the drafted menu and the stepper start fresh for each one */}
-              <DemandCard key={current.id} forecast={f} />
+              <DemandCard key={`demand-${current.id}`} forecast={f} />
               <OrdersSection forecast={f} />
-              <MenuCard key={current.id} hostId={current.id} forecast={f} />
-              <WasteCard key={current.id} hostId={current.id} trend={waste.data} onLogged={(trend) => waste.setData(trend)} />
+              <MenuCard key={`menu-${current.id}`} hostId={current.id} forecast={f} />
+              <WasteCard key={`waste-${current.id}`} hostId={current.id} trend={waste.data} onLogged={(trend) => waste.setData(trend)} />
               <p className="sample-note host-dash__note">
                 Sample partner. Squad bookings are real; walk-ins, food miles and waste avoided are estimates (see the module doc for the assumptions).
               </p>

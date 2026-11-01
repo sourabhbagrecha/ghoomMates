@@ -36,7 +36,8 @@ export function ItineraryPage() {
         <div className="screen__header-row">
           <div className="group-pill">
             <div className="group-pill__info">
-              <AvatarStack people={squad} size={26} overlap={9} />
+              {/* Five faces are plenty on a pill; the count beside them says how many mates there are */}
+              <AvatarStack people={squad.slice(0, 5)} size={26} overlap={9} />
               <span className="group-pill__name">
                 {trip?.groupName ?? '…'} · {squad.length} {squad.length === 1 ? 'mate' : 'mates'}
               </span>
@@ -48,7 +49,7 @@ export function ItineraryPage() {
         </div>
 
         <main className="screen__body">
-          {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={!!live} />}
+          {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={live} />}
           {trip && itinerary && <CrowdPlanCard trip={trip} days={itinerary} />}
           {trip && itinerary && <GreenTripCard tripId={trip.id} days={itinerary} />}
           {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
@@ -59,7 +60,8 @@ export function ItineraryPage() {
   )
 }
 
-function VibeCard({ trip, hasPlan, live }: { trip: TripDetail; hasPlan: boolean; live: boolean }) {
+/** `live` is which day of the trip it is today while the trip is live (the rating is for that day), else null */
+function VibeCard({ trip, hasPlan, live }: { trip: TripDetail; hasPlan: boolean; live: { day: number; total: number } | null }) {
   const navigate = useNavigate()
   const [rating, setRating] = useState(4)
   // Your quiz result: saved on this device right after the quiz, otherwise from the trip's member list
@@ -125,9 +127,9 @@ function VibeCard({ trip, hasPlan, live }: { trip: TripDetail; hasPlan: boolean;
       {live && (
         <div className="trip-feedback">
           <p className="trip-feedback__text">
-            How was Day 1? <span>Rate to tune tomorrow</span>
+            How was Day {live.day}? <span>{live.day < live.total ? 'Rate to tune tomorrow' : 'Rate the whole trip'}</span>
           </p>
-          <div className="trip-feedback__stars" role="radiogroup" aria-label="Rate Day 1">
+          <div className="trip-feedback__stars" role="radiogroup" aria-label={`Rate Day ${live.day}`}>
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}

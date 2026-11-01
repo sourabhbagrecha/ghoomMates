@@ -62,6 +62,8 @@
   flex-direction: column;
   gap: 2px;
   white-space: nowrap;
+  /* Lets a long title shrink to the room between the back and header buttons instead of running under them */
+  min-width: 0;
 }
 
 .screen__eyebrow {
@@ -79,6 +81,20 @@
   line-height: 32px;
   letter-spacing: -0.6px;
   color: #fff;
+}
+
+/* A long title (see LONG_TITLE in ScreenLayout.tsx) takes two lines at 22 / 26 rather than hiding under the header buttons */
+.screen__title--long {
+  font-size: 22px;
+  line-height: 26px;
+  letter-spacing: -0.4px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 /* Row that sits on the blue header under the title (group pill, search, balances) */
