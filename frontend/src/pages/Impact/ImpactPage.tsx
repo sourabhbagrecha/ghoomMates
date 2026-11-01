@@ -116,7 +116,7 @@ export function ImpactPage() {
   const share = useCallback(async () => {
     if (!card || !report || !trip) return
     const kg = report.footprint.perPersonKg
-    const text = `${trip.groupName}: ${report.score.badge.name} on Ghoomates. ${kg} kg CO₂e each, ${report.crowdSmart.crowdHoursAvoided} crowd-hours dodged, and ${report.local.sharePct}% of our spend stayed local.`
+    const text = `${trip.groupName}: ${report.score.badge.name} on Ghoommates. ${kg} kg CO₂e each, ${report.crowdSmart.crowdHoursAvoided} crowd-hours dodged, and ${report.local.sharePct}% of our spend stayed local.`
     const result = await shareSquadCard(card.blob, text, `${trip.groupName} · Squad Impact`)
     if (result === 'saved') showToast('Card saved to your device')
   }, [card, report, trip, showToast])

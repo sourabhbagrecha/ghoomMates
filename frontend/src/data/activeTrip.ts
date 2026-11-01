@@ -17,7 +17,7 @@ import { formatDateRange } from './tripDates'
  * in localStorage so a reload lands back in the same trip.
  */
 
-const ACTIVE_KEY = 'ghoomates:activeTrip'
+const ACTIVE_KEY = 'ghoommates:activeTrip'
 
 type Loadable<T> = T | null
 

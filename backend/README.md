@@ -1,6 +1,6 @@
-# Ghoomates backend
+# Ghoommates backend
 
-Single Node.js + TypeScript server for every Ghoomates backend module. One process, one port, one shared PostgreSQL connection pool (local or Google Cloud SQL).
+Single Node.js + TypeScript server for every Ghoommates backend module. One process, one port, one shared PostgreSQL connection pool (local or Google Cloud SQL).
 
 | Prefix | Module | Source | Docs |
 | --- | --- | --- | --- |

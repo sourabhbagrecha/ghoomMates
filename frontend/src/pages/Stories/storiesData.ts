@@ -16,7 +16,7 @@ export const LANGUAGES: { id: StoryLang; short: string; name: string }[] = [
   { id: 'hi', short: 'हिं', name: 'हिन्दी' },
 ]
 
-const LANG_KEY = 'ghoomates:storyLang'
+const LANG_KEY = 'ghoommates:storyLang'
 
 /** The language the squad listened in last time (the grandparents’ choice sticks) */
 export function savedLang(): StoryLang {

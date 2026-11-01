@@ -38,17 +38,17 @@ async function withEnv<T>(vars: Record<string, string | undefined>, fn: () => Pr
   }
 }
 
-const JS = 'console.log("ghoomates");\n'.repeat(80);
+const JS = 'console.log("ghoommates");\n'.repeat(80);
 
 // A fake `vite build` output: hashed assets (one pre-gzipped like the image build does), a public/ file, a secret outside dist.
 // It lives under a hidden folder, like a checkout inside .claude/, to show the path of the app itself never counts as a dotfile.
 function makeDist() {
-  const parent = mkdtempSync(join(tmpdir(), '.ghoomates-dist-'));
+  const parent = mkdtempSync(join(tmpdir(), '.ghoommates-dist-'));
   const dist = join(parent, 'dist');
   mkdirSync(join(dist, 'assets'), { recursive: true });
   mkdirSync(join(dist, 'heritage'), { recursive: true });
   writeFileSync(join(parent, 'secret.txt'), 'TOP-SECRET');
-  writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Ghoomates</title><div id="root"></div>');
+  writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Ghoommates</title><div id="root"></div>');
   writeFileSync(join(dist, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   writeFileSync(join(dist, 'assets', 'index-abc123.js'), JS);
   writeFileSync(join(dist, 'assets', 'index-abc123.js.gz'), gzipSync(JS));
@@ -177,7 +177,7 @@ test('createFrontendRouter does nothing without a built app', () => {
   assert.equal(createFrontendRouter(undefined), undefined);
   assert.equal(createFrontendRouter(''), undefined);
   assert.equal(createFrontendRouter('   '), undefined);
-  assert.equal(createFrontendRouter(join(tmpdir(), 'ghoomates-no-such-dist')), undefined);
+  assert.equal(createFrontendRouter(join(tmpdir(), 'ghoommates-no-such-dist')), undefined);
 });
 
 test('the server serves the built app after the API routes, with an SPA fallback and long-cache assets', async () => {
@@ -263,7 +263,7 @@ test('the server still shows the health JSON at "/" when no web app is served', 
   try {
     const root = await server.request('/');
     assert.equal(root.status, 200);
-    assert.equal((await root.json()).service, 'ghoomates-backend');
+    assert.equal((await root.json()).service, 'ghoommates-backend');
   } finally {
     await server.close();
   }

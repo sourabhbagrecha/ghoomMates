@@ -44,7 +44,7 @@ export function MembersPage() {
 
   const shareLink = async () => {
     if (!trip) return
-    const text = `Join ${trip.groupName} on Ghoomates for ${trip.name}!`
+    const text = `Join ${trip.groupName} on Ghoommates for ${trip.name}!`
     // The native share sheet on phones; copying works everywhere else
     if (navigator.share) {
       try {

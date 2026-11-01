@@ -46,7 +46,7 @@ export function PhotoViewerPage({ index }: { index: number }) {
     try {
       // Share the image itself where the browser can (phones), so it doesn't depend on an expiring link
       const blob = await fetch(photo.url).then((r) => r.blob())
-      const file = new File([blob], `ghoomates-${photo.id}.jpg`, { type: blob.type || 'image/jpeg' })
+      const file = new File([blob], `ghoommates-${photo.id}.jpg`, { type: blob.type || 'image/jpeg' })
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: trip?.name })
         return
@@ -63,7 +63,7 @@ export function PhotoViewerPage({ index }: { index: number }) {
     try {
       const blob = await fetch(photo.url).then((r) => r.blob())
       const url = URL.createObjectURL(blob)
-      const a = Object.assign(document.createElement('a'), { href: url, download: `ghoomates-${photo.id}.${blob.type.split('/')[1] || 'jpg'}` })
+      const a = Object.assign(document.createElement('a'), { href: url, download: `ghoommates-${photo.id}.${blob.type.split('/')[1] || 'jpg'}` })
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
       showToast('Downloaded')

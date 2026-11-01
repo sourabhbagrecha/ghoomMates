@@ -199,7 +199,7 @@ export async function request<T>(path: string, init: { method?: string; body?: u
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     })
   } catch {
-    throw new ApiRequestError(0, 'NETWORK_ERROR', 'Can’t reach Ghoomates. Check your connection.')
+    throw new ApiRequestError(0, 'NETWORK_ERROR', 'Can’t reach Ghoommates. Check your connection.')
   }
   const data = await res.json().catch(() => null)
   if (!res.ok) {

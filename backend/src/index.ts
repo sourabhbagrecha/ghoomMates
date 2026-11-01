@@ -31,7 +31,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT m
 const hostname = process.env.HOST ?? '127.0.0.1';
 
 // The dev fallback secret is public (it is in this repo), so a production server refuses to start without a real one.
-const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'ghoomates-oauth-jwt-secret-key-32chars-min-dev-2026');
+const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'ghoommates-oauth-jwt-secret-key-32chars-min-dev-2026');
 if (jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters (backend/.env, or the JWT_SECRET secret on Cloud Run)');
 const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
@@ -153,7 +153,7 @@ const server = app.listen(port, hostname, (err?: Error) => {
   const isGoogleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
   console.log(`
 ┌────────────────────────────────────────────────────────┐
-│               Ghoomates Backend Server                 │
+│               Ghoommates Backend Server                 │
 ├────────────────────────────────────────────────────────┤
 │  Address:     http://${hostname}:${port.toString().padEnd(39)}│
 │  Frontend:    ${clientOrigin.padEnd(41)}│
@@ -173,7 +173,7 @@ let stopping = false;
 async function shutdown() {
   if (stopping) return;
   stopping = true;
-  logger.info('Server', 'Gracefully shutting down Ghoomates backend...');
+  logger.info('Server', 'Gracefully shutting down Ghoommates backend...');
   await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
   await authDb.terminate();
   await db?.close();

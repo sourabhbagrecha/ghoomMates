@@ -4,7 +4,7 @@ import { VIBE_AXES, type VibeScores } from '../data/vibe'
 // Your personality-quiz result lives on your profile (users.preferences.vibe), where GhoomMate, the squad
 // spiderweb and the itinerary read it. A quiz taken while signed out (before sign-up) is kept on this device
 // until you sign in, then moved to your profile. Only that pending copy is ever read, never another account's.
-const PENDING_KEY = 'ghoomates:vibe:pending'
+const PENDING_KEY = 'ghoommates:vibe:pending'
 
 const asScores = (saved: unknown): VibeScores | null => {
   if (typeof saved !== 'object' || saved === null) return null

@@ -4,7 +4,7 @@ Ghoomate is a group-travel app for a squad of friends: plan the itinerary, share
 
 This document is the single source of truth for how Ghoomate looks and feels in code. Every value here comes from the Figma file and is implemented as a token or shared component in this repo. **If you need a value that isn't here, add it as a token first, then use it.**
 
-- **Figma:** [ghoomates · iOS Mockups](https://www.figma.com/design/0fRlnZbD7Wka2u2qE8xLsx/ghoomates)
+- **Figma:** [ghoommates · iOS Mockups](https://www.figma.com/design/0fRlnZbD7Wka2u2qE8xLsx/ghoommates)
 - **Tokens:** [`src/styles/tokens.css`](src/styles/tokens.css)
 - **Shared utility classes:** [`src/styles/ui.css`](src/styles/ui.css)
 - **Shared components:** [`src/components/`](src/components/)

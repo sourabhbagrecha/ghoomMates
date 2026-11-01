@@ -1,14 +1,14 @@
 # Backend Architecture & Design Document
 **Module:** `expenses`  
 **Monorepo Path:** `backend` (module `src/expenses/`, served by the unified backend)  
-**Ecosystem:** Ghoomates Travel Companion Platform  
+**Ecosystem:** Ghoommates Travel Companion Platform  
 **Runtimes:** Node.js (v22.18+) &bull; **Database:** Google Cloud SQL for PostgreSQL 18
 
 ---
 
 ## 1. Executive Summary & Core Objectives
 
-The `expenses` module of the unified backend is the component within the **Ghoomates** monorepo responsible for multi-traveler group expense sharing, real-time ledger accounting, debt minimization, and manual settlement verification.
+The `expenses` module of the unified backend is the component within the **Ghoommates** monorepo responsible for multi-traveler group expense sharing, real-time ledger accounting, debt minimization, and manual settlement verification.
 
 ### Key Tenets
 1. **Zero Financial Precision Drift**: No floating-point numbers are used for monetary calculations. All amounts are stored and calculated as 64-bit integer **paise** ($1\text{ INR} = 100\text{ paise}$).
@@ -24,7 +24,7 @@ The `expenses` module of the unified backend is the component within the **Ghoom
 flowchart TD
     subgraph Clients["Clients & Gateways"]
         Web["Web Client\n(Desktop/Mobile)"]
-        Gateway["Ghoomates API Gateway\n/ Backend Services"]
+        Gateway["Ghoommates API Gateway\n/ Backend Services"]
     end
 
     subgraph Service["Expense Service (Port 3000)"]

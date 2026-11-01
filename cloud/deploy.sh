@@ -80,16 +80,16 @@ step_registry() {
     --project="$PROJECT_ID" \
     --location="$REGION" \
     --repository-format=docker \
-    --description="Ghoomates container images"
+    --description="Ghoommates container images"
 }
 
 step_accounts() {
   gcloud iam service-accounts create face-indexer --project="$PROJECT_ID" \
-    --display-name="Ghoomates face-indexer (Cloud Run runtime)"
+    --display-name="Ghoommates face-indexer (Cloud Run runtime)"
   gcloud iam service-accounts create face-search --project="$PROJECT_ID" \
-    --display-name="Ghoomates face-search (Cloud Run runtime)"
+    --display-name="Ghoommates face-search (Cloud Run runtime)"
   gcloud iam service-accounts create face-trigger --project="$PROJECT_ID" \
-    --display-name="Ghoomates Eventarc trigger identity"
+    --display-name="Ghoommates Eventarc trigger identity"
 }
 
 step_iam() {
@@ -116,14 +116,14 @@ step_iam() {
   # connector (roles/cloudsql.client) or move the password into Secret Manager (secretAccessor):
   # for sa in "$INDEXER_SA" "$SEARCH_SA"; do
   #   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/cloudsql.client" --condition=None
-  #   gcloud secrets add-iam-policy-binding ghoomates-db-url --project="$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/secretmanager.secretAccessor"
+  #   gcloud secrets add-iam-policy-binding ghoommates-db-url --project="$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/secretmanager.secretAccessor"
   # done
 }
 
 step_migrate() {
   load_database_url
   # Uses the image docker compose builds locally (docker compose build migrate); no Python setup needed.
-  docker run --rm -e DATABASE_URL="$DATABASE_URL" ghoomates-faces:local python -m faces.migrate
+  docker run --rm -e DATABASE_URL="$DATABASE_URL" ghoommates-faces:local python -m faces.migrate
 }
 
 step_build() {
@@ -225,7 +225,7 @@ step_backfill() {
     -e GOOGLE_CLOUD_PROJECT="$PROJECT_ID" \
     -e GOOGLE_APPLICATION_CREDENTIALS=/adc.json \
     -v "${HOME}/.config/gcloud/application_default_credentials.json:/adc.json:ro" \
-    ghoomates-faces:local python -m faces.backfill
+    ghoommates-faces:local python -m faces.backfill
 }
 
 step_status() {

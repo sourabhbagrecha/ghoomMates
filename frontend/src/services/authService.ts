@@ -26,10 +26,10 @@ export interface AuthResponse {
   isNewUser: boolean;
 }
 
-const TOKEN_KEY = 'ghoomates:token';
-const USER_KEY = 'ghoomates:user';
-const ONBOARDED_KEY = 'ghoomates:onboarded';
-const NAME_KEY = 'ghoomates:name';
+const TOKEN_KEY = 'ghoommates:token';
+const USER_KEY = 'ghoommates:user';
+const ONBOARDED_KEY = 'ghoommates:onboarded';
+const NAME_KEY = 'ghoommates:name';
 
 type AuthListener = (user: AuthUser | null) => void;
 const listeners = new Set<AuthListener>();

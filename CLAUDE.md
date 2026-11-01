@@ -1,4 +1,4 @@
-# Ghoomates
+# Ghoommates
 
 Group travel app. Members join a trip group, share photos (filter to photos they appear in), generate reels/stories, split expenses, and get an itinerary built from every member's preferences.
 

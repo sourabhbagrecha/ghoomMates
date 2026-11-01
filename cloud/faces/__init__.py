@@ -1,1 +1,1 @@
-"""Face indexing (Eventarc on GCS uploads) and selfie search for Ghoomates trip photos."""
+"""Face indexing (Eventarc on GCS uploads) and selfie search for Ghoommates trip photos."""

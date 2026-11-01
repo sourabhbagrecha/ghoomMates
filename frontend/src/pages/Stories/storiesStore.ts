@@ -31,7 +31,7 @@ type State = {
 }
 
 const currentUserId = () => getStoredUser()?.id ?? null
-const localKey = () => `ghoomates:stamps:${currentUserId() ?? 'guest'}`
+const localKey = () => `ghoommates:stamps:${currentUserId() ?? 'guest'}`
 
 function readLocal(): LocalStamps {
   try {

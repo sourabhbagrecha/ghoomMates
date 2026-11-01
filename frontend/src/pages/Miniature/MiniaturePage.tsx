@@ -147,14 +147,14 @@ export function MiniaturePage() {
     const outcome =
       view.kind === 'result'
         ? await sharePicture(
-            { url: view.artwork.url, filename: `ghoomates-${slug(view.artwork.styleName)}-${view.artwork.id.slice(0, 8)}.png` },
-            `${view.artwork.styleName} · ${trip?.groupName ?? 'Ghoomates'}`,
-            `Our squad, painted as a ${view.artwork.styleName} in Udaipur. Made with Ghoomates.`,
+            { url: view.artwork.url, filename: `ghoommates-${slug(view.artwork.styleName)}-${view.artwork.id.slice(0, 8)}.png` },
+            `${view.artwork.styleName} · ${trip?.groupName ?? 'Ghoommates'}`,
+            `Our squad, painted as a ${view.artwork.styleName} in Udaipur. Made with Ghoommates.`,
           )
         : await sharePicture(
-            { url: view.photo.url, filename: `ghoomates-${slug(view.style.name)}-frame.jpg`, makeBlob: () => framedBlob(view.photo, view.style) },
-            `${view.style.name} · ${trip?.groupName ?? 'Ghoomates'}`,
-            'Our squad, in a miniature frame. Made with Ghoomates.',
+            { url: view.photo.url, filename: `ghoommates-${slug(view.style.name)}-frame.jpg`, makeBlob: () => framedBlob(view.photo, view.style) },
+            `${view.style.name} · ${trip?.groupName ?? 'Ghoommates'}`,
+            'Our squad, in a miniature frame. Made with Ghoommates.',
           )
     const message = SHARE_MESSAGES[outcome]
     if (message) showToast(message)
@@ -164,8 +164,8 @@ export function MiniaturePage() {
     if (view.kind !== 'result' && view.kind !== 'framed') return
     const saved =
       view.kind === 'result'
-        ? await downloadPicture({ url: view.artwork.url, filename: `ghoomates-${slug(view.artwork.styleName)}-${view.artwork.id.slice(0, 8)}.png` })
-        : await downloadPicture({ url: view.photo.url, filename: `ghoomates-${slug(view.style.name)}-frame.jpg`, makeBlob: () => framedBlob(view.photo, view.style) })
+        ? await downloadPicture({ url: view.artwork.url, filename: `ghoommates-${slug(view.artwork.styleName)}-${view.artwork.id.slice(0, 8)}.png` })
+        : await downloadPicture({ url: view.photo.url, filename: `ghoommates-${slug(view.style.name)}-frame.jpg`, makeBlob: () => framedBlob(view.photo, view.style) })
     showToast(saved ? 'Saved to your device' : 'Couldn’t save that. Try again.')
   }
 
