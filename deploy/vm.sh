@@ -5,7 +5,8 @@
 #   deploy/vm.sh --env      also replace the server's backend/.env with backend/.env plus the production overrides
 #
 # The VM: GCE "ghoommates" (e2-small, asia-south1-b, static IP ghoomates-ip). Node 24 runs
-# /opt/ghoommates/app/backend/src/index.ts as the systemd unit "ghoommates" on 127.0.0.1:8080; Caddy terminates TLS for
+# /opt/ghoommates/app/backend/src/index.ts as the systemd unit "ghoommates" on 127.0.0.1:8080 and the voice worker
+# (src/voice/agent.ts, deploy/ghoommates-agent.service) as "ghoommates-agent"; Caddy terminates TLS for
 # ghoommates.sourabh.org (Cloudflare A record, DNS only) and proxies to it. Logs: deploy/vm.sh logs
 #
 # With VM_SSH=user@host it uses plain ssh/scp instead of gcloud (GitHub Actions does this, see .github/workflows/deploy.yml).
@@ -27,7 +28,7 @@ else
 fi
 
 if [[ "${1:-}" == logs ]]; then
-  ssh_vm 'sudo journalctl -u ghoommates --no-pager -n 100'
+  ssh_vm 'sudo journalctl -u ghoommates -u ghoommates-agent --no-pager -n 100'
   exit 0
 fi
 
@@ -36,7 +37,7 @@ echo "==> Build the web app"
 find "$ROOT/frontend/dist" -type f \( -name '*.js' -o -name '*.css' -o -name '*.svg' -o -name '*.json' \) -size +1k -exec gzip -9 -kf {} +
 
 echo "==> Package and copy"
-(cd "$ROOT" && COPYFILE_DISABLE=1 tar czf "$TMP/app.tgz" backend/package.json backend/package-lock.json backend/src backend/migrations frontend/dist)
+(cd "$ROOT" && COPYFILE_DISABLE=1 tar czf "$TMP/app.tgz" backend/package.json backend/package-lock.json backend/src backend/migrations frontend/dist deploy/ghoommates-agent.service)
 files=("$TMP/app.tgz")
 if [[ "${1:-}" == --env ]]; then
   (
@@ -68,7 +69,13 @@ if [ -f /tmp/prod.env ]; then
 fi
 sudo chown -R ghoommates:ghoommates /opt/ghoommates/app
 cd backend && sudo -u ghoommates npm ci --omit=dev --no-audit --no-fund --loglevel=error
-sudo systemctl restart ghoommates'
+# The GhoomMate voice worker runs next to the web service (sessions dispatch to GHOOMATE_AGENT_NAME=ghoomate-prod)
+if ! cmp -s /opt/ghoommates/app/deploy/ghoommates-agent.service /etc/systemd/system/ghoommates-agent.service; then
+  sudo install -m 644 /opt/ghoommates/app/deploy/ghoommates-agent.service /etc/systemd/system/ghoommates-agent.service
+  sudo systemctl daemon-reload
+  sudo systemctl enable ghoommates-agent
+fi
+sudo systemctl restart ghoommates ghoommates-agent'
 
 echo "==> Check $PUBLIC_URL"
 for _ in 1 2 3 4 5 6 7 8 9 10; do

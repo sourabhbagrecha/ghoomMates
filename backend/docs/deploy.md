@@ -208,7 +208,7 @@ The live demo runs on a plain Compute Engine VM instead of Cloud Run:
 - VM `ghoommates` (e2-small, Debian 12, `asia-south1-b`), static IP `ghoomates-ip` (35.244.28.91), network tag `lagaan-web` (opens 80 and 443).
 - Cloudflare: `ghoommates.sourabh.org` A record to that IP, DNS only (not proxied), so Caddy gets its own Let's Encrypt certificate.
 - Caddy (`/etc/caddy/Caddyfile`) terminates TLS and proxies to Node on `127.0.0.1:8080`.
-- systemd unit `ghoommates` runs `node src/index.ts` from `/opt/ghoommates/app/backend` as user `ghoommates`, with `NODE_ENV=production`. Its `backend/.env` is the local one with the production overrides (`CLIENT_ORIGIN`, `GOOGLE_REDIRECT_URI`, a generated `JWT_SECRET`, `SERVE_FRONTEND_DIR`).
+- systemd unit `ghoommates` runs `node src/index.ts` from `/opt/ghoommates/app/backend` as user `ghoommates`, with `NODE_ENV=production`. A second unit, `ghoommates-agent`, runs the GhoomMate voice worker from the same directory. Its `backend/.env` is the local one with the production overrides (`CLIENT_ORIGIN`, `GOOGLE_REDIRECT_URI`, a generated `JWT_SECRET`, `SERVE_FRONTEND_DIR`).
 - The database is reached through `DATABASE_URL`, the same as local dev.
 
 ```bash
@@ -231,4 +231,4 @@ rm /tmp/deploy_key /tmp/deploy_key.pub
 
 To revoke CI's access, remove the `ssh-keys` item from the instance metadata. Changes to `backend/.env` still need a manual `deploy/vm.sh --env`.
 
-The Google OAuth client needs `https://ghoommates.sourabh.org/auth/callback` as an authorized redirect URI and `https://ghoommates.sourabh.org` as a JavaScript origin. The voice worker is not on the VM; run it with `deploy/cloudrun.sh agent` (with `PUBLIC_URL=https://ghoommates.sourabh.org`) or from a laptop.
+The Google OAuth client needs `https://ghoommates.sourabh.org/auth/callback` as an authorized redirect URI and `https://ghoommates.sourabh.org` as a JavaScript origin. The voice worker runs on the VM too, as the systemd unit `ghoommates-agent` (`deploy/ghoommates-agent.service`, `node src/voice/agent.ts start`). It reads the same `backend/.env` (`GHOOMATE_AGENT_NAME=ghoomate-prod`) and calls the API on `127.0.0.1:8080`. `deploy/vm.sh` installs the unit and restarts it with the web service on every deploy; `deploy/vm.sh logs` shows both. If voice never answers, check that the agent log says `registered worker`.
