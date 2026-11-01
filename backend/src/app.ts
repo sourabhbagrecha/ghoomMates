@@ -18,9 +18,11 @@ export interface ServerModules {
   media?: Router;
   // The built web app (frontend/dist) with a single-page-app fallback, mounted after every API route. Production only (SERVE_FRONTEND_DIR).
   frontend?: Router;
+  // Heritage Ops: crowd forecasts from squads' plans and advisories, mounted under /api/ops. Works without a database.
+  ops?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -54,6 +56,7 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (media) app.use('/api/media', media);
+  if (ops) app.use('/api/ops', ops);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));

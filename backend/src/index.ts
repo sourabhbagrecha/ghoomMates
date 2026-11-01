@@ -10,6 +10,7 @@ import { createFrontendRouter } from './frontend.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { logger } from './logger.ts';
+import { createOpsApp } from './ops/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
 import { createVoiceApp } from './voice/app.ts';
@@ -106,6 +107,8 @@ const app = createServer({
   voice,
   heritage: createHeritageApp(),
   media: createMediaRouter(storage),
+  // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
+  ops: createOpsApp({ db, authenticate, gemini }),
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {

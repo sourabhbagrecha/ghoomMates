@@ -1,0 +1,357 @@
+/* Bottom sheet over the device frame, above the toast (30), below the voice overlay (50) */
+.ops-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Ink-to-blue scrim (one-off translucent values, see DESIGN_GUIDELINES.md section 2) */
+.ops-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(7, 42, 200, 0.4) 0%, rgba(11, 23, 71, 0.7) 100%);
+  cursor: default;
+  animation: ops-sheet-fade 0.2s ease-out;
+}
+
+.ops-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100% - 54px);
+  padding: 8px 16px 34px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  border-radius: 24px 24px 0 0;
+  background: var(--color-surface);
+  animation: ops-sheet-rise 0.26s ease-out;
+}
+
+.ops-sheet__panel::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes ops-sheet-fade {
+  from { opacity: 0; }
+}
+
+@keyframes ops-sheet-rise {
+  from { transform: translateY(32px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-sheet__scrim,
+  .ops-sheet__panel { animation: none; }
+}
+
+.ops-sheet__handle {
+  align-self: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-track-muted);
+}
+
+.ops-sheet__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ops-sheet__title-group {
+  min-width: 0;
+}
+
+.ops-sheet__title {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+.ops-sheet__sub {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.ops-sheet__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-tint);
+}
+
+.ops-sheet__close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.ops-sheet__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ops-sheet__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-sheet__legend {
+  display: flex;
+  gap: 10px;
+  list-style: none;
+}
+
+.ops-sheet__legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.ops-sheet__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.ops-sheet__swatch--base {
+  background: var(--color-sky-light);
+}
+
+/* The four crowd colours, since the bar takes the colour of its level */
+.ops-sheet__swatch--with {
+  background: linear-gradient(180deg, var(--color-crowd-packed), var(--color-crowd-busy) 40%, var(--color-crowd-moderate) 70%, var(--color-crowd-quiet));
+}
+
+/* The numbers behind the chosen hour */
+.ops-sheet__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.ops-sheet__facts strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.ops-sheet__facts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-sheet__facts-head strong {
+  font-size: 14px;
+  line-height: 21px;
+}
+
+/* Peak and best alternative */
+.ops-sheet__tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  list-style: none;
+}
+
+.ops-sheet__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.ops-sheet__tile strong {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+/* Advisories already live at this site */
+.ops-sheet__live {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.ops-sheet__live-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.ops-sheet__live-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.ops-sheet__live-text strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.ops-sheet__live-reach {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.ops-sheet__live-item .text-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ops-sheet__cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ops-sheet__cta .button {
+  gap: 8px;
+}
+
+.ops-sheet__cta-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.ops-sheet__error {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-primary);
+}
+
+.ops-sheet__drafting {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.ops-sheet__drafting-text {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-primary);
+}
+
+/* Hour-by-hour bars */
+.ops-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 124px;
+}
+
+.ops-bars__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  height: 100%;
+  padding: 0;
+}
+
+.ops-bars__col:disabled {
+  cursor: default;
+}
+
+.ops-bars__track {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 1px;
+  border-radius: 6px;
+  background: var(--color-tint-cool);
+}
+
+.ops-bars__base,
+.ops-bars__with {
+  width: 7px;
+  max-width: 45%;
+  border-radius: 3px 3px 0 0;
+}
+
+.ops-bars__base {
+  background: var(--color-sky-light);
+}
+
+.ops-bars__with--quiet { background: var(--color-crowd-quiet); }
+.ops-bars__with--moderate { background: var(--color-crowd-moderate); }
+.ops-bars__with--busy { background: var(--color-crowd-busy); }
+.ops-bars__with--packed { background: var(--color-crowd-packed); }
+.ops-bars__with--closed { background: var(--color-track-muted); }
+
+.ops-bars__hour {
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.ops-bars__col--selected .ops-bars__track {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.ops-bars__col--selected .ops-bars__hour {
+  color: var(--color-primary);
+}
+
+.ops-bars__col:focus-visible .ops-bars__track {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}

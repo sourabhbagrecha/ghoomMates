@@ -1,0 +1,135 @@
+/* Heads-ups from the site managers on the traveller's screens: a sky-blue info banner, never red */
+.advisory-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.advisory-banners__more {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+/* The same look as Explore's host banner: soft sky fill, a primary icon tile */
+.advisory {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--color-sky-light);
+}
+
+.advisory__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--color-primary);
+}
+
+.advisory__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.advisory__overline {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.advisory__text {
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.advisory__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.advisory__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+/* Your squad's own stop in the window, with the swap */
+.advisory__yours {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-surface);
+}
+
+.advisory__yours p {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.advisory__yours strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.advisory__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.advisory__actions .pill-button:disabled,
+.advisory__ghost:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.advisory__ghost {
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+/* Sky text would be faint on the sky banner */
+.advisory .advisory__lang {
+  color: var(--color-primary);
+}
+
+.advisory__ops-link {
+  align-self: flex-start;
+}

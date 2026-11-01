@@ -18,6 +18,7 @@ import { ItineraryPage } from './pages/Itinerary/ItineraryPage'
 import { JoinTripPage } from './pages/Onboarding/JoinTripPage'
 import { NotificationsPage } from './pages/Notifications/NotificationsPage'
 import { OnboardingFlow } from './pages/Onboarding/OnboardingFlow'
+import { OpsPage } from './pages/Ops/OpsPage'
 import { isOnboardingStep } from './pages/Onboarding/onboardingData'
 import { PastTripRoutes } from './pages/PastTrip/PastTripRoutes'
 import { PhotosPage } from './pages/Photos/PhotosPage'
@@ -260,6 +261,8 @@ function App() {
     screen = profileScreen
   } else if (section === 'states') {
     screen = <StatesPage />
+  } else if (section === 'ops') {
+    screen = <OpsPage />
   } else if (section === 'notifications') {
     screen = <NotificationsPage notifications={notifications} onMarkRead={markRead} onBack={goHome} />
   } else {

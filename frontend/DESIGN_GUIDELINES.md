@@ -288,6 +288,7 @@ The rest of the app hangs off those screens:
 | During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
 | Profile and account | `#/profile`, `…/edit`, `…/settings`, `…/help` ("Retake vibe quiz" opens `#/quiz`) | `src/pages/Profile/` |
 | System states gallery | `#/states` (loading, empty, error, offline) | `src/pages/States/` |
+| Partner tools: Heritage Ops console for site managers (opened from Settings or Explore's crowd map); its sky-blue "heads up" advisories show on Explore and stop pages | `#/ops` | `src/pages/Ops/` |
 | After the trip | `#/past/<id>` (recap), `…/album`, `…/days`, `…/expenses` (final tally + settle up), `…/rate[/<stars>]` | `src/pages/PastTrip/` |
 
 Any screen can move elsewhere with `useNavigate()` from `src/hooks/navigation.ts`. **Runs on every screen:** the GhoomMate FAB opens the voice overlay (`src/components/voice/`, `useVoice().open(prompt?)`), and `OfflineBanner` shows just below the top safe area when the connection drops. For loading, empty and error moments use `Skeleton`, `EmptyState` and `ErrorState` from `src/components/states/`; never ship a blank screen.

@@ -1,0 +1,202 @@
+.ops-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.ops-compose__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-compose__source {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.ops-compose__note {
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.ops-compose__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ops-compose__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ops-compose__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ops-compose__hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* The wording was written for another window */
+.ops-compose__redraft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.ops-compose__redraft .link-button {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.ops-compose__redraft .link-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ops-compose__reach {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  transition: opacity 0.15s;
+}
+
+.ops-compose__reach--loading {
+  opacity: 0.6;
+}
+
+.ops-compose__reach-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.ops-compose__reach-text strong {
+  font-weight: 800;
+}
+
+.ops-compose__reach-sub {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.ops-compose__error {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.ops-compose .button {
+  gap: 8px;
+}
+
+.ops-compose .link-button {
+  align-self: center;
+}
+
+.ops-compose .link-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Fields: the same box as TextField, in a smaller size so a draft fits the sheet */
+.ops-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ops-field__label {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.ops-field__label--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ops-field__label--split span:last-child {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--color-subtle);
+}
+
+.ops-field__select,
+.ops-field__textarea {
+  width: 100%;
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  outline: none;
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+  caret-color: var(--color-primary);
+}
+
+.ops-field__select {
+  height: 48px;
+  padding: 0 40px 0 14px;
+  appearance: none;
+  background-image: url('../../assets/figma/icon-chevron-down-muted.svg');
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+.ops-field__textarea {
+  padding: 12px 14px;
+  resize: none;
+}
+
+.ops-field__select:focus,
+.ops-field__textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 0.5px var(--color-primary);
+}

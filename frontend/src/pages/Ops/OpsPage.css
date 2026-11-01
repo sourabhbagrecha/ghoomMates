@@ -1,0 +1,467 @@
+/* Heritage Ops console: the control room for site managers */
+
+/* Header: a "preview" badge and the Today / Tomorrow switch on the blue */
+.ops__badge {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-glass-strong);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.ops__days {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px 0;
+}
+
+.ops__day {
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-glass-strong);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: #fff;
+}
+
+.ops__day--active {
+  background: var(--color-yellow);
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+/* The first card starts just below the header artwork */
+.onboarding__body.ops__body {
+  gap: 14px;
+  padding: 32px 16px 24px;
+}
+
+.ops__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ops__meta {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.ops__footnote {
+  padding: 0 8px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+/* The day at a glance: KPI tiles on the deep gradient */
+.ops-kpis {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 24px;
+  background: var(--gradient-deep);
+  filter: var(--shadow-card);
+  color: #fff;
+}
+
+.ops-kpis__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-kpis__rel {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-on-brand-muted);
+}
+
+.ops-kpis__day {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.ops-kpis__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-glass-strong);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.ops-kpis__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-yellow);
+  animation: ops-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes ops-blink {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-kpis__dot { animation: none; }
+}
+
+.ops-kpis__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ops-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-glass);
+}
+
+.ops-kpi dt {
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-on-brand-muted);
+}
+
+.ops-kpi dd {
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 30px;
+  color: #fff;
+}
+
+/* The one thing to look at: the busiest site, in the spark colour */
+.ops-kpi .ops-kpi__name {
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-yellow);
+}
+
+.ops-kpi p {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-on-brand-muted);
+}
+
+.ops-kpi .ops-kpi__chip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #fff;
+}
+
+.ops-kpi__bar {
+  display: block;
+  height: 6px;
+  margin: 2px 0;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-glass-strong);
+}
+
+.ops-kpi__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-sky-light);
+}
+
+/* The demo-squads switch */
+.ops-sample {
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.ops-sample__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ops-sample__title {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.ops-sample__label {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Windows that need a nudge */
+.ops-hot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.ops-hot__item {
+  position: relative;
+  gap: 10px;
+  padding: 12px;
+}
+
+/* The whole row opens the site; the pill on top drafts straight away */
+.ops-hot__open {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-list-card);
+}
+
+.ops-hot__open:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.ops-hot__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ops-hot__when {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+}
+
+.ops-hot__name {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.ops-hot__people {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.ops-hot__draft {
+  position: relative;
+  gap: 4px;
+}
+
+.ops-hot__live {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-tint);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-success);
+  white-space: nowrap;
+}
+
+/* Segmented switch between the modelled day and the day with squads */
+.ops-seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint-cool);
+}
+
+.ops-seg__option {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.ops-seg__option--on {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Heatmap card */
+.ops-forecast {
+  gap: 10px;
+}
+
+.ops-forecast__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  list-style: none;
+}
+
+.ops-forecast__legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.ops-forecast__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.ops-forecast__swatch--quiet { background: var(--color-crowd-quiet); }
+.ops-forecast__swatch--moderate { background: var(--color-crowd-moderate); }
+.ops-forecast__swatch--busy { background: var(--color-crowd-busy); }
+.ops-forecast__swatch--packed { background: var(--color-crowd-packed); }
+
+.ops-forecast__note {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* Live advisories */
+.ops-advisories {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.ops-advisory {
+  gap: 10px;
+}
+
+.ops-advisory__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ops-advisory__when {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-sky);
+}
+
+.ops-advisory__site {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.ops-advisory__message {
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.ops-advisory__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.ops-advisory__options li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.ops-advisory__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ops-advisory__reach {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.ops-advisory__reach strong {
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+.ops-advisory__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 14px;
+}
+
+.ops-advisory .text-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

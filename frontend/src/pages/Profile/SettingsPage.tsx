@@ -11,6 +11,7 @@ import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { getStoredUser, logoutUser } from '../../services/authService'
 import { signOut } from '../../services/onboardingStorage'
+import { PartnerTools } from '../Ops/PartnerTools'
 import { ACCOUNT, APP_VERSION, LANGUAGES, NOTIFICATION_PREFS, isValidUpi } from './profileData'
 import { ConfirmBox, Switch } from './ProfileParts'
 import { displayName, profileActions, useProfileStore } from './profileStore'
@@ -249,6 +250,8 @@ export function SettingsPage() {
             <span className="app-settings__note">More currencies soon</span>
           </div>
         </section>
+
+        <PartnerTools />
 
         <section className="card app-settings__card" aria-labelledby="app-settings-legal">
           <h2 id="app-settings-legal" className="overline">
