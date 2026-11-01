@@ -1,10 +1,10 @@
 import { GoogleAuth } from 'google-auth-library';
 import { logger } from './logger.ts';
+import { decodeCredentials } from './storage.ts';
 
 // Shared Gemini client: structured JSON, images and speech.
 // Text and speech go to the Gemini Developer API (GEMINI_API_KEY). Images go to Vertex AI when VERTEX_PROJECT is
-// set (Application Default Credentials: `gcloud auth application-default login` locally, the service account on
-// Cloud Run), since API-key image quota is often zero. Without a key, text and speech fall back to Vertex too.
+// set (the GCS_CREDENTIALS_BASE64 service account when present, else Application Default Credentials), since API-key image quota is often zero. Without a key, text and speech fall back to Vertex too.
 // Every feature keeps a hand-written fallback, so callers check `enabled` / `imageEnabled` and catch GeminiError.
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -100,7 +100,7 @@ export function createGemini(env: NodeJS.ProcessEnv = process.env, fetchImpl: ty
   let auth: GoogleAuth | undefined;
 
   async function vertexToken() {
-    auth ??= new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+    auth ??= new GoogleAuth({ credentials: decodeCredentials(env) ?? undefined, scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
     const token = await (await auth.getClient()).getAccessToken();
     if (!token.token) throw new GeminiError('No Google credentials for Vertex AI (run gcloud auth application-default login)');
     return token.token;
