@@ -1,0 +1,13 @@
+.photo-credit {
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.photo-credit__link {
+  font-size: 11px;
+  line-height: 17px;
+}

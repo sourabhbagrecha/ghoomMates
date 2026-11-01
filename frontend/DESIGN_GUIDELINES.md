@@ -110,6 +110,7 @@ Each screen's **header background** is an exported SVG (`src/assets/figma/*-head
 | Role | Size / line height | Weight | Notes / example |
 |---|---|---|---|
 | Screen title | 26 / 32 | 800 | `letter-spacing: -0.6px`, white. "Goa Trip" |
+| Screen title, long | 22 / 26 | 800 | `letter-spacing: -0.4px`, white, two lines at most. `ScreenLayout` switches to it for titles over 14 characters (a trip called "Mewar Mates · Udaipur") and grows the header with it, so the title never runs under the header buttons |
 | Balance value | 20 / 30 | 800 | "₹2,340" |
 | Section title | 18 / 27 | 800 | `SectionHeader`. "Trending this weekend" |
 | Card headline | 17 / 21 (wrapping) or 26 (single line) | 800 | "The Thrill-Seeking Foodies", "Settle all in 1 UPI tap" |
@@ -287,7 +288,7 @@ The rest of the app hangs off those screens:
 | Before the trip (planning mode) | `#/plan`, `#/plan/vote/<id>`, `#/plan/bookings`, `#/plan/checklist`, `#/plan/budget` | `src/pages/Plan/` |
 | During the trip (details) | `#/trip/itinerary/stop/<id>`, `…/itinerary/add`, `#/trip/expenses/add`, `#/trip/expenses/settle[/done]`, `#/trip/photos/view/<i>`, `…/photos/upload`, `…/photos/reel`, `#/trip/explore/guide`, `#/trip/members`, `#/trip/settings` | `src/pages/Trip/` |
 | Kaavad Tales (heritage stories) | `#/trip/explore/story/<siteId>`, `#/trip/explore/passport` | `src/pages/Stories/` |
-| Profile and account | `#/profile`, `…/edit`, `…/settings`, `…/help` ("Retake vibe quiz" opens `#/quiz`) | `src/pages/Profile/` |
+| Profile and account | `#/profile`, `…/edit`, `…/settings`, `…/help`, `…/credits` (photo credits; "Retake vibe quiz" opens `#/quiz`) | `src/pages/Profile/` |
 | System states gallery | `#/states` (loading, empty, error, offline) | `src/pages/States/` |
 | Mewar Utsav: Udaipur's festivals, fairs and nightly shows, with crowd warnings, “Add to our itinerary” and “Plan around it” (opened from Explore's “This week in Mewar”; `?e=<id>` scrolls to one) | `#/trip/explore/events` | `src/pages/Events/` |
 | Partner tools: Heritage Ops console for site managers (opened from Settings or Explore's crowd map); its sky-blue "heads up" advisories show on Explore and stop pages | `#/ops` | `src/pages/Ops/` |
@@ -361,6 +362,7 @@ Every tappable element must be a `<button>` (or `<a>`), never a clickable `<div>
 - **Colour is baked into the SVG.** Each colour variant is its own file, named `icon-<name>-<colour>.svg` (e.g. `icon-arrow-sky.svg`, `icon-mic-white.svg`). Don't recolour with CSS filters. Export a new variant from Figma instead.
 - Always pass `width` and `height` and `alt=""` for decorative icons. Put the accessible name on the button (`aria-label`).
 - Photo placeholders are gradient-plus-mountain SVGs from Figma. Swap them for real images (same size and radius) when data is wired up.
+- Real photographs come from Wikimedia Commons with their author and licence in [`src/pages/Explore/experiencePhotos.ts`](src/pages/Explore/experiencePhotos.ts). They are credited on the guide trip they belong to, on the credits screen (`#/profile/credits`, Settings → Legal) and in [`PHOTO_CREDITS.md`](PHOTO_CREDITS.md). Never add a photo without its credit.
 - **GhoomMate mascot:** the octopus PNG sits inside the sky-gradient circle. Don't crop, recolour or use the mascot anywhere else without design review.
 
 ---

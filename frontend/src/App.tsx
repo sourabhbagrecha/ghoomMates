@@ -60,7 +60,7 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/                 Home: your trips
  *   #/home/empty       Home with no trips yet (first-run state)
  *   #/notifications    Notifications
- *   #/plan[/…]         Before the trip (Manali): overview, vote/<id>, bookings, checklist, budget
+ *   #/plan[/…]         Before the trip (the Udaipur heritage weekend): overview, vote/<id>, bookings, checklist, budget
  *   #/create/<step>    Create a trip: destination → dates → squad → vibe → generating → draft
  *   #/trip/<tab>       Inside the live trip: itinerary | photos | expenses | explore
  *   #/trip/<tab>/…     Trip details: stop/<id>, add, expenses/add, expenses/settle, photos/view/<i>, …

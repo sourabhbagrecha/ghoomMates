@@ -248,7 +248,7 @@ export function MakerDetailPage({ makerId }: { makerId: string }) {
           </div>
         </section>
 
-        <PriceChecker key={maker.id} crafts={maker.craftDetails} defaultCraftId={craft.id} />
+        <PriceChecker key={`price-${maker.id}`} crafts={maker.craftDetails} defaultCraftId={craft.id} />
 
         <section className="card maker-workshop">
           <h2 className="overline">The workshop</h2>
@@ -284,7 +284,7 @@ export function MakerDetailPage({ makerId }: { makerId: string }) {
           </p>
         </section>
 
-        <AskMaker key={maker.id} maker={maker} />
+        <AskMaker key={`ask-${maker.id}`} maker={maker} />
 
         <section className="card maker-map">
           <div className="maker-map__art" aria-hidden="true">

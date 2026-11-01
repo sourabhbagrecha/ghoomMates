@@ -12,14 +12,15 @@ import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { EmptyState } from '../../components/states/EmptyState'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
-import { activeTrip } from '../../data/activeTrip'
+import { activeTrip, useMyTrips } from '../../data/activeTrip'
 import { othersVibe } from '../../data/vibe'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { getStoredUser } from '../../services/authService'
-import { ACCOUNT, AXES, BADGES, PLACES, PLACE_STATUS, SQUADS, STATS } from './profileData'
+import { ACCOUNT, AXES, BADGES, PLACES, PLACE_STATUS } from './profileData'
 import { ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
+import { squadsOf, statsOf } from './profileTrips'
 import { VibeLegend, VibeWeb } from './VibeWeb'
 import './YourProfilePage.css'
 
@@ -47,6 +48,10 @@ export function YourProfilePage() {
     ? `Member since ${new Date(createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`
     : ACCOUNT.memberSince
   const earned = BADGES.filter((b) => b.earned).length
+  // Squads and counts follow the trips you are really in
+  const { trips } = useMyTrips(!!getStoredUser())
+  const stats = statsOf(trips, getStoredUser()?.id)
+  const squads = squadsOf(trips)
 
   // Confirmation from the screen we came back from (edit profile, vibe quiz)
   useEffect(() => {
@@ -81,7 +86,7 @@ export function YourProfilePage() {
           </div>
           {vibe && <span className="your-profile__persona">{vibe.persona}</span>}
           <dl className="your-profile__stats">
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <div key={s.label}>
                 <dt>{s.label}</dt>
                 <dd>{s.value}</dd>
@@ -179,7 +184,7 @@ export function YourProfilePage() {
 
         <SectionHeader title="Your squads" />
         <ul className="your-profile__squads">
-          {SQUADS.map((s) => (
+          {squads.map((s) => (
             <li key={s.id} className="list-card your-profile__squad">
               <AvatarStack people={s.members} size={26} overlap={9} />
               <span className="your-profile__row-text">

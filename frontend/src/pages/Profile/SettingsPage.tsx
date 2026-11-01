@@ -264,6 +264,10 @@ export function SettingsPage() {
               <img src={iconChevron} alt="" width={16} height={16} />
             </button>
           ))}
+          <button type="button" className="app-settings__row app-settings__link" onClick={() => navigate('profile/credits')}>
+            <span className="app-settings__title">Photo credits</span>
+            <img src={iconChevron} alt="" width={16} height={16} />
+          </button>
         </section>
 
         <div className="app-settings__exit">

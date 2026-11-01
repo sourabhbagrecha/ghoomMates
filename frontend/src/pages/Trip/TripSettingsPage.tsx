@@ -81,7 +81,8 @@ export function TripSettingsPage() {
   return (
     <>
       <OnboardingLayout
-        eyebrow={`${trip?.name ?? 'Trip'} · ${trip?.groupName ?? ''}`}
+        // The group name only when it adds something: a trip called “Mewar Mates · Udaipur” already says it
+        eyebrow={trip ? (trip.groupName && !trip.name.includes(trip.groupName) ? `${trip.name} · ${trip.groupName}` : trip.name) : 'Trip'}
         title="Trip settings"
         onBack={() => navigate('trip/members')}
         headerBg={headerBg}
