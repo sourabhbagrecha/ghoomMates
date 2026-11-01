@@ -263,6 +263,15 @@ describe('Gemini retellings', () => {
     expect(rejected(() => clean(raw))).toBe(true);
   });
 
+  test('a wrong answer may carry any year, a right one may not', () => {
+    const distractor = retold();
+    distractor.quiz[0] = { question: 'When did Maharana Jagat Singh I finish the temple?', options: ['1751', '1651', '1551'], answerIndex: 1, fact: 'He finished it in 1651.' };
+    expect(clean(distractor).quiz[0].options.includes('1751')).toBe(true);
+    const wrong = retold();
+    wrong.quiz[0] = { question: 'When did Maharana Jagat Singh I finish the temple?', options: ['1751', '1651', '1551'], answerIndex: 0, fact: 'He finished it in 1751.' };
+    expect(rejected(() => clean(wrong))).toBe(true);
+  });
+
   test('Hindi that comes back in English is rejected', () => {
     expect(rejected(() => clean(retold(), 'hi'))).toBe(true);
   });
@@ -297,5 +306,8 @@ describe('Gemini retellings', () => {
     expect(prompt.includes('children')).toBe(true);
     expect(prompt.includes('culture and food')).toBe(true);
     expect(prompt.includes(classic.panels[0].text)).toBe(true);
+    // The only years it may write are the ones in the facts
+    expect(prompt.includes('YEARS YOU MAY WRITE (no others): 1651')).toBe(true);
+    expect(buildPrompt({ site: SITE_BY_ID.get('gangaur-ghat')!, lang: 'en', audience: 'couple', bucket: '' }).includes('Do not write any year')).toBe(true);
   });
 });

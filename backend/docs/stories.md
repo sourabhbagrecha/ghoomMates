@@ -57,6 +57,17 @@ The local media route (`/api/media`, used when GCS isn't configured) serves audi
 
 If the database is unreachable the passport routes answer `503 PASSPORT_UNAVAILABLE` and the app keeps the stamp on the phone.
 
+## Frontend
+
+| Route | Screen |
+| --- | --- |
+| `#/trip/explore/story/<siteId>` | The Kaavad screen: painted doors swing open, panels unfold in 3D (a fade with reduced motion), the narration bar follows the voice panel by panel, EN / हिं toggle, audience chips, then the quiz and the stamp (one phone can stamp the whole squad). |
+| `#/trip/explore/passport` | The Heritage Passport: every site as a stamp slot, and the squad's leaderboard. |
+
+Entry points: **Hear the story** on a stop that matches a heritage site (Stop detail), a link under the selected site in Explore's Crowd pulse, and the **Stories of Mewar** carousel on Explore. Everything is in `frontend/src/pages/Stories/`, with the API in `frontend/src/services/storiesService.ts`.
+
+If the recording can't be loaded the phone's own voice reads the panels. If the passport desk can't be reached, the stamp is kept on the phone (`localStorage`) and shows in the passport.
+
 ## Content and sources
 
 The hand-written stories stay with facts a historian would stand behind and mark the rest as tradition ("legend says", "it is said"). Where sources differ the story says so by being vague ("in the 1550s", "more than a hundred rooms").

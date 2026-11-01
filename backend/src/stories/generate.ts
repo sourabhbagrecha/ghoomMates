@@ -7,6 +7,12 @@ import { MAX_PANEL_WORDS, QUIZ_SIZE, type Audience, type Lang, type Panel, type 
 // Retelling a site's story for a particular audience (and squad) with Gemini. The prompt only offers facts we hold, and the
 // answer is checked before it is used: shape, length, language and that no year appears that the facts don't contain.
 
+const DEVANAGARI_DIGITS = '०१२३४५६७८९';
+// "1651", and "1550s" counts as 1550
+const YEAR = /\b(1[0-9]{3}|20[0-9]{2})(?:s\b|\b)/g;
+const ascii = (text: string) => text.replace(/[०-९]/g, d => String(DEVANAGARI_DIGITS.indexOf(d)));
+const yearsIn = (text: string) => new Set([...ascii(text).matchAll(YEAR)].map(match => match[1]));
+
 export const SYSTEM_PROMPT = [
   'You are the Kavadiya Bhat, a traditional storyteller of Mewar, writing for the Ghoomates travel app. A Kaavad is a painted wooden shrine whose panels unfold one by one while the storyteller speaks. You write those panels for visitors standing at a heritage site in Udaipur.',
   '',
@@ -18,6 +24,7 @@ export const SYSTEM_PROMPT = [
   `5. Then a quiz of exactly ${QUIZ_SIZE} multiple-choice questions, each with exactly 3 options and an answerIndex of 0, 1 or 2. Every answer must be stated in your panels. "fact" is one short line that confirms the answer.`,
   '6. careNote is one short line on visiting lightly (respect, waste, crowds, transport), built from the CARE TIP.',
   '7. Be respectful to every faith and community. Nothing frightening for children. If the facts are thin, say less and describe what to see, hear and do; never pad with invented history.',
+  '8. Never describe architecture, objects, decoration, scenery, causes, purposes or customs that SITE FACTS do not state. A lookFor may point only to something SITE FACTS name, or to something true of any visit: the light, the shade, the sounds, the water or hills if the facts mention them, the other visitors, the steps.',
 ].join('\n');
 
 const STRING = { type: 'STRING' };
@@ -62,11 +69,13 @@ export type GenerateRequest = {
 };
 
 export function buildPrompt({ site, lang, audience, bucket, classic }: GenerateRequest): string {
+  const years = [...yearsIn(`${siteFacts(site, classic).join(' ')} ${site.care}`)].sort();
   return [
     `SITE: ${site.name} (${site.kind}), ${site.city}`,
     'SITE FACTS (the only history you may use):',
     ...siteFacts(site, classic).map(fact => `- ${fact}`),
     `CARE TIP: ${site.care}`,
+    years.length ? `YEARS YOU MAY WRITE (no others): ${years.join(', ')}` : 'YEARS YOU MAY WRITE: none. Do not write any year or century.',
     `LANGUAGE: ${lang === 'hi' ? 'Hindi in Devanagari script, natural spoken Hindi a family would use, not formal or Sanskritised. Keep the greeting "खम्मा घणी!". Write years as digits.' : 'English, warm and plain, easy to follow for Indian travellers.'}`,
     `AUDIENCE: ${AUDIENCE_NOTES[audience]}`,
     vibeNote(bucket),
@@ -98,11 +107,6 @@ export function limitWords(text: string, max: number): string | null {
   return kept.trim() ? kept.trim() : null;
 }
 
-const DEVANAGARI_DIGITS = '०१२३४५६७८९';
-// "1651", and "1550s" counts as 1550
-const YEAR = /\b(1[0-9]{3}|20[0-9]{2})(?:s\b|\b)/g;
-const ascii = (text: string) => text.replace(/[०-९]/g, d => String(DEVANAGARI_DIGITS.indexOf(d)));
-const yearsIn = (text: string) => new Set([...ascii(text).matchAll(YEAR)].map(match => match[1]));
 
 /** Share of letters that are Devanagari, to catch a Hindi request answered in English */
 function devanagariShare(text: string) {
@@ -141,7 +145,8 @@ export function cleanStory(raw: unknown, { site, lang, classic, fallbackCare, se
   }
   if (quiz.length < QUIZ_SIZE) reject(`only ${quiz.length} usable quiz questions`);
 
-  const body = panels.map(p => `${p.text} ${p.lookFor}`).join(' ') + quiz.map(q => ` ${q.question} ${q.options.join(' ')} ${q.fact}`).join('');
+  // Wrong answers may carry any year (a good quiz offers 1561 and 1751 beside 1651); everything the story asserts may not
+  const body = panels.map(p => `${p.text} ${p.lookFor}`).join(' ') + quiz.map(q => ` ${q.question} ${q.options[q.answerIndex]} ${q.fact}`).join('');
   if (lang === 'hi' && devanagariShare(panels.map(p => p.text).join(' ')) < 0.5) reject('Hindi requested but the text is not Devanagari');
 
   // No year may appear that our own facts don't contain
@@ -158,16 +163,27 @@ export function cleanStory(raw: unknown, { site, lang, classic, fallbackCare, se
   };
 }
 
-/** Asks Gemini for the retelling; throws GeminiError (offline, slow, quota) or StoryRejected (answer not trustworthy) */
-export async function generateStory(gemini: Gemini, request: GenerateRequest, seed: string, fallbackCare: string): Promise<StoryBody> {
-  const raw = await gemini.json<unknown>({
-    model: gemini.models.smart,
-    system: SYSTEM_PROMPT,
-    prompt: buildPrompt(request),
-    schema: STORY_SCHEMA,
-    temperature: 0.6,
-    timeoutMs: request.timeoutMs ?? 40_000,
-    label: 'Stories',
-  });
-  return cleanStory(raw, { site: request.site, lang: request.lang, classic: request.classic, fallbackCare, seed });
+/**
+ * Asks Gemini for the retelling; throws GeminiError (offline, slow, quota) or StoryRejected (answer not trustworthy).
+ * An answer that fails the checks gets one more go with the reason spelled out.
+ */
+export async function generateStory(gemini: Gemini, request: GenerateRequest, seed: string, fallbackCare: string, attempts = 2): Promise<StoryBody> {
+  let feedback = '';
+  for (let attempt = 1; ; attempt++) {
+    const raw = await gemini.json<unknown>({
+      model: gemini.models.smart,
+      system: SYSTEM_PROMPT,
+      prompt: buildPrompt(request) + feedback,
+      schema: STORY_SCHEMA,
+      temperature: 0.5,
+      timeoutMs: request.timeoutMs ?? 40_000,
+      label: 'Stories',
+    });
+    try {
+      return cleanStory(raw, { site: request.site, lang: request.lang, classic: request.classic, fallbackCare, seed });
+    } catch (err) {
+      if (!(err instanceof StoryRejected) || attempt >= attempts) throw err;
+      feedback = `\n\nYour previous answer was rejected (${err.message}). Write it again, using only the facts and years listed above.`;
+    }
+  }
 }
