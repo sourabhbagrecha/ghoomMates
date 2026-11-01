@@ -186,7 +186,7 @@ export const PLAN: PlanDay[] = [
       },
       {
         time: '12:00 PM', title: 'Check out', tag: 'Stay', place: '',
-        notes: 'Settle up in Ghoomates before you leave!',
+        notes: 'Settle up in Ghoommates before you leave!',
       },
       {
         time: '03:00 PM', title: 'Head home', tag: 'Travel', place: '',

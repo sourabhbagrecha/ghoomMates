@@ -45,8 +45,8 @@ Dates are India time (IST): day 1 is today there, whatever zone the laptop is in
 | Screen | What the seed gives it |
 | --- | --- |
 | Home | The live card ("Day 1 of 4"), six avatars, ₹36,660 spent, four photos |
-| Itinerary | Squad spiderweb ("The Hungry Foodies" style persona), crowd-smart score, packed stops with a one-tap move or swap, the Green Trip card |
-| Itinerary → Green Trip | 1.07 kg CO2e a person, 75% under solo cabs, 8 of 10 visits at quiet hours, 64% kept local, the e-rickshaw swap, 19 of 48 pledges |
+| Itinerary | Squad spiderweb ("The Hungry Culture Buffs", 84% vibe match), crowd-smart score, packed stops with a one-tap move or swap, the Green Trip card |
+| Itinerary → Green Trip | 1.1 kg CO2e a person, 75% under solo cabs, 8 of 10 visits at quiet hours, 64% kept local, the e-rickshaw swap, 19 of 48 pledges |
 | Stop detail | A crowd forecast, makers within 1.5 km of City Palace and Bagore, the booked workshop's card |
 | Explore → Makers, Farm-to-table | The booking made for the squad; the table with its diets |
 | Expenses | Nine spends, balances, five suggested transfers |
@@ -59,3 +59,14 @@ An Ops advisory is deliberately **not** seeded: the presenter drafts and publish
 ## Tests
 
 `tests/demo/plan.test.ts` holds the plan against the real models, so a change that breaks the demo fails `npm test`: every sightseeing stop matches a heritage site, the plan has quiet and packed hours on weekdays and weekends, the workshop finds a slot on day 2 whatever the weekday, the table is a time the kitchen offers, every spend is counted by a keyword rule (no Gemini needed), most of the money stays local, and the photos exist and are small JPEGs.
+
+## Known gaps from the QA pass
+
+Found while walking every demo path at 393 × 852 and left alone (none blocks the demo):
+
+- **Plain-HTTP origins.** `crypto.randomUUID()` only exists on HTTPS and `localhost`, so *Add expense* and *Settle up* throw on a page opened over `http://<laptop-ip>:5173`. Use `npm run share` (HTTPS) or the deployed URL on a phone. A two-line fallback in `src/services/tripsService.ts` and `SettleUpPage.tsx` would fix it.
+- **Singular "Ghoomate".** After the rename to Ghoommates, a few strings still say "Ghoomate" (sign-in, welcome wordmark, log-out box, Help, app version).
+- **Small tap targets.** Pill buttons are 30 px tall, day pills 27 px, the Itinerary rating stars 16 px. The design guide asks for 36 px where possible.
+- **Sky-blue text on white** (11–12 px links and overlines) is 3.1:1, the contrast the design guide already lists as "accents only". White initials on the amber and sky avatars are lower still.
+- **Unknown routes** fall back silently (a bad `#/trip/…` shows the Itinerary, anything else Home); there is no 404 screen.
+- **Ops privacy floor.** One real squad is under the "3 squads" floor, so the console's numbers come from the labelled sample squads plus this one, and the demo squad is not called out by name.
