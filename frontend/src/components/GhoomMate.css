@@ -7,16 +7,41 @@
   height: 88px;
 }
 
-.ghoommate-fab__mascot img {
+.ghoommate-fab__mascot {
   display: block;
   width: 84px;
   height: 88px;
   filter: var(--shadow-float);
-  transition: transform 0.15s ease;
+  transform-origin: 50% 90%;
+  animation: ghoommate-float 4s ease-in-out infinite;
 }
 
-.ghoommate-fab:active .ghoommate-fab__mascot img {
-  transform: scale(0.94);
+.ghoommate-fab:active .ghoommate-fab__mascot {
+  animation-play-state: paused;
+  scale: 0.94;
+}
+
+/* Slow bob with a slight sway: alive but not distracting */
+@keyframes ghoommate-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(-1.5deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-2px) rotate(1.5deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ghoommate-fab__mascot {
+    animation: none;
+  }
 }
 
 .ghoommate-fab__mic {
