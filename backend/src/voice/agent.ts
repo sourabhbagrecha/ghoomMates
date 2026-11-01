@@ -7,7 +7,7 @@ import { logger } from '../logger.ts';
 import { createBackendClient } from './backendClient.ts';
 import { firstName } from './members.ts';
 import { createHistoryRecorder, HISTORY_LOAD, historySection, type HistoryItem } from './history.ts';
-import { emptyMemory, memoryFrom } from './memory.ts';
+import { memoryFrom } from './memory.ts';
 import { ACTION_RPC_METHOD, AGENT_NAME, agentNameFrom, type DispatchMetadata, type UiAction } from './protocol.ts';
 import { SKILLS, type SessionState, type Skill, type SkillContext, type Tool, type TripDetail } from './skills/index.ts';
 import { createUiPusher } from './ui.ts';
@@ -82,66 +82,63 @@ function parseMetadata(raw: string): DispatchMetadata {
 
 const newSession = () => new voice.AgentSession({ llm: new inference.RealtimeModel({ model: MODEL, voice: VOICE }) });
 
+/** What the agent says before the trip has loaded: enough to greet by name and keep the chat going */
+const STARTER_INSTRUCTIONS = `You are GhoomMate, a cheerful octopus travel buddy inside Ghoommates, a group-trip app for friends in India. You are speaking out loud: reply in 1-2 short, casual, warm sentences, no lists or markdown. Your full trip details are still loading, so don't answer questions about the trip or take actions yet.`;
+
+/** GET /api/voice/context: the trip, the caller's profile preferences and the latest history, in one call */
+type VoiceContextResponse = { trip: TripDetail; preferences?: unknown; history: HistoryItem[] };
+
 export default defineAgent({
   entry: async (ctx: JobContext) => {
     const meta = parseMetadata(ctx.job.metadata);
     const api = createBackendClient({ authToken: meta.authToken });
-    // Start loading the trip while we join the room and wait for the user; none of these need the others
-    const tripLoad = api.get<TripDetail>(`/api/trips/${meta.tripId}`).then(
-      (trip) => ({ trip }),
+    // One call for everything the chat needs; it loads while we join the room and open the model session
+    const contextLoad = api.get<VoiceContextResponse>(`/api/voice/context?tripId=${encodeURIComponent(meta.tripId)}&limit=${HISTORY_LOAD}`).then(
+      (context) => ({ context }),
       (error: Error) => ({ error }),
-    );
-    // What they told GhoomMate in earlier chats; a chat without it still works
-    const memoryLoad = api.get<{ user: { preferences?: unknown } }>('/auth/me').then(
-      ({ user }) => memoryFrom(user.preferences),
-      (err: Error) => {
-        logger.warn('Voice', `Couldn't load GhoomMate memory: ${err.message}`);
-        return emptyMemory();
-      },
-    );
-    // The last chats in this trip, so it can pick up where you left off
-    const historyLoad = api.get<{ items: HistoryItem[] }>(`/api/voice/history?tripId=${encodeURIComponent(meta.tripId)}&limit=${HISTORY_LOAD}`).then(
-      ({ items }) => items,
-      (err: Error) => {
-        logger.warn('Voice', `Couldn't load GhoomMate history: ${err.message}`);
-        return [] as HistoryItem[];
-      },
     );
     await ctx.connect();
     const participantJoin = ctx.waitForParticipant();
-    participantJoin.catch(() => {}); // awaited below; if the trip fails to load we return without it
+    participantJoin.catch(() => {}); // awaited below; if the context fails to load we still need it
 
-    let trip: TripDetail;
-    const loaded = await tripLoad;
-    if ('trip' in loaded) {
-      trip = loaded.trip;
-    } else {
-      const err = loaded.error;
-      // Still join so the user hears something instead of silence.
-      logger.error('Voice', `Couldn't load trip ${meta.tripId}: ${(err as Error).message}`);
-      const session = newSession();
-      await session.start({ agent: new voice.Agent({ instructions: 'You are GhoomMate, a cheerful travel-buddy octopus. You could not load the trip right now. Apologise in one short sentence and suggest trying again in a moment.' }), room: ctx.room });
-      session.generateReply({ instructions: `Tell ${firstName(meta.userName || 'mate')} you couldn't load the trip and to try again shortly.` });
-      return;
-    }
-
-    const members = trip.members.map(({ memberId, userId, name, vibe }) => ({ memberId, userId, name, vibe: vibe ?? null }));
-    const meMember = members.find(m => m.memberId === trip.memberId);
-    const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
-    const [participant, memory, history] = await Promise.all([participantJoin, memoryLoad, historyLoad]);
-    const state: SessionState = { pendingDraft: null, lastAdded: null };
-    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, history, api, ui: createUiPusher(ctx.room, participant.identity), state };
-
+    // Open the model session now with a stub agent, rather than after the trip loads: the handshake with the model
+    // is the slow part, so it runs alongside the load. The real instructions and tools replace the stub's below.
     const session = newSession();
     session.on(voice.AgentSessionEventTypes.Error, (ev) => logger.warn('Voice', `Session error: ${(ev.error as { error?: Error })?.error?.message ?? String(ev.error)}`));
     // Save each turn (spoken or typed) to the trip's history as the chat goes, and whatever's left when it ends
-    const recorder = createHistoryRecorder((messages) => api.post('/api/voice/history', { tripId: trip.id, messages }));
+    const recorder = createHistoryRecorder((messages) => api.post('/api/voice/history', { tripId: meta.tripId, messages }));
     session.on(voice.AgentSessionEventTypes.ConversationItemAdded, ({ item }) => {
       if (item.type !== 'message' || (item.role !== 'user' && item.role !== 'assistant')) return;
       recorder.add(item.role === 'user' ? 'user' : 'agent', item.textContent);
     });
     ctx.addShutdownCallback(() => recorder.flush());
-    await session.start({ agent: new voice.Agent(buildAgentConfig(skillCtx)), room: ctx.room });
+    const agent = new voice.Agent({ instructions: STARTER_INSTRUCTIONS });
+    const [participant] = await Promise.all([participantJoin, session.start({ agent, room: ctx.room })]);
+
+    // The greeting only needs their name, which came with the job, so it doesn't wait for the trip
+    const greetName = firstName(meta.userName || 'mate');
+    session.generateReply({ instructions: `Greet ${greetName} in one short sentence, like "Hey ${greetName}! What can I do for the squad?"` });
+
+    const loaded = await contextLoad;
+    if (!('context' in loaded)) {
+      // Still talking, so the user hears something instead of silence.
+      logger.error('Voice', `Couldn't load trip ${meta.tripId}: ${loaded.error.message}`);
+      await agent.updateInstructions('You are GhoomMate, a cheerful travel-buddy octopus. You could not load the trip right now. Apologise in one short sentence and suggest trying again in a moment.');
+      session.generateReply({ instructions: `Tell ${greetName} you couldn't load the trip and to try again shortly.` });
+      return;
+    }
+    const { trip, preferences, history } = loaded.context;
+    const memory = memoryFrom(preferences);
+
+    const members = trip.members.map(({ memberId, userId, name, vibe }) => ({ memberId, userId, name, vibe: vibe ?? null }));
+    const meMember = members.find(m => m.memberId === trip.memberId);
+    const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
+    const state: SessionState = { pendingDraft: null, lastAdded: null };
+    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, history, api, ui: createUiPusher(ctx.room, participant.identity), state };
+
+    const config = buildAgentConfig(skillCtx);
+    await agent.updateInstructions(config.instructions);
+    await agent.updateTools(config.tools);
     logger.info('Voice', `GhoomMate joined ${ctx.room.name} for ${me.name} on "${trip.name}"`);
 
     // Tapped Confirm/Cancel on a card: same commit/cancel path as the voice tools, then a short spoken follow-up.
@@ -161,10 +158,6 @@ export default defineAgent({
         }
       }
       return JSON.stringify({ ok: false, error: 'NOT_PENDING' });
-    });
-
-    session.generateReply({
-      instructions: `Greet ${firstName(me.name)} in one short sentence, like "Hey ${firstName(me.name)}! What can I do for the ${trip.name} squad?"`,
     });
   },
 });

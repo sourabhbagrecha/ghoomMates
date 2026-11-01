@@ -29,7 +29,9 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 ## Start-up speed
 
 - **The worker keeps one job process warm** (`GHOOMATE_IDLE_PROCESSES`). A new chat doesn't wait for a Node process to spawn and import the agent.
-- **The job overlaps its start-up steps.** It starts loading the trip before joining the room, and waits for the user's participant while the trip loads.
+- **One call loads everything.** `GET /api/voice/context?tripId` returns the trip, the caller's profile preferences (their memory) and the latest history together, instead of three separate requests.
+- **The model session opens before the trip loads.** The job starts `session.start` with a short stub agent while the context call is in flight, then swaps in the real instructions and tools with `agent.updateInstructions` / `updateTools`. The handshake with the model no longer waits on the trip.
+- **The greeting needs only the user's name** (it arrives in the job metadata), so it goes out as soon as the session is up, without the trip name. If the context fails to load, the agent apologises instead.
 - **The browser opens the mic in parallel.** It starts while the session token and room connection are set up, then publishes the track once connected.
 - **Messages can go in early.** Anything typed, or a tapped suggestion, before GhoomMate is listening is held and sent the moment it is.
 - **No early voice capture.** The Node agents SDK (1.9.x) has no pre-connect audio buffer, so speech before the agent joins isn't captured.
@@ -132,6 +134,7 @@ Every turn (spoken or typed) is saved per person per trip in `ghoomate_messages`
 
 | Method | Route | Purpose |
 | --- | --- | --- |
+| GET | `/api/voice/context?tripId=&limit=` | What the agent needs to start a chat: `{ trip, preferences, history }` (404 for non-members) |
 | GET | `/api/voice/history?tripId=&limit=` | Your messages in the trip, oldest first: the latest `limit` (default 50, max 200) |
 | POST | `/api/voice/history` | `{ tripId, messages: [{ role: user\|agent, text }] }`, 1–50 at a time; the agent saves turns as the chat goes |
 | DELETE | `/api/voice/history?tripId=` | Clears your history in the trip |

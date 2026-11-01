@@ -96,6 +96,10 @@ if (db) {
   voice = createVoiceApp({
     db,
     authenticate,
+    tripDetail: async (tripId, userId) => {
+      const service = new TripService(db, storage, clientOrigin);
+      return service.detail(await service.access(tripId, userId));
+    },
     // A separate 2-hour token for the agent, so the user's 7-day session JWT never leaves the browser.
     agentToken: (user) => signJwt({ userId: user.id, email: user.email, name: user.name }, jwtSecret, 2 * 60 * 60),
     env: process.env,

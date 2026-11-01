@@ -8,7 +8,7 @@ import { mount, serve } from '../helpers.ts';
 
 const TRIP = '11111111-1111-4111-8111-111111111111';
 const OTHER_TRIP = '22222222-2222-4222-8222-222222222222';
-const asha = { id: 'usr_1', username: 'asha', email: 'asha@test.local', name: 'Asha' } as User;
+const asha = { id: 'usr_1', username: 'asha', email: 'asha@test.local', name: 'Asha', preferences: { ghoomate: { notes: [] } } } as unknown as User;
 const ravi = { id: 'usr_2', username: 'ravi', email: 'ravi@test.local', name: 'Ravi' } as User;
 
 type Row = { id: number; trip_id: string; user_id: string; role: string; text: string; created_at: Date };
@@ -52,7 +52,16 @@ async function withServer(run: (call: (user: User, method: string, path: string,
     if (token === 'ravi') return ravi;
     throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');
   };
-  const server = await serve(mount('/api/voice', createVoiceApp({ db, authenticate, agentToken: () => 'agent', env: {} })));
+  const server = await serve(mount('/api/voice', createVoiceApp({
+    db,
+    authenticate,
+    agentToken: () => 'agent',
+    tripDetail: async (tripId, userId) => {
+      if (tripId !== TRIP) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
+      return { id: tripId, name: 'Goa', memberId: `m_${userId}`, members: [] };
+    },
+    env: {},
+  })));
   try {
     await run((user, method, path, body) => server.request(`/api/voice${path}`, {
       method,
@@ -63,6 +72,28 @@ async function withServer(run: (call: (user: User, method: string, path: string,
     await server.close();
   }
 }
+
+describe('context route', () => {
+  test('returns the trip, preferences and latest history in one call', async () => {
+    await withServer(async (call) => {
+      await call(asha, 'POST', '/history', { tripId: TRIP, messages: [{ role: 'user', text: 'hi' }] });
+      const res = await call(asha, 'GET', `/context?tripId=${TRIP}`);
+      expect(res.status).toBe(200);
+      const body = await res.json() as { trip: { name: string; memberId: string }; preferences: unknown; history: { text: string }[] };
+      expect(body.trip.name).toBe('Goa');
+      expect(body.trip.memberId).toBe('m_usr_1');
+      expect(body.preferences).toEqual({ ghoomate: { notes: [] } });
+      expect(body.history.map(h => h.text)).toEqual(['hi']);
+    });
+  });
+
+  test('404s for a trip you are not in, and for a bad id', async () => {
+    await withServer(async (call) => {
+      expect((await call(asha, 'GET', `/context?tripId=${OTHER_TRIP}`)).status).toBe(404);
+      expect((await call(asha, 'GET', '/context?tripId=nope')).status).toBe(404);
+    });
+  });
+});
 
 describe('history routes', () => {
   test('saves turns and reads them back oldest first, private to each person', async () => {
