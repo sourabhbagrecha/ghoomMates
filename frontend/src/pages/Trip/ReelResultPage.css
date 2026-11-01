@@ -3,11 +3,11 @@
   padding-top: 20px;
 }
 
-/* 9:16 preview */
+/* 9:16 Remotion player */
 .reel__preview {
   position: relative;
   flex-shrink: 0;
-  width: 200px;
+  width: 220px;
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border: 3px solid var(--color-yellow);
@@ -16,76 +16,8 @@
   box-shadow: var(--shadow-cover-card);
 }
 
-.reel__cover {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: opacity 0.2s;
-}
-
-.reel__preview--busy .reel__cover {
-  opacity: 0.4;
-}
-
-.reel__play {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin: -28px 0 0 -28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.reel__play:disabled {
-  cursor: default;
-}
-
-.reel__duration {
-  position: absolute;
-  left: 10px;
-  bottom: 18px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.45);
-  font-weight: 700;
-  font-size: 9px;
-  line-height: 14px;
-  color: #fff;
-}
-
-.reel__track {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 8px;
-  height: 3px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.reel__track-fill {
-  display: block;
-  width: 0;
-  height: 100%;
-  background: var(--color-yellow);
-}
-
-.reel__track-fill--playing {
-  animation: reel-play 30s linear forwards;
-}
-
-@keyframes reel-play {
-  to {
-    width: 100%;
-  }
+.reel__preview--busy > :first-child {
+  opacity: 0.6;
 }
 
 .reel__busy {
@@ -149,35 +81,25 @@
 }
 
 .reel__targets {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.reel__target {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-  font-weight: 700;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-ink);
+  justify-content: center;
+  gap: 20px;
 }
 
-.reel__target-tile {
+/* An icon tile per destination; the name is its aria-label */
+.reel__target {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-tile);
   background: var(--color-tint);
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 23px;
-  color: var(--color-primary);
+}
+
+.reel__target:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* Prompt used, on the deep blue like the Reel studio card */
@@ -202,11 +124,31 @@
 }
 
 .reel__prompt {
+  width: 100%;
+  resize: none;
   padding: 8px 10px;
+  border: none;
   border-radius: var(--radius-tile);
   background: rgba(255, 255, 255, 0.14);
+  font: inherit;
   font-weight: 600;
   font-size: 12px;
   line-height: 18px;
   color: #fff;
+}
+
+.reel__prompt::placeholder {
+  color: var(--color-on-brand-muted);
+}
+
+.reel__prompt:focus-visible {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: 1px;
+}
+
+.reel__prompt-hint {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-on-brand-muted);
 }

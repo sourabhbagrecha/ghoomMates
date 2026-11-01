@@ -6,7 +6,8 @@ import photoReel from '../../assets/figma/photo-reel.svg'
 import photoSeafood from '../../assets/figma/photo-seafood.svg'
 import photoSunrise from '../../assets/figma/photo-sunrise.svg'
 import photoVagator from '../../assets/figma/photo-vagator.svg'
-import { REEL } from '../Photos/photosData'
+import iconInstagram from '../../assets/icons/icon-instagram-primary.svg'
+import iconWhatsApp from '../../assets/icons/icon-whatsapp-primary.svg'
 
 export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel']
 
@@ -50,17 +51,9 @@ export type UpiAppId = (typeof UPI_APPS)[number]['id']
 
 export const UPLOAD_STEPS = ['Ingest', 'Faces', 'Embed', 'Match']
 
-export const REEL_RESULT = {
-  title: 'Kabir’s funniest moments',
-  meta: `${REEL.duration} · Bollywood beat · 24 clips`,
-  duration: REEL.duration,
-  prompt: REEL.prompt,
-  cover: photoReel,
-}
-
 export const SHARE_TARGETS = [
-  { id: 'instagram', label: 'Instagram', initial: 'Ig' },
-  { id: 'whatsapp', label: 'WhatsApp', initial: 'W' },
+  { id: 'instagram', label: 'Instagram', icon: iconInstagram },
+  { id: 'whatsapp', label: 'WhatsApp', icon: iconWhatsApp },
 ] as const
 
 export const NOTIFICATION_SETTINGS = [

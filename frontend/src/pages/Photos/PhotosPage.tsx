@@ -6,7 +6,6 @@ import iconMicWhite from '../../assets/figma/icon-mic-white.svg'
 import iconPlay from '../../assets/figma/icon-play.svg'
 import iconScanFace from '../../assets/figma/icon-scan-face-primary-20.svg'
 import iconUpload from '../../assets/figma/icon-upload.svg'
-import photoReel from '../../assets/figma/photo-reel.svg'
 import reelGlow from '../../assets/figma/reel-glow.svg'
 import { Chip } from '../../components/Chip'
 import { GhoomMateSays } from '../../components/GhoomMate'
@@ -19,15 +18,19 @@ import { Toast } from '../../components/Toast'
 import { useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
-import { ApiRequestError, tripsApi, type FaceSummary } from '../../services/tripsService'
+import { reelsApi } from '../../services/reelsService'
+import { ApiRequestError, tripsApi, type FaceSummary, type TripPhoto } from '../../services/tripsService'
 import { MiniatureEntry } from '../Miniature/MiniatureEntry'
+import { PastReels } from '../Reel/PastReels'
+import { useTripReels } from '../Reel/useTripReels'
+import { useTripStore } from '../Trip/tripStore'
 import { useProfileStore } from '../Profile/profileStore'
 import { faceSummaryOf, hasMatched, markMatched, sizeSelfie, useFacePolling } from './faceSearch'
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
 // Reel studio only shows once the album has enough photos to cut a reel from
-const REEL_MIN_PHOTOS = 9
+const REEL_MIN_PHOTOS = 4
 
 export function PhotosPage() {
   const navigate = useNavigate()
@@ -38,6 +41,7 @@ export function PhotosPage() {
   // Photo ids found by the face filter, or null while it is off
   const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null)
   const [searching, setSearching] = useState(false)
+  const { reels } = useTripReels(trip?.id ?? null)
   useFacePolling(summary?.pending ?? 0)
 
   const visible = (photos?.items ?? []).map((photo, index) => ({ photo, index })).filter(({ photo }) => !matchedIds || matchedIds.has(photo.id))
@@ -109,7 +113,9 @@ export function PhotosPage() {
               action={{ label: 'Upload photos', icon: iconUpload, onClick: () => navigate('trip/photos/upload') }}
             />
           )}
-          {total > REEL_MIN_PHOTOS && <ReelStudio />}
+          {trip && photos && total >= REEL_MIN_PHOTOS && <ReelStudio tripId={trip.id} photos={photos.items} showToast={showToast} />}
+          {/* Appears once the list is in, so trips without reels never flash a placeholder */}
+          <PastReels reels={reels ?? []} onOpen={(reel) => navigate(`trip/photos/reel?id=${reel.id}`)} />
         </main>
       </ScreenLayout>
       <Toast message={toast} />
@@ -263,37 +269,69 @@ function UploadCard({ total, uploaders, summary, matched }: { total: number; upl
   )
 }
 
-function ReelStudio() {
+function ReelStudio({ tripId, photos, showToast }: { tripId: string; photos: TripPhoto[]; showToast: (message: string) => void }) {
   const navigate = useNavigate()
   const voice = useVoice()
-  const [preset, setPreset] = useState<string | null>(null)
+  const { reelPicks } = useTripStore()
+  const [prompt, setPrompt] = useState('')
+  const [cutting, setCutting] = useState(false)
+  // Photos picked with "Add to reel" in the viewer (indexes into the album)
+  const picked = reelPicks.map((i) => photos[i]?.id).filter((id): id is string => !!id)
+  const usePicks = picked.length >= 2
+
+  const generate = async () => {
+    const text = prompt.trim()
+    if (text.length < 3) {
+      showToast('Tell GhoomMate what kind of reel you want, or pick a style')
+      return
+    }
+    setCutting(true)
+    try {
+      const reel = await reelsApi.create(tripId, text, usePicks ? picked : undefined)
+      navigate(`trip/photos/reel?id=${reel.id}`)
+    } catch (err) {
+      showToast(err instanceof ApiRequestError ? err.message : 'Couldn’t cut the reel, try again')
+      setCutting(false)
+    }
+  }
 
   return (
-    <section className="reel-studio">
+    <section className="reel-studio" aria-busy={cutting}>
       <img className="reel-studio__glow" src={reelGlow} alt="" width={120} height={120} />
       <div className="reel-preview">
-        <img className="reel-preview__photo" src={photoReel} alt="" width={82} height={132} />
-        <button type="button" className="reel-preview__play" aria-label="Play reel preview" onClick={() => navigate('trip/photos/reel')}>
+        {photos[0] && <img className="reel-preview__photo" src={photos[0].url} alt="" width={82} height={132} />}
+        <button type="button" className="reel-preview__play" aria-label="Watch the squad’s reels" onClick={() => navigate('trip/photos/reel')}>
           <img src={iconPlay} alt="" width={12} height={12} />
         </button>
-        <span className="reel-preview__duration">{REEL.duration}</span>
+        <span className="reel-preview__duration">{usePicks ? `${picked.length} picked` : `${photos.length} photos`}</span>
       </div>
       <div className="reel-studio__controls">
         <div className="reel-studio__header">
           <img src={iconFilm} alt="" width={14} height={14} />
-          <p className="overline reel-studio__overline">Reel studio</p>
+          <label className="overline reel-studio__overline" htmlFor="reel-studio-prompt">
+            Reel studio
+          </label>
         </div>
-        <p className="reel-studio__prompt">{REEL.prompt}</p>
+        <textarea
+          id="reel-studio-prompt"
+          className="reel-studio__prompt"
+          value={prompt}
+          rows={3}
+          maxLength={300}
+          disabled={cutting}
+          placeholder={REEL.placeholder}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
         <div className="reel-studio__presets">
           {REEL.presets.map((p) => (
-            <Chip key={p} variant="onDark" selected={p === preset} onClick={() => setPreset(p === preset ? null : p)}>
-              {p}
+            <Chip key={p.label} variant="onDark" selected={prompt === p.prompt} onClick={() => setPrompt(prompt === p.prompt ? '' : p.prompt)}>
+              {p.label}
             </Chip>
           ))}
         </div>
         <div className="reel-studio__actions">
-          <button type="button" className="reel-studio__generate" onClick={() => navigate('trip/photos/reel')}>
-            Generate reel
+          <button type="button" className="reel-studio__generate" onClick={() => void generate()} disabled={cutting}>
+            {cutting ? 'GhoomMate is cutting…' : 'Generate reel'}
           </button>
           <button type="button" className="reel-studio__voice" aria-label="Describe your reel by voice" onClick={() => voice.open('Make a reel of Kabir')}>
             <img src={iconMicWhite} alt="" width={18} height={18} />

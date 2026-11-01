@@ -9,6 +9,7 @@ import { OAuthService } from './auth/service.ts';
 import { createEventsApp, createPostgresEvents } from './events/app.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
+import { createClaude } from './claude.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { createMakersApp, createPostgresMakers } from './makers/app.ts';
@@ -16,6 +17,7 @@ import { createImpactApp } from './impact/app.ts';
 import { createHospitalityApp } from './hospitality/app.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
+import { createReelsApp } from './reels/app.ts';
 import { createStoriesApp } from './stories/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
 import { createApp as createTripsApp } from './trips/app.ts';
@@ -84,10 +86,13 @@ const gemini = createGemini();
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
 let artworks: ReturnType<typeof createArtworksApp> | undefined;
+let reels: ReturnType<typeof createReelsApp> | undefined;
 let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
   trips = createTripsApp(db, storage, authenticate, clientOrigin);
   artworks = createArtworksApp({ db, storage, gemini, authenticate });
+  // Claude writes the reel plan when Gemini fails (ANTHROPIC_API_KEY)
+  reels = createReelsApp({ db, storage, gemini, claude: createClaude(), cartoApiKey: process.env.CARTO_API_KEY, authenticate });
   voice = createVoiceApp({
     db,
     authenticate,
@@ -129,6 +134,7 @@ const app = createServer({
   trips,
   voice,
   artworks,
+  reels,
   impact,
   heritage: createHeritageApp(),
   makers: createMakersApp({ gemini, authenticate, ...(db ? createPostgresMakers(db, storage, clientOrigin) : {}) }),

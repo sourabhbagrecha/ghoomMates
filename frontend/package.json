@@ -12,11 +12,21 @@
   "dependencies": {
     "@livekit/components-react": "^2.9.24",
     "@mediapipe/tasks-vision": "^1.1.1",
+    "@remotion/google-fonts": "4.0.539",
+    "@remotion/layout-utils": "4.0.539",
+    "@remotion/motion-blur": "4.0.539",
+    "@remotion/noise": "4.0.539",
+    "@remotion/paths": "4.0.539",
+    "@remotion/player": "4.0.539",
+    "@remotion/shapes": "4.0.539",
+    "@remotion/transitions": "4.0.539",
+    "@remotion/web-renderer": "4.0.539",
     "heic-to": "^1.6.7",
     "livekit-client": "^2.23.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "remotion": "4.0.539"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
