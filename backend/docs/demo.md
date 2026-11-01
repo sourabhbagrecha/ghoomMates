@@ -66,7 +66,7 @@ Found while walking every demo path at 393 × 852 and left alone (none blocks th
 
 - **Plain-HTTP origins.** `crypto.randomUUID()` only exists on HTTPS and `localhost`, so *Add expense* and *Settle up* throw on a page opened over `http://<laptop-ip>:5173`. Use `npm run share` (HTTPS) or the deployed URL on a phone. A two-line fallback in `src/services/tripsService.ts` and `SettleUpPage.tsx` would fix it.
 - **Singular "Ghoomate".** After the rename to Ghoommates, a few strings still say "Ghoomate" (sign-in, welcome wordmark, log-out box, Help, app version).
-- **Small tap targets.** Pill buttons are 30 px tall, day pills 27 px, the Itinerary rating stars 16 px. The design guide asks for 36 px where possible.
+- **Small tap targets.** Pill buttons are 30 px tall, day pills 27 px. The design guide asks for 36 px where possible.
 - **Sky-blue text on white** (11–12 px links and overlines) is 3.1:1, the contrast the design guide already lists as "accents only". White initials on the amber and sky avatars are lower still.
 - **Unknown routes** fall back silently (a bad `#/trip/…` shows the Itinerary, anything else Home); there is no 404 screen.
 - **Ops privacy floor.** One real squad is under the "3 squads" floor, so the console's numbers come from the labelled sample squads plus this one, and the demo squad is not called out by name.

@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import headerBg from '../../assets/figma/itinerary-header-bg.svg'
 import iconPlus from '../../assets/figma/icon-plus.svg'
-import iconStarOutline from '../../assets/figma/icon-star-outline.svg'
-import iconStar from '../../assets/figma/icon-star.svg'
 import { AvatarStack } from '../../components/Avatar'
 import { Button } from '../../components/Button'
 import { GhoomMateSays } from '../../components/GhoomMate'
@@ -51,7 +49,7 @@ export function ItineraryPage() {
 
         <main className="screen__body">
           {trip && <FestivalTip trip={trip} />}
-          {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={live} />}
+          {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} />}
           {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
           {trip && itinerary && <CrowdPlanCard trip={trip} days={itinerary} />}
           {trip && itinerary && <GreenTripCard tripId={trip.id} days={itinerary} />}
@@ -62,10 +60,8 @@ export function ItineraryPage() {
   )
 }
 
-/** `live` is which day of the trip it is today while the trip is live (the rating is for that day), else null */
-function VibeCard({ trip, hasPlan, live }: { trip: TripDetail; hasPlan: boolean; live: { day: number; total: number } | null }) {
+function VibeCard({ trip, hasPlan }: { trip: TripDetail; hasPlan: boolean }) {
   const navigate = useNavigate()
-  const [rating, setRating] = useState(4)
   // Your quiz result: saved on this device right after the quiz, otherwise from the trip's member list
   const me = trip.members.find((m) => m.memberId === trip.memberId)
   const youVibe = loadVibe() ?? blendVibes([me?.vibe])
@@ -125,27 +121,6 @@ function VibeCard({ trip, hasPlan, live }: { trip: TripDetail; hasPlan: boolean;
         </p>
       ) : (
         <GeneratePlan trip={trip} hasPlan={hasPlan} />
-      )}
-      {live && (
-        <div className="trip-feedback">
-          <p className="trip-feedback__text">
-            How was Day {live.day}? <span>{live.day < live.total ? 'Rate to tune tomorrow' : 'Rate the whole trip'}</span>
-          </p>
-          <div className="trip-feedback__stars" role="radiogroup" aria-label={`Rate Day ${live.day}`}>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={rating === value}
-                aria-label={`${value} star${value > 1 ? 's' : ''}`}
-                onClick={() => setRating(value)}
-              >
-                <img src={value <= rating ? iconStar : iconStarOutline} alt="" width={16} height={16} />
-              </button>
-            ))}
-          </div>
-        </div>
       )}
     </section>
   )

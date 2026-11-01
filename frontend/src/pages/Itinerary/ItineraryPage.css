@@ -117,35 +117,6 @@
   white-space: nowrap;
 }
 
-.trip-feedback {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-tile);
-  background: var(--color-tint);
-}
-
-.trip-feedback__text {
-  flex: 1;
-  min-width: 0;
-  font-weight: 700;
-  font-size: 11.5px;
-  line-height: 17px;
-  color: var(--color-ink);
-}
-
-.trip-feedback__text span {
-  font-weight: 600;
-  color: var(--color-muted);
-}
-
-.trip-feedback__stars {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
 /* Day switcher */
 .day-pills {
   display: flex;
