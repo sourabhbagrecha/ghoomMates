@@ -22,16 +22,24 @@ Hosts, farms and dishes are **sample partners**: real places (Gangaur Ghat, Lal 
 
 | Route | Who | What |
 | --- | --- | --- |
-| `GET /hosts` | public | The four hosts, greenest first: Green Host score and tier, food miles, this month's special. |
+| `GET /hosts` | public | The four hosts, greenest first: Green Host score and tier, food miles, this month's special, plus the month's farm notes and `today` (the date in India, which the app uses to offer table dates whatever the phone's clock says). |
 | `GET /hosts/:id` | public | One host: story, partner farms and what each supplies this month, the month's thali, directions. |
 | `POST /hosts/:id/reservations` | trip member | `{ tripId, date, meal, time?, headcount?, dietary?, note?, dayNumber? }`. Headcount defaults to the trip's member count and the diet mix to what their profiles say. Saves the table and adds a **Food** stop to the itinerary. Booking the same host, day and meal again updates it. |
-| `GET /reservations?tripId=` | trip member | The squad's tables. |
+| `GET /reservations?tripId=` | trip member | The squad's tables, plus `squad`: how many people are in the trip and which diets their profiles mention (what a new booking starts from). |
 | `DELETE /reservations/:id` | trip member | Cancels the table and removes its stop. |
 | `GET /hosts/:id/forecast?days=7` | signed in | Covers per day (bookings + modelled walk-ins), diets, the menu plan, the procurement list grouped by farm with a `wa.me` link each, food miles, waste avoided, Green Host score. |
 | `GET/POST /hosts/:id/waste` | signed in | The leftover trend (7 days by default) and logging a day's leftovers in kg. |
 | `POST /menu` | signed in | `{ hostId, date?, covers?, dietary? }` returns a seasonal farm-to-table menu from Gemini, or the curated one. |
 
 Hosts, forecast, waste and menu work **without a database**; reservations need the trips database and answer `503` without it. The host tools are open to any signed-in user so the demo can switch between hosts; a real deployment would tie each host to an owner account.
+
+## Screens (frontend/src/pages/Hospitality)
+
+- **Explore → Farm-to-table** (`FarmToTableSection`, Udaipur trips): a row of kitchen cards with the Green Host badge and food miles. `See all` opens `#/trip/explore/food`.
+- **`#/trip/explore/food`**: what is on the farms this month and the four kitchens, greenest first.
+- **`#/trip/explore/food/<hostId>`**: the Green Host score breakdown, sourcing story, food-miles bars, partner farms (what each has fresh or stored this month), the month's thali, the squad's own tables with Cancel, and the **Reserve a squad thali** sheet (day, meal, time, guests, Jain and vegan counts). Booking adds the Food stop and refreshes the itinerary.
+- **`#/host[/<hostId>]`** (Profile → Host kitchen): a kitchen picker, four numbers for the week, the seven-day demand bars with the squads behind a day, farm orders with the WhatsApp links, the Gemini menu and the leftover log. It refreshes itself every 30 seconds, so a booking made on another phone shows up.
+- Pictures are generated illustrations (Gemini image model on Vertex AI), under `frontend/public/hospitality/`; a missing picture falls back to a soft tile.
 
 ## How it plugs in
 

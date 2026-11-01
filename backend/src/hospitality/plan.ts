@@ -39,8 +39,8 @@ export const monthOf = (date: string) => Number(date.slice(5, 7));
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const weekdayOf = (date: string) => WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
-/** "Mon 2 Nov" */
-export const dateLabel = (date: string) => `${weekdayOf(date)} ${Number(date.slice(8))} ${MONTHS[monthOf(date) - 1]}`;
+/** "Mon, 2 Nov" */
+export const dateLabel = (date: string) => `${weekdayOf(date)}, ${Number(date.slice(8))} ${MONTHS[monthOf(date) - 1]}`;
 
 /* Demand */
 
@@ -85,7 +85,7 @@ export type MealForecast = { booked: number; walkIn: number; covers: number; boo
 export type DayForecast = {
   date: string;
   weekday: string;
-  /** "Mon 2 Nov" */
+  /** "Mon, 2 Nov" */
   label: string;
   month: number;
   /** "weekend", "Diwali"… when the baseline is lifted or dimmed */

@@ -13,7 +13,7 @@ import { addDays, daysBetween, forecastDay, isDate, istDate, monthOf, normaliseM
 import { MONTH_NAMES } from './produce.ts';
 import { MemoryStore, PgStore, type HospitalityDb, type HospitalityStore, type StoredBooking } from './store.ts';
 import { describeMix, MEAL_INFO, MEALS, mixTotal, splitMix, type DietMix, type Meal } from './types.ts';
-import { forecastView, hostCard, hostDetail, wasteTrend } from './views.ts';
+import { forecastView, hostCard, hostDetail, seasonView, wasteTrend } from './views.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
@@ -114,12 +114,13 @@ export function createHospitalityApp(options: HospitalityOptions) {
     const hosts = await Promise.all(HOSTS.map(async host => hostCard(host, month, await logsOf(host.id))));
     // Greenest first
     hosts.sort((a, b) => b.green.score - a.green.score);
-    res.json({ month, monthName: MONTH_NAMES[month - 1], sample: true, hosts });
+    res.json({ today: today(), month, monthName: MONTH_NAMES[month - 1], sample: true, season: seasonView(month), hosts });
   });
 
   router.get('/hosts/:id', async (req, res) => {
     const host = hostOr404(req.params.id);
-    res.json({ sample: true, ...hostDetail(host, monthOf(today()), await logsOf(host.id)) });
+    // `today` is the date in India, which the app uses to offer table dates whatever the phone's clock says
+    res.json({ sample: true, today: today(), ...hostDetail(host, monthOf(today()), await logsOf(host.id)) });
   });
 
   /* Signed in */
@@ -227,8 +228,9 @@ export function createHospitalityApp(options: HospitalityOptions) {
 
   router.get('/reservations', async (req, res) => {
     const access = await tripAccess(req.query.tripId, userOf(res));
-    const items = await store.bookingsForTrip(access.trip.id);
-    res.json({ items: items.map(b => bookingView(b, HOST_BY_ID.get(b.hostId))) });
+    const [items, squad] = await Promise.all([store.bookingsForTrip(access.trip.id), store.squad(access.trip.id)]);
+    // The squad's size and diets are what a new booking would start from
+    res.json({ items: items.map(b => bookingView(b, HOST_BY_ID.get(b.hostId))), squad });
   });
 
   router.delete('/reservations/:id', async (req, res) => {

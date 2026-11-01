@@ -8,7 +8,7 @@ import {
   addDays, buildProcurement, dateLabel, foodMiles, forecastDay, forecastDays, monthOf, orderMessage, supplierFor, thaliKg, typicalPlan, wasteAvoided,
   whatsappLink, OPEN_BUFFET_SURPLUS, WHOLESALE_KM, type Booking, type DayForecast,
 } from './plan.ts';
-import { ingredient, ingredientName, isAvailable, isFresh, MONTH_NAMES, MONTH_NOTES } from './produce.ts';
+import { ingredient, ingredientName, INGREDIENTS, isAvailable, isFresh, MONTH_NAMES, MONTH_NOTES } from './produce.ts';
 import { addMix, emptyMix, MEAL_INFO, MEALS, mixTotal } from './types.ts';
 import type { WasteLog } from './store.ts';
 
@@ -22,6 +22,22 @@ function keySupply(host: Host, dish: Dish, month: number) {
     ?? candidates.find(c => supplierFor(host, c, month));
   const supplier = id && supplierFor(host, id, month);
   return id && supplier ? { ingredient: ingredientName(id, month), farm: supplier.farm.name, village: supplier.farm.village, km: supplier.km } : null;
+}
+
+/** Greens and vegetables first: they are what a traveller can picture on the plate */
+const FRESH_ORDER = ['greens', 'vegetable', 'wild', 'grain', 'pulse', 'sweetener'];
+
+/** What the farms are doing this month, and the produce coming off the fields */
+export function seasonView(month: number) {
+  return {
+    month,
+    monthName: MONTH_NAMES[month - 1],
+    ...MONTH_NOTES[month],
+    fresh: INGREDIENTS
+      .filter(i => i.group !== 'dairy' && i.group !== 'pantry' && i.peak.includes(month))
+      .sort((a, b) => FRESH_ORDER.indexOf(a.group) - FRESH_ORDER.indexOf(b.group))
+      .map(i => ingredientName(i.id, month)),
+  };
 }
 
 export function measuredWaste(logs: WasteLog[]): MeasuredWaste | null {
@@ -82,7 +98,7 @@ export function hostDetail(host: Host, month: number, logs: WasteLog[] = []) {
     mealOptions: host.meals.map(id => ({ id, ...MEAL_INFO[id] })),
     practices: host.practices,
     farms: farmsOf(host).map(({ farm }) => farmView(host, farm, month)),
-    season: { month, monthName: MONTH_NAMES[month - 1], ...MONTH_NOTES[month] },
+    season: seasonView(month),
     thali: {
       title: MONTH_NOTES[month].thali,
       dishes: menu.dishes.map(d => ({

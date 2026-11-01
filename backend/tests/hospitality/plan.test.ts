@@ -126,7 +126,7 @@ describe('dates', () => {
   test('add days, count days, label', () => {
     expect(addDays('2026-11-29', 3)).toBe('2026-12-02');
     expect(daysBetween('2026-10-31', '2026-11-02')).toBe(2);
-    expect(dateLabel('2026-11-02')).toBe('Mon 2 Nov');
+    expect(dateLabel('2026-11-02')).toBe('Mon, 2 Nov');
   });
 });
 
@@ -260,7 +260,7 @@ describe('orders on WhatsApp', () => {
     const text = orderMessage(haveli, order, { from: '2026-11-02', to: '2026-11-08' }, 280, 6);
     expect(text.includes('Namaste Hariyali Dhani')).toBe(true);
     expect(text.includes('Kesar Pol Haveli, Gangaur Ghat')).toBe(true);
-    expect(text.includes('Mon 2 Nov to Sun 8 Nov')).toBe(true);
+    expect(text.includes('Mon, 2 Nov to Sun, 8 Nov')).toBe(true);
     expect(text.includes('Makki (maize flour):')).toBe(true);
     expect(text.includes('including 6 from squads')).toBe(true);
     const link = whatsappLink(text);

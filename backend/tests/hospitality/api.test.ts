@@ -107,7 +107,12 @@ describe('hosts', () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.month).toBe(11);
+      expect(body.today).toBe('2026-11-01');
       expect(body.sample).toBe(true);
+      expect(body.season.season).toBe('Makki season');
+      expect(body.season.fresh.includes('Makki (maize flour)') && body.season.fresh.includes('Methi, palak & bathua')).toBe(true);
+      // Greens and vegetables lead, so the first tags a traveller sees are things on the plate
+      expect(body.season.fresh[0]).toBe('Methi, palak & bathua');
       expect(body.hosts.map((h: any) => h.id)).toHaveLength(4);
       const scores = body.hosts.map((h: any) => h.green.score);
       expect(scores).toEqual([...scores].sort((a: number, b: number) => b - a));
@@ -168,7 +173,7 @@ describe('squad reservations', () => {
       expect(body.reservation.dietary).toEqual({ veg: 4, jain: 2, vegan: 0 });
       expect(body.reservation.time).toBe('08:00 PM');
       expect(body.reservation.group).toBe('Goa Gang');
-      expect(body.reservation.dateLabel).toBe('Mon 2 Nov');
+      expect(body.reservation.dateLabel).toBe('Mon, 2 Nov');
       expect(body.updated).toBe(false);
       expect(body.stop.dayNumber).toBe(3);
       expect(body.seatsLeft).toBe(34);
@@ -210,6 +215,7 @@ describe('squad reservations', () => {
       const list = await (await call('GET', `/reservations?tripId=${TRIP}`)).json();
       expect(list.items).toHaveLength(1);
       expect(list.items[0].hostName).toBe('Kesar Pol Haveli');
+      expect(list.squad).toEqual({ members: 6, diets: { veg: 4, jain: 2, vegan: 0 } });
     });
   });
 
@@ -306,7 +312,7 @@ describe('the host’s forecast', () => {
       expect(f.from).toBe('2026-11-01');
       expect(f.to).toBe('2026-11-07');
       expect(f.days).toHaveLength(7);
-      expect(f.days[0].label).toBe('Sun 1 Nov');
+      expect(f.days[0].label).toBe('Sun, 1 Nov');
       expect(f.days.every((d: any) => d.booked === 0 && d.walkIn > 0 && d.covers === d.walkIn)).toBe(true);
       expect(f.totals.squads).toBe(0);
       expect(f.menu.dishes).toHaveLength(6);
@@ -350,8 +356,8 @@ describe('the host’s forecast', () => {
       expect(badgaon.whatsapp.url.startsWith('https://wa.me/?text=')).toBe(true);
       expect(badgaon.whatsapp.text.includes('Hariyali Dhani')).toBe(true);
       expect(badgaon.whatsapp.text.includes('Makki (maize flour):')).toBe(true);
-      expect(badgaon.whatsapp.text.includes('Mon 2 Nov')).toBe(false);
-      expect(badgaon.whatsapp.text.includes('Sun 1 Nov to Sat 7 Nov')).toBe(true);
+      expect(badgaon.whatsapp.text.includes('Mon, 2 Nov')).toBe(false);
+      expect(badgaon.whatsapp.text.includes('Sun, 1 Nov to Sat, 7 Nov')).toBe(true);
       expect(badgaon.whatsapp.text.includes('including 6 from squads')).toBe(true);
     });
   });
