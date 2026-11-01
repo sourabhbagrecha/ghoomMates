@@ -678,6 +678,7 @@
 }
 
 .pledge__tick {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -688,6 +689,13 @@
   border-radius: 50%;
   background: var(--color-surface);
   transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* A 40px tap target around the 28px circle */
+.pledge__tick::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .pledge__tick--on {
