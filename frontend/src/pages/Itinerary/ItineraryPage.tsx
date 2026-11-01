@@ -52,9 +52,9 @@ export function ItineraryPage() {
         <main className="screen__body">
           {trip && <FestivalTip trip={trip} />}
           {trip && <VibeCard trip={trip} hasPlan={!!itinerary?.some((d) => d.stops.length)} live={live} />}
+          {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
           {trip && itinerary && <CrowdPlanCard trip={trip} days={itinerary} />}
           {trip && itinerary && <GreenTripCard tripId={trip.id} days={itinerary} />}
-          {trip && itinerary ? <DayPlan trip={trip} days={itinerary} today={live?.day ?? null} /> : <Skeleton variant="card" height={220} />}
         </main>
       </ScreenLayout>
       <GhoomMateSays>Ask me “When is City Palace quietest?”</GhoomMateSays>
