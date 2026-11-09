@@ -28,6 +28,9 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
     SERVE_FRONTEND_DIR=/app/frontend/dist
+# The LiveKit room client (@livekit/rtc-node, native code) checks TLS against the system CA store, which the slim
+# image leaves out; without it the voice worker gets jobs but cannot join the room. Node's own HTTPS has its own CAs.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 # Node runs the .ts sources directly (type stripping), so there is no server build. Type stripping is off for
 # anything under node_modules, so the sources sit in /app/backend/src.
