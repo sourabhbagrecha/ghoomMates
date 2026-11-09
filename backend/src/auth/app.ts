@@ -142,8 +142,9 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
     try {
       logger.info('Auth', 'Handling Google OAuth redirect code exchange from browser...');
       const result = await service.handleGoogleCode(code);
-      logger.info('Auth', `Google OAuth exchange successful for: ${result.user.email} (id: ${result.user.id}, new: ${result.isNewUser}) -> redirecting to /#/selfie`);
-      res.redirect(302, `${clientOrigin}/#/selfie?token=${encodeURIComponent(result.token)}`);
+      logger.info('Auth', `Google OAuth exchange successful for: ${result.user.email} (id: ${result.user.id}, new: ${result.isNewUser}) -> redirecting to /#/auth/callback`);
+      // The app shows "Signing in" there, then opens Home for a finished profile or the selfie step for a new one
+      res.redirect(302, `${clientOrigin}/#/auth/callback?token=${encodeURIComponent(result.token)}`);
     } catch (authErr: any) {
       logger.error('Auth', `Google OAuth code exchange failed: ${authErr.message || String(authErr)}`);
       res.redirect(302, signInError(authErr.message || 'google_auth_failed'));

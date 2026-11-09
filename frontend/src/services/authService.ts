@@ -113,6 +113,9 @@ export function getStoredUser(): AuthUser | null {
   }
 }
 
+/** The colour is saved when sign-up's "About you" step is finished, so a returning user skips onboarding on any device. */
+export const hasCompletedProfile = (user: AuthUser | null | undefined): boolean => typeof user?.preferences?.colour === 'string';
+
 export function saveAuthSession(token: string, user: AuthUser, markCompleted = false): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
@@ -120,7 +123,7 @@ export function saveAuthSession(token: string, user: AuthUser, markCompleted = f
     if (user.name) {
       localStorage.setItem(NAME_KEY, user.name);
     }
-    if (markCompleted) {
+    if (markCompleted || hasCompletedProfile(user)) {
       localStorage.setItem(ONBOARDED_KEY, '1');
     }
     notifyAuth(user);
@@ -168,7 +171,7 @@ export async function loginWithGoogleCredential(credential: string): Promise<Aut
     throw new Error(err.error?.message || 'Google verification failed');
   }
   const data = (await res.json()) as AuthResponse;
-  saveAuthSession(data.token, data.user, !data.isNewUser);
+  saveAuthSession(data.token, data.user);
   return data;
 }
 
@@ -183,7 +186,7 @@ export async function loginWithGoogleCode(code: string, redirectUri?: string): P
     throw new Error(err.error?.message || 'Google code exchange failed');
   }
   const data = (await res.json()) as AuthResponse;
-  saveAuthSession(data.token, data.user, !data.isNewUser);
+  saveAuthSession(data.token, data.user);
   return data;
 }
 

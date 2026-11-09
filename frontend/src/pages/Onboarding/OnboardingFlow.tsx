@@ -6,12 +6,13 @@ import { ProfilePage } from './ProfilePage'
 import { SelfiePage } from './SelfiePage'
 import { SignInPage } from './SignInPage'
 import { WelcomePage } from './WelcomePage'
-import { getStoredUser, updateUserProfile, type AuthUser } from '../../services/authService'
+import { getStoredUser, hasCompletedProfile, updateUserProfile, type AuthUser } from '../../services/authService'
 
 type OnboardingFlowProps = {
   step: OnboardingStep
   currentUser?: AuthUser | null
-  go: (step: OnboardingStep) => void
+  /** '' is Home, for a returning user who signs in again */
+  go: (step: OnboardingStep | '') => void
   onDone: (details: SignUpDetails) => void
 }
 
@@ -71,8 +72,8 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
               googleId: result.user.googleId,
             }
             update(updatedDetails)
-            // Once login is complete, navigate directly to the live selfie photo page
-            go('selfie')
+            // New users continue to the live selfie; returning users already have a profile
+            go(hasCompletedProfile(result.user) ? '' : 'selfie')
           }}
         />
       )

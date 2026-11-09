@@ -35,6 +35,7 @@ import {
   decodeJwtPayload,
   fetchCurrentUser,
   getStoredUser,
+  hasCompletedProfile,
   loginWithGoogleCode,
   saveAuthSession,
   subscribeAuth,
@@ -126,6 +127,12 @@ function App() {
       const params = new URLSearchParams(rawQuery)
       const token = params.get('token')
       const code = params.get('code')
+      // Returning users go Home (or to a pending invite); only new ones go through sign-up
+      const afterSignIn = (u: AuthUser | null) => {
+        const next = hasCompletedProfile(u) ? '' : 'selfie'
+        window.history.replaceState(null, '', `#/${next}`)
+        navigate(next, { replace: true })
+      }
 
       if (token) {
         const decoded = decodeJwtPayload(token)
@@ -140,9 +147,7 @@ function App() {
           setUser(authUser)
         }
 
-        window.history.replaceState(null, '', '#/selfie')
-        navigate('selfie', { replace: true })
-
+        // The token only carries id, email and name; the saved profile says whether sign-up was finished
         fetch('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
           .then((r) => r.json())
           .then((data) => {
@@ -150,17 +155,18 @@ function App() {
               saveAuthSession(token, data.user, false)
               setUser(data.user)
             }
+            afterSignIn(data.user)
           })
           .catch((err) => {
             console.warn('Background token check warning:', err)
+            afterSignIn(null)
           })
       } else if (code) {
         const redirectUri = `${window.location.origin}/auth/callback`
         loginWithGoogleCode(code, redirectUri)
           .then((res) => {
             setUser(res.user)
-            window.history.replaceState(null, '', '#/selfie')
-            navigate('selfie', { replace: true })
+            afterSignIn(res.user)
           })
           .catch((err) => {
             console.error('Google OAuth callback error:', err)

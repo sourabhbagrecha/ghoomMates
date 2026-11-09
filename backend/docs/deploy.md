@@ -133,7 +133,7 @@ Not fixed (decide after the demo):
 
 - **No rate limits** on any route, including the Gemini and Vertex backed ones (itinerary drafts, images, speech). Every one needs a signed-in user, but with the consent screen public anyone can sign in. The caps that exist are `--max-instances` (web 4) and your quotas: lower the Vertex AI "generate content requests per minute" quota, restrict and cap the Gemini API key, and add a budget alert (`gcloud billing budgets create`). The proper fix is a per-user token bucket on those routes.
 - **Google sign-in `state` is not checked**, so a login CSRF is possible (a victim could be signed in as the attacker). Google still enforces the registered redirect URIs.
-- **Sessions** are 7-day tokens in `localStorage` with no server-side revocation; `/auth/logout` only clears the client. After Google sign-in the token travels in the URL fragment (`/#/selfie?token=`).
+- **Sessions** are 7-day tokens in `localStorage` with no server-side revocation; `/auth/logout` only clears the client. After Google sign-in the token travels in the URL fragment (`/#/auth/callback?token=`).
 - **No CSP, `frame-ancestors` or HSTS headers.** Only `nosniff` is set.
 - **`GCS_CREDENTIALS_BASE64`** is a long-lived service-account key held in Secret Manager. Keyless signing with the Cloud Run account (IAM `signBlob`) would remove it but needs a change in `storage.ts`.
 - **Bucket CORS** allows `*` (signed URLs are what protect objects). **Cloud SQL** accepts any IP (password and TLS only), which the directly connected `face-indexer` relies on.
