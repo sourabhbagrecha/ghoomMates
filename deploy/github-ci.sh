@@ -11,6 +11,7 @@
 #   roles/logging.viewer                                                    stream the build log into the job
 #   roles/storage.admin on gs://<project>_cloudbuild only                   upload the source for the build
 #   roles/run.developer                                                     roll out a new revision
+#   roles/artifactregistry.reader on the image repository only              let Cloud Run resolve the new image
 #   roles/iam.serviceAccountUser on the Cloud Build and web runtime accounts  run the build and the revision as them
 # It cannot read Secret Manager, the database or the photo bucket.
 #
@@ -78,6 +79,9 @@ done
 retry 5 6 quietly gcloud storage buckets add-iam-policy-binding "gs://${PROJECT_ID}_cloudbuild" \
   --member="serviceAccount:$deployer" --role=roles/storage.admin
 ok "roles/storage.admin on gs://${PROJECT_ID}_cloudbuild"
+retry 5 6 quietly gcloud artifacts repositories add-iam-policy-binding "$REPO" --project="$PROJECT_ID" --location="$REGION" \
+  --member="serviceAccount:$deployer" --role=roles/artifactregistry.reader
+ok "roles/artifactregistry.reader on the $REPO image repository"
 for account in "$build_sa" "$WEB_SA_NAME@$PROJECT_ID.iam.gserviceaccount.com"; do
   retry 5 6 quietly gcloud iam service-accounts add-iam-policy-binding "$account" --project="$PROJECT_ID" \
     --member="serviceAccount:$deployer" --role=roles/iam.serviceAccountUser
