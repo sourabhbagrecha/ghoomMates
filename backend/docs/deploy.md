@@ -213,22 +213,8 @@ A local build is for your CPU (arm64 on an M-series Mac); `deploy/cloudrun.sh` b
 | `backend/src/auth/devLogin.ts` | When the test sign-in works and for whom |
 | `backend/tests/deploy/production.test.ts` | Tests for both |
 
-## The VM at ghoommates.sourabh.org
+## Google sign-in on the domain
 
-The live demo runs on a plain Compute Engine VM instead of Cloud Run:
+The Google OAuth client lists `https://ghoommates.sourabh.org/auth/callback` as an authorized redirect URI and `https://ghoommates.sourabh.org` as a JavaScript origin. Keep the `run.app` entries too, for signing in directly on Cloud Run while debugging.
 
-- VM `ghoommates` (e2-small, Debian 12, `asia-south1-b`), static IP `ghoomates-ip` (35.244.28.91), network tag `lagaan-web` (opens 80 and 443).
-- Cloudflare: `ghoommates.sourabh.org` A record to that IP, DNS only (not proxied), so Caddy gets its own Let's Encrypt certificate.
-- Caddy (`/etc/caddy/Caddyfile`) terminates TLS and proxies to Node on `127.0.0.1:8080`.
-- systemd unit `ghoommates` runs `node src/index.ts` from `/opt/ghoommates/app/backend` as user `ghoommates`, with `NODE_ENV=production`. A second unit, `ghoommates-agent`, runs the GhoomMate voice worker from the same directory. Its `backend/.env` is the local one with the production overrides (`CLIENT_ORIGIN`, `GOOGLE_REDIRECT_URI`, a generated `JWT_SECRET`, `SERVE_FRONTEND_DIR`).
-- The database is reached through `DATABASE_URL`, the same as local dev.
-
-```bash
-deploy/vm.sh          # build the web app, ship the code, npm ci, restart, check /health
-deploy/vm.sh --env    # same, and also push backend/.env again (keeps the server's JWT secret)
-deploy/vm.sh logs     # last 100 lines of the server log
-```
-
-**Automatic deploys** no longer go to the VM; they go to Cloud Run (see "Automatic deploys" above). The repository secrets `VM_SSH`, `VM_SSH_KEY` and `VM_KNOWN_HOSTS` and the VM's `deploy` key are unused and go away with the VM. `ghoommates.sourabh.org` now points at the Cloudflare Worker, not the VM.
-
-The Google OAuth client needs `https://ghoommates.sourabh.org/auth/callback` as an authorized redirect URI and `https://ghoommates.sourabh.org` as a JavaScript origin. The voice worker runs on the VM too, as the systemd unit `ghoommates-agent` (`deploy/ghoommates-agent.service`, `node src/voice/agent.ts start`). It reads the same `backend/.env` (`GHOOMATE_AGENT_NAME=ghoomate-prod`) and calls the API on `127.0.0.1:8080`. `deploy/vm.sh` installs the unit and restarts it with the web service on every deploy; `deploy/vm.sh logs` shows both. If voice never answers, check that the agent log says `registered worker`.
+The app used to run on a Compute Engine VM (`deploy/vm.sh`); it was deleted on 9 Nov 2026 after the move to Cloud Run.

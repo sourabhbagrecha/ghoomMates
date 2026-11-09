@@ -173,7 +173,7 @@ It has already been run once against the shared dev database for the quick sign-
   - Gemini and Vertex: `GEMINI_SMART_MODEL`, `GEMINI_IMAGE_MODEL`, `GEMINI_TTS_MODEL`, `VERTEX_PROJECT`, `VERTEX_LOCATION`
   - Feature settings: `GOOGLE_MAPS_API_KEY`, `OPS_SAMPLE_SQUADS`, `ARTWORKS_PER_TRIP_PER_DAY`
   - Deployment: `SERVE_FRONTEND_DIR`, `ALLOW_DEV_LOGIN`, `DEV_LOGIN_EMAILS`
-- **For the VM deploy:** image generation and narration need `VERTEX_PROJECT` / `VERTEX_LOCATION` plus Google credentials with the Vertex AI User role on the server. Without them, those features fall back.
+- **For the Cloud Run deploy:** image generation and narration need `VERTEX_PROJECT` / `VERTEX_LOCATION`, and the web service's account needs the Vertex AI User role (`deploy/cloudrun.sh` grants it). Without them, those features fall back.
 
 ## Known gaps to check before the demo
 - `crypto.randomUUID` breaks Add expense and Settle up on plain-HTTP origins other than localhost. Serve the demo over HTTPS.
