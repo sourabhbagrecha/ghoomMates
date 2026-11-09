@@ -89,7 +89,7 @@ export const LANGUAGES: { id: LanguageId; label: string }[] = [
   { id: 'hi', label: 'हिन्दी' },
 ]
 
-export const APP_VERSION = 'Ghoomate v0.1.0 · Build 2026.10'
+export const APP_VERSION = 'GhoomMates v0.1.0 · Build 2026.10'
 
 /** "name@bank" style UPI handle */
 export const isValidUpi = (value: string) => /^[a-z0-9._-]{2,}@[a-z]{2,}$/i.test(value.trim())
@@ -101,7 +101,7 @@ export const FAQS: { id: string; question: string; answer: string }[] = [
     id: 'splits',
     question: 'How do splits work?',
     answer:
-      'Add an expense, pick who was in and Ghoomate splits it equally or by amount. We simplify the balances so the squad settles in as few payments as possible.',
+      'Add an expense, pick who was in and GhoomMates splits it equally or by amount. We simplify the balances so the squad settles in as few payments as possible.',
   },
   {
     id: 'upi',
@@ -129,7 +129,7 @@ export const FAQS: { id: string; question: string; answer: string }[] = [
   },
   {
     id: 'offline',
-    question: 'Can I use Ghoomate offline?',
+    question: 'Can I use GhoomMates offline?',
     answer:
       'Your itinerary, tickets and expenses are saved on your phone, so you can check them without signal. New expenses sync as soon as you’re back online.',
   },

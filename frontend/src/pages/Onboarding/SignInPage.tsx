@@ -75,14 +75,14 @@ export function SignInPage({ onBack, onSuccess }: SignInPageProps) {
   return (
     <OnboardingLayout
       eyebrow="Step 1 of 3 · Sign in"
-      title="Welcome to Ghoomate"
+      title="Welcome to GhoomMates"
       subtitle="Sign in or create your account with Google to plan, split, and share with your squad."
       step={1}
       totalSteps={3}
       onBack={onBack}
       actions={
         <p className="onboarding__footnote">
-          By signing in you agree to Ghoomate Terms and Privacy Policy. All logins are securely authenticated via Google OAuth.
+          By signing in you agree to GhoomMates Terms and Privacy Policy. All logins are securely authenticated via Google OAuth.
         </p>
       }
     >

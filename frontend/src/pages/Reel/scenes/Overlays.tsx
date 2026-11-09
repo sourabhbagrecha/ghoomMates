@@ -26,7 +26,7 @@ export function Photo({ src, look, style, forExport }: { src: string; look: Look
 export function Watermark() {
   return (
     <div style={{ position: 'absolute', top: 132, left: 36, padding: '8px 18px', borderRadius: 999, background: 'rgba(11, 23, 71, 0.45)', color: '#fff', fontSize: 22, lineHeight: '30px', fontWeight: 800 }}>
-      Ghoommates
+      GhoomMates
     </div>
   )
 }

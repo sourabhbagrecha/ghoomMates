@@ -48,7 +48,7 @@ function makeDist() {
   mkdirSync(join(dist, 'assets'), { recursive: true });
   mkdirSync(join(dist, 'heritage'), { recursive: true });
   writeFileSync(join(parent, 'secret.txt'), 'TOP-SECRET');
-  writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Ghoommates</title><div id="root"></div>');
+  writeFileSync(join(dist, 'index.html'), '<!doctype html><title>GhoomMates</title><div id="root"></div>');
   writeFileSync(join(dist, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   writeFileSync(join(dist, 'assets', 'index-abc123.js'), JS);
   writeFileSync(join(dist, 'assets', 'index-abc123.js.gz'), gzipSync(JS));

@@ -1,4 +1,4 @@
-# Deploying Ghoommates on Google Cloud Run
+# Deploying GhoomMates on Google Cloud Run
 
 One image, one Cloud Run service: the **web service** runs the Express API, the built React app and the GhoomMate **voice worker** (a child process, `VOICE_WORKER=inline`), so one URL is the whole product and it scales to zero when nobody is using it. Everything else (Cloud SQL, the photo bucket, face indexing, Vertex AI, LiveKit) already exists and is only wired in.
 

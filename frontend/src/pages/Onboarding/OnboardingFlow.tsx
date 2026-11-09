@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { JoinTripPage } from './JoinTripPage'
 import { COLOURS, type OnboardingStep, type SignUpDetails } from './onboardingData'
 import { PermissionsPage } from './PermissionsPage'
 import { ProfilePage } from './ProfilePage'
@@ -17,7 +16,7 @@ type OnboardingFlowProps = {
 }
 
 /**
- * Welcome → (Invite) → Sign in (Google) → Live Selfie → About you → Permissions → app.
+ * Welcome → Sign in (Google) → Live Selfie → About you → Permissions → app.
  * Holds what the user enters so it survives moving back and forth between steps.
  */
 export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlowProps) {
@@ -54,10 +53,7 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
 
   switch (step) {
     case 'welcome':
-      return <WelcomePage onGetStarted={() => go('sign-in')} onHaveInvite={() => go('invite')} />
-    case 'invite':
-      // "I have an invite link": paste the link, preview the trip, then sign in to join
-      return <JoinTripPage />
+      return <WelcomePage onGetStarted={() => go('sign-in')} />
     case 'sign-in':
       return (
         <SignInPage

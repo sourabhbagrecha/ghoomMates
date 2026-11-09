@@ -49,7 +49,8 @@ type HomePageProps = {
   user?: AuthUser | null
   onOpenNotifications: () => void
   onOpenTrip: (tripId: string, tab: TabId) => void
-  onHaveInvite: () => void
+  /** Opens #/join to paste an invite link or code */
+  onJoinTrip: () => void
 }
 
 export function HomePage({
@@ -59,7 +60,7 @@ export function HomePage({
   user,
   onOpenNotifications,
   onOpenTrip,
-  onHaveInvite,
+  onJoinTrip,
 }: HomePageProps) {
   const navigate = useNavigate()
   const planTrip = () => navigate('create')
@@ -103,7 +104,7 @@ export function HomePage({
         <main className="screen__body">
           {error && !trips && <p className="home__error" role="alert">{error}</p>}
           {noTrips ? (
-            <EmptyHome onPlanTrip={planTrip} onHaveInvite={onHaveInvite} />
+            <EmptyHome onPlanTrip={planTrip} onJoinTrip={onJoinTrip} />
           ) : (
             <Trips trips={trips ?? []} onOpenTrip={onOpenTrip} onOpenPlan={() => navigate('plan')} />
           )}
@@ -117,6 +118,9 @@ export function HomePage({
           <Button variant="primary" onClick={planTrip}>
             <img src={iconPlus} alt="" width={16} height={16} />
             Plan a new trip
+          </Button>
+          <Button variant="outline" onClick={onJoinTrip}>
+            Join a trip
           </Button>
           <span className="home-indicator" aria-hidden="true" />
         </div>
@@ -313,7 +317,7 @@ function UpcomingTrip({ trip, onOpen }: { trip: TripListItem; onOpen: () => void
   )
 }
 
-function EmptyHome({ onPlanTrip, onHaveInvite }: { onPlanTrip: () => void; onHaveInvite: () => void }) {
+function EmptyHome({ onPlanTrip, onJoinTrip }: { onPlanTrip: () => void; onJoinTrip: () => void }) {
   return (
     <>
       <section className="card home-empty">
@@ -324,8 +328,8 @@ function EmptyHome({ onPlanTrip, onHaveInvite }: { onPlanTrip: () => void; onHav
           <img src={iconPlus} alt="" width={16} height={16} />
           Plan your first trip
         </Button>
-        <Button variant="outline" onClick={onHaveInvite}>
-          I have an invite link
+        <Button variant="outline" onClick={onJoinTrip}>
+          Join a trip
         </Button>
       </section>
 

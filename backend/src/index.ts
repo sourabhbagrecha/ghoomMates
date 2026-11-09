@@ -164,7 +164,7 @@ const server = app.listen(port, hostname, (err?: Error) => {
   const isGoogleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
   console.log(`
 ┌────────────────────────────────────────────────────────┐
-│               Ghoommates Backend Server                 │
+│               GhoomMates Backend Server                 │
 ├────────────────────────────────────────────────────────┤
 │  Address:     http://${hostname}:${port.toString().padEnd(39)}│
 │  Frontend:    ${clientOrigin.padEnd(41)}│
@@ -187,7 +187,7 @@ let stopping = false;
 async function shutdown() {
   if (stopping) return;
   stopping = true;
-  logger.info('Server', 'Gracefully shutting down Ghoommates backend...');
+  logger.info('Server', 'Gracefully shutting down GhoomMates backend...');
   stopVoiceWorker?.();
   await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
   await authDb.terminate();

@@ -7,9 +7,9 @@ import iconScanFace from '../../assets/figma/icon-scan-face-primary-20.svg'
 import iconVote from '../../assets/figma/icon-vote-primary.svg'
 import iconWallet from '../../assets/figma/icon-wallet-primary.svg'
 
-export type OnboardingStep = 'welcome' | 'sign-in' | 'selfie' | 'about-you' | 'permissions' | 'invite'
+export type OnboardingStep = 'welcome' | 'sign-in' | 'selfie' | 'about-you' | 'permissions'
 
-export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'sign-in', 'selfie', 'about-you', 'invite']
+export const ONBOARDING_STEPS: OnboardingStep[] = ['welcome', 'sign-in', 'selfie', 'about-you']
 
 export const isOnboardingStep = (route: string): route is OnboardingStep =>
   (ONBOARDING_STEPS as string[]).includes(route)
@@ -52,7 +52,7 @@ export const PERMISSIONS: { id: PermissionId; title: string; description: string
 export const formatPhone = (digits: string) =>
   digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits
 
-/* Intro carousel on Welcome: what Ghoomate does and how it works */
+/* Intro carousel on Welcome: what GhoomMates does and how it works */
 
 export const INTRO_SLIDE_COUNT = 4
 

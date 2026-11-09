@@ -94,7 +94,7 @@ export const reelsApi = {
       if ((err as DOMException)?.name === 'AbortError') {
         throw new ApiRequestError(504, 'REEL_TIMEOUT', 'GhoomMate is taking too long to cut this one. Try again in a moment.')
       }
-      throw new ApiRequestError(0, 'NETWORK_ERROR', 'Can’t reach Ghoommates. Check your connection.')
+      throw new ApiRequestError(0, 'NETWORK_ERROR', 'Can’t reach GhoomMates. Check your connection.')
     } finally {
       window.clearTimeout(timer)
     }

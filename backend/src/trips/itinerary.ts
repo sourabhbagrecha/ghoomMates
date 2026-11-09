@@ -404,7 +404,7 @@ export function templateDraft(place: string, days: number): Draft {
             { time: '09:30 AM', title: 'Slow breakfast', tag: 'Food', place: '', notes: 'Check out by noon.' },
             { time: '09:30 AM', title: 'Morning market visit', tag: 'Shops', place: '', notes: 'Souvenirs for home.' },
           ],
-          [{ time: '12:00 PM', title: 'Check out', tag: 'Stay', place: '', notes: 'Settle up in Ghoommates before you leave!' }],
+          [{ time: '12:00 PM', title: 'Check out', tag: 'Stay', place: '', notes: 'Settle up in GhoomMates before you leave!' }],
           [{ time: '03:00 PM', title: 'Head home', tag: 'Travel', place: '', notes: 'Leave buffer for traffic.' }],
         ],
       };
@@ -497,7 +497,7 @@ export function udaipurDraft(days: number, onlyDay: number | null = null): Draft
         s('08:00 AM', 'Morning walk in Gulab Bagh', 'Chill', 'Gulab Bagh', 'Join the locals on their rounds.'),
       ],
       [s('10:30 AM', 'Pick up a miniature painting in Hathi Pol', 'Shops', 'Hathi Pol Bazaar', 'Before the evening crowd. Ask who painted it.')],
-      [s('12:00 PM', 'Check out', 'Stay', '', 'Settle up in Ghoommates before you leave!')],
+      [s('12:00 PM', 'Check out', 'Stay', '', 'Settle up in GhoomMates before you leave!')],
       [s('03:00 PM', 'Head home', 'Travel', '', 'Share one cab to the airport or station.')],
     ],
   };

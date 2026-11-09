@@ -1,6 +1,6 @@
 # Heritage Ops module (smart crowd management for site managers)
 
-The heritage module models how busy each site is on a typical day. Ghoommates also knows where squads **plan** to be: every itinerary stop with a time. Adding the two gives a site manager a forecast before the crowd forms, and an advisory they publish reaches every squad planned into the crunch. One advisory moves 4–10 people per squad, so it eases a site far more than a nudge to a solo traveller would.
+The heritage module models how busy each site is on a typical day. GhoomMates also knows where squads **plan** to be: every itinerary stop with a time. Adding the two gives a site manager a forecast before the crowd forms, and an advisory they publish reaches every squad planned into the crunch. One advisory moves 4–10 people per squad, so it eases a site far more than a nudge to a solo traveller would.
 
 Everything a partner sees is an aggregate. The console is a demo-grade control room: it works without a database, Gemini or GCS, and degrades to curated content.
 

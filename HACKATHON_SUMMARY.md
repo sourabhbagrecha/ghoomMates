@@ -1,6 +1,6 @@
 # Hackathon additions: Heritage, Tourism & Sustainable Hospitality
 
-Everything added to Ghoommates for the Udaipur track during the push on 1 November 2026. All of it is merged into `main`.
+Everything added to GhoomMates for the Udaipur track during the push on 1 November 2026. All of it is merged into `main`.
 
 - 608 backend tests pass (up from 88 at the start); typecheck and the frontend build are clean.
 - Lint shows only the 3 warnings that were already there.
@@ -177,7 +177,7 @@ It has already been run once against the shared dev database for the quick sign-
 
 ## Known gaps to check before the demo
 - `crypto.randomUUID` breaks Add expense and Settle up on plain-HTTP origins other than localhost. Serve the demo over HTTPS.
-- Some singular "Ghoomate" strings remain after the rename. Some tap targets are under 36 px, and sky-blue text has 3.1:1 contrast. There is no 404 screen.
+- Some tap targets are under 36 px, and sky-blue text has 3.1:1 contrast. There is no 404 screen.
 - **Speech quota:** the Gemini API key allows only 10 speech requests a day, so narration goes through Vertex AI.
   - The shipped recordings need neither.
   - Hindi narration is recorded only for Bagore ki Haveli.

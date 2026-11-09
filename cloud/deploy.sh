@@ -80,16 +80,16 @@ step_registry() {
     --project="$PROJECT_ID" \
     --location="$REGION" \
     --repository-format=docker \
-    --description="Ghoommates container images"
+    --description="GhoomMates container images"
 }
 
 step_accounts() {
   gcloud iam service-accounts create face-indexer --project="$PROJECT_ID" \
-    --display-name="Ghoommates face-indexer (Cloud Run runtime)"
+    --display-name="GhoomMates face-indexer (Cloud Run runtime)"
   gcloud iam service-accounts create face-search --project="$PROJECT_ID" \
-    --display-name="Ghoommates face-search (Cloud Run runtime)"
+    --display-name="GhoomMates face-search (Cloud Run runtime)"
   gcloud iam service-accounts create face-trigger --project="$PROJECT_ID" \
-    --display-name="Ghoommates Eventarc trigger identity"
+    --display-name="GhoomMates Eventarc trigger identity"
 }
 
 step_iam() {

@@ -30,7 +30,7 @@ export function createBackendClient({ baseUrl = defaultBackendUrl(), authToken }
     try {
       res = await fetch(`${root}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
     } catch (err) {
-      throw new BackendError(0, 'NETWORK_ERROR', `Couldn't reach the Ghoommates server (${(err as Error).message})`);
+      throw new BackendError(0, 'NETWORK_ERROR', `Couldn't reach the GhoomMates server (${(err as Error).message})`);
     }
     const data = await res.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
     if (!res.ok) {

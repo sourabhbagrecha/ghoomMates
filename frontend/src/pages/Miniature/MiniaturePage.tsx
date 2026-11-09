@@ -148,13 +148,13 @@ export function MiniaturePage() {
       view.kind === 'result'
         ? await sharePicture(
             { url: view.artwork.url, filename: `ghoommates-${slug(view.artwork.styleName)}-${view.artwork.id.slice(0, 8)}.png` },
-            `${view.artwork.styleName} · ${trip?.groupName ?? 'Ghoommates'}`,
-            `Our squad, painted as a ${view.artwork.styleName} in Udaipur. Made with Ghoommates.`,
+            `${view.artwork.styleName} · ${trip?.groupName ?? 'GhoomMates'}`,
+            `Our squad, painted as a ${view.artwork.styleName} in Udaipur. Made with GhoomMates.`,
           )
         : await sharePicture(
             { url: view.photo.url, filename: `ghoommates-${slug(view.style.name)}-frame.jpg`, makeBlob: () => framedBlob(view.photo, view.style) },
-            `${view.style.name} · ${trip?.groupName ?? 'Ghoommates'}`,
-            'Our squad, in a miniature frame. Made with Ghoommates.',
+            `${view.style.name} · ${trip?.groupName ?? 'GhoomMates'}`,
+            'Our squad, in a miniature frame. Made with GhoomMates.',
           )
     const message = SHARE_MESSAGES[outcome]
     if (message) showToast(message)

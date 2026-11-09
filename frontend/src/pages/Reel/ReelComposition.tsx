@@ -137,7 +137,7 @@ function EndCard({ tagline, tripName, style, look }: { tagline: string; tripName
       {style === 'playful' || style === 'dreamy' ? <FloatingHearts /> : <EffectLayer effect={style === 'energetic' ? 'confetti' : style === 'retro' ? 'grain' : 'sparkle'} />}
       <p style={{ position: 'relative', margin: 0, color: '#fff', fontFamily: look.display, fontWeight: look.displayWeight, fontSize: 64, lineHeight: '82px', textAlign: 'center', textTransform: look.shout ? 'uppercase' : 'none', opacity: rise, transform: `scale(${interpolate(rise, [0, 1], [0.85, 1])})` }}>{tagline}</p>
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, opacity: brand }}>
-        <span style={{ color: look.accent, fontFamily: look.body, fontSize: 40, lineHeight: '52px', fontWeight: 800 }}>Ghoommates</span>
+        <span style={{ color: look.accent, fontFamily: look.body, fontSize: 40, lineHeight: '52px', fontWeight: 800 }}>GhoomMates</span>
         <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontFamily: look.body, fontSize: 24, lineHeight: '34px', fontWeight: 600 }}>{tripName ? `${tripName} · cut by GhoomMate` : 'Cut by GhoomMate'}</span>
       </div>
     </AbsoluteFill>

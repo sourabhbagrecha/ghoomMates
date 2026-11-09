@@ -7,7 +7,7 @@
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 
-# --- Where things live (facts about the shared Ghoommates project) -------------------------------------------------
+# --- Where things live (facts about the shared GhoomMates project) -------------------------------------------------
 PROJECT_ID="${PROJECT_ID:-optimal-comfort-510810-d1}"
 REGION="${REGION:-asia-south1}"                      # Mumbai: the Cloud SQL instance and the bucket are here too
 REPO="${REPO:-ghoomates}"                            # Artifact Registry repository (created by cloud/deploy.sh registry)

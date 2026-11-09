@@ -73,7 +73,7 @@ const isTab = (value: string | undefined): value is TabId => !!value && value in
  *   #/states           Gallery of loading / empty / error / offline states
  *   #/join[/<code>]    Join a trip from an invite link (works before signing in)
  *   #/auth/callback    OAuth callback redirect
- *   #/<step>           Any onboarding step (welcome, sign-in, selfie, about-you, permissions, invite)
+ *   #/<step>           Any onboarding step (welcome, sign-in, selfie, about-you, permissions)
  */
 function App() {
   const [route, navigate, entries] = useHashRoute()
@@ -288,7 +288,7 @@ function App() {
             activeTrip.open(tripId)
             navigate(`trip/${tab}`)
           }}
-          onHaveInvite={() => navigate('join')}
+          onJoinTrip={() => navigate('join')}
         />
         <GhoomMateFab />
       </>

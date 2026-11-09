@@ -47,8 +47,8 @@ export function basicStory(site: HeritageSite): StoryBody {
     {
       heading: 'When to come',
       text: quiet
-        ? `Ghoommates’ crowd forecast says ${site.name} is usually quietest around ${quiet} and busiest around ${busiest}. Arrive in the quiet window and your whole squad gets more space, while the place gets a little room to breathe.`
-        : `Ghoommates’ crowd forecast says ${site.name} is usually busiest around ${busiest}. Come away from that hour and your whole squad gets more space, while the place gets a little room to breathe.`,
+        ? `GhoomMates’ crowd forecast says ${site.name} is usually quietest around ${quiet} and busiest around ${busiest}. Arrive in the quiet window and your whole squad gets more space, while the place gets a little room to breathe.`
+        : `GhoomMates’ crowd forecast says ${site.name} is usually busiest around ${busiest}. Come away from that hour and your whole squad gets more space, while the place gets a little room to breathe.`,
       lookFor: 'Count the people around you. Is it as quiet as the forecast promised?',
     },
     {

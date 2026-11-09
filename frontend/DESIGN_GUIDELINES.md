@@ -1,8 +1,8 @@
-# Ghoomate Design Guidelines
+# GhoomMates Design Guidelines
 
-Ghoomate is a group-travel app for a squad of friends: plan the itinerary, share photos, split expenses and discover things to do, with **GhoomMate**, a voice-first AI buddy, always one tap away.
+GhoomMates is a group-travel app for a squad of friends: plan the itinerary, share photos, split expenses and discover things to do, with **GhoomMate**, a voice-first AI buddy, always one tap away.
 
-This document is the single source of truth for how Ghoomate looks and feels in code. Every value here comes from the Figma file and is implemented as a token or shared component in this repo. **If you need a value that isn't here, add it as a token first, then use it.**
+This document is the single source of truth for how GhoomMates looks and feels in code. Every value here comes from the Figma file and is implemented as a token or shared component in this repo. **If you need a value that isn't here, add it as a token first, then use it.**
 
 - **Figma:** [ghoommates · iOS Mockups](https://www.figma.com/design/0fRlnZbD7Wka2u2qE8xLsx/ghoommates)
 - **Tokens:** [`src/styles/tokens.css`](src/styles/tokens.css)
@@ -132,7 +132,7 @@ Each screen's **header background** is an exported SVG (`src/assets/figma/*-head
 
 ## 5. Spacing and layout
 
-Ghoomate is designed for a **393 × 852 pt** iPhone frame. On desktop the app renders inside that frame, which is kept within one viewport height: on windows shorter than 900 px the frame gets shorter so only the screen inside scrolls, never the page. On phones (≤ 500 px wide) it fills the viewport.
+GhoomMates is designed for a **393 × 852 pt** iPhone frame. On desktop the app renders inside that frame, which is kept within one viewport height: on windows shorter than 900 px the frame gets shorter so only the screen inside scrolls, never the page. On phones (≤ 500 px wide) it fills the viewport.
 
 ### Screen anatomy
 

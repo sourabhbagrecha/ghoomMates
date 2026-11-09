@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys Ghoommates to Google Cloud Run: builds the image with Cloud Build and deploys the web service (the API, the
+# Deploys GhoomMates to Google Cloud Run: builds the image with Cloud Build and deploys the web service (the API, the
 # web app and, by default, the GhoomMate voice worker in one, scaling to zero when idle). Safe to run again: each step
 # creates what is missing and updates the rest, and every run deploys a new revision of the current code.
 #
@@ -192,12 +192,12 @@ setup() {
     ok "exists"
   else
     run gcloud artifacts repositories create "$REPO" --project="$PROJECT_ID" --location="$REGION" \
-      --repository-format=docker --description="Ghoommates container images"
+      --repository-format=docker --description="GhoomMates container images"
   fi
 
   step "Service accounts"
-  ensure_service_account "$WEB_SA_NAME" "Ghoommates web (Cloud Run runtime)"
-  ensure_service_account "$AGENT_SA_NAME" "Ghoommates voice agent (Cloud Run runtime)"
+  ensure_service_account "$WEB_SA_NAME" "GhoomMates web (Cloud Run runtime)"
+  ensure_service_account "$AGENT_SA_NAME" "GhoomMates voice agent (Cloud Run runtime)"
 
   step "What the web service may do ($(web_sa))"
   grant_project_role "$(web_sa)" roles/cloudsql.client        # the Cloud SQL connector (CLOUD_SQL_INSTANCE)
@@ -434,7 +434,7 @@ set_min_instances() { # SERVICE COUNT
 
 # --- Summary --------------------------------------------------------------------------------------------------------
 summary() {
-  local client_id headline="Ghoommates is on Cloud Run:  $PUBLIC_URL"
+  local client_id headline="GhoomMates is on Cloud Run:  $PUBLIC_URL"
   client_id="$(env_value GOOGLE_CLIENT_ID)"
   if [[ "$DRY_RUN" == 1 ]]; then headline="Dry run done, nothing was deployed. It would live at:  $PUBLIC_URL"; fi
   cat >&2 <<EOF

@@ -13,7 +13,7 @@ const REASONS: Record<NonNullable<PlanItem['reason']>, string> = {
 
 /**
  * The week's shopping list, one card per partner farm, with a button that opens WhatsApp with the order already written.
- * Ghoommates never sends it: the host picks the contact and taps send.
+ * GhoomMates never sends it: the host picks the contact and taps send.
  */
 export function OrdersSection({ forecast }: { forecast: Forecast }) {
   const { procurement: plan } = forecast
@@ -54,7 +54,7 @@ export function OrdersSection({ forecast }: { forecast: Forecast }) {
           </ul>
         </article>
       )}
-      <p className="sample-note host-dash__note">Each button opens WhatsApp with the order written out. Nothing is sent from Ghoommates.</p>
+      <p className="sample-note host-dash__note">Each button opens WhatsApp with the order written out. Nothing is sent from GhoomMates.</p>
     </>
   )
 }

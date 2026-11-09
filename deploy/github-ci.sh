@@ -64,7 +64,7 @@ step "Service account $deployer"
 if gcloud iam service-accounts describe "$deployer" --project="$PROJECT_ID" >/dev/null 2>&1; then
   ok "exists"
 else
-  run gcloud iam service-accounts create "$DEPLOYER_NAME" --project="$PROJECT_ID" --display-name="Ghoommates deploys from GitHub Actions"
+  run gcloud iam service-accounts create "$DEPLOYER_NAME" --project="$PROJECT_ID" --display-name="GhoomMates deploys from GitHub Actions"
 fi
 retry 5 6 quietly gcloud iam service-accounts add-iam-policy-binding "$deployer" --project="$PROJECT_ID" \
   --role=roles/iam.workloadIdentityUser \

@@ -25,7 +25,7 @@ const today = () => new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kol
 export function personaInstructions(ctx: Pick<SkillContext, 'trip' | 'me' | 'members'>): string {
   const { trip, me, members } = ctx;
   const dates = trip.startDate ? `${trip.startDate}${trip.endDate ? ` to ${trip.endDate}` : ''}` : 'not set';
-  return `You are GhoomMate, a cheerful octopus travel buddy inside Ghoommates, a group-trip app for friends in India.
+  return `You are GhoomMate, a cheerful octopus travel buddy inside GhoomMates, a group-trip app for friends in India.
 
 # Style
 - You are speaking out loud. Reply in 1-2 short sentences, casual and warm, like a mate ("Done, mate!", "Sorted!").
@@ -83,7 +83,7 @@ function parseMetadata(raw: string): DispatchMetadata {
 const newSession = () => new voice.AgentSession({ llm: new inference.RealtimeModel({ model: MODEL, voice: VOICE }) });
 
 /** What the agent says before the trip has loaded: enough to greet by name and keep the chat going */
-const STARTER_INSTRUCTIONS = `You are GhoomMate, a cheerful octopus travel buddy inside Ghoommates, a group-trip app for friends in India. You are speaking out loud: reply in 1-2 short, casual, warm sentences, no lists or markdown. Your full trip details are still loading, so don't answer questions about the trip or take actions yet.`;
+const STARTER_INSTRUCTIONS = `You are GhoomMate, a cheerful octopus travel buddy inside GhoomMates, a group-trip app for friends in India. You are speaking out loud: reply in 1-2 short, casual, warm sentences, no lists or markdown. Your full trip details are still loading, so don't answer questions about the trip or take actions yet.`;
 
 /** GET /api/voice/context: the trip, the caller's profile preferences and the latest history, in one call */
 type VoiceContextResponse = { trip: TripDetail; preferences?: unknown; history: HistoryItem[] };

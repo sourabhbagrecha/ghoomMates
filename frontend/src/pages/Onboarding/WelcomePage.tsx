@@ -11,14 +11,13 @@ import './WelcomePage.css'
 
 type WelcomePageProps = {
   onGetStarted: () => void
-  onHaveInvite: () => void
 }
 
 // A horizontal drag longer than this (px) moves to the next or previous slide
 const SWIPE = 50
 
-/** Intro carousel: what Ghoomate is, how GhoomMate plans a trip, how it works and the top features. */
-export function WelcomePage({ onGetStarted, onHaveInvite }: WelcomePageProps) {
+/** Intro carousel: what GhoomMates is, how GhoomMate plans a trip, how it works and the top features. */
+export function WelcomePage({ onGetStarted }: WelcomePageProps) {
   const [slide, setSlide] = useState(0)
   const drag = useRef<{ x: number; y: number } | null>(null)
   const isLast = slide === INTRO_SLIDE_COUNT - 1
@@ -45,7 +44,7 @@ export function WelcomePage({ onGetStarted, onHaveInvite }: WelcomePageProps) {
 
         <p className="welcome__wordmark">
           <img src={dot} alt="" width={10} height={10} />
-          Ghoomate
+          GhoomMates
         </p>
         {!isLast && (
           <button type="button" className="welcome__skip" onClick={onGetStarted}>
@@ -80,9 +79,6 @@ export function WelcomePage({ onGetStarted, onHaveInvite }: WelcomePageProps) {
           </div>
           <Button variant="highlight" onClick={isLast ? onGetStarted : () => goTo(slide + 1)}>
             {isLast ? 'Get started' : 'Next'}
-          </Button>
-          <Button variant="glass" onClick={onHaveInvite}>
-            I have an invite link
           </Button>
           <p className="welcome__terms">By continuing you agree to our Terms and Privacy Policy</p>
           <span className="home-indicator home-indicator--light" aria-hidden="true" />

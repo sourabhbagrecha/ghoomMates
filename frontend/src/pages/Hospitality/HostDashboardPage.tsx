@@ -22,7 +22,7 @@ const REFRESH_MS = 30_000
 const DEFAULT_HOST = 'kesar-pol-haveli'
 
 /**
- * #/host[/<hostId>]: the kitchen's side of Ghoommates. Squad bookings and a walk-in baseline become the week's covers,
+ * #/host[/<hostId>]: the kitchen's side of GhoomMates. Squad bookings and a walk-in baseline become the week's covers,
  * a farm order, a menu and a leftover log. Any signed-in user can open any sample kitchen, so a demo can switch between them.
  */
 export function HostDashboardPage({ hostId }: { hostId?: string }) {

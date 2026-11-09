@@ -13,13 +13,16 @@
   color: #fff;
 }
 
-/* Pinned "Plan a new trip" button, fading the list out underneath */
+/* Pinned "Plan a new trip" and "Join a trip" buttons, side by side, fading the list out underneath */
 .home__actions {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   padding: 16px 20px 34px;
   background: linear-gradient(to bottom, rgba(242, 248, 255, 0), var(--color-bg) 16px);
 }

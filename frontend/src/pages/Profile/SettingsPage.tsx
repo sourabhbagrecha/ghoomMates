@@ -272,7 +272,7 @@ export function SettingsPage() {
 
         <div className="app-settings__exit">
           {confirm === 'logout' ? (
-            <ConfirmBox title="Log out of Ghoomate?" confirmLabel="Yes, log out" onConfirm={logOut} onCancel={() => setConfirm(null)}>
+            <ConfirmBox title="Log out of GhoomMates?" confirmLabel="Yes, log out" onConfirm={logOut} onCancel={() => setConfirm(null)}>
               Your trips stay safe. You’ll sign in with your phone number next time.
             </ConfirmBox>
           ) : (

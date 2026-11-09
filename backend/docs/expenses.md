@@ -1,6 +1,6 @@
-# Ghoommates expense service
+# GhoomMates expense service
 
-Expense-splitting module of the unified Ghoommates backend, mounted at `/api/*`. See [../README.md](../README.md) for running the server.
+Expense-splitting module of the unified GhoomMates backend, mounted at `/api/*`. See [../README.md](../README.md) for running the server.
 
 Node.js + TypeScript HTTP API backed by Google Cloud SQL for PostgreSQL, shared with the auth module. Money remains integer paise; the HTTP API is unchanged.
 

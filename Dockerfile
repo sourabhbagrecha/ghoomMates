@@ -1,4 +1,4 @@
-# Ghoommates on Cloud Run: the API server and the built web app in one image.
+# GhoomMates on Cloud Run: the API server and the built web app in one image.
 #   web service    node backend/src/index.ts              (the default command)
 #   voice worker   started by the web service when VOICE_WORKER=inline (or its own service: node backend/src/voice/agent.ts start)
 # Build and deploy with deploy/cloudrun.sh; backend/docs/deploy.md has the whole story.

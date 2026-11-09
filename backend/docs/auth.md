@@ -1,6 +1,6 @@
-# Ghoommates OAuth Service
+# GhoomMates OAuth Service
 
-Authentication module of the unified Ghoommates backend (routes under `/auth/*`), handling Google OAuth 2.0 login and sign-up flows.
+Authentication module of the unified GhoomMates backend (routes under `/auth/*`), handling Google OAuth 2.0 login and sign-up flows.
 
 ## Features
 

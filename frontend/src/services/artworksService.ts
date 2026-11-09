@@ -56,7 +56,7 @@ export const artworksApi = {
       if ((err as DOMException)?.name === 'AbortError') {
         throw new ApiRequestError(504, 'ARTWORK_TIMEOUT', 'The painter is taking too long. Try again in a moment.')
       }
-      throw new ApiRequestError(0, 'NETWORK_ERROR', 'Can’t reach Ghoommates. Check your connection.')
+      throw new ApiRequestError(0, 'NETWORK_ERROR', 'Can’t reach GhoomMates. Check your connection.')
     } finally {
       window.clearTimeout(timer)
     }

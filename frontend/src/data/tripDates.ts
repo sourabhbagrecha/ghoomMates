@@ -1,6 +1,6 @@
 /**
  * Trip dates are plain YYYY-MM-DD strings, and "today" is the date in India (UTC+5:30), where every
- * Ghoommates trip happens. Everything here counts whole days from those strings instead of building
+ * GhoomMates trip happens. Everything here counts whole days from those strings instead of building
  * local-midnight Dates, so a laptop set to another time zone (or crossing a daylight-saving change)
  * still agrees on which day of the trip it is. No imports: the backend tests load this file too.
  */

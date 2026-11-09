@@ -278,7 +278,7 @@ async function main() {
   const end = addDays(today, TRIP_DAYS - 1);
   const { organiser, mates } = squadFor({ email: args.email, name: args.name });
 
-  console.log(`Ghoommates demo seed: ${TRIP.name}, ${label(start)} to ${label(end)}${args.dryRun ? ' (dry run)' : ''}`);
+  console.log(`GhoomMates demo seed: ${TRIP.name}, ${label(start)} to ${label(end)}${args.dryRun ? ' (dry run)' : ''}`);
   console.log(`  backend    ${args.api}`);
   console.log(`  squad      ${[organiser, ...mates].map((m, i) => `${m.name}${i === 0 ? ' (organiser)' : ''}`).join(', ')}`);
   if (args.dryRun) {

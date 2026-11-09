@@ -1,4 +1,4 @@
-// The app was renamed from Ghoomates to Ghoommates, and its storage keys with it. Move anything saved under the
+// The app was renamed from Ghoomates to GhoomMates, and its storage keys with it. Move anything saved under the
 // old "ghoomates:" prefix once, before any module reads it, so signed-in users and their saved state carry over.
 const OLD_PREFIX = 'ghoomates:'
 const NEW_PREFIX = 'ghoommates:'
