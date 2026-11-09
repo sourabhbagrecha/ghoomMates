@@ -1,7 +1,8 @@
-# Every push to main builds the web app and redeploys it to the VM (https://ghoommates.sourabh.org) with deploy/vm.sh.
-# No tests here. Needs repository secrets VM_SSH (deploy@35.244.28.91), VM_SSH_KEY (private key whose public half is in
-# the VM's ssh-keys metadata) and VM_KNOWN_HOSTS (the VM's host key line). See backend/docs/deploy.md.
-name: Deploy to VM
+# Every push to main builds the image in Cloud Build and rolls it out to the Cloud Run web service
+# (https://ghoommates.sourabh.org) with `deploy/cloudrun.sh release`. Settings and secrets stay as the last full
+# `deploy/cloudrun.sh` left them. GitHub signs in to Google with Workload Identity Federation, so no key is stored
+# here; deploy/github-ci.sh sets that up once. See "Automatic deploys" in backend/docs/deploy.md.
+name: Deploy to Cloud Run
 
 on:
   push:
@@ -9,36 +10,26 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-vm
+  group: deploy-cloudrun
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
+      - uses: google-github-actions/auth@v3
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          workload_identity_provider: projects/449943395156/locations/global/workloadIdentityPools/github/providers/ghoomates
+          service_account: ghoommates-deployer@optimal-comfort-510810-d1.iam.gserviceaccount.com
 
-      - name: Install web app dependencies
-        run: npm ci --prefix frontend --no-audit --no-fund
+      - uses: google-github-actions/setup-gcloud@v3
 
-      - name: Set up SSH
-        env:
-          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
-          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
-        run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$VM_KNOWN_HOSTS" > ~/.ssh/known_hosts
-
-      - name: Build and deploy
-        env:
-          VM_SSH: ${{ secrets.VM_SSH }}
-        run: deploy/vm.sh
+      - name: Build and release
+        run: deploy/cloudrun.sh release

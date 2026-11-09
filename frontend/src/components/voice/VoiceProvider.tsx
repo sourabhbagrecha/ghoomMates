@@ -30,6 +30,8 @@ type Session = { id: number; room: Room; tripId: string | null }
 
 // The agent worker normally joins in 1–3s; past this it’s almost certainly not running
 const AGENT_TIMEOUT_MS = 12_000
+// A call sends the server no requests, and Cloud Run may stop an idle instance (and the voice worker in it)
+const KEEPALIVE_MS = 60_000
 
 /** The open trip, but only while you’re inside it (#/trip/…); Home and planning screens have none */
 const currentTripId = () => {
@@ -179,6 +181,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       room.off(RoomEvent.ParticipantConnected, onJoined)
     }
   }, [conn.status, session])
+
+  // Keep the server up while the call lasts
+  useEffect(() => {
+    if (conn.status !== 'live') return
+    const timer = window.setInterval(() => void fetch('/health').catch(() => {}), KEEPALIVE_MS)
+    return () => window.clearInterval(timer)
+  }, [conn.status])
 
   // The call dropped by itself (network, token expiry, server ended the room)
   useEffect(() => {

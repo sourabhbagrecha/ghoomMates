@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Deploys Ghoommates to Google Cloud Run: builds the image with Cloud Build, deploys the web service (the API and the
-# web app in one) and, optionally, the GhoomMate voice agent worker. Safe to run again: each step creates what is
-# missing and updates the rest, and every run deploys a new revision of the current code.
+# Deploys Ghoommates to Google Cloud Run: builds the image with Cloud Build and deploys the web service (the API, the
+# web app and, by default, the GhoomMate voice worker in one, scaling to zero when idle). Safe to run again: each step
+# creates what is missing and updates the rest, and every run deploys a new revision of the current code.
 #
 #   deploy/secrets.sh              first, and whenever a secret changes: backend/.env -> Secret Manager
 #   deploy/cloudrun.sh             set up, build the image, deploy the web service, make it public, print the URL
-#   deploy/cloudrun.sh agent       build and deploy only the voice agent worker (always-on CPU, 1 instance minimum)
-#   deploy/cloudrun.sh all         the web service and the voice agent
+#   deploy/cloudrun.sh agent       only with VOICE_IN_WEB=0: the voice worker as its own always-on service (1 instance minimum)
+#   deploy/cloudrun.sh all         the web service, and the separate voice agent when VOICE_IN_WEB=0
 #   deploy/cloudrun.sh setup       only the APIs, service accounts and permissions
 #   deploy/cloudrun.sh build       only build and push the image
+#   deploy/cloudrun.sh release     build, then roll the image out to the web service with its settings unchanged (CI)
 #   deploy/cloudrun.sh status      URLs, revisions and a health check
 #   deploy/cloudrun.sh pause       scale both services down to zero instances (stops most of the Cloud Run cost)
 #   deploy/cloudrun.sh resume      back to the usual minimum instances
@@ -17,11 +18,11 @@
 #
 # Settings are environment variables; the defaults are in deploy/common.sh. The ones you may want:
 #   PROJECT_ID, REGION, WEB_SERVICE, AGENT_SERVICE, ENV_FILE (default backend/.env)
-#   PUBLIC_URL=https://app.example.com   a custom domain, instead of the default run.app address
+#   PUBLIC_URL=https://app.example.com   the address people use (default ghoommates.sourabh.org; empty for run.app)
 #   PUBLIC_ACCESS=allusers|no-invoker-check|none   who may open the web service (default allusers)
 #   ALLOW_DEV_LOGIN=true                 turn on the mock sign-in (read "Sign-in" in backend/docs/deploy.md first)
 #   AGENT_NAME=ghoomate-prod             the voice agent's name on LiveKit, for the web service and the worker
-#   WEB_MIN_INSTANCES (1), WEB_MAX_INSTANCES (4), AGENT_CPU (2), AGENT_MEMORY (2Gi), AGENT_MIN_INSTANCES (1) ...
+#   WEB_MIN_INSTANCES (0), WEB_MAX_INSTANCES (4), VOICE_IN_WEB (1), AGENT_CPU (2), AGENT_MIN_INSTANCES (1) ...
 #   SKIP_SETUP=1  skip the APIs/accounts/permissions step on re-deploys
 #   SKIP_BUILD=1  deploy IMAGE (default: the :latest image) instead of building one
 #   EXTRA_ENV_KEYS="FOO BAR" / EXTRA_SECRET_KEYS="BAZ"   settings added by other modules, copied like the built-in ones
@@ -273,13 +274,13 @@ verify_web() {
   done
   case "$body" in
     *'"trips":"enabled"'*) ok "the API answers and the database is connected" ;;
-    '') warn "no answer from $PUBLIC_URL/health. Is it public? Logs: gcloud run services logs read $WEB_SERVICE --region=$REGION --project=$PROJECT_ID --limit=50" ;;
-    *) warn "the API answers but trips are disabled, so the database connection failed. Logs: gcloud run services logs read $WEB_SERVICE --region=$REGION --project=$PROJECT_ID --limit=50" ;;
+    '') VERIFY_FAILED=1; warn "no answer from $PUBLIC_URL/health. Is it public? Logs: gcloud run services logs read $WEB_SERVICE --region=$REGION --project=$PROJECT_ID --limit=50" ;;
+    *) VERIFY_FAILED=1; warn "the API answers but trips are disabled, so the database connection failed. Logs: gcloud run services logs read $WEB_SERVICE --region=$REGION --project=$PROJECT_ID --limit=50" ;;
   esac
   page="$(curl_url "$PUBLIC_URL/" 2>/dev/null || true)"
   case "$page" in
     *'id="root"'*) ok "the web app is served at /" ;;
-    *) warn "$PUBLIC_URL/ did not return the web app" ;;
+    *) VERIFY_FAILED=1; warn "$PUBLIC_URL/ did not return the web app" ;;
   esac
 }
 
@@ -327,6 +328,16 @@ deploy_web() {
     value="$(env_value "$key")"
     if ! is_placeholder "$value"; then env_add "$key" "$value"; fi
   done
+  # The voice worker inside this service keeps a LiveKit connection open between requests, so it needs CPU outside
+  # requests (billed only while an instance is up; with no minimum instances it scales to zero) and gen2 for WebRTC.
+  local voice_flags=(--cpu-throttling)
+  if [[ "$VOICE_IN_WEB" == 1 ]]; then
+    env_add VOICE_WORKER inline
+    env_add GHOOMATE_MODEL "$(env_value GHOOMATE_MODEL)"
+    env_add GHOOMATE_VOICE "$(env_value GHOOMATE_VOICE)"
+    env_add GHOOMATE_IDLE_PROCESSES "$(env_value GHOOMATE_IDLE_PROCESSES)"
+    voice_flags=(--no-cpu-throttling --execution-environment=gen2)
+  fi
   say "  environment: $(cut -d: -f1 "$ENV_TMP" | tr '\n' ' ')"
   say "  secrets:     $(printf '%s' "$SECRET_PAIRS" | tr ',' '\n' | cut -d= -f1 | tr '\n' ' ')"
 
@@ -338,7 +349,7 @@ deploy_web() {
     --port=8080 \
     --cpu="$WEB_CPU" --memory="$WEB_MEMORY" --concurrency="$WEB_CONCURRENCY" --timeout=300 \
     --min-instances="$WEB_MIN_INSTANCES" --max-instances="$WEB_MAX_INSTANCES" \
-    --cpu-boost \
+    --cpu-boost "${voice_flags[@]}" \
     --env-vars-file="$ENV_TMP" \
     --set-secrets="$SECRET_PAIRS"
 
@@ -388,6 +399,16 @@ deploy_agent() {
   step "Voice agent check"
   say "  The worker should log \"registered worker\" within a few seconds:"
   say "  gcloud run services logs read $AGENT_SERVICE --region=$REGION --project=$PROJECT_ID --limit=30"
+}
+
+# CI: a new revision from the new image. Environment, secrets and service account stay as the last full deploy left
+# them, so this needs neither backend/.env nor Secret Manager access.
+release_web() {
+  step "Release to $WEB_SERVICE"
+  run gcloud run services update "$WEB_SERVICE" --project="$PROJECT_ID" --region="$REGION" --image="$IMAGE"
+  verify_web
+  if [[ "$VERIFY_FAILED" == 1 ]]; then die "the new revision does not look healthy (see above)"; fi
+  ok "released $IMAGE"
 }
 
 # --- Status, pause, resume ------------------------------------------------------------------------------------------
@@ -441,9 +462,10 @@ usage() {
 main() {
   local command="${1:-web}"
   NOT_PUBLIC=0
+  VERIFY_FAILED=0
   case "$command" in
     -h|--help|help) usage; return 0 ;;
-    web|deploy|agent|all|setup|build|status|pause|resume) ;;
+    web|deploy|agent|all|setup|build|release|status|pause|resume) ;;
     *) usage >&2; die "Unknown command: $command" ;;
   esac
 
@@ -453,6 +475,8 @@ main() {
       setup ;;
     build)
       choose_image; build ;;
+    release)
+      choose_image; build; release_web ;;
     status)
       cmd_status ;;
     pause)
@@ -480,7 +504,7 @@ main() {
       choose_image
       if [[ "${SKIP_BUILD:-0}" != 1 ]]; then build; fi
       deploy_web
-      deploy_agent
+      if [[ "$VOICE_IN_WEB" == 1 ]]; then say "  VOICE_IN_WEB=1: the web service runs the voice worker; no agent service"; else deploy_agent; fi
       summary ;;
   esac
 }

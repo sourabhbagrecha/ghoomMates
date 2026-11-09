@@ -33,3 +33,6 @@ pnpm-debug.log*
 *.sw?
 
 .local/
+
+# Cloudflare cf CLI build output (deploy/worker)
+.cloudflare/

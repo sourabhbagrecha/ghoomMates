@@ -24,6 +24,7 @@ import { createApp as createTripsApp } from './trips/app.ts';
 import { ItineraryService } from './trips/itinerary.ts';
 import { TripService } from './trips/service.ts';
 import { createVoiceApp } from './voice/app.ts';
+import { startInlineVoiceWorker } from './voice/inline.ts';
 import { liveKitConfig } from './voice/session.ts';
 
 loadEnv();
@@ -179,11 +180,15 @@ const server = app.listen(port, hostname, (err?: Error) => {
   logger.info('Server', `Listening at http://${hostname}:${port}`);
 });
 
+// Cloud Run: the voice worker lives in the same container, so the app scales to zero as one piece
+const stopVoiceWorker = process.env.VOICE_WORKER === 'inline' && voice && liveKitConfig() ? startInlineVoiceWorker() : undefined;
+
 let stopping = false;
 async function shutdown() {
   if (stopping) return;
   stopping = true;
   logger.info('Server', 'Gracefully shutting down Ghoommates backend...');
+  stopVoiceWorker?.();
   await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
   await authDb.terminate();
   await db?.close();

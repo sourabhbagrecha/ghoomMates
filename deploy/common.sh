@@ -22,6 +22,7 @@ FACE_SEARCH_SERVICE="${FACE_SEARCH_SERVICE:-face-search}"
 # --- What gets deployed -------------------------------------------------------------------------------------------
 WEB_SERVICE="${WEB_SERVICE:-ghoommates}"              # the URL is https://<service>-<project number>.<region>.run.app
 AGENT_SERVICE="${AGENT_SERVICE:-ghoommates-agent}"
+PUBLIC_URL="${PUBLIC_URL-https://ghoommates.sourabh.org}"  # served by the Cloudflare Worker in deploy/worker; PUBLIC_URL= deploys for the run.app address
 WEB_SA_NAME="${WEB_SA_NAME:-ghoommates-web}"
 AGENT_SA_NAME="${AGENT_SA_NAME:-ghoommates-agent}"
 # A dedicated voice-agent name for the deployed pair, so a teammate's laptop worker (default name "ghoomate") never
@@ -34,10 +35,13 @@ PUBLIC_ACCESS="${PUBLIC_ACCESS:-allusers}"
 
 # --- Sizing (small on purpose; see "Cost" in backend/docs/deploy.md) --------------------------------------------
 WEB_CPU="${WEB_CPU:-1}"
-WEB_MEMORY="${WEB_MEMORY:-1Gi}"
+WEB_MEMORY="${WEB_MEMORY:-2Gi}"                      # the API plus the voice worker and its idle job process
 WEB_CONCURRENCY="${WEB_CONCURRENCY:-40}"
-WEB_MIN_INSTANCES="${WEB_MIN_INSTANCES:-1}"          # 1 = no cold start during the demo; 0 = costs nothing when idle
+WEB_MIN_INSTANCES="${WEB_MIN_INSTANCES:-0}"          # 0 = costs nothing when idle; 1 = no cold start during a demo
 WEB_MAX_INSTANCES="${WEB_MAX_INSTANCES:-4}"
+# 1 = the web service also runs the voice worker (VOICE_WORKER=inline, CPU always allocated while an instance is up),
+# so there is no always-on agent service. 0 = the old split: deploy/cloudrun.sh agent runs it separately.
+VOICE_IN_WEB="${VOICE_IN_WEB:-1}"
 AGENT_CPU="${AGENT_CPU:-2}"
 AGENT_MEMORY="${AGENT_MEMORY:-2Gi}"
 AGENT_MIN_INSTANCES="${AGENT_MIN_INSTANCES:-1}"      # the worker must stay connected to LiveKit
@@ -104,7 +108,16 @@ preflight() {
 # JWT_SECRET -> ghoommates-jwt-secret. deploy/secrets.sh creates them; deploy/cloudrun.sh mounts them as env vars.
 secret_name() { printf 'ghoommates-%s' "$(printf '%s' "$1" | tr 'A-Z_' 'a-z-')"; }
 
-secret_exists() { gcloud secrets describe "$1" --project="$PROJECT_ID" >/dev/null 2>&1; }
+# Retried: right after the Secret Manager API is enabled, lookups fail now and then, and a missing optional secret
+# would quietly switch a feature off.
+secret_exists() {
+  local attempt
+  for attempt in 1 2 3; do
+    gcloud secrets describe "$1" --project="$PROJECT_ID" >/dev/null 2>&1 && return 0
+    [[ "$attempt" == 3 ]] || sleep 2
+  done
+  return 1
+}
 
 # Settings that become secrets. JWT_SECRET and DB_PASSWORD are required; the others switch a feature off when missing.
 # EXTRA_SECRET_KEYS="FOO BAR" adds more (a key another module needs).
