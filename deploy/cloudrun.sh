@@ -54,12 +54,13 @@ quietly() {
   out="$("$@" 2>&1)" || { printf '%s\n' "$out" >&2; return 1; }
 }
 
-# The git commit, with a timestamp when there are uncommitted changes, so every build has its own tag.
+# The git commit, with a timestamp when tracked files have uncommitted changes, so every build has its own tag.
+# Untracked files are ignored: in CI the sign-in step leaves its credentials file in the checkout.
 image_tag() {
   local sha
   sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
   if [[ -z "$sha" ]]; then date +%Y%m%d-%H%M%S; return; fi
-  if [[ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null || true)" ]]; then
+  if [[ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null || true)" ]]; then
     printf '%s-dirty-%s' "$sha" "$(date +%H%M%S)"
   else
     printf '%s' "$sha"
@@ -211,7 +212,10 @@ setup() {
 build() {
   step "Build the image with Cloud Build"
   say "  $IMAGE"
+  # Naming the (default) source bucket skips gcloud's check that lists every bucket in the project, which the CI
+  # account may not do: it can only use this one bucket (deploy/github-ci.sh).
   run gcloud builds submit "$ROOT" --project="$PROJECT_ID" --region="$REGION" \
+    --gcs-source-staging-dir="gs://${PROJECT_ID}_cloudbuild/source" \
     --config="$DEPLOY_DIR/cloudbuild.yaml" --substitutions="_IMAGE=$IMAGE,_LATEST=$IMAGE_LATEST"
 }
 
