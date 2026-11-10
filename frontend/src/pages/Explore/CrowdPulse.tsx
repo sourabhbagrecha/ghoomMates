@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CrowdChip } from '../../components/crowd/Crowd'
 import { SectionHeader } from '../../components/SectionHeader'
+import { refreshWhileVisible } from '../../hooks/refreshWhileVisible'
 import { heritageApi, type LiveCrowds, type LiveSite } from '../../services/heritageService'
 import { FestivalLine } from '../Events/FestivalLine'
 import { AdvisoryBanners, OpsConsoleLink } from '../Ops/TravelerAdvisory'
@@ -36,10 +37,10 @@ export function CrowdPulse({ city }: { city: string }) {
         })
         .catch(() => !cancelled && setFailed(true))
     void load()
-    const timer = hour === null ? setInterval(load, REFRESH_MS) : undefined
+    const stop = hour === null ? refreshWhileVisible(load, REFRESH_MS) : undefined
     return () => {
       cancelled = true
-      clearInterval(timer)
+      stop?.()
     }
     // live.date only seeds the preview day; reloading on every response would loop
     // eslint-disable-next-line react-hooks/exhaustive-deps

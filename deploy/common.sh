@@ -35,7 +35,7 @@ PUBLIC_ACCESS="${PUBLIC_ACCESS:-allusers}"
 
 # --- Sizing (small on purpose; see "Cost" in backend/docs/deploy.md) --------------------------------------------
 WEB_CPU="${WEB_CPU:-1}"
-WEB_MEMORY="${WEB_MEMORY:-2Gi}"                      # the API plus the voice worker and its idle job process
+WEB_MEMORY="${WEB_MEMORY:-1Gi}"                      # the API plus the voice worker and its idle job process (~670 MB peak in a call)
 WEB_CONCURRENCY="${WEB_CONCURRENCY:-40}"
 WEB_MIN_INSTANCES="${WEB_MIN_INSTANCES:-0}"          # 0 = costs nothing when idle; 1 = no cold start during a demo
 WEB_MAX_INSTANCES="${WEB_MAX_INSTANCES:-4}"

@@ -5,6 +5,7 @@ import iconMegaphone from '../../assets/icons/icon-megaphone-white.svg'
 import { Toast } from '../../components/Toast'
 import { activeTrip, useActiveTrip } from '../../data/activeTrip'
 import { useNavigate } from '../../hooks/navigation'
+import { refreshWhileVisible } from '../../hooks/refreshWhileVisible'
 import { useToast } from '../../hooks/useToast'
 import { CITY, opsApi, type Advisory } from '../../services/opsService'
 import { tripsApi, type ItineraryStop } from '../../services/tripsService'
@@ -26,10 +27,10 @@ function usePublicAdvisories(city: string | null) {
         () => undefined,
       )
     void load()
-    const timer = window.setInterval(load, REFRESH_MS)
+    const stop = refreshWhileVisible(load, REFRESH_MS)
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      stop()
     }
   }, [city])
   return items

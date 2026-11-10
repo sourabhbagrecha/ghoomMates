@@ -6,6 +6,7 @@ import { Skeleton } from '../../components/states/Skeleton'
 import { Toast } from '../../components/Toast'
 import { CROWD_LABELS } from '../../components/crowd/crowdData'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
+import { refreshWhileVisible } from '../../hooks/refreshWhileVisible'
 import { useToast } from '../../hooks/useToast'
 import { opsApi, type OpsForecast, type OpsHotspot, type PartnerAdvisory, type Reach } from '../../services/opsService'
 import { Switch } from '../Profile/ProfileParts'
@@ -33,10 +34,10 @@ function useForecast(date: string, sample: boolean) {
         (err) => !cancelled && setState((prev) => ({ key, forecast: prev.key === key ? prev.forecast : null, error: message(err) })),
       )
     void load()
-    const timer = window.setInterval(load, REFRESH_MS)
+    const stop = refreshWhileVisible(load, REFRESH_MS)
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      stop()
     }
   }, [date, sample, key, attempt])
 
@@ -57,10 +58,10 @@ function useAdvisories() {
         () => !cancelled && setItems((prev) => prev ?? []),
       )
     void load()
-    const timer = window.setInterval(load, REFRESH_MS)
+    const stop = refreshWhileVisible(load, REFRESH_MS)
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      stop()
     }
   }, [version])
 

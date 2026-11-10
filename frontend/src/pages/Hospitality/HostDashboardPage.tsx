@@ -8,6 +8,7 @@ import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { ErrorState } from '../../components/states/ErrorState'
 import { Skeleton } from '../../components/states/Skeleton'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
+import { refreshWhileVisible } from '../../hooks/refreshWhileVisible'
 import { hospitalityApi, type Forecast, type HostCard } from '../../services/hospitalityService'
 import { DemandCard } from './DemandCard'
 import { formatKg, percent, rememberHost, recalledHost } from './hospitalityData'
@@ -46,8 +47,7 @@ export function HostDashboardPage({ hostId }: { hostId?: string }) {
   const reloadForecast = forecast.reload
   useEffect(() => {
     if (!id) return
-    const timer = window.setInterval(reloadForecast, REFRESH_MS)
-    return () => window.clearInterval(timer)
+    return refreshWhileVisible(reloadForecast, REFRESH_MS)
   }, [id, reloadForecast])
 
   const pick = (next: string) => {
