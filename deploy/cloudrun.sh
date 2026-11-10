@@ -344,6 +344,7 @@ deploy_web() {
     env_add GHOOMATE_IDLE_PROCESSES "$(env_value GHOOMATE_IDLE_PROCESSES)"
     voice_flags=(--no-cpu-throttling --execution-environment=gen2)
   fi
+  if [[ "$WEB_MIN_INSTANCES" == 0 && "$WEB_IDLE_EXIT_MINUTES" != 0 ]]; then env_add IDLE_EXIT_MINUTES "$WEB_IDLE_EXIT_MINUTES"; fi
   say "  environment: $(cut -d: -f1 "$ENV_TMP" | tr '\n' ' ')"
   say "  secrets:     $(printf '%s' "$SECRET_PAIRS" | tr ',' '\n' | cut -d= -f1 | tr '\n' ' ')"
 
