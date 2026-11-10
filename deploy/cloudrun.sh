@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Deploys GhoomMates to Google Cloud Run: builds the image with Cloud Build and deploys the web service (the API, the
-# web app and, by default, the GhoomMate voice worker in one, scaling to zero when idle). Safe to run again: each step
-# creates what is missing and updates the rest, and every run deploys a new revision of the current code.
+# Deploys GhoomMates to Google Cloud Run: builds the image with Cloud Build (CI builds it on the GitHub runner instead)
+# and deploys the web service (the API, the web app and, by default, the GhoomMate voice worker in one, scaling to zero
+# when idle). Safe to run again: each step creates what is missing and updates the rest, and every run deploys a new
+# revision of the current code.
 #
 #   deploy/secrets.sh              first, and whenever a secret changes: backend/.env -> Secret Manager
 #   deploy/cloudrun.sh             set up, build the image, deploy the web service, make it public, print the URL
@@ -10,6 +11,7 @@
 #   deploy/cloudrun.sh setup       only the APIs, service accounts and permissions
 #   deploy/cloudrun.sh build       only build and push the image
 #   deploy/cloudrun.sh release     build, then roll the image out to the web service with its settings unchanged (CI)
+#   deploy/cloudrun.sh image       print the image a build would push, then its :latest tag (CI pushes these itself)
 #   deploy/cloudrun.sh status      URLs, revisions and a health check
 #   deploy/cloudrun.sh pause       scale both services down to zero instances (stops most of the Cloud Run cost)
 #   deploy/cloudrun.sh resume      back to the usual minimum instances
@@ -24,7 +26,7 @@
 #   AGENT_NAME=ghoomate-prod             the voice agent's name on LiveKit, for the web service and the worker
 #   WEB_MIN_INSTANCES (0), WEB_MAX_INSTANCES (4), VOICE_IN_WEB (1), AGENT_CPU (2), AGENT_MIN_INSTANCES (1) ...
 #   SKIP_SETUP=1  skip the APIs/accounts/permissions step on re-deploys
-#   SKIP_BUILD=1  deploy IMAGE (default: the :latest image) instead of building one
+#   SKIP_BUILD=1  deploy IMAGE (default: the :latest image) instead of building one; release too (CI built and pushed it)
 #   EXTRA_ENV_KEYS="FOO BAR" / EXTRA_SECRET_KEYS="BAZ"   settings added by other modules, copied like the built-in ones
 set -euo pipefail
 # shellcheck source=common.sh
@@ -470,6 +472,7 @@ main() {
   case "$command" in
     -h|--help|help) usage; return 0 ;;
     web|deploy|agent|all|setup|build|release|status|pause|resume) ;;
+    image) choose_image; printf '%s\n%s\n' "$IMAGE" "$IMAGE_LATEST"; return 0 ;;  # no gcloud needed
     *) usage >&2; die "Unknown command: $command" ;;
   esac
 
@@ -480,7 +483,9 @@ main() {
     build)
       choose_image; build ;;
     release)
-      choose_image; build; release_web ;;
+      choose_image
+      if [[ "${SKIP_BUILD:-0}" != 1 ]]; then build; fi
+      release_web ;;
     status)
       cmd_status ;;
     pause)

@@ -1,7 +1,8 @@
-# Every push to main builds the image in Cloud Build and rolls it out to the Cloud Run web service
-# (https://ghoommates.sourabh.org) with `deploy/cloudrun.sh release`. Settings and secrets stay as the last full
-# `deploy/cloudrun.sh` left them. GitHub signs in to Google with Workload Identity Federation, so no key is stored
-# here; deploy/github-ci.sh sets that up once. See "Automatic deploys" in backend/docs/deploy.md.
+# Every push to main builds the image on the GitHub runner (no Cloud Build, so no build bill), pushes it to Artifact
+# Registry and rolls it out to the Cloud Run web service (https://ghoommates.sourabh.org) with
+# `SKIP_BUILD=1 deploy/cloudrun.sh release`. Settings and secrets stay as the last full `deploy/cloudrun.sh` left them.
+# GitHub signs in to Google with Workload Identity Federation, so no key is stored here; deploy/github-ci.sh sets that
+# up once. See "Automatic deploys" in backend/docs/deploy.md.
 name: Deploy to Cloud Run
 
 on:
@@ -24,12 +25,51 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: google-github-actions/auth@v3
+      # The access token is for pushing the image; gcloud uses the same sign-in.
+      - id: auth
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/449943395156/locations/global/workloadIdentityPools/github/providers/ghoomates
           service_account: ghoommates-deployer@optimal-comfort-510810-d1.iam.gserviceaccount.com
+          token_format: access_token
 
       - uses: google-github-actions/setup-gcloud@v3
 
-      - name: Build and release
+      # The tags come from deploy/cloudrun.sh, so the image pushed here is exactly the one release deploys.
+      - name: Image name
+        id: image
+        run: |
+          tags="$(deploy/cloudrun.sh image)"
+          image="$(sed -n 1p <<<"$tags")"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "latest=$(sed -n 2p <<<"$tags")" >> "$GITHUB_OUTPUT"
+          echo "registry=${image%%/*}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ steps.image.outputs.registry }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Layers are cached in GitHub's Actions cache, so a push that touches only the server skips the web app build.
+      # No provenance attestation: Cloud Run gets a plain single-platform image, as Cloud Build used to push.
+      - name: Build and push the image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.image.outputs.image }}
+            ${{ steps.image.outputs.latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Release
         run: deploy/cloudrun.sh release
+        env:
+          SKIP_BUILD: "1"
+          IMAGE: ${{ steps.image.outputs.image }}

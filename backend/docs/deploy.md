@@ -101,11 +101,11 @@ gcloud run services logs read ghoommates --region=asia-south1 --limit=50 | grep 
 
 ## Automatic deploys
 
-Every push to `main` runs `.github/workflows/deploy.yml`: Cloud Build builds the image from the pushed commit, then `deploy/cloudrun.sh release` rolls it out as a new revision of `ghoommates` and fails the job if `https://ghoommates.sourabh.org/health` or the web app does not answer. No tests run.
+Every push to `main` runs `.github/workflows/deploy.yml`: the GitHub runner builds the image from the pushed commit (Docker Buildx, layers cached in the GitHub Actions cache) and pushes it to Artifact Registry under the tag `deploy/cloudrun.sh image` prints, then `SKIP_BUILD=1 deploy/cloudrun.sh release` rolls that image out as a new revision of `ghoommates` and fails the job if `https://ghoommates.sourabh.org/health` or the web app does not answer. Cloud Build is not used, so CI costs nothing on Google's side; the repository is public, so GitHub's runner minutes are free too. No tests run.
 
 `release` changes only the image. Environment variables, secrets and the service account stay as the last full `deploy/cloudrun.sh` left them, so after changing `backend/.env` or a secret, run `deploy/secrets.sh` and `deploy/cloudrun.sh` by hand.
 
-GitHub signs in to Google with Workload Identity Federation as `ghoommates-deployer`; no key is stored in GitHub. Only pushes to `main` of this repository are accepted. The account can build and roll out, and cannot read secrets, the database or the bucket. `deploy/github-ci.sh` sets this up once (re-runnable, `DRY_RUN=1` to preview) and lists each permission. To turn CI off, delete the workload identity pool `github`.
+GitHub signs in to Google with Workload Identity Federation as `ghoommates-deployer`; no key is stored in GitHub. Only pushes to `main` of this repository are accepted. The account can push images to the `ghoomates` registry and roll out, and cannot read secrets, the database or the bucket. `deploy/github-ci.sh` sets this up once (re-runnable, `DRY_RUN=1` to preview) and lists each permission. To turn CI off, delete the workload identity pool `github`.
 
 The Cloudflare Worker in `deploy/worker` is not deployed by CI; it rarely changes. Run `npm install && cf deploy` in that folder after editing it.
 
@@ -147,7 +147,7 @@ Rough figures from Google's public price lists (Mumbai is a "Tier 2" Cloud Run r
 | Item | Estimate |
 | --- | --- |
 | Web service with the voice worker: 1 vCPU + 2 GiB, CPU allocated for each instance's whole life ($0.0000216 per vCPU-s, $0.0000024 per GiB-s) | about $0.10 an hour while someone is using the app (plus up to 15 idle minutes after); nothing with no instance. The first visit after idle waits for a cold start of a few seconds. `WEB_MIN_INSTANCES=1` removes it for a demo, at about $2.30 a day. |
-| Cloud Build | a few cents per build |
+| Cloud Build | nothing for CI (it builds on the GitHub runner). A laptop `deploy/cloudrun.sh` still builds in Cloud Build, on the default machine, inside its free build minutes. |
 | Artifact Registry, Secret Manager | cents (about 300 MB per image tag; delete old tags) |
 | Gemini, Vertex AI | pay per call; the reason for the budget alert |
 | LiveKit | on the LiveKit project's plan |

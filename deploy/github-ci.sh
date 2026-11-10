@@ -7,12 +7,13 @@
 # repository does not inherit access) are accepted.
 #
 # What ghoommates-deployer may do:
-#   roles/cloudbuild.builds.editor, roles/serviceusage.serviceUsageConsumer   submit the image build
-#   roles/logging.viewer                                                    stream the build log into the job
-#   roles/storage.admin on gs://<project>_cloudbuild only                   upload the source for the build
+#   roles/artifactregistry.writer on the image repository only              push the image built on the GitHub runner,
+#                                                                           and let Cloud Run resolve it
 #   roles/run.developer                                                     roll out a new revision
-#   roles/artifactregistry.reader on the image repository only              let Cloud Run resolve the new image
-#   roles/iam.serviceAccountUser on the Cloud Build and web runtime accounts  run the build and the revision as them
+#   roles/iam.serviceAccountUser on the web runtime account                 run the revision as it
+#   roles/cloudbuild.builds.editor, roles/serviceusage.serviceUsageConsumer,  (unused since CI builds on the runner;
+#   roles/logging.viewer, roles/storage.admin on gs://<project>_cloudbuild,   left for a Cloud Build fallback, could go)
+#   roles/iam.serviceAccountUser on the Cloud Build account
 # It cannot read Secret Manager, the database or the photo bucket.
 #
 #   DRY_RUN=1 deploy/github-ci.sh   prints every change instead of making it
@@ -20,7 +21,7 @@ set -euo pipefail
 # shellcheck source=common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-GITHUB_REPO="${GITHUB_REPO:-sourabhbagrecha/ghoomates}"
+GITHUB_REPO="${GITHUB_REPO:-sourabhbagrecha/ghoomMates}"
 POOL="${POOL:-github}"
 PROVIDER="${PROVIDER:-ghoomates}"
 DEPLOYER_NAME="${DEPLOYER_NAME:-ghoommates-deployer}"
@@ -80,8 +81,8 @@ retry 5 6 quietly gcloud storage buckets add-iam-policy-binding "gs://${PROJECT_
   --member="serviceAccount:$deployer" --role=roles/storage.admin
 ok "roles/storage.admin on gs://${PROJECT_ID}_cloudbuild"
 retry 5 6 quietly gcloud artifacts repositories add-iam-policy-binding "$REPO" --project="$PROJECT_ID" --location="$REGION" \
-  --member="serviceAccount:$deployer" --role=roles/artifactregistry.reader
-ok "roles/artifactregistry.reader on the $REPO image repository"
+  --member="serviceAccount:$deployer" --role=roles/artifactregistry.writer
+ok "roles/artifactregistry.writer on the $REPO image repository"
 for account in "$build_sa" "$WEB_SA_NAME@$PROJECT_ID.iam.gserviceaccount.com"; do
   retry 5 6 quietly gcloud iam service-accounts add-iam-policy-binding "$account" --project="$PROJECT_ID" \
     --member="serviceAccount:$deployer" --role=roles/iam.serviceAccountUser
