@@ -17,7 +17,6 @@ import { createImpactApp } from './impact/app.ts';
 import { createHospitalityApp } from './hospitality/app.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
-import { exitWhenIdle } from './idle.ts';
 import { createReelsApp } from './reels/app.ts';
 import { createStoriesApp } from './stories/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
@@ -198,7 +197,3 @@ async function shutdown() {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
-
-// Cloud Run: end the instance after a few idle minutes instead of Cloud Run's 15 (see idle.ts)
-const idleExitMinutes = Number(process.env.IDLE_EXIT_MINUTES || 0);
-if (idleExitMinutes > 0) exitWhenIdle(server, idleExitMinutes, shutdown);

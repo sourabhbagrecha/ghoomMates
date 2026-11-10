@@ -39,9 +39,6 @@ WEB_MEMORY="${WEB_MEMORY:-1Gi}"                      # the API plus the voice wo
 WEB_CONCURRENCY="${WEB_CONCURRENCY:-40}"
 WEB_MIN_INSTANCES="${WEB_MIN_INSTANCES:-0}"          # 0 = costs nothing when idle; 1 = no cold start during a demo
 WEB_MAX_INSTANCES="${WEB_MAX_INSTANCES:-4}"
-# Minutes without a request before the server exits and its instance stops (Cloud Run's own idle wait is up to 15 and
-# is billed with CPU always allocated). Only with no minimum instances; 0 = off.
-WEB_IDLE_EXIT_MINUTES="${WEB_IDLE_EXIT_MINUTES:-2}"
 # 1 = the web service also runs the voice worker (VOICE_WORKER=inline, CPU always allocated while an instance is up),
 # so there is no always-on agent service. 0 = the old split: deploy/cloudrun.sh agent runs it separately.
 VOICE_IN_WEB="${VOICE_IN_WEB:-1}"
