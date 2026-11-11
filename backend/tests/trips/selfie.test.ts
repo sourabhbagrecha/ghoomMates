@@ -132,6 +132,29 @@ test('a separate profile photo keeps the selfie; replacing or deleting the selfi
   expect(await storage.size(second)).toBe(null);
 });
 
+test('a picture URL must be an existing picture of this user, so a stale one cannot break the profile photo', async () => {
+  const asha = await createUser('Asha');
+  const ben = await createUser('Ben');
+  const patch = (token: string, body: unknown) => call(token, '/auth/profile', body, 'PATCH');
+  const avatar = await upload(asha.token, 'avatar');
+  await patch(asha.token, { pictureKey: avatar });
+
+  // A new selfie becomes the photo and the old avatar is deleted; an edit form still holding the avatar URL is refused
+  const selfie = await upload(asha.token, 'selfie');
+  await patch(asha.token, { selfieKey: selfie });
+  await new Promise((r) => setTimeout(r, 50));
+  expect(await storage.size(avatar)).toBe(null);
+  const stale = await patch(asha.token, { name: 'Asha', picture: `/api/media/${avatar}` });
+  expect([stale.status, stale.data.error.code]).toEqual([400, 'UPLOAD_NOT_FOUND']);
+  expect((await patch(asha.token, { picture: `/api/media/${selfie}` })).data.user.picture).toBe(`/api/media/${selfie}`);
+
+  // Pointing at someone else's picture is refused, so the cleanup can never delete it
+  expect((await patch(ben.token, { picture: `/api/media/${selfie}` })).status).toBe(400);
+  expect((await patch(ben.token, { picture: '' })).status).toBe(200);
+  await new Promise((r) => setTimeout(r, 50));
+  expect(await storage.size(selfie)).toBe(JPEG.length);
+});
+
 test('find-me searches with the selfie embedding the face-indexer stored', async () => {
   const asha = await createUser('Asha');
   const trip = (await call(asha.token, '/api/trips', { name: 'Goa', groupName: 'Goa Gang' })).data;
