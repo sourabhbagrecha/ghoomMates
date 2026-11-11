@@ -7,6 +7,7 @@ import { ApiError } from '../../src/http.ts';
 import { CLAUDE_REEL_SCHEMA, REEL_SCHEMA, normalizePlan, spread, styleFromPrompt, templatePlan, upgradeScene, type ReelCandidate } from '../../src/reels/plan.ts';
 import { tripFacts } from '../../src/reels/service.ts';
 import { createReelsApp } from '../../src/reels/app.ts';
+import { sniffImageType } from '../../src/reels/images.ts';
 import type { MediaStorage } from '../../src/storage.ts';
 import { mount, serve } from '../helpers.ts';
 import { testDatabase } from '../mongo.ts';
@@ -20,6 +21,23 @@ const ravi = { id: 'usr_2', username: 'ravi', email: 'ravi@test.local', name: 'R
 
 const candidates = (count: number): ReelCandidate[] =>
   Array.from({ length: count }, (_, i) => ({ id: photoId(i + 1), uploader: 'Asha', caption: null, takenOn: '3 Nov' }));
+
+describe('image sniffing', () => {
+  test('recognises the types Gemini accepts from their first bytes', () => {
+    expect(sniffImageType(JPEG)).toBe('image/jpeg');
+    expect(sniffImageType(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('png-bytes')]))).toBe('image/png');
+    expect(sniffImageType(Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 2, 3, 4]), Buffer.from('WEBPVP8 ')]))).toBe('image/webp');
+    expect(sniffImageType(Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(8)]))).toBe('image/heic');
+    expect(sniffImageType(Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypmif1'), Buffer.alloc(8)]))).toBe('image/heif');
+  });
+
+  test('rejects GIFs, documents and truncated files', () => {
+    expect(sniffImageType(Buffer.from('GIF89a-not-accepted'))).toBe(null);
+    expect(sniffImageType(Buffer.from('%PDF-1.7 and some more text'))).toBe(null);
+    expect(sniffImageType(Buffer.from([0xff, 0xd8, 0xff]))).toBe(null);
+    expect(sniffImageType(Buffer.alloc(0))).toBe(null);
+  });
+});
 
 describe('reel plans', () => {
   test('keeps known photos once each, in Gemini’s order, with lengths and names in range', () => {

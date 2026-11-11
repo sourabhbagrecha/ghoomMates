@@ -89,10 +89,6 @@ export const INDEXES: Record<string, IndexDescription[]> = {
   hospitality_waste_logs: [
     { key: { host_id: 1, log_date: 1 }, unique },
   ],
-  trip_artworks: [
-    { key: { object_key: 1 }, unique },
-    { key: { trip_id: 1, created_at: -1 } },
-  ],
   trip_reels: [
     { key: { trip_id: 1, created_at: -1 } },
   ],

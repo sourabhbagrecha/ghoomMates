@@ -31,7 +31,7 @@ Dates are India time (IST): day 1 is today there, whatever zone the laptop is in
 | Green Trip | 19 pledge ticks (each mate ticks their own, the organiser leaves most open), so the squad sits at **77/100, Lake Guardian**, three points short of Mewar Steward. The e-rickshaw swap on the Ahar → Shilpgram ride (about 2.4 kg saved) tips it over, which is the demo moment. |
 | Expenses | Nine spends, ₹36,660, paid by five different mates: a three-night Lal Ghat homestay, train tickets, e-rickshaws, a family-kitchen lunch, tickets, a Domino's stop that only four shared. About 64% stays with local people, and Settle up has five transfers to suggest. |
 | RSVPs | A hundred answers: shared meals and check-ins are whole-squad, the rest are mostly "going" with a few "maybe" and "skip". Only unanswered stops get an answer, so a changed RSVP is never overwritten. |
-| Photos | Four pictures of the six mates (golden hour on the ghat, Bagore ki Haveli's ceilings, the Pichola boat, a rooftop dinner), uploaded as different mates through the app's own signed-URL flow. **They are AI-generated pictures of fictional people** (Gemini's image model on Vertex AI, from one generated squad selfie, `backend/scripts/demo-assets/`), not real photographs. The face pipeline indexes them like any upload; **Photos → Squad Miniature** has pictures to paint. |
+| Photos | Four pictures of the six mates (golden hour on the ghat, Bagore ki Haveli's ceilings, the Pichola boat, a rooftop dinner), uploaded as different mates through the app's own signed-URL flow. **They are AI-generated pictures of fictional people** (Gemini's image model on Vertex AI, from one generated squad selfie, `backend/scripts/demo-assets/`), not real photographs. The face pipeline indexes them like any upload. |
 
 ## Running it again
 
@@ -50,7 +50,6 @@ Dates are India time (IST): day 1 is today there, whatever zone the laptop is in
 | Stop detail | A crowd forecast, makers within 1.5 km of City Palace and Bagore, the booked workshop's card |
 | Explore → Makers, Farm-to-table | The booking made for the squad; the table with its diets |
 | Expenses | Nine spends, balances, five suggested transfers |
-| Photos → Squad Miniature | Four photos of the squad to paint |
 | `#/ops` | The forecast for today. The real squad is one of many, and the console follows its own privacy rule (a count of 1 or 2 squads shows as "<3"), so the numbers come from the labelled sample squads plus this one |
 | `#/host` | The Kesar Pol Haveli dinner on day 2 in the seven-day demand |
 

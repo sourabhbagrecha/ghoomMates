@@ -20,7 +20,6 @@ import { useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { reelsApi } from '../../services/reelsService'
 import { ApiRequestError, tripsApi, type FaceSummary, type TripPhoto } from '../../services/tripsService'
-import { MiniatureEntry } from '../Miniature/MiniatureEntry'
 import { PastReels } from '../Reel/PastReels'
 import { useTripReels } from '../Reel/useTripReels'
 import { useTripStore } from '../Trip/tripStore'
@@ -71,7 +70,6 @@ export function PhotosPage() {
             summary={summary}
             matched={hasMatched(trip?.id ?? null)}
           />
-          <MiniatureEntry />
           {!photos ? (
             <Skeleton variant="card" height={230} />
           ) : matchedIds && !visible.length ? (

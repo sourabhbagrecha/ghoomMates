@@ -28,15 +28,13 @@ export interface ServerModules {
   frontend?: Router;
   // Heritage Ops: crowd forecasts from squads' plans and advisories, mounted under /api/ops. Works without a database.
   ops?: Router;
-  // Squad Miniature: trip photos painted in Udaipur's painting traditions, mounted under /api/artworks. Omitted without a database.
-  artworks?: Router;
   // Reel studio: Gemini cuts reel plans from trip photos for the app's Remotion player, mounted under /api/reels. Omitted without a database.
   reels?: Router;
   // Mewar Utsav: Udaipur's festivals, fairs and nightly shows with the crowd each brings, mounted under /api/events. Browsing needs no database.
   events?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, artworks, reels, impact, hospitality, stories, events }: ServerModules) {
+export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -67,9 +65,6 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
   }));
   app.use('/api/voice', voice ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set MONGODB_CONNECTION_STRING');
-  }));
-  app.use('/api/artworks', artworks ?? (() => {
-    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Artworks need a database; set MONGODB_CONNECTION_STRING');
   }));
   app.use('/api/reels', reels ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Reels need a database; set MONGODB_CONNECTION_STRING');

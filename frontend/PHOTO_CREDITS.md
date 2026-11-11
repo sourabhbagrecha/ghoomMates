@@ -176,16 +176,6 @@ Licence texts: [CC0](https://creativecommons.org/publicdomain/zero/1.0/), [CC BY
 | Dal-bati-churma thali | Meghana78 | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=40987945) |
 | Thick Rajasthani roti | Kunalbafna | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=40876427) |
 
-## Miniature
-
-| Photo | Author | Licence | Source |
-| --- | --- | --- | --- |
-| Mewar Ramayana miniature of Rama’s wedding procession | Manohar of Mewar | Public domain | [Commons](https://commons.wikimedia.org/w/index.php?curid=125297964) |
-| Fresco at Bagore ki Haveli | Jakub Hałun | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=93914048) |
-| Udaipur court painting of a prize stallion | Tara | CC0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=57382304) |
-| Mewar Ramayana miniature | Manohar of Mewar | Public domain | [Commons](https://commons.wikimedia.org/w/index.php?curid=125275819) |
-| Painted wall at Bagore ki Haveli | Jakub Hałun | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=93914050) |
-
 ## Sajjangarh
 
 | Photo | Author | Licence | Source |

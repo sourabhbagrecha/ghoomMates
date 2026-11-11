@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ApiError, object, requireThat } from '../expenses/domain.ts';
-import { sniffImageType } from '../artworks/images.ts';
+import { sniffImageType } from './images.ts';
 import { claudeReadsImage, type Claude } from '../claude.ts';
 import type { Database } from '../db.ts';
 import type { Gemini, GeminiPart } from '../gemini.ts';

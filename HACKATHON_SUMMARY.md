@@ -18,7 +18,6 @@ Every feature works for a squad (one action moves 4–10 people). Every feature 
 | Heritage Ops console | Smart crowd management | Profile → Partner tools → Heritage Ops (`#/ops`); "Heads up" banners for travellers |
 | Mewar Thali Table | Farm-to-table sourcing; eco-conscious hospitality operations | Explore → Farm-to-table; Profile → Host kitchen (`#/host`) |
 | Mewar Utsav | Living heritage; crowd management | Explore → This week in Mewar; festival lines in Crowd pulse |
-| Squad Miniature | Artisan discoverability (AI keepsake that sends squads to real painters) | Photos → Paint us as a Mewar miniature |
 | Demo readiness | — | Trip dates from today, change dates, Udaipur Plan screens |
 
 ## Features
@@ -111,16 +110,7 @@ Every feature works for a squad (one action moves 4–10 people). Every feature 
   - A "Your Day 2 is Diwali" tip on the itinerary
 - **Backend:** `backend/src/events/`, `/api/events` (list, add to itinerary, ask), plus a small GhoomMate skill `whats_on` in `backend/src/voice/skills/events.ts`. No migration.
 
-### 7. Squad Miniature: the squad painted in a Udaipur tradition
-- **What it does:**
-  - Turns a trip photo into a Mewar miniature, a royal procession, a jharokha portrait or a Phad scroll, using Gemini 2.5 Flash Image on Vertex AI. Gemini also checks that the head count matches.
-  - Results are saved to the squad gallery, and can be shared or downloaded.
-  - Every result links to a real miniature painter: "Want the real thing?" opens the Maker Trail.
-  - If generation is unavailable, the original photo is shown in a painted frame.
-- **Screens:** `#/trip/photos/miniature`, via a card on the Photos tab.
-- **Backend:** `backend/src/artworks/`, `/api/artworks/trips/:tripId`, migration `026_artworks.sql`, doc `backend/docs/artworks.md`. A new `MediaStorage.read()` method was added for this.
-
-### 8. Demo readiness
+### 7. Demo readiness
 - The create-trip calendar starts today, pages by month, greys out past days, and allows a trip that starts today.
 - Trip settings → change dates works end to end. When a trip gets shorter, stops on removed days move to the new last day. `PATCH /api/trips/:id` returns the moved stops; only the organiser can change dates.
 - LIVE / day counting uses India time (`frontend/src/data/tripDates.ts`).
@@ -160,18 +150,18 @@ It has already been run once against the shared dev database for the quick sign-
 ## Google tech used
 - **Gemini 3.5 Flash / Flash-Lite** (structured output): story retellings, advisories, menus, maker Q&A, festival Q&A, expense sorting, swap wording.
 - **Gemini TTS:** story narration, through Vertex AI.
-- **Gemini 2.5 Flash Image on Vertex AI:** craft covers, story panels, illustrations, squad miniatures.
+- **Gemini 2.5 Flash Image on Vertex AI:** craft covers, story panels, illustrations.
 - **Gemini Live** (GhoomMate): the new `whats_on` festival skill.
-- **Cloud SQL for PostgreSQL:** 6 new migrations.
-- **Cloud Storage:** narration, artworks, ranged audio.
+- **Cloud SQL for PostgreSQL:** 5 new migrations.
+- **Cloud Storage:** narration, ranged audio.
 - **Cloud Run:** deploy kit.
 - **Google Maps:** keyless links, plus the optional Routes API.
 
 ## Migrations and env vars
-- **Migrations:** `020_makers`, `021_stories`, `022_impact`, `023_heritage_ops`, `024_hospitality`, `026_artworks`. They apply automatically when the backend starts and are already applied to the shared dev database.
+- **Migrations:** `020_makers`, `021_stories`, `022_impact`, `023_heritage_ops`, `024_hospitality`. They apply automatically when the backend starts and are already applied to the shared dev database.
 - **New optional env vars**, all documented in `backend/.env.example`:
   - Gemini and Vertex: `GEMINI_SMART_MODEL`, `GEMINI_IMAGE_MODEL`, `GEMINI_TTS_MODEL`, `VERTEX_PROJECT`, `VERTEX_LOCATION`
-  - Feature settings: `GOOGLE_MAPS_API_KEY`, `OPS_SAMPLE_SQUADS`, `ARTWORKS_PER_TRIP_PER_DAY`
+  - Feature settings: `GOOGLE_MAPS_API_KEY`, `OPS_SAMPLE_SQUADS`
   - Deployment: `SERVE_FRONTEND_DIR`, `ALLOW_DEV_LOGIN`, `DEV_LOGIN_EMAILS`
 - **For the Cloud Run deploy:** image generation and narration need `VERTEX_PROJECT` / `VERTEX_LOCATION`, and the web service's account needs the Vertex AI User role (`deploy/cloudrun.sh` grants it). Without them, those features fall back.
 
@@ -181,7 +171,6 @@ It has already been run once against the shared dev database for the quick sign-
 - **Speech quota:** the Gemini API key allows only 10 speech requests a day, so narration goes through Vertex AI.
   - The shipped recordings need neither.
   - Hindi narration is recorded only for Bagore ki Haveli.
-- **Image quota:** Vertex image generation sometimes hits quota (429). Squad Miniature retries twice and then shows the framed photo; a painting takes about 14–18 s.
 - **Partner tools:** the Ops console and Host kitchen are open to any signed-in user, as a demo stub. Maker bookings are simulated, with no payment or cancel.
 - **WhatsApp links:** the order link has no phone number, so it opens WhatsApp's contact picker.
 - **Maps key:**

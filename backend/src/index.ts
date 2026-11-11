@@ -1,7 +1,6 @@
 import { createServer } from './app.ts';
 import { isDatabaseConfigured, openDatabase } from './db.ts';
 import { loadEnv } from './env.ts';
-import { createArtworksApp } from './artworks/app.ts';
 import { createApp as createAuthApp } from './auth/app.ts';
 import { createInMemoryOAuthDatabase, createMongoOAuthDatabase } from './auth/database.ts';
 import { signJwt } from './auth/jwt.ts';
@@ -87,12 +86,10 @@ const gemini = createGemini();
 
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
-let artworks: ReturnType<typeof createArtworksApp> | undefined;
 let reels: ReturnType<typeof createReelsApp> | undefined;
 let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
   trips = createTripsApp(db, storage, authenticate, clientOrigin);
-  artworks = createArtworksApp({ db, storage, gemini, authenticate });
   // Claude writes the reel plan when Gemini fails (ANTHROPIC_API_KEY)
   reels = createReelsApp({ db, storage, gemini, claude: createClaude(), cartoApiKey: process.env.CARTO_API_KEY, authenticate });
   voice = createVoiceApp({
@@ -134,7 +131,6 @@ const app = createServer({
   expenses,
   trips,
   voice,
-  artworks,
   reels,
   impact,
   heritage: createHeritageApp(),
