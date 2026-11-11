@@ -2,7 +2,7 @@
 
 GhoomMates moved its database from Cloud SQL Postgres (with pgvector) to MongoDB Atlas (with Atlas Vector Search) in November 2026. This page records why, what changed, the tradeoffs we accepted, and what we measured.
 
-**Status (2026-11-11):** the code is merged. The production data copy and cutover are a separate step; see [Cutover](#cutover).
+**Status (2026-11-11): live.** Production runs on Atlas (web revision `ghoommates-00020-lxl`, face services `face-indexer-00002` and `face-search-00005`). Every Cloud SQL row was copied, and a second copy right after the release found nothing new. See [Cutover](#cutover) for what was done and how to roll back.
 
 ## Why
 
@@ -132,10 +132,17 @@ At this scale Postgres never used the HNSW index: the planner filtered by trip a
 
 ## Cutover
 
-The steps are in [backend/docs/deploy.md](backend/docs/deploy.md). Production keeps running on the old image until a **full** `deploy/secrets.sh && deploy/cloudrun.sh` puts `MONGODB_CONNECTION_STRING` into Secret Manager and onto the Cloud Run services. CI's `release` only swaps the image.
+The general steps are in [backend/docs/deploy.md](backend/docs/deploy.md). CI's `release` only swaps the image; secrets come from Secret Manager. On 2026-11-11 the cutover went like this, changing only the database settings in production:
 
-1. In Atlas, allow `0.0.0.0/0` and give the DB user permission to create search indexes.
-2. Run `PG_SOURCE_URL=<cloud sql url> node backend/scripts/pg-to-mongo.ts --dry-run`, then run it without `--dry-run`.
-3. Deploy the face services (`cloud/deploy.sh`), then run the full web deploy.
-4. Re-run the copy for the delta, then smoke-test.
-5. Keep the Cloud SQL instance as a read-only fallback until the trial lapses.
+1. Ran `cloud/faces/migrate.py` against Atlas `ghoomates` to create the face indexes and the `faces_embedding` vector index.
+2. Ran `backend/scripts/pg-to-mongo.ts`: 1,353 rows from 28 tables, with counts matching for every table.
+3. Ran `cloud/deploy.sh build indexer search` to deploy the face services on Atlas (min instances 0, as before).
+4. Created the Secret Manager secret `ghoommates-mongodb-connection-string`, gave `ghoommates-web` access to it, and added it to the web service with `gcloud run services update --update-secrets` while the old image was still running.
+5. Pushed `main`. CI built and released image `0d7fe54`, and it logged `MongoDB connection & indexes ready`.
+6. Re-ran the copy for anything written in between; there was nothing new.
+
+The Atlas connection string is also stored as the GitHub Actions secret `MONGODB_CONNECTION_STRING`. No workflow reads it yet.
+
+**Rollback (until the Cloud SQL trial ends on ~2026-11-30):** the old Cloud SQL settings are still on the web service, so `gcloud run services update-traffic ghoommates --to-revisions=ghoommates-00019-49p=100 --region=asia-south1` returns to Postgres. Anything written to Atlas after the cutover would not be in Postgres.
+
+**Later:** remove `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_NAME` and the `DB_PASSWORD` secret from the web service. A full `deploy/cloudrun.sh` does this. Then delete the Cloud SQL instance and the `ghoommates-db-password` secret.
