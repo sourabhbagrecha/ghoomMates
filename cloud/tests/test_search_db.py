@@ -7,12 +7,10 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pytest
-from pymongo import MongoClient
 
 from faces import store
 from faces.config import Settings
 from faces.pipeline import Box
-from faces.search import create_app
 from tests.conftest import TRIP_A, TRIP_B, cosine_distance, fake_face, near, unit, wait_searchable
 
 pytestmark = pytest.mark.db
@@ -150,12 +148,3 @@ def test_trip_filter_finds_the_match_among_other_trips_and_noise(clean_db, rng):
     assert len(hits) == 40 and hits[0].object_name == "a.jpg"
     assert {h.object_name for h in hits} <= {"a.jpg", f"noise-{TRIP_A}.jpg"}
 
-
-def test_database_failure_is_unavailable():
-    dead = MongoClient("mongodb://127.0.0.1:1/?directConnection=true", serverSelectionTimeoutMS=500, connect=False)
-    try:
-        client = create_app(Settings(), None, dead["none"]).test_client()
-        response = client.post("/search", json={"trip_id": TRIP_A, "embeddings": [[1.0] * 512]})
-        assert response.status_code == 503 and response.get_json()["error"]["code"] == "SEARCH_UNAVAILABLE"
-    finally:
-        dead.close()

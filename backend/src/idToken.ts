@@ -1,6 +1,6 @@
 import { GoogleAuth, type IdTokenClient } from 'google-auth-library';
 
-// Calls to our private Cloud Run services (face-search, the voice agent) carry a Google ID token whose audience is
+// Calls to our private Cloud Run services (the voice agent) carry a Google ID token whose audience is
 // the service URL. A local URL (docker compose, a worker on this laptop) is called without one.
 
 export function isLocalUrl(url: string) {

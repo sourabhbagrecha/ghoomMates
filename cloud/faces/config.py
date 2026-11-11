@@ -39,8 +39,6 @@ VECTOR_SEARCH_MAX = 10_000
 
 @dataclass(frozen=True)
 class Settings:
-    # Which app the container serves: "indexer" or "search".
-    service: str = "indexer"
     port: int = 8080
     log_level: str = "INFO"
 
@@ -69,11 +67,10 @@ class Settings:
     )
     max_image_bytes: int = 30 * 1024 * 1024
 
-    # Selfie search input limits. 3 base64 selfies of 6 MiB stay under Cloud Run's 32 MiB request limit.
-    max_selfies: int = 3
+    # Largest profile selfie the indexer embeds.
     max_selfie_bytes: int = 6 * 1024 * 1024
 
-    # Search: first fetch SEARCH_INITIAL_K nearest faces per selfie; if all of them are matches, double k
+    # Search (find-me, run by the backend; store.search is the reference): first fetch SEARCH_INITIAL_K nearest faces per selfie; if all of them are matches, double k
     # until a non-match shows up or SEARCH_MAX_K is reached (then the response says truncated: true).
     # Atlas Vector Search caps limit and numCandidates at 10000, so a larger SEARCH_MAX_K is lowered to that.
     search_initial_k: int = 500
@@ -82,7 +79,7 @@ class Settings:
     # MongoDB Atlas (mongodb+srv:// URL, same cluster as the backend) and the database the face collections live in.
     mongodb_connection_string: str = ""
     mongodb_db: str = "ghoomates"
-    # Seconds to find a reachable server before a request fails (indexer 500, search 503).
+    # Seconds to find a reachable server before a request fails (the indexer answers 500).
     db_connect_timeout: int = 10
 
     # Local development: read objects from this directory (LOCAL_MEDIA_DIR/<object name>) instead of GCS.
@@ -103,7 +100,6 @@ class Settings:
         env = os.environ if env is None else env
         d = cls()
         return cls(
-            service=_str(env, "SERVICE", d.service).lower(),
             port=_int(env, "PORT", d.port),
             log_level=_str(env, "LOG_LEVEL", d.log_level).upper(),
             model_name=_str(env, "MODEL_NAME", d.model_name),
@@ -121,7 +117,6 @@ class Settings:
             image_extensions=_list(env, "IMAGE_EXTENSIONS", ",".join(d.image_extensions)),
             image_content_types=_list(env, "IMAGE_CONTENT_TYPES", ",".join(d.image_content_types)),
             max_image_bytes=_int(env, "MAX_IMAGE_BYTES", d.max_image_bytes),
-            max_selfies=_int(env, "MAX_SELFIES", d.max_selfies),
             max_selfie_bytes=_int(env, "MAX_SELFIE_BYTES", d.max_selfie_bytes),
             search_initial_k=_int(env, "SEARCH_INITIAL_K", d.search_initial_k),
             search_max_k=_int(env, "SEARCH_MAX_K", d.search_max_k),

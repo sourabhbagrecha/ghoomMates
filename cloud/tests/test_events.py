@@ -1,14 +1,11 @@
-"""Event parsing, routing (what gets indexed), config and search request validation."""
+"""Event parsing, routing (what gets indexed) and config."""
 
 from __future__ import annotations
-
-import base64
 
 import pytest
 
 from faces.config import Settings
 from faces.indexer import FINALIZED, parse_event, route
-from faces.search import InvalidRequest, decode_selfie, parse_embeddings, parse_request
 from tests.conftest import TRIP_A
 
 USER = "usr_0123456789abcdef"
@@ -77,8 +74,8 @@ def test_skip_prefixes_win_over_the_include_pattern():
 
 def test_settings_from_env_overrides_defaults():
     s = Settings.from_env({"MATCH_THRESHOLD": "0.35", "MIN_FACE_PX": "48", "ALIGN": "false",
-                           "SKIP_PREFIXES": " Selfies/ , tmp/ ", "SERVICE": "Search", "MAX_IMAGE_SIDE": ""})
-    assert (s.match_threshold, s.min_face_px, s.align, s.service) == (0.35, 48, False, "search")
+                           "SKIP_PREFIXES": " Selfies/ , tmp/ ", "MAX_IMAGE_SIDE": ""})
+    assert (s.match_threshold, s.min_face_px, s.align) == (0.35, 48, False)
     assert s.skip_prefixes == ("selfies/", "tmp/")
     assert s.max_image_side == 1600
 
@@ -104,48 +101,3 @@ def test_opening_the_database_does_not_connect():
     assert db.name == "x"
     db.client.close()
 
-
-def test_selfies_accept_base64_and_data_urls(settings):
-    raw = b"\xff\xd8\xff selfie"
-    b64 = base64.b64encode(raw).decode()
-    assert decode_selfie(b64, 0, settings) == raw
-    assert decode_selfie(f"data:image/jpeg;base64,{b64}", 0, settings) == raw
-
-
-@pytest.mark.parametrize(
-    "body,code",
-    [
-        (None, "VALIDATION_ERROR"),
-        ({"trip_id": "nope", "selfies": ["aGk="]}, "VALIDATION_ERROR"),
-        ({"trip_id": TRIP_A, "selfies": []}, "VALIDATION_ERROR"),
-        ({"trip_id": TRIP_A, "selfies": ["aGk="] * 4}, "VALIDATION_ERROR"),
-        ({"trip_id": TRIP_A, "selfies": ["%%%"]}, "VALIDATION_ERROR"),
-        ({"trip_id": TRIP_A, "selfies": ["data:image/jpeg,abc"]}, "VALIDATION_ERROR"),
-    ],
-)
-def test_invalid_search_requests(body, code, settings):
-    with pytest.raises(InvalidRequest) as err:
-        parse_request(body, settings)
-    assert err.value.code == code
-
-
-def test_oversized_selfies_are_rejected():
-    s = Settings.from_env({"MAX_SELFIE_BYTES": "30"})
-    with pytest.raises(InvalidRequest) as err:
-        decode_selfie(base64.b64encode(b"x" * 100).decode(), 0, s)
-    assert err.value.status == 413
-
-
-def test_embeddings_are_validated_and_normalized(settings):
-    out = parse_embeddings({"embeddings": [[3.0] + [0.0] * 511]}, settings)
-    assert len(out) == 1 and out[0].shape == (512,) and abs(float(out[0][0]) - 1.0) < 1e-6
-
-
-@pytest.mark.parametrize(
-    "embeddings",
-    [None, [], [[0.1] * 511], [[0.0] * 512], [["x"] * 512], [[True] * 512], [[0.1] * 512] * 4, "nope"],
-)
-def test_invalid_embeddings_are_rejected(embeddings, settings):
-    with pytest.raises(InvalidRequest) as err:
-        parse_embeddings({"embeddings": embeddings}, settings)
-    assert err.value.code == "VALIDATION_ERROR"

@@ -128,7 +128,7 @@ A Python service under `cloud/` indexes every photo uploaded under `trips/<tripI
 
 `GET /api/trips/:id/photos` adds, per item, `faces: { status: 'pending' | 'indexed' | 'no_faces' | 'error', count }` (no `face_photos` document means `pending`, count 0), and at the top level `faceSummary: { indexed, noFaces, pending, failed, faces }` counted over the whole trip (`faces` is the sum of face counts).
 
-`POST /api/trips/:id/photos/find-me` (members only, no body) searches with the signed-in user's profile selfie (`users.selfie_key`). The selfie is embedded once, when it is uploaded: the face-indexer writes its 512-float vector to `selfie_faces` (keyed by `object_name` = the selfie key), and find-me sends only that vector to `face-search`, which skips detection and embedding and runs just the vector search. If the vector isn't there yet (the upload event is still in flight, or no indexer runs locally), the backend reads the selfie from storage, has `face-search` embed it, and stores the vector with `generation: 0`, which the indexer's own result later replaces.
+`POST /api/trips/:id/photos/find-me` (members only, no body) searches with the signed-in user's profile selfie (`users.selfie_key`). The selfie is embedded once, when it is uploaded: the face-indexer writes its 512-float vector to `selfie_faces` (keyed by `object_name` = the selfie key), and find-me runs an Atlas Vector Search (`$vectorSearch` on the `faces_embedding` index of `faces`) with that vector, in `backend/src/trips/faces.ts`. No face detection or embedding runs in the backend. The search is filtered to the trip and to the selfie's own `model_name` and `detector`, takes the k nearest faces (k starts at 500 and doubles while every one of them is a match, up to Atlas's cap of 10000, which sets `truncated`), keeps those under the match threshold and groups them by photo. `cloud/faces/store.py` has the same search, tested against Atlas local; keep the two in step. If the vector isn't there yet (the upload event is still in flight), find-me answers `409 SELFIE_PROCESSING` and the app retries for up to a minute.
 
 ```json
 { "matches": [ { "photoId": "uuid", "distance": 0.21, "width": 4000, "height": 3000,
@@ -140,10 +140,9 @@ Matches are sorted by distance ascending. Face boxes are in original image pixel
 
 | Status | Code | When |
 | --- | --- | --- |
-| 409 | `NO_SELFIE` | The user has no selfie (or its object is gone) |
-| 413 | `SELFIE_TOO_LARGE` | Selfie too large for face-search |
-| 422 | `NO_FACE`, `INVALID_IMAGE` | No face found in the selfie (as recorded by the indexer) or unreadable image |
-| 503 | `FACE_SEARCH_DISABLED` | `FACE_SEARCH_URL` is not set |
-| 503 | `FACE_SEARCH_UNAVAILABLE` | Network error, timeout (90 s, covers a cold start) or a 5xx |
+| 409 | `NO_SELFIE` | The user has no selfie |
+| 409 | `SELFIE_PROCESSING` | The face-indexer hasn't embedded the selfie yet; retry in a few seconds |
+| 422 | `NO_FACE`, `INVALID_IMAGE` | The indexer found no face in the selfie, or couldn't read it |
+| 503 | `FACE_SEARCH_UNAVAILABLE` | The vector search failed: Atlas unreachable, or no `faces_embedding` index (a plain local MongoDB, or `cloud/faces/migrate.py` not run) |
 
-`FACE_SEARCH_URL` is the face-search base URL. Local `http://localhost` or `http://127.0.0.1` URLs are called without auth; any other URL gets a Google ID token (audience = the URL) minted from `GCS_CREDENTIALS_BASE64`, whose service account needs `roles/run.invoker` on the service.
+`FACE_MATCH_THRESHOLD` (default `0.40`) is the cosine distance under which a face counts as a match. Keep it equal to `MATCH_THRESHOLD` in `cloud/`.

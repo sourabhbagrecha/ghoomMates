@@ -5,7 +5,7 @@ import { PROFILE_KEY, type MediaStorage } from '../storage.ts';
 // Selfies and profile photos go browser → bucket like trip photos: the backend only hands out a signed upload URL
 // and later records the object key. Selfies under users/<id>/selfies/ are embedded by the face-indexer on upload.
 
-// face-search reads selfies up to 6 MiB (MAX_SELFIE_BYTES); the app sends ~640 px JPEGs, far below that.
+// face-indexer reads selfies up to 6 MiB (MAX_SELFIE_BYTES); the app sends ~640 px JPEGs, far below that.
 export const MAX_PROFILE_UPLOAD_BYTES = 6 * 1024 * 1024;
 const TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const FOLDERS = { selfie: 'selfies', avatar: 'avatars' } as const;

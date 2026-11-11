@@ -14,7 +14,7 @@ import { serve } from '../helpers.ts';
 import { testDatabase } from '../mongo.ts';
 
 // Selfie lifecycle: upload to media storage, record it on the profile, serve it by a stable URL, and find-me with
-// the embedding the face-indexer stored (or, before it has, by embedding the stored selfie once).
+// the embedding the face-indexer stored.
 
 const SECRET = 'selfie-test-secret-that-is-at-least-32-chars';
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 0xff, 0xd9]);
@@ -23,7 +23,7 @@ const VECTOR = Array.from({ length: 512 }, (_, i) => (i === 0 ? 1 : 0));
 let db: Database;
 let storage: MediaStorage;
 let server: Awaited<ReturnType<typeof serve>>;
-const searches: { kind: 'selfie' | 'vector'; payload: unknown }[] = [];
+const searches: { embedding: number[]; space: unknown }[] = [];
 
 before(async () => {
   db = await testDatabase();
@@ -32,12 +32,8 @@ before(async () => {
   const auth = new OAuthService(authDb, { jwtSecret: SECRET });
   const authenticate = async (token: string) => (await auth.verifySessionToken(token)).user;
   const faceSearch: FaceSearch = {
-    search: async (_trip, selfies) => {
-      searches.push({ kind: 'selfie', payload: selfies });
-      return { matches: [], threshold: 0.4, truncated: false, embeddings: [VECTOR] };
-    },
-    searchByEmbeddings: async (_trip, embeddings) => {
-      searches.push({ kind: 'vector', payload: embeddings });
+    search: async (_trip, embedding, space) => {
+      searches.push({ embedding, space });
       return { matches: [], threshold: 0.4, truncated: false };
     },
   };
@@ -136,35 +132,38 @@ test('a separate profile photo keeps the selfie; replacing or deleting the selfi
   expect(await storage.size(second)).toBe(null);
 });
 
-test('find-me uses the stored selfie embedding, embedding the selfie only when the indexer has not yet', async () => {
+test('find-me searches with the selfie embedding the face-indexer stored', async () => {
   const asha = await createUser('Asha');
   const trip = (await call(asha.token, '/api/trips', { name: 'Goa', groupName: 'Goa Gang' })).data;
   const findMe = () => call(asha.token, `/api/trips/${trip.id}/photos/find-me`, undefined, 'POST');
 
   expect((await findMe()).data.error.code).toBe('NO_SELFIE');
 
-  // Before the face-indexer has run: the stored selfie is embedded once and its vector kept
+  // Uploaded, but the face-indexer hasn't embedded it yet: the app is told to retry, nothing is searched
   const key = await upload(asha.token, 'selfie');
   await call(asha.token, '/auth/profile', { selfieKey: key }, 'PATCH');
   searches.length = 0;
-  expect((await findMe()).status).toBe(200);
-  expect(searches).toEqual([{ kind: 'selfie', payload: [JPEG.toString('base64')] }]);
-  const kept = await db.db.collection('selfie_faces').findOne({ object_name: key });
-  expect([kept?.user_id, kept?.status, kept?.generation, kept?.embedding.length]).toEqual([asha.id, 'indexed', 0, 512]);
-  expect((await findMe()).status).toBe(200);
-  expect(searches[1]).toEqual({ kind: 'vector', payload: [VECTOR] });
+  const processing = await findMe();
+  expect([processing.status, processing.data.error.code]).toEqual([409, 'SELFIE_PROCESSING']);
+  expect(searches).toEqual([]);
 
-  // A new selfie the indexer already embedded (the usual case): only the vector search runs
-  const next = await upload(asha.token, 'selfie');
-  await call(asha.token, '/auth/profile', { selfieKey: next }, 'PATCH');
-  const indexed = VECTOR.map((_, i) => (i === 1 ? 1 : 0));
-  await db.db.collection('selfie_faces').insertOne({ object_name: next, user_id: asha.id, generation: 7, status: 'indexed', embedding: indexed });
-  searches.length = 0;
+  // The indexer has embedded it: only the vector search runs, in the selfie's own embedding space
+  await db.db.collection('selfie_faces').insertOne({
+    object_name: key, user_id: asha.id, generation: 7, status: 'indexed', embedding: VECTOR, model_name: 'ArcFace', detector: 'mtcnn',
+  });
   expect((await findMe()).status).toBe(200);
-  expect(searches).toEqual([{ kind: 'vector', payload: [indexed] }]);
+  expect(searches).toEqual([{ embedding: VECTOR, space: { modelName: 'ArcFace', detector: 'mtcnn' } }]);
 
-  // The indexer found no face in the selfie
-  await db.db.collection('selfie_faces').updateOne({ object_name: next }, { $set: { status: 'no_face', embedding: null } });
+  // An older document without model fields searches the indexer's default space
+  await db.db.collection('selfie_faces').updateOne({ object_name: key }, { $unset: { model_name: '', detector: '' } });
+  expect((await findMe()).status).toBe(200);
+  expect(searches[1].space).toEqual({ modelName: 'Facenet512', detector: 'retinaface' });
+
+  // The indexer found no face, or couldn't read the image
+  await db.db.collection('selfie_faces').updateOne({ object_name: key }, { $set: { status: 'no_face', embedding: null } });
   const noFace = await findMe();
   expect([noFace.status, noFace.data.error.code]).toEqual([422, 'NO_FACE']);
+  await db.db.collection('selfie_faces').updateOne({ object_name: key }, { $set: { status: 'error' } });
+  const unreadable = await findMe();
+  expect([unreadable.status, unreadable.data.error.code]).toEqual([422, 'INVALID_IMAGE']);
 });

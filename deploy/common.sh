@@ -13,7 +13,6 @@ REGION="${REGION:-asia-south1}"                      # Mumbai: the bucket is her
 REPO="${REPO:-ghoomates}"                            # Artifact Registry repository (created by cloud/deploy.sh registry)
 IMAGE_NAME="${IMAGE_NAME:-web}"
 BUCKET="${BUCKET:-ghoomates}"
-FACE_SEARCH_SERVICE="${FACE_SEARCH_SERVICE:-face-search}"
 
 # --- What gets deployed -------------------------------------------------------------------------------------------
 WEB_SERVICE="${WEB_SERVICE:-ghoommates}"              # the URL is https://<service>-<project number>.<region>.run.app

@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Deploys face-indexer and face-search to Cloud Run, wired to the photo bucket through Eventarc.
+# Deploys face-indexer to Cloud Run, wired to the photo bucket through Eventarc. Find-me search runs in the backend
+# (backend/src/trips/faces.ts), which queries the faces vector index directly.
 #
 # Run one step at a time, in this order (README "Deploy" explains every command and flag):
 #   ./deploy.sh apis        enable the Google Cloud APIs
 #   ./deploy.sh registry    create the Artifact Registry repository
-#   ./deploy.sh accounts    create the three service accounts
+#   ./deploy.sh accounts    create the two service accounts
 #   ./deploy.sh iam         grant project and bucket roles
 #   ./deploy.sh migrate     create the face_photos / faces indexes and the vector search index in Atlas
 #   ./deploy.sh build       build the image with Cloud Build and push it
 #   ./deploy.sh indexer     deploy face-indexer
-#   ./deploy.sh search      deploy face-search
-#   ./deploy.sh invokers    let the trigger call face-indexer and the backend call face-search
+#   ./deploy.sh invokers    let the trigger call face-indexer
 #   ./deploy.sh triggers    create the Eventarc triggers (finalized + deleted)
 #   ./deploy.sh backfill    index photos uploaded before the trigger existed (safe to rerun)
 #   ./deploy.sh status      show URLs and triggers
-# Redeploying code later: ./deploy.sh build && ./deploy.sh indexer && ./deploy.sh search
+# Redeploying code later: ./deploy.sh build && ./deploy.sh indexer
 #
-# Settings below can be overridden from the environment, e.g. MIN_SEARCH_INSTANCES=1 ./deploy.sh search
+# Settings below can be overridden from the environment, e.g. MAX_INDEXER_INSTANCES=5 ./deploy.sh indexer
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -29,14 +29,9 @@ TAG="${TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)}"
 IMAGE="${IMAGE:-${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/faces:${TAG}}"
 
 INDEXER_SA="face-indexer@${PROJECT_ID}.iam.gserviceaccount.com"
-SEARCH_SA="face-search@${PROJECT_ID}.iam.gserviceaccount.com"
 TRIGGER_SA="face-trigger@${PROJECT_ID}.iam.gserviceaccount.com"
-# Identity the backend uses to call face-search (it already has this account's key in GCS_CREDENTIALS_BASE64).
-BACKEND_SA="${BACKEND_SA:-ghoomates-storage@${PROJECT_ID}.iam.gserviceaccount.com}"
 
 MAX_INDEXER_INSTANCES="${MAX_INDEXER_INSTANCES:-10}"
-MAX_SEARCH_INSTANCES="${MAX_SEARCH_INSTANCES:-3}"
-MIN_SEARCH_INSTANCES="${MIN_SEARCH_INSTANCES:-0}"
 
 load_mongodb_settings() {
   if [[ -z "${MONGODB_CONNECTION_STRING:-}" && -f .env ]]; then
@@ -59,7 +54,6 @@ env_file() {
   file="$(mktemp)"
   chmod 600 "$file"
   {
-    echo "SERVICE: '$1'"
     echo "LOG_LEVEL: 'INFO'"
     echo "MONGODB_CONNECTION_STRING: '${MONGODB_CONNECTION_STRING//\'/\'\'}'"
     echo "MONGODB_DB: '${MONGODB_DB//\'/\'\'}'"
@@ -91,8 +85,6 @@ step_registry() {
 step_accounts() {
   gcloud iam service-accounts create face-indexer --project="$PROJECT_ID" \
     --display-name="GhoomMates face-indexer (Cloud Run runtime)"
-  gcloud iam service-accounts create face-search --project="$PROJECT_ID" \
-    --display-name="GhoomMates face-search (Cloud Run runtime)"
   gcloud iam service-accounts create face-trigger --project="$PROJECT_ID" \
     --display-name="GhoomMates Eventarc trigger identity"
 }
@@ -119,9 +111,7 @@ step_iam() {
 
   # Not needed while MONGODB_CONNECTION_STRING is passed as an env var. Grant this only if you move it into
   # Secret Manager:
-  # for sa in "$INDEXER_SA" "$SEARCH_SA"; do
-  #   gcloud secrets add-iam-policy-binding ghoommates-mongodb-uri --project="$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/secretmanager.secretAccessor"
-  # done
+  # gcloud secrets add-iam-policy-binding ghoommates-mongodb-uri --project="$PROJECT_ID" --member="serviceAccount:${INDEXER_SA}" --role="roles/secretmanager.secretAccessor"
 }
 
 step_migrate() {
@@ -142,7 +132,7 @@ step_build() {
 
 step_indexer() {
   local env status=0
-  env="$(env_file indexer)"
+  env="$(env_file)"
   gcloud run deploy face-indexer \
     --project="$PROJECT_ID" \
     --region="$REGION" \
@@ -163,39 +153,11 @@ step_indexer() {
   return "$status"
 }
 
-step_search() {
-  local env status=0
-  env="$(env_file search)"
-  gcloud run deploy face-search \
-    --project="$PROJECT_ID" \
-    --region="$REGION" \
-    --image="$IMAGE" \
-    --service-account="$SEARCH_SA" \
-    --no-allow-unauthenticated \
-    --ingress=all \
-    --execution-environment=gen2 \
-    --cpu=2 \
-    --memory=4Gi \
-    --concurrency=1 \
-    --timeout=60 \
-    --min-instances="$MIN_SEARCH_INSTANCES" \
-    --max-instances="$MAX_SEARCH_INSTANCES" \
-    --cpu-boost \
-    --env-vars-file="$env" || status=$?
-  rm -f "$env"
-  return "$status"
-}
-
 step_invokers() {
   gcloud run services add-iam-policy-binding face-indexer \
     --project="$PROJECT_ID" \
     --region="$REGION" \
     --member="serviceAccount:${TRIGGER_SA}" \
-    --role="roles/run.invoker"
-  gcloud run services add-iam-policy-binding face-search \
-    --project="$PROJECT_ID" \
-    --region="$REGION" \
-    --member="serviceAccount:${BACKEND_SA}" \
     --role="roles/run.invoker"
 }
 
@@ -247,6 +209,6 @@ usage() {
 
 [[ $# -eq 1 ]] || usage
 case "$1" in
-  apis|registry|accounts|iam|migrate|build|indexer|search|invokers|triggers|backfill|status) "step_$1" ;;
+  apis|registry|accounts|iam|migrate|build|indexer|invokers|triggers|backfill|status) "step_$1" ;;
   *) usage ;;
 esac
