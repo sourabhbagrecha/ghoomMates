@@ -1,4 +1,4 @@
-# One image for both Cloud Run services; SERVICE=indexer or SERVICE=search picks the app.
+# The face-indexer Cloud Run image.
 # Python 3.12: supported by TensorFlow 2.21, tf-keras 2.21 and deepface 0.0.103 (pins in requirements.txt).
 FROM python:3.12-slim-bookworm AS runtime
 

@@ -3,7 +3,7 @@ import { ApiError, integer, object, requireThat, text } from '../expenses/domain
 import { ExpenseService } from '../expenses/service.ts';
 import { transaction, type ClientSession, type Database, type Db } from '../db.ts';
 import { IMAGE_TYPES, type MediaStorage } from '../storage.ts';
-import { mapMatches, type FaceSearch, type FaceSearchResult } from './faces.ts';
+import { DEFAULT_SPACE, EMBEDDING_DIM, mapMatches, type FaceSearch } from './faces.ts';
 import { fitStopsToLength, tripLength } from './itinerary.ts';
 
 export const EXPENSE_CATEGORIES = ['food', 'stays', 'travel', 'fun', 'other'] as const;
@@ -450,34 +450,28 @@ export class TripService {
   }
 
   // Selfie search over the trip's indexed faces, with the user's profile selfie (users.selfie_key). The selfie is
-  // embedded once, when it is uploaded: the face-indexer writes its vector to selfie_faces, so a search sends only
-  // that vector and face-search skips detection and embedding. If the vector isn't there yet (the upload event is
-  // still in flight, or no indexer runs locally), the selfie is embedded now and the vector kept for next time.
+  // embedded once, when it is uploaded: the face-indexer writes its vector to selfie_faces, and find-me runs only the
+  // vector search with it. Until that vector exists (the upload event is still in flight) find-me answers
+  // 409 SELFIE_PROCESSING and the app retries.
   async findMe(access: TripAccess, userId: string, faceSearch: FaceSearch) {
     const user = await this.db.collection('users').findOne({ _id: userId as any }, { projection: { selfie_key: 1 } });
     const key = typeof user?.selfie_key === 'string' ? user.selfie_key : null;
     if (!key) throw new ApiError(409, 'NO_SELFIE', 'Add a selfie to your profile to find yourself in photos');
-    const selfies = this.db.collection('selfie_faces');
-    const stored = await selfies.findOne({ object_name: key }, { projection: { status: 1, embedding: 1 } });
+    const stored = await this.db.collection('selfie_faces').findOne(
+      { object_name: key },
+      { projection: { status: 1, embedding: 1, model_name: 1, detector: 1 } },
+    );
     if (stored?.status === 'no_face') throw new ApiError(422, 'NO_FACE', 'No face found in your selfie');
-    let result: FaceSearchResult;
-    if (stored?.status === 'indexed' && Array.isArray(stored.embedding)) {
-      result = await faceSearch.searchByEmbeddings(access.trip.id, [(stored.embedding as unknown[]).map(Number)]);
-    } else {
-      const image = await this.storage.read(key);
-      if (!image) throw new ApiError(409, 'NO_SELFIE', 'Your selfie is missing; add it again in your profile');
-      result = await faceSearch.search(access.trip.id, [image.toString('base64')]);
-      const embedding = result.embeddings?.[0];
-      // generation 0 sorts before every real upload event, so the indexer still writes its own result over this one.
-      // A failed write must not fail the search; the next one just embeds again.
-      if (embedding) {
-        await selfies.updateOne(
-          { object_name: key },
-          { $setOnInsert: { object_name: key, user_id: userId, generation: 0, status: 'indexed', embedding, indexed_at: new Date() } },
-          { upsert: true },
-        ).catch(() => undefined);
-      }
+    if (stored?.status === 'error') throw new ApiError(422, 'INVALID_IMAGE', 'We couldn’t read your selfie; add another in your profile');
+    const embedding = Array.isArray(stored?.embedding) ? (stored.embedding as unknown[]).map(Number) : null;
+    if (stored?.status !== 'indexed' || !embedding || embedding.length !== EMBEDDING_DIM || !embedding.every(Number.isFinite)) {
+      throw new ApiError(409, 'SELFIE_PROCESSING', 'Your selfie is still being read. Try again in a few seconds');
     }
+    const space = {
+      modelName: typeof stored.model_name === 'string' && stored.model_name ? stored.model_name : DEFAULT_SPACE.modelName,
+      detector: typeof stored.detector === 'string' && stored.detector ? stored.detector : DEFAULT_SPACE.detector,
+    };
+    const result = await faceSearch.search(access.trip.id, embedding, space);
     const names = result.matches.map(m => m.object_name);
     const rows = names.length
       ? await this.db.collection('trip_photos').find({ trip_id: access.trip.id, object_key: { $in: names } }, { projection: { object_key: 1 } }).toArray()

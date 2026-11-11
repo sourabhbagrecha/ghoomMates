@@ -1,5 +1,5 @@
-# Local stack: MongoDB Atlas Local (mongod + mongot, so $vectorSearch and transactions work as on Atlas) + both
-# services + a test runner.
+# Local stack: MongoDB Atlas Local (mongod + mongot, so $vectorSearch and transactions work as on Atlas) + the
+# face-indexer + a test runner.
 # Objects are read from ./local-bucket instead of GCS. See README "Local development".
 x-faces: &faces
   build:
@@ -37,19 +37,7 @@ services:
 
   indexer:
     <<: *faces
-    environment:
-      <<: *faces-env
-      SERVICE: indexer
     ports: ["8081:8080"]
-    depends_on:
-      migrate: { condition: service_completed_successfully }
-
-  search:
-    <<: *faces
-    environment:
-      <<: *faces-env
-      SERVICE: search
-    ports: ["8082:8080"]
     depends_on:
       migrate: { condition: service_completed_successfully }
 

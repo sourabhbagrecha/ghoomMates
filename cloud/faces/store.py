@@ -139,8 +139,8 @@ def delete_photo(db: Database, bucket: str, name: str, generation: int) -> int:
 # --- Profile selfies ---
 #
 # One selfie_faces document per uploaded selfie object (users/<userId>/selfies/<uuid>.<ext>), keyed by object_name.
-# The backend's find-me reads the embedding of the user's current selfie (users.selfie_key) and sends it to
-# face-search as a query vector. The embedding is a plain array of floats, so the backend can pass it on as JSON.
+# The backend's find-me reads the embedding of the user's current selfie (users.selfie_key) and uses it as the
+# $vectorSearch query vector. The embedding is a plain array of floats, so the backend can read it as JSON.
 
 SELFIE_DONE_STATUSES = ("indexed", "no_face")
 
@@ -191,6 +191,7 @@ def delete_selfie(db: Database, name: str, generation: int) -> int:
 
 
 # --- Search ---
+# backend/src/trips/faces.ts mirrors this for find-me; keep the two in step (distance = 2 * (1 - score), k doubling, grouping).
 
 
 @dataclass

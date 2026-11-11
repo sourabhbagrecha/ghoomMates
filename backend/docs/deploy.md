@@ -21,7 +21,6 @@ deploy/cloudrun.sh all     # build, deploy the voice agent and the web service, 
    │             └─ /api, /auth, /health ─▶ Cloud Run "ghoommates"  (public)
    │                             ├─ mongodb+srv, TLS ────▶ MongoDB Atlas  (database "ghoomates")
    │                             ├─ its service account ─▶ Vertex AI, Gemini API
-   │                             ├─ ID token ────────────▶ Cloud Run "face-search"  (private) ─▶ Atlas
    │                             ├─ ID token, GET / ─────▶ Cloud Run "ghoommates-agent"  (private): wake, keepalive
    │                             └─ signed URLs ─────────▶ handed to the browser (below)
    │
@@ -39,7 +38,7 @@ deploy/cloudrun.sh all     # build, deploy the voice agent and the web service, 
 | `ghoommates-agent` (Cloud Run) | The same image running `node backend/src/voice/agent.ts start`: the LiveKit worker dials out to LiveKit, takes sessions and calls the API as the user. Its LiveKit health server (port 8081, `GET /`) answers 200 only once the worker is registered with LiveKit. `POST /api/voice/session` on the web service wakes it with an ID-token GET to that endpoint (`VOICE_AGENT_URL`, `backend/src/voice/wake.ts`) and waits up to 25 s before handing out the token, because LiveKit drops a dispatch that finds no registered worker. During a call the app calls `POST /api/voice/keepalive` every minute, which pings it again, since Cloud Run stops an instance that gets no requests. | 1 vCPU, 1 GiB, 0 to 1 instances, CPU always allocated while up (the LiveKit connection and the call run between requests), gen2. Private: ingress all, but only `ghoommates-web` has `roles/run.invoker` (internal ingress would need a VPC connector on the web service). Scales to zero about 15 minutes after the last chat; the first chat after that waits for a cold start of ~5 to 15 s ("Waking GhoomMate…"). `VOICE_IN_WEB=1 deploy/cloudrun.sh` puts the worker back inside the web service (`VOICE_WORKER=inline`, CPU always allocated there). |
 | MongoDB Atlas, database `ghoomates` | Shared with the team and the face services (face embeddings use Atlas Vector Search). The web service connects with `MONGODB_CONNECTION_STRING` (a secret) and `MONGODB_DB`; it creates any missing indexes at startup (`backend/src/schema.ts`). Cloud Run has no fixed outbound IP, so the Atlas IP access list must allow `0.0.0.0/0` (the password and TLS protect it). | Same database and data as local dev. |
 | GCS `ghoomates` | Photos, receipts, selfies. The browser uploads and downloads with short-lived signed URLs; the signing key is `GCS_CREDENTIALS_BASE64`. | Bucket CORS already allows the app. |
-| Eventarc, `face-indexer`, `face-search` | Deployed separately from `cloud/`. An upload fires `face-indexer`; the web service calls `face-search` with an ID token for "find me". | See `cloud/README.md`. |
+| Eventarc, `face-indexer` | Deployed separately from `cloud/`. An upload (photo or selfie) fires `face-indexer`, which writes face vectors to Atlas; "find me" is a vector search the web service runs on Atlas itself. | See `cloud/README.md`. |
 | Vertex AI, Gemini | Images go to Vertex through the web service's account (`roles/aiplatform.user`). Text and speech use `GEMINI_API_KEY`, or Vertex without it. | Every feature has a hand-written fallback. |
 | LiveKit Cloud | Rooms, WebRTC and the realtime model (billed to the LiveKit project). | Browser connects to it directly. |
 | Secret Manager | One secret per sensitive setting, mounted as environment variables. | Created by `deploy/secrets.sh`. |
@@ -63,7 +62,7 @@ deploy/secrets.sh             # create them; run again whenever a value changes
 | `ghoommates-jwt-secret` | generated, never copied from `.env` | web (required) |
 | `ghoommates-mongodb-connection-string` | `MONGODB_CONNECTION_STRING` | web (required) |
 | `ghoommates-google-client-secret` | `GOOGLE_CLIENT_SECRET` | web (Google sign-in) |
-| `ghoommates-gcs-credentials-base64` | `GCS_CREDENTIALS_BASE64` | web (signed URLs, face-search ID token) |
+| `ghoommates-gcs-credentials-base64` | `GCS_CREDENTIALS_BASE64` | web (signed URLs) |
 | `ghoommates-gemini-api-key` | `GEMINI_API_KEY` | web |
 | `ghoommates-livekit-api-key`, `ghoommates-livekit-api-secret` | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | web and voice agent |
 | `ghoommates-google-maps-api-key` | `GOOGLE_MAPS_API_KEY` | web (optional) |
@@ -197,7 +196,7 @@ gcloud artifacts docker images list asia-south1-docker.pkg.dev/optimal-comfort-5
 2. The redirect URI is in the OAuth client and the consent screen is *In production* (or the jury are test users). Sign in **from a phone on mobile data**, not just from your laptop: Google, selfie, home.
 3. `curl https://ghoommates-449943395156.asia-south1.run.app/health` shows `"trips":"enabled"`. If it says disabled, the database connection failed (logs; the Atlas IP access list, `MONGODB_CONNECTION_STRING`).
 4. Create a trip with the real sign-in, copy the invite link and open it on a second phone (the link uses `CLIENT_ORIGIN`).
-5. Upload a few photos **ahead of time** and wait for indexing: `face-indexer` and `face-search` scale to zero and load models on a cold start, so the first photo or "find me" after a quiet hour can take half a minute. To keep `face-search` warm: `gcloud run services update face-search --min-instances=1 --region=asia-south1` (set it back to 0 afterwards).
+5. Upload a few photos **ahead of time** and wait for indexing: `face-indexer` scales to zero and loads its models on a cold start, so the first photo or selfie after a quiet hour takes half a minute to index. "Find me" itself is a vector query in the web service and has no cold start.
 6. Itinerary draft returns a Gemini plan, not the template one (the `GEMINI_API_KEY` secret is present).
 7. Voice: tap GhoomMate on a phone, allow the microphone, say a sentence. The agent logs show `received job request`. Nobody else is registered as `ghoomate-prod`.
 8. Prepare a demo trip, squad and photos in advance; if the test sign-in is on, use the demo accounts for it.

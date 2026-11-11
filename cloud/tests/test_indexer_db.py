@@ -240,7 +240,7 @@ def test_selfie_upload_is_embedded(env):
     client, engine, _, db = env
     assert send(client, 1, name=SELFIE).status_code == 204
     assert selfie_rows(db) == [(SELFIE, USER, 1, "indexed", 512, "Facenet512")]
-    # Stored as plain floats, unit length, so the backend can send it to face-search as a query vector.
+    # Stored as plain floats, unit length, so the backend can use it as the $vectorSearch query vector.
     vector = np.array(db.selfie_faces.find_one()["embedding"])
     assert abs(np.linalg.norm(vector) - 1) < 1e-6
     # Selfies never become gallery faces.

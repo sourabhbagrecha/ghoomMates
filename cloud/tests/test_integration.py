@@ -1,5 +1,5 @@
 """End to end with the real models: index sample photos through the indexer endpoint into MongoDB, then find
-them through the search endpoint with a selfie.
+them with a selfie through store.search (what backend/src/trips/faces.ts mirrors for find-me).
 
 Sample images come from the deepface repository's test dataset (pinned commit), downloaded once into
 SAMPLE_CACHE_DIR. Identities, measured with this pipeline (cosine distance within a person 0.06 to 0.35, closest
@@ -10,17 +10,16 @@ strangers 0.59 and up):
 
 from __future__ import annotations
 
-import base64
 import os
 import urllib.request
 from pathlib import Path
 
 import pytest
 
+from faces import store
 from faces.config import Settings
 from faces.indexer import FINALIZED
 from faces.indexer import create_app as create_indexer
-from faces.search import create_app as create_search
 from faces.storage import LocalReader
 from tests.conftest import TRIP_A, TRIP_B, wait_searchable
 
@@ -72,7 +71,6 @@ def clients(samples, engine, db, tmp_path_factory):
         target.write_bytes((samples / name).read_bytes())
     settings = Settings()
     indexer = create_indexer(settings, engine, db, LocalReader(str(bucket_dir))).test_client()
-    search = create_search(settings, engine, db).test_client()
     for i, (name, trip) in enumerate(GALLERY.items(), start=1):
         response = indexer.post(
             "/",
@@ -82,18 +80,19 @@ def clients(samples, engine, db, tmp_path_factory):
         )
         assert response.status_code == 204
     wait_searchable(db)
-    return indexer, search
+    return engine, db
 
 
-def find(search, samples, trip, *selfies):
-    body = {"trip_id": trip, "selfies": [base64.b64encode((samples / s).read_bytes()).decode() for s in selfies]}
-    response = search.post("/search", json=body)
-    assert response.status_code == 200, response.get_json()
-    return response.get_json()
+def find(clients, samples, trip, *selfies):
+    engine, db = clients
+    queries = [engine.selfie_embedding((samples / s).read_bytes()).embedding for s in selfies]
+    matches, truncated = store.search(db, queries, trip, Settings())
+    assert truncated is False
+    return matches
 
 
-def names(result):
-    return {m["object_name"].rsplit("/", 1)[1] for m in result["matches"]}
+def names(matches):
+    return {m.object_name.rsplit("/", 1)[1] for m in matches}
 
 
 def test_every_gallery_photo_was_indexed_with_faces(clients, db):
@@ -106,40 +105,38 @@ def test_every_gallery_photo_was_indexed_with_faces(clients, db):
 
 
 def test_selfie_finds_the_same_person_only(clients, samples):
-    _, search = clients
-    result = find(search, samples, TRIP_A, "img1.jpg")
-    assert names(result) == {"img2.jpg", "img11.jpg"}
-    for match in result["matches"]:
-        assert match["distance"] < 0.40
-        for face in match["faces"]:
-            assert 0 <= face["x"] < match["width"] and 0 <= face["y"] < match["height"]
-            assert face["x"] + face["w"] <= match["width"] and face["y"] + face["h"] <= match["height"]
+    matches = find(clients, samples, TRIP_A, "img1.jpg")
+    assert names(matches) == {"img2.jpg", "img11.jpg"}
+    for match in matches:
+        assert match.distance < 0.40
+        for face in match.faces:
+            assert 0 <= face.x < match.width and 0 <= face.y < match.height
+            assert face.x + face.w <= match.width and face.y + face.h <= match.height
 
 
 def test_other_people_are_found_too(clients, samples):
-    _, search = clients
-    assert names(find(search, samples, TRIP_A, "img9.jpg")) == {"img8.jpg"}
-    assert names(find(search, samples, TRIP_A, "img23.jpg")) == {"img22.jpg"}
+    assert names(find(clients, samples, TRIP_A, "img9.jpg")) == {"img8.jpg"}
+    assert names(find(clients, samples, TRIP_A, "img23.jpg")) == {"img22.jpg"}
 
 
 def test_search_is_scoped_to_the_trip(clients, samples):
-    _, search = clients
-    assert names(find(search, samples, TRIP_B, "img1.jpg")) == {"img7.jpg"}
-    assert names(find(search, samples, TRIP_B, "img9.jpg")) == {"img9.jpg"}
+    assert names(find(clients, samples, TRIP_B, "img1.jpg")) == {"img7.jpg"}
+    assert names(find(clients, samples, TRIP_B, "img9.jpg")) == {"img9.jpg"}
 
 
 def test_multiple_selfies_union_their_matches(clients, samples):
-    _, search = clients
-    assert names(find(search, samples, TRIP_A, "img1.jpg", "img9.jpg")) == {"img2.jpg", "img11.jpg", "img8.jpg"}
+    assert names(find(clients, samples, TRIP_A, "img1.jpg", "img9.jpg")) == {"img2.jpg", "img11.jpg", "img8.jpg"}
 
 
-def test_selfie_without_a_face_is_rejected(clients):
+
+def test_selfie_without_a_face_raises_no_face(engine):
     import io
 
     from PIL import Image
 
-    _, search = clients
+    from faces.pipeline import NoFace
+
     buf = io.BytesIO()
     Image.new("RGB", (400, 400), (120, 160, 200)).save(buf, format="JPEG")
-    response = search.post("/search", json={"trip_id": TRIP_A, "selfies": [base64.b64encode(buf.getvalue()).decode()]})
-    assert response.status_code == 422 and response.get_json()["error"]["code"] == "NO_FACE"
+    with pytest.raises(NoFace):
+        engine.selfie_embedding(buf.getvalue())

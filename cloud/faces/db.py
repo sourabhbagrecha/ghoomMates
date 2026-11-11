@@ -18,6 +18,6 @@ def open_db(settings: Settings) -> Database:
         connect=False,
         serverSelectionTimeoutMS=settings.db_connect_timeout * 1000,
         maxPoolSize=4,
-        appname=f"face-{settings.service}",
+        appname="face-indexer",
     )
     return client[settings.mongodb_db]

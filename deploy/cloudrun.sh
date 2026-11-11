@@ -111,16 +111,6 @@ env_or() { # KEY DEFAULT: the setting from the environment or ENV_FILE, else the
   if is_placeholder "$value"; then printf '%s' "$2"; else printf '%s' "$value"; fi
 }
 
-# The URL of the private face-search service. A localhost value from a dev .env is no use on Cloud Run.
-face_search_url() {
-  local url
-  url="$(env_value FACE_SEARCH_URL)"
-  case "$url" in
-    https://*) printf '%s' "$url"; return 0 ;;
-  esac
-  gcloud run services describe "$FACE_SEARCH_SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)' 2>/dev/null || true
-}
-
 # The voice agent service's URL, which the web server calls to wake it: the one Cloud Run reports, else the address it
 # will get (https://<service>-<project number>.<region>.run.app; Cloud Run accepts ID tokens for either).
 agent_url() {
@@ -332,7 +322,6 @@ deploy_web() {
   env_add GCS_BUCKET "$BUCKET"
   env_add VERTEX_PROJECT "$(env_or VERTEX_PROJECT "$PROJECT_ID")"
   env_add VERTEX_LOCATION "$(env_or VERTEX_LOCATION global)"
-  env_add FACE_SEARCH_URL "$(face_search_url)"
   env_add GHOOMATE_AGENT_NAME "$AGENT_NAME"
   if [[ "${ALLOW_DEV_LOGIN:-}" == true ]]; then
     env_add ALLOW_DEV_LOGIN true

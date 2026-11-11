@@ -2,12 +2,11 @@ import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import { ApiError, integer } from '../expenses/domain.ts';
 import { jsonBody } from '../http.ts';
-import { faceSearchUrl } from '../env.ts';
 import { logger } from '../logger.ts';
 import type { Database } from '../db.ts';
 import type { MediaStorage } from '../storage.ts';
 import type { User } from '../auth/types.ts';
-import { createFaceSearch, type FaceSearch } from './faces.ts';
+import { atlasNearestFaces, createFaceSearch, type FaceSearch } from './faces.ts';
 import { ItineraryService } from './itinerary.ts';
 import { TripService, type TripAccess } from './service.ts';
 
@@ -24,7 +23,7 @@ function page(req: Request, max = 100) {
 }
 
 // Trip groups for signed-in users: create, invite, join, expenses, settlements and photo uploads. Mount under /api/trips.
-export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string, faceSearch: FaceSearch = createFaceSearch({ url: faceSearchUrl() })) {
+export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string, faceSearch: FaceSearch = createFaceSearch(atlasNearestFaces(db.db))) {
   const service = new TripService(db, storage, clientOrigin);
   const itinerary = new ItineraryService(db);
   const router = Router();

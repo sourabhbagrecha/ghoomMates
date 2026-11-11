@@ -1,13 +1,82 @@
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
-import { createFaceSearch, mapMatches } from '../../src/trips/faces.ts';
+import {
+  createFaceSearch, DEFAULT_SPACE, groupByPhoto, mapMatches, matchesForSelfie, matchThreshold, type FaceHit, type NearestFaces,
+} from '../../src/trips/faces.ts';
+
+// $vectorSearch needs Atlas, so these tests drive the search logic with a fake nearest-faces query. The query itself
+// is the same as cloud/faces/store.py's nearest_faces, which cloud/tests/test_search_db.py runs against Atlas local.
 
 const TRIP = '7d444840-9dc0-4f4a-9e0e-3a0e5b1c2f10';
-const reply = (status: number, body: unknown) => (async () => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })) as typeof fetch;
-const client = (fetchImpl: typeof fetch, url: string | null = 'http://localhost:8081') =>
-  createFaceSearch({ url, fetch: fetchImpl, authHeaders: async () => ({ Authorization: 'Bearer test' }), timeoutMs: 200 });
-const failure = async (p: Promise<unknown>) => p.then(() => { throw new Error('expected rejection'); }, (e: ApiError) => e);
+const VECTOR = Array.from({ length: 512 }, (_, i) => (i === 0 ? 1 : 0));
+let n = 0;
+const hit = (distance: number, photo = `p${n}`, extra: Partial<FaceHit> = {}): FaceHit => ({
+  faceId: `f${n++}`, photoId: photo, x: 1, y: 2, w: 3, h: 4, distance, objectName: `trips/t/photos/${photo}.jpg`, width: 100, height: 80, ...extra,
+});
+// A trip whose faces are these distances from the selfie; returns the k nearest, as $vectorSearch would
+const trip = (distances: number[]) => {
+  const all = distances.map(d => hit(d)).sort((a, b) => a.distance - b.distance);
+  const ks: number[] = [];
+  const nearest: NearestFaces = async (_t, _e, _s, k) => { ks.push(k); return all.slice(0, k); };
+  return { nearest, ks };
+};
+
+describe('matchesForSelfie', () => {
+  test('one query when a non-match shows up within k', async () => {
+    const { nearest, ks } = trip([0.1, 0.2, 0.9]);
+    const { hits, truncated } = await matchesForSelfie(nearest, TRIP, VECTOR, DEFAULT_SPACE, 0.4, 4);
+    expect(hits.map(h => h.distance)).toEqual([0.1, 0.2]);
+    expect([ks, truncated]).toEqual([[4], false]);
+  });
+  test('doubles k while every nearest face is a match, so no match is dropped', async () => {
+    const { nearest, ks } = trip([...Array(9).fill(0.1), 0.9]);
+    const { hits, truncated } = await matchesForSelfie(nearest, TRIP, VECTOR, DEFAULT_SPACE, 0.4, 2);
+    expect(hits.length).toBe(9);
+    expect([ks, truncated]).toEqual([[2, 4, 8, 16], false]);
+  });
+  test('stops at the cap and says truncated', async () => {
+    const { nearest, ks } = trip(Array(10).fill(0.1));
+    const { hits, truncated } = await matchesForSelfie(nearest, TRIP, VECTOR, DEFAULT_SPACE, 0.4, 2, 6);
+    expect([hits.length, ks, truncated]).toEqual([6, [2, 4, 6], true]);
+  });
+  test('a trip with fewer faces than k is complete', async () => {
+    const { nearest, ks } = trip([0.1, 0.2]);
+    expect((await matchesForSelfie(nearest, TRIP, VECTOR, DEFAULT_SPACE, 0.4, 4)).truncated).toBe(false);
+    expect(ks).toEqual([4]);
+  });
+});
+
+describe('groupByPhoto', () => {
+  test('one entry per photo at its closest face, faces and photos sorted by distance', () => {
+    const out = groupByPhoto([hit(0.3, 'a'), hit(0.2, 'b'), hit(0.1, 'a', { x: 9 })]);
+    expect(out.map(p => [p.object_name, p.distance])).toEqual([['trips/t/photos/a.jpg', 0.1], ['trips/t/photos/b.jpg', 0.2]]);
+    expect(out[0].faces).toEqual([{ x: 9, y: 2, w: 3, h: 4, distance: 0.1 }, { x: 1, y: 2, w: 3, h: 4, distance: 0.3 }]);
+    expect([out[0].width, out[0].height]).toEqual([100, 80]);
+  });
+});
+
+describe('createFaceSearch', () => {
+  test('passes the trip, vector and embedding space to the query and returns grouped matches', async () => {
+    let seen: unknown[] = [];
+    const nearest: NearestFaces = async (...args) => { seen = args; return [hit(0.2, 'x'), hit(0.8, 'y')]; };
+    const space = { modelName: 'ArcFace', detector: 'mtcnn' };
+    const result = await createFaceSearch(nearest, 0.4).search(TRIP, VECTOR, space);
+    expect(seen.slice(0, 3)).toEqual([TRIP, VECTOR, space]);
+    expect(result.matches.map(m => m.object_name)).toEqual(['trips/t/photos/x.jpg']);
+    expect([result.threshold, result.truncated]).toEqual([0.4, false]);
+  });
+  test('a failing vector search is unavailable', async () => {
+    const nearest: NearestFaces = async () => { throw new Error('PlanExecutor error: index faces_embedding not found'); };
+    const err = await createFaceSearch(nearest).search(TRIP, VECTOR, DEFAULT_SPACE).then(() => null, (e: ApiError) => e);
+    expect([err?.status, err?.code]).toEqual([503, 'FACE_SEARCH_UNAVAILABLE']);
+  });
+  test('FACE_MATCH_THRESHOLD overrides the threshold; nonsense falls back to 0.40', () => {
+    expect(matchThreshold({ FACE_MATCH_THRESHOLD: '0.35' })).toBe(0.35);
+    expect(matchThreshold({ FACE_MATCH_THRESHOLD: 'abc' })).toBe(0.4);
+    expect(matchThreshold({})).toBe(0.4);
+  });
+});
 
 describe('mapMatches', () => {
   test('drops unregistered photos, sorts by distance and passes boxes through', () => {
@@ -19,77 +88,5 @@ describe('mapMatches', () => {
     ], new Map([['a', 'id-a'], ['b', 'id-b']]));
     expect(out.map(m => m.photoId)).toEqual(['id-a', 'id-b']);
     expect(out[0]).toEqual({ photoId: 'id-a', distance: 0.2, width: 30, height: 40, faces });
-  });
-});
-
-describe('face-search client', () => {
-  test('returns the selfie embeddings, and searchByEmbeddings posts vectors instead of images', async () => {
-    const seen: any[] = [];
-    const vector = Array.from({ length: 512 }, (_, i) => i / 512);
-    const fetchImpl = (async (_u: string, init: RequestInit) => {
-      const body = JSON.parse(String(init.body));
-      seen.push(body);
-      const selfies = body.selfies ? [{ confidence: 0.99, embedding: vector }] : [];
-      return new Response(JSON.stringify({ matches: [], threshold: 0.4, truncated: false, selfies }));
-    }) as unknown as typeof fetch;
-    const c = client(fetchImpl);
-    expect((await c.search(TRIP, ['AAAA'])).embeddings).toEqual([vector]);
-    const byVector = await c.searchByEmbeddings(TRIP, [vector]);
-    expect(byVector.embeddings).toBe(undefined);
-    expect(seen[1]).toEqual({ trip_id: TRIP, embeddings: [vector] });
-  });
-  test('returns matches, threshold and truncated, and posts trip_id and selfies', async () => {
-    let seen: any;
-    const fetchImpl = (async (url: string, init: RequestInit) => {
-      seen = { url, body: JSON.parse(String(init.body)), headers: init.headers };
-      return new Response(JSON.stringify({ matches: [{ object_name: 'a', distance: 0.1, faces: [] }], threshold: 0.4, truncated: true }));
-    }) as unknown as typeof fetch;
-    const result = await client(fetchImpl).search(TRIP, ['AAAA']);
-    expect(result.matches.length).toBe(1);
-    expect(result.threshold).toBe(0.4);
-    expect(result.truncated).toBe(true);
-    expect(seen.url).toBe('http://localhost:8081/search');
-    expect(seen.body).toEqual({ trip_id: TRIP, selfies: ['AAAA'] });
-    expect(seen.headers.Authorization).toBe(undefined); // localhost is called without auth
-  });
-  test('non-local URLs send the ID token', async () => {
-    let headers: any;
-    const fetchImpl = (async (_u: string, init: RequestInit) => {
-      headers = init.headers;
-      return new Response(JSON.stringify({ matches: [], threshold: 0.4, truncated: false }));
-    }) as unknown as typeof fetch;
-    await client(fetchImpl, 'https://face-search.run.app').search(TRIP, ['AAAA']);
-    expect(headers.Authorization).toBe('Bearer test');
-  });
-  test('maps face-search errors', async () => {
-    const cases: [number, unknown, number, string][] = [
-      [422, { error: { code: 'NO_FACE', message: 'No face found in selfies[0]' } }, 422, 'NO_FACE'],
-      [422, { error: { code: 'INVALID_IMAGE', message: 'bad' } }, 422, 'INVALID_IMAGE'],
-      [413, { error: { code: 'SELFIE_TOO_LARGE', message: 'big' } }, 413, 'SELFIE_TOO_LARGE'],
-      [413, { error: { code: 'BODY_TOO_LARGE', message: 'big' } }, 413, 'SELFIE_TOO_LARGE'],
-      [400, { error: { code: 'VALIDATION_ERROR', message: 'nope' } }, 400, 'VALIDATION_ERROR'],
-      [503, { error: { code: 'SEARCH_UNAVAILABLE', message: 'down' } }, 503, 'FACE_SEARCH_UNAVAILABLE'],
-      [500, 'oops', 503, 'FACE_SEARCH_UNAVAILABLE'],
-    ];
-    for (const [status, body, expectedStatus, code] of cases) {
-      const err = await failure(client(reply(status, body)).search(TRIP, ['AAAA']));
-      expect(err.status).toBe(expectedStatus);
-      expect(err.code).toBe(code);
-    }
-    expect((await failure(client(reply(422, { error: { code: 'NO_FACE', message: 'No face found in selfies[0]' } })).search(TRIP, ['A']))).message).toBe('No face found in selfies[0]');
-  });
-  test('network errors and timeouts are unavailable', async () => {
-    const refused = (async () => { throw new TypeError('fetch failed'); }) as typeof fetch;
-    const hang = ((_u: string, init: RequestInit) => new Promise((_, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason)))) as unknown as typeof fetch;
-    for (const f of [refused, hang]) {
-      const err = await failure(client(f).search(TRIP, ['AAAA']));
-      expect(err.status).toBe(503);
-      expect(err.code).toBe('FACE_SEARCH_UNAVAILABLE');
-    }
-  });
-  test('unset URL is disabled', async () => {
-    const err = await failure(client(reply(200, {}), null).search(TRIP, ['AAAA']));
-    expect(err.status).toBe(503);
-    expect(err.code).toBe('FACE_SEARCH_DISABLED');
   });
 });

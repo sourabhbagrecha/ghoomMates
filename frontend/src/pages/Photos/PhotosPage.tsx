@@ -140,8 +140,26 @@ const SEARCH_ERRORS: Record<string, string> = {
   INVALID_IMAGE: 'We couldn’t read your selfie, try another',
   SELFIE_TOO_LARGE: 'Your selfie is too large, try another',
   NO_SELFIE: 'Add a selfie in your profile first',
-  FACE_SEARCH_DISABLED: 'Face search isn’t switched on yet',
+  SELFIE_PROCESSING: 'Still reading your selfie, try again in a minute',
   FACE_SEARCH_UNAVAILABLE: 'Face search is busy right now, try again in a minute',
+}
+
+// A just-uploaded selfie is embedded by the face indexer within seconds (up to a minute on a cold start); until then
+// the server answers SELFIE_PROCESSING, so find-me quietly retries for a while.
+const PROCESSING_RETRY_MS = 3000
+const PROCESSING_MAX_MS = 60_000
+
+async function findMeWhenReady(tripId: string) {
+  const started = Date.now()
+  for (;;) {
+    try {
+      return await tripsApi.findMe(tripId)
+    } catch (err) {
+      const processing = err instanceof ApiRequestError && err.code === 'SELFIE_PROCESSING'
+      if (!processing || Date.now() - started > PROCESSING_MAX_MS) throw err
+      await new Promise((resolve) => setTimeout(resolve, PROCESSING_RETRY_MS))
+    }
+  }
 }
 
 function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatches, showToast }: FaceFilterProps) {
@@ -160,7 +178,7 @@ function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatch
     if (!tripId || !selfie) return
     onSearching(true)
     try {
-      const { matches } = await tripsApi.findMe(tripId)
+      const { matches } = await findMeWhenReady(tripId)
       markMatched(tripId)
       onMatches(new Set(matches.map((m) => m.photoId)))
     } catch (err) {
