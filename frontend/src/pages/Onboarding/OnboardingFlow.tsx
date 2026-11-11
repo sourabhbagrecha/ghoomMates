@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { COLOURS, type OnboardingStep, type SignUpDetails } from './onboardingData'
 import { PermissionsPage } from './PermissionsPage'
 import { ProfilePage } from './ProfilePage'
 import { SelfiePage } from './SelfiePage'
 import { SignInPage } from './SignInPage'
 import { WelcomePage } from './WelcomePage'
-import { getStoredUser, hasCompletedProfile, updateUserProfile, type AuthUser } from '../../services/authService'
+import { getStoredUser, hasCompletedProfile, saveSelfie, updateUserProfile, type AuthUser } from '../../services/authService'
 
 type OnboardingFlowProps = {
   step: OnboardingStep
@@ -32,6 +32,8 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
   }))
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // The selfie upload started on the selfie step; About you waits for it before saving the rest
+  const selfieUpload = useRef<Promise<unknown> | null>(null)
   const update = (patch: Partial<SignUpDetails>) => {
     setDetails((d) => ({ ...d, ...patch }))
     setSaveError(null)
@@ -81,7 +83,8 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
           onSelfie={(selfieUrl) => {
             update({ selfie: selfieUrl, photo: selfieUrl })
             if (selfieUrl) {
-              void updateUserProfile({ picture: selfieUrl }).catch(() => setSaveError('Photo will be saved when you finish your profile'))
+              // Uploaded to the bucket right away, so its face is embedded before the first "Find me"
+              selfieUpload.current = saveSelfie(selfieUrl).catch(() => setSaveError('Selfie will be saved when you finish your profile'))
             }
           }}
           onBack={() => go('sign-in')}
@@ -100,8 +103,12 @@ export function OnboardingFlow({ step, currentUser, go, onDone }: OnboardingFlow
             setSaving(true)
             setSaveError(null)
             try {
+              await selfieUpload.current
+              if (details.selfie && !getStoredUser()?.selfie) await saveSelfie(details.selfie)
+              // The selfie is already the profile photo; only a different photo picked here is uploaded
+              const picture = details.photo && details.photo !== details.selfie ? details.photo : undefined
               await updateUserProfile({ name: details.name, username: details.username,
-                picture: details.photo || undefined, preferences: { colour: details.colour } })
+                picture, preferences: { colour: details.colour } })
               onDone(details)
             } catch (error) {
               setSaveError(error instanceof Error ? error.message : 'Could not save profile')

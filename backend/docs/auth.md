@@ -50,6 +50,7 @@ MONGODB_DB=ghoomates
 | `GET` | `/auth/google/callback` | Browser redirect callback from Google |
 | `POST` | `/auth/dev/login` | Local development mock sign-in |
 | `GET` | `/auth/me` | Returns current user profile (requires `Bearer <token>`) |
+| `POST` | `/auth/uploads` | Signed upload URL for a selfie or profile photo (requires `Bearer <token>`) |
 | `POST` | `/auth/logout` | Logs out current session |
 
 ---
@@ -75,6 +76,20 @@ npm run test:auth
 
 Login creates a user with a unique `username` (the public user ID), name, verified-provider email, `picture`, and `preferences` JSON object. The internal `id` (`usr_…`, the document's `_id`) stays stable when a username changes. Users without a chosen username receive a generated one (their `id`, in the MongoDB store).
 
-Authenticated `PATCH /auth/profile` accepts `username`, `name`, `picture`, and `preferences`. Usernames normalize to lowercase without a leading `@`, use 3–64 letters, numbers, dots or underscores, and return 409 if taken. Preferences merge at the top level; nested values are replaced, and keys containing `.` or starting with `$` are dropped. `GET /auth/me` and login responses return the saved profile. Subsequent logins retain custom names, photos and preferences. Email comes from the login provider.
+Authenticated `PATCH /auth/profile` accepts `username`, `name`, `preferences`, `selfieKey`, `pictureKey` and `picture`. Usernames normalize to lowercase without a leading `@`, use 3–64 letters, numbers, dots or underscores, and return 409 if taken. Preferences merge at the top level; nested values are replaced, and keys containing `.` or starting with `$` are dropped. `GET /auth/me` and login responses return the saved profile. Subsequent logins retain custom names, photos and preferences. Email comes from the login provider.
 
-Onboarding saves the chosen username, name, photo and avatar colour. Profile settings and quiz preferences also save to the backend. Photos are stored in the user's `picture` field as compressed data URLs. Persistent storage requires `MONGODB_CONNECTION_STRING`; the in-memory development database resets on restart.
+### Selfie and profile photo
+
+Pictures are never stored inline. They go browser → media bucket like trip photos:
+
+1. `POST /auth/uploads { kind: 'selfie' | 'avatar', contentType: 'image/jpeg' | 'image/png' | 'image/webp', size }` returns `{ key, upload }`, a signed `PUT` URL for `users/<userId>/selfies/<uuid>.<ext>` or `users/<userId>/avatars/<uuid>.<ext>` (at most 6 MiB).
+2. The browser `PUT`s the image there (the app sends a 640 px JPEG).
+3. `PATCH /auth/profile { selfieKey }` records the face-match selfie (`users.selfie_key`). It also becomes the profile photo unless `pictureKey` is sent too. `{ pictureKey }` sets another uploaded picture as the profile photo, `{ picture: '' }` removes the photo, and `{ selfieKey: null }` deletes the selfie (and the photo, when it was the selfie). The key must be this user's and the upload must exist (400 `UPLOAD_NOT_FOUND` otherwise). A `data:` picture is refused with 400 `PICTURE_UPLOAD_REQUIRED`.
+
+`users.picture` holds a stable URL, `/api/media/<key>`, which redirects to a fresh signed read URL (the bucket is private and signed URLs expire, so a signed URL can't be stored). Responses also carry `selfie`, the selfie's URL. Replaced or deleted pictures are deleted from the bucket.
+
+As soon as a selfie lands in the bucket, the face-indexer (Eventarc, `cloud/faces/indexer.py`) embeds its largest face into `selfie_faces`, so the first find-me search is as fast as every later one (see [trips.md](trips.md#face-matching)).
+
+Accounts from before this change may still have a `data:` URL in `picture`. `node scripts/migrate-selfies.ts` (add `--dry-run` to preview) moves each one into the bucket as the user's selfie.
+
+Onboarding saves the chosen username, name, selfie, photo and avatar colour. Profile settings and quiz preferences also save to the backend. Persistent storage requires `MONGODB_CONNECTION_STRING`; the in-memory development database resets on restart.

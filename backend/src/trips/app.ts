@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import { ApiError, integer } from '../expenses/domain.ts';
-import { jsonBody, largeJsonBody } from '../http.ts';
+import { jsonBody } from '../http.ts';
 import { faceSearchUrl } from '../env.ts';
 import { logger } from '../logger.ts';
 import type { Database } from '../db.ts';
@@ -115,10 +115,10 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
     res.json({ ...await service.photos(access(res), limit, offset), limit, offset });
   });
 
-  // Selfies travel as base64 in the JSON body, so this route allows up to 25 MiB.
-  router.post('/:tripId/photos/find-me', largeJsonBody('25mb'), async (req, res) => {
+  // Searches with the signed-in user's profile selfie; there is no request body.
+  router.post('/:tripId/photos/find-me', async (_req, res) => {
     const started = Date.now();
-    const result = await service.findMe(access(res), user(res).id, req.body, faceSearch);
+    const result = await service.findMe(access(res), user(res).id, faceSearch);
     logger.info('Trips', `${user(res).email} found ${result.matches.length} photo(s) of themselves in trip ${access(res).trip.id} (${Date.now() - started} ms)`);
     res.json(result);
   });

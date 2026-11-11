@@ -128,14 +128,8 @@ const app = createServer({
   frontend: createFrontendRouter(process.env.SERVE_FRONTEND_DIR),
   auth: createAuthApp(authDb, {
     ...authConfig,
-    // Keep a copy of each new selfie in the media bucket for the face-matching pipeline
-    onPictureSaved: (userId, picture) => {
-      const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(picture);
-      if (!match) return;
-      const ext = match[1] === 'image/jpeg' ? 'jpg' : match[1].slice(6);
-      storage.put(`users/${userId}/selfie.${ext}`, Buffer.from(match[2], 'base64'), match[1])
-        .catch((err) => logger.warn('Storage', `Could not store selfie for ${userId}: ${err.message}`));
-    },
+    // Selfies and profile photos are uploaded to the media bucket (POST /auth/uploads)
+    storage,
   }),
   expenses,
   trips,

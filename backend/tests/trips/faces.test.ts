@@ -1,28 +1,13 @@
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
-import { createFaceSearch, mapMatches, parseSelfies, selfieHash } from '../../src/trips/faces.ts';
+import { createFaceSearch, mapMatches } from '../../src/trips/faces.ts';
 
 const TRIP = '7d444840-9dc0-4f4a-9e0e-3a0e5b1c2f10';
 const reply = (status: number, body: unknown) => (async () => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })) as typeof fetch;
 const client = (fetchImpl: typeof fetch, url: string | null = 'http://localhost:8081') =>
   createFaceSearch({ url, fetch: fetchImpl, authHeaders: async () => ({ Authorization: 'Bearer test' }), timeoutMs: 200 });
 const failure = async (p: Promise<unknown>) => p.then(() => { throw new Error('expected rejection'); }, (e: ApiError) => e);
-
-describe('parseSelfies', () => {
-  test('accepts 1 to 3 data URLs or base64 strings', () => {
-    expect(parseSelfies({ selfies: ['data:image/jpeg;base64,AAAA'] })).toEqual(['data:image/jpeg;base64,AAAA']);
-    expect(parseSelfies({ selfies: ['AAAA', 'BBBB', 'CCCC'] }).length).toBe(3);
-  });
-  test('rejects bad counts and non-image values', async () => {
-    for (const body of [{}, null, { selfies: [] }, { selfies: ['AA', 'AA', 'AA', 'AA'] }, { selfies: [1] }, { selfies: ['data:text/html;base64,AAAA'] }, { selfies: ['not base64!'] }]) {
-      try { parseSelfies(body); throw new Error('expected rejection'); } catch (e: any) {
-        expect(e.status).toBe(400);
-        expect(e.code).toBe('VALIDATION_ERROR');
-      }
-    }
-  });
-});
 
 describe('mapMatches', () => {
   test('drops unregistered photos, sorts by distance and passes boxes through', () => {
@@ -34,14 +19,6 @@ describe('mapMatches', () => {
     ], new Map([['a', 'id-a'], ['b', 'id-b']]));
     expect(out.map(m => m.photoId)).toEqual(['id-a', 'id-b']);
     expect(out[0]).toEqual({ photoId: 'id-a', distance: 0.2, width: 30, height: 40, faces });
-  });
-});
-
-describe('selfieHash', () => {
-  test('ignores the data-URL wrapper but not the pixels', () => {
-    expect(selfieHash('data:image/jpeg;base64,AAAA')).toBe(selfieHash('AAAA'));
-    expect(selfieHash('data:image/png;base64,AAAA')).toBe(selfieHash('data:image/jpeg;base64,AAAA'));
-    expect(selfieHash('AAAA') === selfieHash('BBBB')).toBe(false);
   });
 });
 

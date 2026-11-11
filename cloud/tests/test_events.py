@@ -11,6 +11,8 @@ from faces.indexer import FINALIZED, parse_event, route
 from faces.search import InvalidRequest, decode_selfie, parse_embeddings, parse_request
 from tests.conftest import TRIP_A
 
+USER = "usr_0123456789abcdef"
+
 OBJECT = {"bucket": "ghoomates", "name": f"trips/{TRIP_A}/photos/a.jpg", "generation": "1730000000000001",
           "contentType": "image/jpeg", "size": "12345"}
 
@@ -40,9 +42,9 @@ def test_events_without_an_object_are_rejected(body):
 @pytest.mark.parametrize(
     "name,content_type,expected",
     [
-        (f"trips/{TRIP_A}/photos/a.jpg", "image/jpeg", TRIP_A),
-        (f"trips/{TRIP_A.upper()}/photos/A.JPG", "image/jpeg", TRIP_A),
-        (f"trips/{TRIP_A}/photos/a.heic", "image/heic", TRIP_A),
+        (f"trips/{TRIP_A}/photos/a.jpg", "image/jpeg", ("photo", TRIP_A)),
+        (f"trips/{TRIP_A.upper()}/photos/A.JPG", "image/jpeg", ("photo", TRIP_A)),
+        (f"trips/{TRIP_A}/photos/a.heic", "image/heic", ("photo", TRIP_A)),
         (f"trips/{TRIP_A}/receipts/a.jpg", "image/jpeg", None),
         (f"trips/{TRIP_A}/photos/thumbs/a.jpg", "image/jpeg", None),
         (f"trips/{TRIP_A}/photos/a.pdf", "application/pdf", None),
@@ -50,15 +52,21 @@ def test_events_without_an_object_are_rejected(body):
         (f"trips/{TRIP_A}/photos/a.pdf", "image/jpeg", None),
         (f"trips/{TRIP_A}/photos/a.jpg", "", None),
         ("users/u1/selfie.jpg", "image/jpeg", None),
+        (f"users/{USER}/avatars/a.jpg", "image/jpeg", None),
+        (f"users/{USER}/selfies/a.jpg", "image/jpeg", ("selfie", USER)),
+        (f"users/{USER}/selfies/a.png", "image/png", ("selfie", USER)),
+        (f"users/{USER}/selfies/a.jpg", "application/pdf", None),
+        (f"users/{USER}/selfies/nested/a.jpg", "image/jpeg", None),
+        ("users/not-a-user/selfies/a.jpg", "image/jpeg", None),
         ("selfies/x.jpg", "image/jpeg", None),
         ("thumbnails/trips/x.jpg", "image/jpeg", None),
         ("healthcheck/x.jpg", "image/jpeg", None),
         ("trips/not-a-uuid/photos/a.jpg", "image/jpeg", None),
     ],
 )
-def test_route_only_indexes_trip_photos(name, content_type, expected):
-    trip_id, reason = route(name, content_type, Settings())
-    assert trip_id == expected
+def test_route_only_indexes_trip_photos_and_profile_selfies(name, content_type, expected):
+    target, reason = route(name, content_type, Settings())
+    assert (target.kind, target.scope) == expected if expected else target is None
     assert (reason is None) == (expected is not None)
 
 

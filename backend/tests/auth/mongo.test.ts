@@ -16,7 +16,7 @@ test('Mongo users: create, return on login, merge preferences, reject taken user
     assert.deepEqual(created.user.preferences, {});
     assert.equal(created.user.picture, undefined);
 
-    await db.updateUserProfile(created.user.id, { username: 'traveler', name: 'Custom', picture: 'data:image/jpeg;base64,x', preferences: { language: 'hi', theme: 'dark' } });
+    await db.updateUserProfile(created.user.id, { username: 'traveler', name: 'Custom', picture: '/api/media/users/x/selfies/a.jpg', selfieKey: 'users/x/selfies/a.jpg', preferences: { language: 'hi', theme: 'dark' } });
     const merged = await db.updateUserProfile(created.user.id, { preferences: { theme: 'light' } });
     assert.deepEqual(merged?.preferences, { language: 'hi', theme: 'light' });
 
@@ -25,7 +25,8 @@ test('Mongo users: create, return on login, merge preferences, reject taken user
     assert.equal(returning.user.id, created.user.id);
     assert.equal(returning.user.name, 'Custom');
     assert.equal(returning.user.familyName, 'Family');
-    assert.equal(returning.user.picture, 'data:image/jpeg;base64,x');
+    assert.equal(returning.user.picture, '/api/media/users/x/selfies/a.jpg');
+    assert.equal(returning.user.selfie, '/api/media/users/x/selfies/a.jpg');
     assert.equal((await db.findUserByEmail('FIRST@example.com'))?.id, created.user.id);
     assert.equal((await db.findUserByGoogleId('g-1'))?.username, 'traveler');
 

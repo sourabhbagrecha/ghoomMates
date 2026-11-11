@@ -242,8 +242,9 @@ export const tripsApi = {
   settle: (id: string, transfer: Transfer & { note?: string }, idempotencyKey: string) =>
     request<Settlement>(`${trip(id)}/settlements`, { body: transfer, idempotencyKey }),
   photos: (id: string) => request<TripPhotos>(`${trip(id)}/photos?limit=500`),
-  findMe: (id: string, selfies: string[]) =>
-    request<{ matches: FindMeMatch[]; threshold: number; truncated: boolean }>(`${trip(id)}/photos/find-me`, { body: { selfies } }),
+  /** Searches with your profile selfie, which the server already embedded when it was uploaded */
+  findMe: (id: string) =>
+    request<{ matches: FindMeMatch[]; threshold: number; truncated: boolean }>(`${trip(id)}/photos/find-me`, { method: 'POST' }),
   addPhotos: (id: string, photos: { key: string; width?: number; height?: number }[]) =>
     request<{ added: number }>(`${trip(id)}/photos`, { body: { photos } }),
   itinerary: (id: string) => request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`).then((r) => r.days),

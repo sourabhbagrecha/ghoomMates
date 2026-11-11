@@ -4,7 +4,6 @@ import type { FaceSummary, TripPhotos } from '../../services/tripsService'
 
 const POLL_MS = 8_000
 const POLL_MAX_MS = 5 * 60_000
-const SELFIE_EDGE = 640
 
 /** Trips where a find-me search has worked this session (lights up the Match pipeline step) */
 const matchedTrips = new Set<string>()
@@ -53,26 +52,4 @@ export function useFacePolling(pending: number) {
     }, POLL_MS)
     return () => window.clearInterval(timer)
   }, [active])
-}
-
-/**
- * Resizes the selfie to a 640px JPEG data URL: big camera shots shrink so the request stays small, and the
- * small saved profile photo grows so the face detector can still find the face in it.
- */
-export async function sizeSelfie(src: string): Promise<string> {
-  try {
-    const img = new Image()
-    img.src = src
-    await img.decode()
-    const scale = SELFIE_EDGE / Math.max(img.naturalWidth, img.naturalHeight)
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return src
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.85)
-  } catch {
-    return src
-  }
 }

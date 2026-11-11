@@ -96,13 +96,15 @@ test('OAuth app health and dev mock login endpoints', async () => {
     const patch = (token: string, body: unknown) => server.request('/auth/profile', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body),
     });
-    assert.equal((await patch(first.token, { username: '@traveler', name: 'Custom Name', picture: 'data:image/jpeg;base64,test', preferences: { language: 'hi' } })).status, 200);
+    assert.equal((await patch(first.token, { username: '@traveler', name: 'Custom Name', picture: 'https://example.com/me.jpg', preferences: { language: 'hi' } })).status, 200);
     assert.equal((await patch(first.token, { preferences: { colour: 'amber' } })).status, 200);
     const returning = await login('first@example.com');
     assert.equal(returning.user.id, first.user.id);
     assert.equal(returning.user.username, 'traveler');
     assert.equal(returning.user.name, 'Custom Name');
-    assert.equal(returning.user.picture, 'data:image/jpeg;base64,test');
+    assert.equal(returning.user.picture, 'https://example.com/me.jpg');
+    // Pictures are uploaded to media storage first; inline image data is refused
+    assert.equal((await patch(first.token, { picture: 'data:image/jpeg;base64,test' })).status, 400);
     assert.deepEqual(returning.user.preferences, { language: 'hi', colour: 'amber' });
     const second = await login('second@example.com');
     assert.equal((await patch(second.token, { username: 'traveler' })).status, 409);

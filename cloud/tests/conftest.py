@@ -70,6 +70,7 @@ def db() -> Any:
 def clean_db(db: Any) -> Any:
     db.face_photos.delete_many({})
     db.faces.delete_many({})
+    db.selfie_faces.delete_many({})
     return db
 
 

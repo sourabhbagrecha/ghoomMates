@@ -96,9 +96,12 @@ export const INDEXES: Record<string, IndexDescription[]> = {
   trip_reels: [
     { key: { trip_id: 1, created_at: -1 } },
   ],
-  // embedding is a plain array of 512 numbers
-  user_face_embeddings: [
-    { key: { user_id: 1, selfie_hash: 1 }, unique },
+  // Profile selfie embeddings, one per uploaded selfie object (users.selfie_key = object_name). Written by the
+  // face-indexer when a selfie lands in the bucket (embedding: 512 numbers); the same indexes are in
+  // cloud/faces/migrate.py, repeated here so find-me's fallback write is safe before that has run.
+  selfie_faces: [
+    { key: { object_name: 1 }, unique },
+    { key: { user_id: 1 } },
   ],
 };
 

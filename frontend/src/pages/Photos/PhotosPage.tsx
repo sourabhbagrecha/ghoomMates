@@ -25,7 +25,7 @@ import { PastReels } from '../Reel/PastReels'
 import { useTripReels } from '../Reel/useTripReels'
 import { useTripStore } from '../Trip/tripStore'
 import { useProfileStore } from '../Profile/profileStore'
-import { faceSummaryOf, hasMatched, markMatched, setMatchedIds, sizeSelfie, useFacePolling, useMatchedIds } from './faceSearch'
+import { faceSummaryOf, hasMatched, markMatched, setMatchedIds, useFacePolling, useMatchedIds } from './faceSearch'
 import { PIPELINE, REEL, type PipelineStep } from './photosData'
 import './PhotosPage.css'
 
@@ -139,6 +139,7 @@ const SEARCH_ERRORS: Record<string, string> = {
   NO_FACE: 'We couldn’t see a face in your selfie, try another',
   INVALID_IMAGE: 'We couldn’t read your selfie, try another',
   SELFIE_TOO_LARGE: 'Your selfie is too large, try another',
+  NO_SELFIE: 'Add a selfie in your profile first',
   FACE_SEARCH_DISABLED: 'Face search isn’t switched on yet',
   FACE_SEARCH_UNAVAILABLE: 'Face search is busy right now, try again in a minute',
 }
@@ -146,8 +147,8 @@ const SEARCH_ERRORS: Record<string, string> = {
 function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatches, showToast }: FaceFilterProps) {
   const navigate = useNavigate()
   const profile = useProfileStore()
-  // Only your own selfie is ever sent to the server, so only you can be matched
-  const selfie = profile.selfie ?? (profile.photo?.startsWith('data:') ? profile.photo : null)
+  // The server searches with your own saved selfie, so only you can be matched
+  const selfie = profile.selfie
   const active = matchCount !== null
 
   const findMe = async () => {
@@ -159,7 +160,7 @@ function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatch
     if (!tripId || !selfie) return
     onSearching(true)
     try {
-      const { matches } = await tripsApi.findMe(tripId, [await sizeSelfie(selfie)])
+      const { matches } = await tripsApi.findMe(tripId)
       markMatched(tripId)
       onMatches(new Set(matches.map((m) => m.photoId)))
     } catch (err) {

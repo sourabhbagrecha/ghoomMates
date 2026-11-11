@@ -59,6 +59,9 @@ class Settings:
 
     # Which uploads get indexed. The scope (trip id) is the named group "scope" of INCLUDE_PATTERN.
     include_pattern: str = r"^trips/(?P<scope>[0-9a-fA-F-]{36})/photos/[^/]+$"
+    # Profile selfies, embedded as soon as they are uploaded so find-me only runs the vector search. The user id is
+    # the named group "user". Checked before SKIP_PREFIXES, which keep out every other users/ object (avatars).
+    selfie_pattern: str = r"^users/(?P<user>usr_[A-Za-z0-9_]+)/selfies/[^/]+$"
     skip_prefixes: tuple[str, ...] = ("users/", "selfies/", "thumbnails/", "healthcheck/")
     image_extensions: tuple[str, ...] = ("jpg", "jpeg", "png", "webp", "gif", "heic", "heif")
     image_content_types: tuple[str, ...] = (
@@ -86,9 +89,11 @@ class Settings:
     local_media_dir: str = ""
 
     include_regex: re.Pattern[str] = field(init=False, repr=False, compare=False)
+    selfie_regex: re.Pattern[str] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "include_regex", re.compile(self.include_pattern))
+        object.__setattr__(self, "selfie_regex", re.compile(self.selfie_pattern))
         max_k = min(self.search_max_k, VECTOR_SEARCH_MAX)
         object.__setattr__(self, "search_max_k", max_k)
         object.__setattr__(self, "search_initial_k", min(self.search_initial_k, max_k))
@@ -111,6 +116,7 @@ class Settings:
             min_face_confidence=_float(env, "MIN_FACE_CONFIDENCE", d.min_face_confidence),
             match_threshold=_float(env, "MATCH_THRESHOLD", d.match_threshold),
             include_pattern=_str(env, "INCLUDE_PATTERN", d.include_pattern),
+            selfie_pattern=_str(env, "SELFIE_PATTERN", d.selfie_pattern),
             skip_prefixes=_list(env, "SKIP_PREFIXES", ",".join(d.skip_prefixes)),
             image_extensions=_list(env, "IMAGE_EXTENSIONS", ",".join(d.image_extensions)),
             image_content_types=_list(env, "IMAGE_CONTENT_TYPES", ",".join(d.image_content_types)),

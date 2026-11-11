@@ -5,8 +5,8 @@ import { signJwt, verifyJwt } from './jwt.ts';
 import type { AuthResult, GoogleTokenInfo, User } from './types.ts';
 import { ApiError } from './types.ts';
 
-// Uploaded selfies are stored as data URLs; kept out of the token, they would push the
-// Authorization header past the server's header size limit. Clients read them from /auth/me.
+// Pictures are short media URLs now, but older accounts may still hold a data URL; kept out of the token, it would
+// push the Authorization header past the server's header size limit. Clients read it from /auth/me.
 function tokenPicture(picture?: string): string | undefined {
   return picture && !picture.startsWith('data:') ? picture : undefined;
 }

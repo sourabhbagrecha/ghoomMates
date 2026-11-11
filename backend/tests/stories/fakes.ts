@@ -59,6 +59,7 @@ export function fakeStorage() {
     size: async (key: string) => objects.get(key)?.data.length ?? null,
     read: async (key: string) => objects.get(key)?.data ?? null,
     put: async (key: string, data: Buffer, type: string) => { objects.set(key, { data, type }); },
+    remove: async (key: string) => { objects.delete(key); },
   } as MediaStorage;
   return { storage, objects };
 }

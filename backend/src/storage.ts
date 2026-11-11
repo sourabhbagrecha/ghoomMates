@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Router } from 'express';
@@ -22,7 +22,19 @@ export interface MediaStorage {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   // The object's bytes, or null when it does not exist (e.g. a photo handed to Gemini). Check size() first for big files.
   read(key: string): Promise<Buffer | null>;
+  // Deletes the object; a missing object is fine.
+  remove(key: string): Promise<void>;
 }
+
+// Profile pictures and face-match selfies: users/<userId>/(selfies|avatars)/<uuid>.<ext>, uploaded by the browser.
+// Selfies are embedded by the face-indexer as soon as they land (cloud/faces/indexer.py); avatars are only shown.
+export const PROFILE_KEY = /^users\/(usr_[A-Za-z0-9_]+)\/(selfies|avatars)\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
+
+// The stable URL stored in users.picture. The bucket is private and signed URLs expire, so this path answers with a
+// redirect to a fresh signed read URL (see createMediaRouter); the random object name is what keeps it unguessable.
+export const mediaUrl = (key: string) => `/api/media/${key}`;
+export const keyOfMediaUrl = (url: string | null | undefined) =>
+  url?.startsWith('/api/media/') && PROFILE_KEY.test(url.slice('/api/media/'.length)) ? url.slice('/api/media/'.length) : null;
 
 export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const UPLOAD_TTL_MS = 15 * 60 * 1000;
@@ -100,6 +112,12 @@ class GcsStorage implements MediaStorage {
       throw err;
     }
   }
+
+  async remove(key: string) {
+    assertKey(key);
+    this.readCache.delete(key);
+    await this.bucket.file(key).delete({ ignoreNotFound: true });
+  }
 }
 
 // Fallback when GCS is not configured: files live in backend/uploads and are served by /api/media
@@ -172,6 +190,10 @@ class LocalStorage implements MediaStorage {
       throw err;
     }
   }
+
+  async remove(key: string) {
+    await rm(this.path(key), { force: true });
+  }
 }
 
 export function decodeCredentials(env: NodeJS.ProcessEnv) {
@@ -195,11 +217,23 @@ export function createMediaStorage(secret: string, env = process.env): MediaStor
   return new LocalStorage(resolve(import.meta.dirname, '../uploads'), secret);
 }
 
-// Upload and download routes for the local fallback. Mount under /api/media.
+// Stable profile picture URLs (mediaUrl) for every storage, plus upload and download routes for the local fallback.
+// Mount under /api/media.
 export function createMediaRouter(storage: MediaStorage) {
   const router = Router();
-  if (!(storage instanceof LocalStorage)) return router;
   const keyOf = (path: string) => decodeURIComponent(path.replace(/^\//, ''));
+
+  // An <img> can't send the session token, so a profile picture is served by redirecting to a short-lived signed URL.
+  // Signed local URLs (with ?sig=) fall through to the download route below.
+  router.get(/^\/users\//, async (req, res, next) => {
+    if (req.query.sig !== undefined) return next();
+    const key = keyOf(req.path);
+    if (!PROFILE_KEY.test(key)) throw new ApiError(404, 'NOT_FOUND', 'Media not found');
+    // Signed read URLs stay valid for at least 6 hours, so the browser may reuse the redirect for one
+    res.set('Cache-Control', 'private, max-age=3600').redirect(302, await storage.readUrl(key));
+  });
+
+  if (!(storage instanceof LocalStorage)) return router;
 
   router.put(/.*/, async (req, res) => {
     const key = keyOf(req.path);

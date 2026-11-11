@@ -13,7 +13,6 @@ import { useToast } from '../../hooks/useToast'
 import { checkSingleFace } from '../../services/faceCheck'
 import { toJpegIfHeic } from '../../services/tripsService'
 import { COLOURS } from '../Onboarding/onboardingData'
-import { sizeSelfie } from '../Photos/faceSearch'
 import { ConfirmBox, ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
 import './EditProfilePage.css'
@@ -147,10 +146,16 @@ export function EditProfilePage() {
                 showToast(result.message)
                 return
               }
-              profileActions.setSelfie(await sizeSelfie(url))
-              URL.revokeObjectURL(url)
-              setConfirmDelete(false)
-              showToast('Selfie updated')
+              showToast('Saving your selfie…')
+              try {
+                await profileActions.setSelfie(url)
+                setConfirmDelete(false)
+                showToast('Selfie updated')
+              } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Could not save your selfie')
+              } finally {
+                URL.revokeObjectURL(url)
+              }
             }}
           />
           <div className="profile-edit__row">
@@ -181,11 +186,15 @@ export function EditProfilePage() {
               title="Delete your selfie?"
               confirmLabel="Delete selfie"
               onCancel={() => setConfirmDelete(false)}
-              onConfirm={() => {
-                // TODO: delete the selfie and face index on the server
-                profileActions.deleteSelfie()
-                setConfirmDelete(false)
-                showToast('Selfie deleted')
+              onConfirm={async () => {
+                // Deletes the selfie and its face embedding on the server
+                try {
+                  await profileActions.deleteSelfie()
+                  setConfirmDelete(false)
+                  showToast('Selfie deleted')
+                } catch (error) {
+                  showToast(error instanceof Error ? error.message : 'Could not delete your selfie')
+                }
               }}
             >
               GhoomMate won’t be able to find you in trip albums until you add a new one.

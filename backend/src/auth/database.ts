@@ -4,8 +4,10 @@ import { logger } from '../logger.ts';
 import type { User } from './types.ts';
 import type { Collection } from 'mongodb';
 import { isDuplicateKey, type Database } from '../db.ts';
+import { mediaUrl } from '../storage.ts';
 
-export type ProfilePatch = { picture?: string; name?: string; username?: string; preferences?: Record<string, unknown> };
+// selfieKey: the uploaded face-match selfie (users/<id>/selfies/<uuid>.<ext>), or null to remove it
+export type ProfilePatch = { picture?: string; selfieKey?: string | null; name?: string; username?: string; preferences?: Record<string, unknown> };
 
 export interface OAuthDatabase {
   findUserById(id: string): Promise<User | null>;
@@ -107,7 +109,10 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
     if (patch.username && [...this.users.values()].some(u => u.id !== id && u.username === patch.username)) {
       throw new ApiError(409, 'USERNAME_TAKEN', 'This username is already taken');
     }
-    const updated = { ...user, ...patch, preferences: { ...user.preferences, ...patch.preferences }, updatedAt: new Date().toISOString() };
+    const { selfieKey, ...fields } = patch;
+    const updated: User = { ...user, ...fields, preferences: { ...user.preferences, ...patch.preferences }, updatedAt: new Date().toISOString() };
+    if (selfieKey !== undefined) updated.selfie = selfieKey ? mediaUrl(selfieKey) : undefined;
+    if (updated.picture === '') updated.picture = undefined;
     this.users.set(id, updated);
     logger.info('DB:Memory', `Updated profile in-memory for user ${id}`);
     return updated;
@@ -121,6 +126,8 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
 type UserDoc = {
   _id: string; username: string; preferences: Record<string, unknown>; google_id: string; email: string; email_verified: boolean;
   name: string; given_name: string | null; family_name: string | null; picture: string | null; locale: string | null;
+  // Object key of the face-match selfie in media storage
+  selfie_key?: string | null;
   created_at: Date; updated_at: Date; last_login_at: Date;
 };
 
@@ -135,7 +142,8 @@ function toUser(doc: UserDoc): User {
     name: doc.name,
     givenName: doc.given_name ?? undefined,
     familyName: doc.family_name ?? undefined,
-    picture: doc.picture ?? undefined,
+    picture: doc.picture || undefined,
+    selfie: doc.selfie_key ? mediaUrl(doc.selfie_key) : undefined,
     locale: doc.locale ?? undefined,
     createdAt: doc.created_at.toISOString(),
     updatedAt: doc.updated_at.toISOString(),
@@ -209,7 +217,8 @@ class MongoOAuthDatabase implements OAuthDatabase {
 
   async updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null> {
     const set: Record<string, unknown> = { updated_at: new Date() };
-    if (patch.picture !== undefined) set.picture = patch.picture;
+    if (patch.picture !== undefined) set.picture = patch.picture || null;
+    if (patch.selfieKey !== undefined) set.selfie_key = patch.selfieKey;
     if (patch.name != null) set.name = patch.name;
     if (patch.username != null) set.username = patch.username;
     // Shallow merge, one dotted path per key. Keys Mongo can't address as a path ('a.b', '$x') are dropped.

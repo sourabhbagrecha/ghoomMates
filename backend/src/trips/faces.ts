@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { GoogleAuth } from 'google-auth-library';
 import { ApiError } from '../http.ts';
 import { idTokenHeaders, isLocalUrl } from '../idToken.ts';
@@ -7,9 +6,6 @@ import { decodeCredentials } from '../storage.ts';
 
 // Cold starts load TensorFlow in the face-search container, which takes 30 to 60 s.
 const TIMEOUT_MS = 90_000;
-const MAX_SELFIES = 3;
-const DATA_URL = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
-const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 export type FaceBox = { x: number; y: number; w: number; h: number; distance: number };
 export type FaceMatch = { object_name: string; width: number | null; height: number | null; distance: number; faces: FaceBox[] };
@@ -17,28 +13,11 @@ export type FaceMatch = { object_name: string; width: number | null; height: num
 export type FaceSearchResult = { matches: FaceMatch[]; threshold: number; truncated: boolean; embeddings?: number[][] };
 
 export type FaceSearch = {
+  // selfies: base64 images; face-search detects and embeds the largest face of each
   search(tripId: string, selfies: string[]): Promise<FaceSearchResult>;
-  // Skips face detection and embedding: for vectors returned by an earlier search()
+  // Skips face detection and embedding: for selfie vectors the face-indexer (or an earlier search()) already made
   searchByEmbeddings(tripId: string, embeddings: number[][]): Promise<FaceSearchResult>;
 };
-
-// Identifies a selfie's pixels (not its data-URL wrapper), so an unchanged profile selfie finds its cached embedding
-export function selfieHash(selfie: string) {
-  return createHash('sha256').update(selfie.slice(selfie.indexOf(',') + 1)).digest('hex');
-}
-
-export function parseSelfies(body: unknown): string[] {
-  const selfies = (body as { selfies?: unknown } | null)?.selfies;
-  if (!Array.isArray(selfies) || selfies.length < 1 || selfies.length > MAX_SELFIES) {
-    throw new ApiError(400, 'VALIDATION_ERROR', `selfies must be a list of 1 to ${MAX_SELFIES} images`);
-  }
-  selfies.forEach((s, i) => {
-    if (typeof s !== 'string' || !(DATA_URL.test(s) || BASE64.test(s))) {
-      throw new ApiError(400, 'VALIDATION_ERROR', `selfies[${i}] must be a JPEG, PNG or WebP data URL or base64 string`);
-    }
-  });
-  return selfies as string[];
-}
 
 type Deps = {
   url: string | null;
@@ -59,7 +38,7 @@ function googleAuthHeaders(env = process.env) {
 
 const unavailable = () => new ApiError(503, 'FACE_SEARCH_UNAVAILABLE', 'Face search is temporarily unavailable. Try again shortly.');
 
-// Client for the private face-search service. The selfies are forwarded in memory and never logged or stored.
+// Client for the private face-search service. Selfie bytes are forwarded in memory and never logged.
 export function createFaceSearch({ url, fetch: fetchImpl = fetch, authHeaders, timeoutMs = TIMEOUT_MS }: Deps): FaceSearch {
   const headersFor = authHeaders ?? googleAuthHeaders();
   async function call(payload: Record<string, unknown>, count: number, kind: string): Promise<FaceSearchResult> {

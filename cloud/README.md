@@ -4,8 +4,8 @@ This folder contains two Cloud Run services that let a trip member find every tr
 
 | Service | Trigger | What it does |
 | --- | --- | --- |
-| `face-indexer` | Eventarc, on `google.cloud.storage.object.v1.finalized` and `.deleted` in bucket `ghoomates` | Downloads each new trip photo, detects faces, embeds them, and stores them in MongoDB Atlas (Atlas Vector Search). When a photo is deleted, its faces are removed. |
-| `face-search` | Private HTTPS, called by the backend with an ID token | Embeds the largest face in each of 1 to 3 selfies and returns the trip photos that contain that person, ranked by distance, with face boxes. |
+| `face-indexer` | Eventarc, on `google.cloud.storage.object.v1.finalized` and `.deleted` in bucket `ghoomates` | Downloads each new trip photo, detects faces, embeds them, and stores them in MongoDB Atlas (Atlas Vector Search). When a photo is deleted, its faces are removed. Also embeds each new profile selfie (`users/<userId>/selfies/`) into `selfie_faces`. |
+| `face-search` | Private HTTPS, called by the backend with an ID token | Returns the trip photos that contain the person in a selfie, ranked by distance, with face boxes. Takes the selfie's stored embedding (the usual case) or 1 to 3 selfie images to embed. |
 
 The face pipeline must match the prototype notebook exactly: Pillow `exif_transpose`, conversion to RGB, a thumbnail at most 1600 px on its longest side, then `DeepFace.represent(model_name="Facenet512", detector_backend="retinaface", align=True, enforce_detection=True)`, followed by L2-normalization.
 
@@ -13,11 +13,13 @@ The search has to run here rather than in the backend. A selfie must be embedded
 
 ```text
 browser ──PUT──> gs://ghoomates/trips/<tripId>/photos/<uuid>.jpg
+                 gs://ghoomates/users/<userId>/selfies/<uuid>.jpg
                       │ object.v1.finalized / deleted
                       ▼
                  Eventarc ──> face-indexer ──> Atlas: face_photos, faces (float32[512], vector index)
+                                           └─> Atlas: selfie_faces (one selfie vector per upload)
                                                                ▲
-backend ──ID token──> face-search  (selfies in memory only) ───┘
+backend ──ID token──> face-search  (selfie vector from selfie_faces) ┘
 ```
 
 ## Layout
@@ -51,14 +53,14 @@ cloud/
 ## How it fits the app
 
 - **Scope is the trip.** The backend uploads photos to `trips/<tripId>/photos/<uuid>.<ext>` (`backend/src/trips/service.ts`). The indexer reads the trip id from that path, using the `INCLUDE_PATTERN` named group `scope`, and every search is limited to one trip.
-- **Only trip photos are indexed.** An object is indexed only when all of the following hold. Otherwise it is acknowledged and ignored:
+- **Only trip photos and profile selfies are indexed.** A trip photo is indexed only when all of the following hold. Otherwise it is acknowledged and ignored:
   - it matches `INCLUDE_PATTERN`
   - it is not under any of `SKIP_PREFIXES` (`users/,selfies/,thumbnails/,healthcheck/`)
   - its extension and its content type are both image types
 
-  This keeps out receipts (`trips/<id>/receipts/`), the profile selfies the backend stores at `users/<id>/selfie.<ext>`, health checks, and anything a future pipeline might write. Nothing this service does writes to the bucket, so nothing can trigger itself in a loop.
+  A profile selfie is an image matching `SELFIE_PATTERN` (`users/<userId>/selfies/<file>`, checked before `SKIP_PREFIXES`). Its largest face is embedded into `selfie_faces` (`object_name`, `user_id`, `generation`, `status` = `indexed` / `no_face` / `error`, `embedding` as a plain array of 512 floats), and deleting the object removes the row. Selfies never become gallery faces. This keeps out receipts (`trips/<id>/receipts/`), profile photos (`users/<id>/avatars/`), health checks, and anything a future pipeline might write. Nothing this service does writes to the bucket, so nothing can trigger itself in a loop.
 - **Link to `trip_photos`.** `face_photos.object_name` equals `trip_photos.object_key`. There is no foreign key, because the browser uploads first and registers the photo afterwards (`POST /photos`), so the upload event usually arrives before the `trip_photos` row exists. The backend joins search results to `trip_photos` by object key (see "Calling from the backend").
-- **Selfies** sent to `face-search` are decoded, embedded, and discarded in memory. They are never written to GCS, the database, or logs. The backend's existing selfie copies (`users.picture` and `users/<id>/selfie.*`) are left unchanged, as agreed, and are never indexed.
+- **Selfies** are uploaded by the browser to `users/<userId>/selfies/` (see `backend/docs/auth.md`); `users.selfie_key` names the current one. Selfie images sent to `face-search` are decoded, embedded, and discarded in memory, never logged.
 
 ## Face pipeline
 
@@ -139,9 +141,11 @@ Atlas reports cosine similarity as `score = (1 + cos) / 2`, so the code converts
 - **Transient failures return 500,** so Eventarc retries: database unavailable, or GCS download error.
 - **Logs.** Each event logs one JSON line with `severity`, `message`, `event_id`, `bucket`, `object`, `generation`, `trip_id`, `status`, `face_count`, and `timings_ms` (`db_read`, `download`, `analyze`, `db_write`, `total`).
 
-## Searching by cached embedding
+## Searching by stored embedding
 
-Detecting and embedding the selfie is the slow part of a search. The backend caches it: the first search sends the selfie and `face-search` returns each selfie's embedding (`selfies[].embedding`, 512 floats). The backend stores it in the `user_face_embeddings` collection (unique on user and a hash of the selfie, see `backend/src/schema.ts`) and later sends `{ "trip_id": "…", "embeddings": [[…512 floats…]] }` instead of images. That request skips decoding, RetinaFace and Facenet and runs only the vector search above. Changing the profile selfie changes the hash, so it misses the cache and is embedded again. The response has the same shape, except `selfies` is empty.
+Detecting and embedding the selfie is the slow part of a search, so it happens once, on upload: the face-indexer stores each selfie's embedding in `selfie_faces`, and the backend's find-me sends `{ "trip_id": "…", "embeddings": [[…512 floats…]] }` instead of images. That request skips decoding, RetinaFace and Facenet and runs only the vector search above. The response has the same shape, except `selfies` is empty.
+
+If the backend finds no vector yet (the event is still in flight, or locally, where nothing sends events), it sends the selfie image once, stores the returned `selfies[].embedding` in `selfie_faces` with `generation: 0`, and the indexer's own result replaces it when the event arrives. To embed selfies uploaded before the indexer handled them, run the backfill with `PREFIX=users/`.
 
 ## face-search API
 

@@ -62,7 +62,7 @@ Uploads go browser → bucket, never through the backend:
 2. The browser `PUT`s the file to that URL with the returned `Content-Type`.
 3. `POST /photos { photos: [{ key, width, height }] }` (or an expense's `receiptKey`) attaches it. The backend checks the object exists and belongs to the trip.
 
-Reads use signed `GET` URLs valid for 12 hours (reused for 6, so browsers can cache them). Selfies saved through `/auth/profile` are also copied to `users/<userId>/selfie.<ext>` for the face pipeline. The future face-detection function can trigger on `trips/*/photos/*` uploads.
+Reads use signed `GET` URLs valid for 12 hours (reused for 6, so browsers can cache them). Profile selfies are uploaded the same way, to `users/<userId>/selfies/` (see [auth.md](auth.md#selfie-and-profile-photo)).
 
 Storage (`src/storage.ts`):
 
@@ -128,7 +128,7 @@ A Python service under `cloud/` indexes every photo uploaded under `trips/<tripI
 
 `GET /api/trips/:id/photos` adds, per item, `faces: { status: 'pending' | 'indexed' | 'no_faces' | 'error', count }` (no `face_photos` document means `pending`, count 0), and at the top level `faceSummary: { indexed, noFaces, pending, failed, faces }` counted over the whole trip (`faces` is the sum of face counts).
 
-`POST /api/trips/:id/photos/find-me` (members only) takes `{ "selfies": [dataUrlOrBase64, ...] }` with 1 to 3 JPEG, PNG or WebP images. It has its own 25 MiB JSON limit and still requires `Content-Type: application/json`. Selfies are forwarded to `face-search` in memory and never logged or stored.
+`POST /api/trips/:id/photos/find-me` (members only, no body) searches with the signed-in user's profile selfie (`users.selfie_key`). The selfie is embedded once, when it is uploaded: the face-indexer writes its 512-float vector to `selfie_faces` (keyed by `object_name` = the selfie key), and find-me sends only that vector to `face-search`, which skips detection and embedding and runs just the vector search. If the vector isn't there yet (the upload event is still in flight, or no indexer runs locally), the backend reads the selfie from storage, has `face-search` embed it, and stores the vector with `generation: 0`, which the indexer's own result later replaces.
 
 ```json
 { "matches": [ { "photoId": "uuid", "distance": 0.21, "width": 4000, "height": 3000,
@@ -140,9 +140,9 @@ Matches are sorted by distance ascending. Face boxes are in original image pixel
 
 | Status | Code | When |
 | --- | --- | --- |
-| 400 | `VALIDATION_ERROR` | Not 1 to 3 image strings (or the code face-search returns for 400) |
+| 409 | `NO_SELFIE` | The user has no selfie (or its object is gone) |
 | 413 | `SELFIE_TOO_LARGE` | Selfie too large for face-search |
-| 422 | `NO_FACE`, `INVALID_IMAGE` | No face found or unreadable image, with face-search's message |
+| 422 | `NO_FACE`, `INVALID_IMAGE` | No face found in the selfie (as recorded by the indexer) or unreadable image |
 | 503 | `FACE_SEARCH_DISABLED` | `FACE_SEARCH_URL` is not set |
 | 503 | `FACE_SEARCH_UNAVAILABLE` | Network error, timeout (90 s, covers a cold start) or a 5xx |
 

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getStoredUser, subscribeAuth, updateUserProfile } from '../../services/authService'
+import { deleteSelfie, getStoredUser, saveSelfie, subscribeAuth, updateUserProfile } from '../../services/authService'
 import { getProfileName } from '../../services/onboardingStorage'
 import { loadVibe } from '../../services/vibeStorage'
 import { COLOURS } from '../Onboarding/onboardingData'
@@ -29,29 +29,17 @@ type ProfileState = {
   language: LanguageId
 }
 
-// The face-match selfie stays on this device, per account (too big for the profile request)
-const selfieKey = () => {
+// The face-match selfie lives in the media bucket (user.selfie is its URL). Older builds kept a copy on this
+// device; it is no longer read, so it is cleared.
+const clearDeviceSelfie = () => {
   const id = getStoredUser()?.id
-  return id ? `ghoommates:selfie:${id}` : null
-}
-const storedSelfie = () => {
-  const key = selfieKey()
   try {
-    return key ? localStorage.getItem(key) : null
+    if (id) localStorage.removeItem(`ghoommates:selfie:${id}`)
   } catch {
-    return null
+    // Storage blocked: nothing to clear
   }
 }
-const storeSelfie = (selfie: string | null) => {
-  const key = selfieKey()
-  if (!key) return
-  try {
-    if (selfie) localStorage.setItem(key, selfie)
-    else localStorage.removeItem(key)
-  } catch {
-    // Storage full or blocked: the selfie still works until the next reload
-  }
-}
+clearDeviceSelfie()
 
 const initialState = (): ProfileState => ({
   name: null,
@@ -59,8 +47,8 @@ const initialState = (): ProfileState => ({
   colour: COLOURS[0].id,
   photo: getStoredUser()?.picture || null,
   // Taken during sign-up
-  hasSelfie: true,
-  selfie: storedSelfie(),
+  hasSelfie: !!getStoredUser()?.selfie,
+  selfie: getStoredUser()?.selfie || null,
   upi: ACCOUNT.upi,
   notifications: DEFAULT_NOTIFICATION_PREFS,
   faceMatch: true,
@@ -120,14 +108,13 @@ export const profileActions = {
       picture: patch.photo ?? '', preferences: { colour: patch.colour } })
     notice = 'Profile saved'
   },
-  /** Takes a data URL so it can be kept across reloads */
-  setSelfie: (selfie: string) => {
-    storeSelfie(selfie)
-    set({ hasSelfie: true, selfie })
+  /** Uploads the selfie (a data: or blob: URL); the signed-in account then carries its URL */
+  setSelfie: async (selfie: string) => {
+    await saveSelfie(selfie)
   },
-  deleteSelfie: () => {
-    storeSelfie(null)
-    set({ hasSelfie: false, selfie: null })
+  /** Deletes the selfie and its face embedding on the server */
+  deleteSelfie: async () => {
+    await deleteSelfie()
   },
   setUpi: (upi: string) => persist({ upi: upi.trim() }),
   toggleNotification: (id: NotificationPrefId) =>

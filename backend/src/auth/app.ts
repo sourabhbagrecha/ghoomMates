@@ -7,6 +7,9 @@ import { jsonBody, optionalJsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { ProfilePatch, OAuthDatabase } from './database.ts';
 import type { OAuthServiceConfig } from './service.ts';
+import type { User } from './types.ts';
+import { keyOfMediaUrl, mediaUrl, type MediaStorage } from '../storage.ts';
+import { createProfileUpload, uploadedKey } from './profileMedia.ts';
 
 function getBearerToken(req: Request): string {
   const authHeader = req.headers.authorization || '';
@@ -48,8 +51,8 @@ function cors(clientOrigin: string): RequestHandler {
 }
 
 export type AuthAppConfig = OAuthServiceConfig & {
-  // Called after a profile update that changed the picture (e.g. to copy the selfie to media storage).
-  onPictureSaved?: (userId: string, picture: string) => void;
+  // Media storage for selfies and profile photos (POST /auth/uploads). Without it, picture uploads answer 503.
+  storage?: MediaStorage;
 };
 
 // Google OAuth and user profile routes. Mount under /auth.
@@ -79,6 +82,7 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
         '/auth/callback',
         '/auth/me',
         '/auth/profile',
+        '/auth/uploads',
       ],
     });
   });
@@ -172,8 +176,16 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
     res.json({ user: res.locals.user });
   });
 
-  // Update user profile (e.g. selfie photo)
+  // Signed upload URL for a selfie or profile photo; the browser PUTs the image there, then sends the key to /profile
+  router.post('/uploads', requireUser, jsonBody, async (req, res) => {
+    res.status(201).json(await createProfileUpload(config.storage, res.locals.user.id, req.body));
+  });
+
+  // Update user profile. Pictures are uploaded first (POST /uploads) and referenced by key:
+  //   selfieKey  the face-match selfie (null removes it); it also becomes the profile photo unless one is sent
+  //   pictureKey another uploaded photo as the profile photo; picture: '' removes the profile photo
   const updateProfile: RequestHandler = async (req, res) => {
+    const current = res.locals.user as User;
     // Only fields present in the body change
     const patch: ProfilePatch = {};
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
@@ -191,12 +203,32 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
       }
       patch.preferences = req.body.preferences;
     }
-    if (typeof req.body.picture === 'string') patch.picture = req.body.picture;
+    if ('selfieKey' in req.body) {
+      patch.selfieKey = req.body.selfieKey === null ? null : await uploadedKey(config.storage, current.id, req.body.selfieKey, 'selfieKey', ['selfies']);
+    }
+    if ('pictureKey' in req.body) {
+      patch.picture = mediaUrl(await uploadedKey(config.storage, current.id, req.body.pictureKey, 'pictureKey', ['selfies', 'avatars']));
+    } else if (typeof req.body.picture === 'string') {
+      // Pictures live in media storage now, never inline in the user document
+      if (req.body.picture.startsWith('data:') || req.body.picture.startsWith('blob:')) {
+        throw new ApiError(400, 'PICTURE_UPLOAD_REQUIRED', 'Upload the picture with POST /auth/uploads and send its pictureKey');
+      }
+      patch.picture = req.body.picture;
+    }
+    // The selfie doubles as the profile photo; removing it removes that photo too
+    if (patch.selfieKey && patch.picture === undefined) patch.picture = mediaUrl(patch.selfieKey);
+    if (patch.selfieKey === null && patch.picture === undefined && current.selfie && current.picture === current.selfie) patch.picture = '';
     if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim();
-    logger.info('Auth', `Updating profile for user ${res.locals.user.email} (${res.locals.user.id}): keys=[${Object.keys(patch).join(', ')}]`);
-    const updated = await service.updateProfile(res.locals.user.id, patch);
-    if (patch.picture) config.onPictureSaved?.(updated.id, patch.picture);
-    logger.info('Auth', `Profile updated successfully for user ${res.locals.user.email}`);
+    logger.info('Auth', `Updating profile for user ${current.email} (${current.id}): keys=[${Object.keys(patch).join(', ')}]`);
+    const updated = await service.updateProfile(current.id, patch);
+    // Pictures nothing points at any more are deleted; deleting a selfie also drops its embedding (face-indexer)
+    const inUse = new Set([keyOfMediaUrl(updated.selfie), keyOfMediaUrl(updated.picture)]);
+    for (const key of new Set([keyOfMediaUrl(current.selfie), keyOfMediaUrl(current.picture)])) {
+      if (key && !inUse.has(key)) {
+        config.storage?.remove(key).catch((err) => logger.warn('Storage', `Could not delete ${key}: ${err.message}`));
+      }
+    }
+    logger.info('Auth', `Profile updated successfully for user ${current.email}`);
     res.json({ user: updated });
   };
   router.patch(['/profile', '/me'], requireUser, jsonBody, updateProfile);

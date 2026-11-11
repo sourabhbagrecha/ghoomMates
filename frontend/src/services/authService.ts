@@ -8,7 +8,10 @@ export interface AuthUser {
   name: string;
   givenName?: string;
   familyName?: string;
+  /** Profile photo URL (a stable /api/media/... link to the bucket) */
   picture?: string;
+  /** Face-match selfie URL; set once the selfie is uploaded, and embedded for face search right after */
+  selfie?: string;
   createdAt?: string;
 }
 
@@ -228,34 +231,80 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
   }
 }
 
-// The backend rejects request bodies over 64 KiB, so photos are re-encoded as a small JPEG first.
-const PICTURE_SIZE = 320;
+// Pictures go to the media bucket like trip photos: the backend hands out a signed upload URL, the image goes
+// straight to storage, and the profile then refers to it by key. Selfies are sized like find-me used to send them.
+const PICTURE_EDGE = 640;
 
-async function toUploadablePicture(src: string): Promise<string> {
-  // Remote URLs (e.g. Google avatars) and "no photo" are stored as they are
-  if (!src.startsWith('data:') && !src.startsWith('blob:')) return src;
-  // Already small enough, e.g. the saved photo sent again with a new name
-  if (src.startsWith('data:') && src.length < 48_000) return src;
+async function toJpeg(src: string): Promise<Blob> {
   const image = new Image();
   image.src = src;
   await image.decode();
-  const scale = Math.min(1, PICTURE_SIZE / Math.max(image.naturalWidth, image.naturalHeight));
+  const scale = PICTURE_EDGE / Math.max(image.naturalWidth, image.naturalHeight);
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(image.naturalWidth * scale);
-  canvas.height = Math.round(image.naturalHeight * scale);
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
   canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.8);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+  if (!blob) throw new Error('Could not read that photo');
+  return blob;
 }
+
+/** Uploads a data: or blob: image to the bucket and returns its object key */
+async function uploadPicture(kind: 'selfie' | 'avatar', src: string): Promise<string> {
+  const token = getToken();
+  if (!token) throw new Error('Sign in to save your photo');
+  const blob = await toJpeg(src);
+  const res = await fetch('/auth/uploads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ kind, contentType: 'image/jpeg', size: blob.size }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error?.message || 'Could not upload your photo');
+  const put = await fetch(data.upload.url, { method: data.upload.method, headers: data.upload.headers, body: blob }).catch(() => null);
+  if (!put?.ok) throw new Error('Could not upload your photo. Try again.');
+  return data.key as string;
+}
+
+const isInlineImage = (src: string) => src.startsWith('data:') || src.startsWith('blob:');
+
+type ProfileUpdate = {
+  picture?: string;
+  name?: string;
+  username?: string;
+  preferences?: Record<string, unknown>;
+  /** Object key of an uploaded selfie, or null to delete the selfie */
+  selfieKey?: string | null;
+  pictureKey?: string;
+};
 
 export async function updateUserProfile(patch: { picture?: string; name?: string; username?: string; preferences?: Record<string, unknown> }): Promise<AuthUser | null> {
   const token = getToken();
   if (!token) return null;
+  // A newly picked photo is uploaded first; an unchanged one (already a URL) is sent as it is
+  const { picture, ...rest } = patch;
+  const body: ProfileUpdate = picture && isInlineImage(picture) ? { ...rest, pictureKey: await uploadPicture('avatar', picture) } : patch;
+  return sendProfile(token, body);
+}
 
-  if (patch.picture) patch = { ...patch, picture: await toUploadablePicture(patch.picture) };
+/** Uploads the face-match selfie; it also becomes the profile photo. The cloud embeds it as soon as it lands. */
+export async function saveSelfie(src: string): Promise<AuthUser | null> {
+  const token = getToken();
+  if (!token) return null;
+  return sendProfile(token, { selfieKey: await uploadPicture('selfie', src) });
+}
+
+export async function deleteSelfie(): Promise<AuthUser | null> {
+  const token = getToken();
+  if (!token) return null;
+  return sendProfile(token, { selfieKey: null });
+}
+
+async function sendProfile(token: string, body: ProfileUpdate): Promise<AuthUser> {
   const res = await fetch('/auth/profile', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(patch),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => null);

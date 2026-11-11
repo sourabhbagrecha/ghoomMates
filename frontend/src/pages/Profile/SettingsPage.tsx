@@ -193,9 +193,14 @@ export function SettingsPage() {
                   title="Delete your selfie?"
                   confirmLabel="Delete selfie"
                   onCancel={() => setConfirm(null)}
-                  onConfirm={() => {
-                    // TODO: delete the selfie and face index on the server
-                    profileActions.deleteSelfie()
+                  onConfirm={async () => {
+                    // Deletes the selfie and its face embedding on the server
+                    try {
+                      await profileActions.deleteSelfie()
+                    } catch (error) {
+                      showToast(error instanceof Error ? error.message : 'Could not delete your selfie')
+                      return
+                    }
                     setConfirm(null)
                     showToast('Selfie deleted')
                   }}

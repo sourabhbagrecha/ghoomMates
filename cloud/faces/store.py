@@ -46,7 +46,9 @@ def get_photo(db: Database, bucket: str, name: str) -> StoredPhoto | None:
     return StoredPhoto(doc["_id"], doc["generation"], doc["status"], doc["model_name"], doc["detector"])
 
 
-def skip_reason(stored: StoredPhoto | None, generation: int, settings: Settings) -> str | None:
+def skip_reason(
+    stored: StoredPhoto | None, generation: int, settings: Settings, done: tuple[str, ...] = DONE_STATUSES,
+) -> str | None:
     """Why an event needs no work, or None. Eventarc delivers at least once, so repeats are normal."""
     if stored is None:
         return None
@@ -54,7 +56,7 @@ def skip_reason(stored: StoredPhoto | None, generation: int, settings: Settings)
         return "stale event: a newer generation is already stored"
     if (
         stored.generation == generation
-        and stored.status in DONE_STATUSES
+        and stored.status in done
         and stored.model_name == settings.model_name
         and stored.detector == settings.detector_backend
     ):
@@ -132,6 +134,60 @@ def delete_photo(db: Database, bucket: str, name: str, generation: int) -> int:
 
     with db.client.start_session() as session:
         return session.with_transaction(write)
+
+
+# --- Profile selfies ---
+#
+# One selfie_faces document per uploaded selfie object (users/<userId>/selfies/<uuid>.<ext>), keyed by object_name.
+# The backend's find-me reads the embedding of the user's current selfie (users.selfie_key) and sends it to
+# face-search as a query vector. The embedding is a plain array of floats, so the backend can pass it on as JSON.
+
+SELFIE_DONE_STATUSES = ("indexed", "no_face")
+
+
+def get_selfie(db: Database, name: str) -> StoredPhoto | None:
+    doc = db.selfie_faces.find_one(
+        {"object_name": name}, {"generation": 1, "status": 1, "model_name": 1, "detector": 1},
+    )
+    if doc is None:
+        return None
+    return StoredPhoto(doc["_id"], doc.get("generation", 0), doc["status"], doc.get("model_name", ""), doc.get("detector", ""))
+
+
+def save_selfie(
+    db: Database,
+    *,
+    bucket: str,
+    name: str,
+    generation: int,
+    user_id: str,
+    status: str,
+    settings: Settings,
+    face: Face | None = None,
+    error: str | None = None,
+) -> bool:
+    """Upserts the selfie's embedding. False when a newer generation is already stored (a stale event)."""
+    doc = {
+        "bucket": bucket, "user_id": user_id, "generation": generation, "status": status, "error": error,
+        "embedding": face.embedding.astype(float).tolist() if face is not None else None,
+        "confidence": float(face.confidence) if face is not None else None,
+        "model_name": settings.model_name, "detector": settings.detector_backend,
+        "indexed_at": datetime.now(timezone.utc),
+    }
+    try:
+        # A newer stored generation fails the filter, so the upsert inserts a duplicate object_name: stale.
+        db.selfie_faces.update_one(
+            {"object_name": name, "generation": {"$lte": generation}},
+            {"$set": doc, "$setOnInsert": {"object_name": name}},
+            upsert=True,
+        )
+        return True
+    except DuplicateKeyError:
+        return False
+
+
+def delete_selfie(db: Database, name: str, generation: int) -> int:
+    return db.selfie_faces.delete_one({"object_name": name, "generation": {"$lte": generation}}).deleted_count
 
 
 # --- Search ---

@@ -219,9 +219,9 @@ function App() {
           markOnboarded(details.name)
           // The name entered in About you replaces the one from Google
           if (details.name.trim() && details.name.trim() !== user?.name) void updateUserProfile({ name: details.name.trim() })
-          if (details.photo) {
-            setUser((prev) => (prev ? { ...prev, picture: details.photo! } : null))
-          }
+          // The saved account carries the uploaded photo's URL
+          const saved = getStoredUser()
+          if (saved) setUser(saved)
           navigate('quiz')
         }}
       />

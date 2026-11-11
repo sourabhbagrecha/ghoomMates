@@ -176,6 +176,7 @@ function fakeStorage() {
     size: async (key) => objects.get(key)?.data.length ?? null,
     put: async (key, data, contentType) => { objects.set(key, { data, contentType }); },
     read: async (key) => { reads.push(key); return objects.get(key)?.data ?? null; },
+    remove: async (key) => { objects.delete(key); },
   };
   return { storage, objects, reads };
 }
