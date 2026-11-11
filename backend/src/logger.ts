@@ -33,7 +33,7 @@ function tagColor(tag: string): string {
     case 'AUTH':
       return colors.magenta;
     case 'DB':
-    case 'DB:POSTGRES':
+    case 'DB:MONGO':
     case 'DB:MEMORY':
       return colors.blue;
     case 'EXPENSES':

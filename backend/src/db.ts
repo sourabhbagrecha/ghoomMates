@@ -56,7 +56,7 @@ export async function transaction<T>(database: Pick<Database, 'client'>, fn: (se
   return database.client.withSession((session) => session.withTransaction(() => fn(session)));
 }
 
-// True for a unique-index violation (the Mongo counterpart of Postgres 23505).
+// True for a unique-index violation (E11000 duplicate key).
 export function isDuplicateKey(err: unknown): boolean {
   return err instanceof MongoServerError && err.code === 11000;
 }
