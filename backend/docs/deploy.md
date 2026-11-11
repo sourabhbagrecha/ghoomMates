@@ -103,27 +103,6 @@ gcloud run services logs read ghoommates-agent --region=asia-south1 --limit=50 |
 
 **Later.** `deploy/cloudrun.sh status` (URLs, health), `pause` (zero instances) and `resume`. Roll back with `gcloud run services update-traffic ghoommates --to-revisions=<revision>=100 --region=asia-south1` (`gcloud run revisions list --service ghoommates --region=asia-south1`).
 
-## Moving the data from Cloud SQL to Atlas (one-off)
-
-`backend/scripts/pg-to-mongo.ts` copies every Postgres table into Atlas in the shapes of `backend/src/schema.ts`: `id` becomes `_id`, `expense_shares` is embedded in each expense, chat messages and face rows get ObjectIds (in id order, with a `legacy_id`), face vectors become BSON float32 vectors, and `maker_slots` is rebuilt from the confirmed bookings. Every document is upserted, so running it again brings Atlas up to date with Postgres (it replaces each copied document with its Postgres version and adds new ones; nothing is deleted). It runs from a laptop (`pg` is a dev dependency). `--dry-run` reads and maps everything, prints the counts and writes nothing.
-
-```bash
-cd backend
-export PG_SOURCE_URL='postgres://ghoomates:<password>@8.234.85.49:5432/ghoomates?sslmode=no-verify'
-# MONGODB_CONNECTION_STRING and MONGODB_DB come from backend/.env (or export them)
-node scripts/pg-to-mongo.ts --dry-run    # counts per table, and checks both connections
-```
-
-Cutover, in this order:
-
-1. Atlas: a database user, and `0.0.0.0/0` in Network Access. `MONGODB_CONNECTION_STRING` in `backend/.env` and `cloud/.env`.
-2. `cd cloud && ./deploy.sh migrate`: the face indexes and the vector search index (`cloud/README.md`).
-3. `node scripts/pg-to-mongo.ts --dry-run`, then `node scripts/pg-to-mongo.ts`: the bulk copy, while the old app keeps running. The table it prints should show as many Mongo documents as Postgres rows (expense shares are inside `expenses`).
-4. Deploy the face services on Atlas (`cd cloud && ./deploy.sh build && ./deploy.sh indexer && ./deploy.sh search`), then the web service: `deploy/secrets.sh && deploy/cloudrun.sh`. By hand, not CI: CI's `release` only swaps the image and would keep the old Cloud SQL settings, without the new secret.
-5. Straight away, `node scripts/pg-to-mongo.ts` again for the delta: whatever was written to Postgres between step 3 and the new revisions taking traffic. Do it before people use the new revision: a document changed on Atlas in between is overwritten by its Postgres version.
-6. Smoke test: `/health` shows `"trips":"enabled"`; sign in, open a trip (itinerary, expenses and balances, photos), upload a photo and use "find me", open a chat. `npm run test:connection` lists the collections and their counts.
-7. When it has run fine for a while, delete the Cloud SQL instance (`gcloud sql instances delete ghoomates`) and the old `ghoommates-db-password` secret.
-
 ## Automatic deploys
 
 Every push to `main` runs `.github/workflows/deploy.yml`: the GitHub runner builds the image from the pushed commit (Docker Buildx, layers cached in the GitHub Actions cache) and pushes it to Artifact Registry under the tag `deploy/cloudrun.sh image` prints, then `SKIP_BUILD=1 deploy/cloudrun.sh release` rolls that image out as a new revision of `ghoommates` and fails the job if `https://ghoommates.sourabh.org/health` or the web app does not answer, then rolls the same image out to `ghoommates-agent` (skipped while it does not exist; a new revision starts one instance briefly to check it). Cloud Build is not used, so CI costs nothing on Google's side; the repository is public, so GitHub's runner minutes are free too. No tests run.
@@ -180,7 +159,6 @@ Rough figures from Google's public price lists (Mumbai is a "Tier 2" Cloud Run r
 | Gemini, Vertex AI | pay per call; the reason for the budget alert |
 | LiveKit | on the LiveKit project's plan |
 | MongoDB Atlas | on the Atlas project's plan (billed by MongoDB, not Google). |
-| Cloud SQL `ghoomates` (old) | Only until it is deleted after the move to Atlas: roughly $0.8 an hour while it runs. |
 
 When the hackathon is over: `deploy/cloudrun.sh pause`, pause the Atlas cluster if it is a dedicated tier, and delete what you do not need:
 
@@ -238,7 +216,6 @@ A local build is for your CPU (arm64 on an M-series Mac); `deploy/cloudrun.sh` b
 | `backend/src/voice/wake.ts` | Wakes the agent service and waits for its worker to register; the keepalive ping |
 | `deploy/secrets.sh` | `backend/.env` to Secret Manager |
 | `deploy/common.sh`, `deploy/cloudbuild.yaml` | Shared settings and helpers; the Cloud Build config |
-| `backend/scripts/pg-to-mongo.ts` | The one-off Cloud SQL to Atlas copy (above) |
 | `.github/workflows/deploy.yml`, `deploy/github-ci.sh` | Deploy on every push to `main`; its one-time Google Cloud setup |
 | `deploy/worker/` | The Cloudflare Worker that serves `ghoommates.sourabh.org`: `cloudflare.config.ts` (domain, static assets, which paths run the Worker), `vite.config.ts` (builds `frontend/`, uses `frontend/dist` as the assets, writes their cache rules), `src/index.js` (forwards the backend's paths, SPA fallback, scanner 404s) |
 | `backend/src/frontend.ts` | The router that serves `frontend/dist` (`SERVE_FRONTEND_DIR`) |
