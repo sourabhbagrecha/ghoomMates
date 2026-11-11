@@ -11,7 +11,7 @@ import { composeMenu, type Menu } from './menu.ts';
 import { HOST_BY_ID, HOSTS, type Host } from './partners.ts';
 import { addDays, daysBetween, forecastDay, isDate, istDate, monthOf, normaliseMix, dateLabel, type Booking } from './plan.ts';
 import { MONTH_NAMES } from './produce.ts';
-import { MemoryStore, PgStore, type HospitalityDb, type HospitalityStore, type StoredBooking } from './store.ts';
+import { MemoryStore, MongoStore, type HospitalityDb, type HospitalityStore, type StoredBooking } from './store.ts';
 import { describeMix, MEAL_INFO, MEALS, mixTotal, splitMix, type DietMix, type Meal } from './types.ts';
 import { forecastView, hostCard, hostDetail, seasonView, wasteTrend } from './views.ts';
 
@@ -28,7 +28,7 @@ export type StopsWriter = {
 export type HospitalityOptions = {
   authenticate: Authenticate;
   gemini: Gemini;
-  /** Postgres; without it reservations are off and leftovers are kept in memory */
+  /** MongoDB; without it reservations are off and leftovers are kept in memory */
   db?: HospitalityDb;
   /** Overrides the store, for tests */
   store?: HospitalityStore;
@@ -85,7 +85,7 @@ const stopFor = (host: Host, b: { time: string; headcount: number; dietary: Diet
 // Mount under /api/hospitality.
 export function createHospitalityApp(options: HospitalityOptions) {
   const { authenticate, gemini, db, trips, stops } = options;
-  const store: HospitalityStore = options.store ?? (db ? new PgStore(db) : new MemoryStore());
+  const store: HospitalityStore = options.store ?? (db ? new MongoStore(db) : new MemoryStore());
   const now = options.now ?? (() => new Date());
   const router = Router();
 

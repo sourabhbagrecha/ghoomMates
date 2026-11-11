@@ -2,7 +2,7 @@ import { openDatabase } from '../src/db.ts';
 import { loadEnv } from '../src/env.ts';
 import { ExpenseService } from '../src/expenses/service.ts';
 
-console.log(' Starting end-to-end trip verification against Cloud SQL...');
+console.log(' Starting end-to-end trip verification against MongoDB...');
 
 loadEnv();
 const db = await openDatabase();
@@ -11,11 +11,11 @@ const service = new ExpenseService(db);
 try {
   // 1. Create a Trip Group
   console.log('\n1. Creating test trip group...');
-  const group = await service.mutate('groups', `trip-test-${Date.now()}`, { name: 'Manali Expedition' }, async (tx) => {
+  const group = await service.mutate('groups', `trip-test-${Date.now()}`, { name: 'Manali Expedition' }, async (session) => {
     return service.createGroup({
       name: 'Manali Expedition',
       members: ['Asha', 'Gaurav', 'Rohit'],
-    }, tx);
+    }, session);
   }) as { id: string; members: { id: string; name: string }[] };
 
   console.log(' Created Group:', group.id);
@@ -27,7 +27,7 @@ try {
 
   // 2. Add an Expense (Cottage stay: ₹9,000 paid by Gaurav)
   console.log('\n2. Adding shared trip expense: ₹9,000 (Riverside Cottage)...');
-  const expense = await service.mutate(`${group.id}/expenses`, `exp-${Date.now()}`, {}, async (tx) => {
+  const expense = await service.mutate(`${group.id}/expenses`, `exp-${Date.now()}`, {}, async (session) => {
     return service.addExpense(group.id, {
       payerId: gaurav.id,
       description: 'Riverside Cottage Stay',
@@ -36,7 +36,7 @@ try {
         type: 'equal',
         participants: group.members.map(m => ({ memberId: m.id })),
       },
-    }, tx);
+    }, session);
   }) as { id: string; amountPaise: number };
 
   console.log(' Added Expense:', expense.id, `(₹${expense.amountPaise / 100})`);
@@ -63,14 +63,14 @@ try {
 
   // 5. Record a Settlement (Asha pays Gaurav ₹3,000)
   console.log('\n5. Recording Asha settled with Gaurav (₹3,000)...');
-  await service.mutate(`${group.id}/settlements`, `settle-${Date.now()}`, {}, async (tx) => {
+  await service.mutate(`${group.id}/settlements`, `settle-${Date.now()}`, {}, async (session) => {
     return service.addSettlement(group.id, {
       fromMemberId: asha.id,
       toMemberId: gaurav.id,
       amountPaise: 300000,
       confirmed: true,
       note: 'UPI payment confirmation #982138',
-    }, tx);
+    }, session);
   });
   console.log(' Settlement recorded!');
 
@@ -83,7 +83,7 @@ try {
     console.log(`     ${memberName}: ${sign}₹${b.netPaise / 100}`);
   }
 
-  console.log('\n ALL TESTS PASSED! Cloud SQL connectivity is fully operational.');
+  console.log('\n ALL TESTS PASSED! MongoDB connectivity is fully operational.');
 } finally {
   await db.close();
 }

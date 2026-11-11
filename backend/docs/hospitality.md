@@ -14,9 +14,9 @@ Hosts, farms and dishes are **sample partners**: real places (Gangaur Ghat, Lal 
 | `src/hospitality/plan.ts` | Pure maths: walk-in baseline, day forecast, procurement list by farm, food miles, waste avoided, the WhatsApp order text. |
 | `src/hospitality/green.ts` | The Green Host score. |
 | `src/hospitality/menu.ts` | The curated menu, the Gemini prompt/schema, and validation of what Gemini returns. |
-| `src/hospitality/store.ts` | `PgStore` (reservations and leftover logs) and `MemoryStore` (no database, tests); diets read from profiles. |
+| `src/hospitality/store.ts` | `MongoStore` (reservations and leftover logs) and `MemoryStore` (no database, tests); diets read from profiles. |
 | `src/hospitality/views.ts`, `app.ts` | API shaping and the router. |
-| `migrations/024_hospitality.sql` | `hospitality_reservations`, `hospitality_waste_logs`. Everything else is curated in code. |
+| `src/schema.ts` | Indexes for the `hospitality_reservations` and `hospitality_waste_logs` collections. Everything else is curated in code. |
 
 ## Endpoints (`/api/hospitality`)
 
@@ -43,7 +43,7 @@ Hosts, forecast, waste and menu work **without a database**; reservations need t
 
 ## How it plugs in
 
-- **Trips:** the reservation uses `TripService.access` (404 for non-members) and `ItineraryService.addStop` / `updateStop` / `deleteStop`, so the Food stop behaves like any other (RSVPs, ordering, no crowd meter). A date outside the trip's dates is still booked, just without a stop. Deleting the stop from the itinerary leaves the table booked (`ON DELETE SET NULL`), because saving a whole new plan replaces every stop.
+- **Trips:** the reservation uses `TripService.access` (404 for non-members) and `ItineraryService.addStop` / `updateStop` / `deleteStop`, so the Food stop behaves like any other (RSVPs, ordering, no crowd meter). A date outside the trip's dates is still booked, just without a stop. Deleting the stop from the itinerary leaves the table booked (`deleteStopsCascade` unsets its `stop_id`), because saving a whole new plan replaces every stop.
 - **Profiles:** a member's diet is `preferences.diet`, else what they told GhoomMate ("I'm Jain", "vegan"); everyone else eats the standard vegetarian thali.
 - **Heritage:** the walk-in baseline reuses `dayFactor` (weekends ×1.12, Apr–Jun ×0.65, Jul–Sep ×0.85, Diwali and year-end ×1.2–1.3).
 - **Gemini:** the smart model picks dishes from an enum of real dish ids in season and writes the stories, title and zero-waste tip. Quantities, farms and distances always come from our own data. If the smart model is busy or answers badly the lite model gets one try, then the curated menu answers. Output is validated (unknown, repeated or out-of-season dishes dropped, main and sweet restored, over-long text replaced). Menus are cached for 10 minutes and a user gets 10 per minute.

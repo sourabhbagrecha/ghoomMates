@@ -1,5 +1,6 @@
-// Reads a trip's squad, itinerary, expenses and the squad's picks from Postgres, builds the Green Trip report, and
-// stores the squad's choices (ride modes, pledges). It never writes to the trips, itinerary or expenses tables.
+// Reads a trip's squad, itinerary, expenses and the squad's picks from MongoDB, builds the Green Trip report, and
+// stores the squad's choices (ride modes, pledges). It never writes to the trips, itinerary or expenses collections.
+import { isDuplicateKey } from '../db.ts';
 import { ApiError } from '../http.ts';
 import { cityOf } from '../heritage/crowd.ts';
 import { logger } from '../logger.ts';
@@ -58,58 +59,58 @@ export class ImpactService {
   /** The caller's membership; non-members get 404 so trip ids don't leak */
   async access(tripId: string, userId: string): Promise<TripAccess> {
     if (!UUID.test(tripId)) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
-    const { rows: [row] } = await this.db.pool.query(
-      `SELECT t.id, t.name, t.group_name, t.destination, t.start_date, t.expense_group_id, t.day_titles, m.ledger_member_id
-       FROM trips t JOIN trip_members m ON m.trip_id = t.id AND m.user_id = $2
-       WHERE t.id = $1`,
-      [tripId, userId],
-    ) as { rows: Record<string, any>[] };
-    if (!row) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
+    const [trip, member] = await Promise.all([
+      this.db.db.collection<any>('trips').findOne({ _id: tripId }),
+      this.db.db.collection('trip_members').findOne({ trip_id: tripId, user_id: userId }),
+    ]);
+    if (!trip || !member) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
     return {
       userId,
-      memberId: row.ledger_member_id,
+      memberId: member.ledger_member_id,
       trip: {
-        id: row.id, name: row.name, groupName: row.group_name, destination: row.destination,
-        startDate: row.start_date ?? null, expenseGroupId: row.expense_group_id,
-        dayTitles: Array.isArray(row.day_titles) ? row.day_titles.map(String) : [],
+        id: trip._id, name: trip.name, groupName: trip.group_name, destination: trip.destination ?? '',
+        startDate: trip.start_date ?? null, expenseGroupId: trip.expense_group_id,
+        dayTitles: Array.isArray(trip.day_titles) ? trip.day_titles.map(String) : [],
       },
     };
   }
 
   private async load(access: TripAccess, what: { stops?: boolean; expenses?: boolean } = { stops: true, expenses: true }): Promise<Loaded> {
     const tripId = access.trip.id;
-    const q = (text: string, values: unknown[]) => this.db.pool.query(text, values).then(r => r.rows as Record<string, any>[]);
-    const [members, stops, picks, ticks, expenses] = await Promise.all([
-      q(
-        `SELECT m.ledger_member_id AS member_id, m.user_id, u.name
-         FROM trip_members m JOIN users u ON u.id = m.user_id JOIN group_members g ON g.id = m.ledger_member_id
-         WHERE m.trip_id = $1 ORDER BY g.position`,
-        [tripId],
-      ),
-      what.stops === false ? [] : q(
-        'SELECT id, day_number, time, minutes, title, tag, place FROM trip_stops WHERE trip_id = $1 ORDER BY day_number, minutes, created_at',
-        [tripId],
-      ),
-      q('SELECT from_stop_id, to_stop_id, mode FROM impact_legs WHERE trip_id = $1', [tripId]),
-      q(
-        `SELECT p.pledge_id, m.ledger_member_id AS member_id
-         FROM impact_pledges p JOIN trip_members m ON m.trip_id = p.trip_id AND m.user_id = p.user_id
-         WHERE p.trip_id = $1`,
-        [tripId],
-      ),
-      what.expenses === false ? [] : q(
-        'SELECT id, description, amount_paise, category FROM expenses WHERE group_id = $1 ORDER BY sequence DESC LIMIT $2',
-        [access.trip.expenseGroupId, MAX_EXPENSES],
-      ),
+    const db = this.db.db;
+    const [members, stops, picks, pledges, expenses] = await Promise.all([
+      // Members with a profile and a ledger member, in ledger order
+      db.collection('trip_members').aggregate<Record<string, any>>([
+        { $match: { trip_id: tripId } },
+        { $lookup: { from: 'users', localField: 'user_id', foreignField: '_id', as: 'user' } },
+        { $lookup: { from: 'group_members', localField: 'ledger_member_id', foreignField: '_id', as: 'ledger' } },
+        { $unwind: '$user' },
+        { $unwind: '$ledger' },
+        { $sort: { 'ledger.position': 1 } },
+        { $project: { member_id: '$ledger_member_id', user_id: 1, name: '$user.name' } },
+      ]).toArray(),
+      what.stops === false ? [] : db.collection<any>('trip_stops')
+        .find({ trip_id: tripId }, { projection: { day_number: 1, time: 1, minutes: 1, title: 1, tag: 1, place: 1 } })
+        .sort({ day_number: 1, minutes: 1, created_at: 1 })
+        .toArray(),
+      db.collection('impact_legs').find({ trip_id: tripId }, { projection: { from_stop_id: 1, to_stop_id: 1, mode: 1 } }).toArray(),
+      db.collection('impact_pledges').find({ trip_id: tripId }, { projection: { user_id: 1, pledge_id: 1 } }).toArray(),
+      what.expenses === false ? [] : db.collection<any>('expenses')
+        .find({ group_id: access.trip.expenseGroupId }, { projection: { description: 1, amount_paise: 1, category: 1 } })
+        .sort({ sequence: -1 })
+        .limit(MAX_EXPENSES)
+        .toArray(),
     ]);
+    // A pledge counts for the member who ticked it, while they are still in the trip
+    const memberOf = new Map(members.map(r => [r.user_id as string, r.member_id as string]));
     return {
       members: members.map(r => ({ memberId: r.member_id, userId: r.user_id, name: r.name })),
       stops: stops.map(r => ({
-        id: r.id, dayNumber: r.day_number, time: r.time ?? '', minutes: r.minutes ?? 0, title: r.title, tag: r.tag ?? '', place: r.place ?? '',
+        id: r._id, dayNumber: r.day_number, time: r.time ?? '', minutes: r.minutes ?? 0, title: r.title, tag: r.tag ?? '', place: r.place ?? '',
       })),
       picks: new Map(picks.filter(r => isMode(r.mode)).map(r => [legKey(r.from_stop_id, r.to_stop_id), r.mode as Mode])),
-      ticks: ticks.map(r => ({ pledgeId: r.pledge_id, memberId: r.member_id })),
-      expenses: expenses.map(r => ({ id: r.id, description: String(r.description), amountPaise: Number(r.amount_paise), category: String(r.category ?? 'other') })),
+      ticks: pledges.filter(r => memberOf.has(r.user_id)).map(r => ({ pledgeId: r.pledge_id, memberId: memberOf.get(r.user_id)! })),
+      expenses: expenses.map(r => ({ id: r._id, description: String(r.description), amountPaise: Number(r.amount_paise), category: String(r.category ?? 'other') })),
     };
   }
 
@@ -172,14 +173,12 @@ export class ImpactService {
         : `${FACTORS[mode].label} is not practical for that ride`);
     }
 
+    const legs = this.db.db.collection('impact_legs');
+    const leg = { trip_id: access.trip.id, from_stop_id: fromStopId, to_stop_id: toStopId };
     if (mode === null) {
-      await this.db.pool.query('DELETE FROM impact_legs WHERE trip_id = $1 AND from_stop_id = $2 AND to_stop_id = $3', [access.trip.id, fromStopId, toStopId]);
+      await legs.deleteOne(leg);
     } else {
-      await this.db.pool.query(
-        `INSERT INTO impact_legs (trip_id, from_stop_id, to_stop_id, mode, chosen_by) VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (trip_id, from_stop_id, to_stop_id) DO UPDATE SET mode = excluded.mode, chosen_by = excluded.chosen_by, updated_at = now()`,
-        [access.trip.id, fromStopId, toStopId, mode, access.userId],
-      );
+      await legs.updateOne(leg, { $set: { mode, chosen_by: access.userId, updated_at: new Date() } }, { upsert: true });
     }
     logger.info('Impact', `${access.userId} set ${spec.from.name} → ${spec.to.name} to ${mode ?? 'the default'} in trip ${access.trip.id}`);
     return this.report(access, { network: false });
@@ -197,13 +196,15 @@ export class ImpactService {
       throw new ApiError(400, 'VALIDATION_ERROR', 'pledgeId must be one of the squad pledges');
     }
     if (typeof body.taken !== 'boolean') throw new ApiError(400, 'VALIDATION_ERROR', 'taken must be true or false');
+    const pledges = this.db.db.collection('impact_pledges');
+    const pledge = { trip_id: access.trip.id, user_id: access.userId, pledge_id: body.pledgeId };
     if (body.taken) {
-      await this.db.pool.query(
-        'INSERT INTO impact_pledges (trip_id, user_id, pledge_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
-        [access.trip.id, access.userId, body.pledgeId],
-      );
+      // Already ticked is fine (a double tap racing itself hits the unique index)
+      await pledges.updateOne(pledge, { $setOnInsert: { created_at: new Date() } }, { upsert: true }).catch((err) => {
+        if (!isDuplicateKey(err)) throw err;
+      });
     } else {
-      await this.db.pool.query('DELETE FROM impact_pledges WHERE trip_id = $1 AND user_id = $2 AND pledge_id = $3', [access.trip.id, access.userId, body.pledgeId]);
+      await pledges.deleteOne(pledge);
     }
     const report = await this.report(access, { network: false });
     return { pledges: report.pledges, score: report.score };

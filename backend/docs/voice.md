@@ -131,7 +131,7 @@ The cards look up each experience's photo, price and host from the frontend cata
 
 ## Chat history
 
-Every turn (spoken or typed) is saved per person per trip in `ghoomate_messages` (migration `005_ghoomate_history.sql`). Only that person can read it.
+Every turn (spoken or typed) is saved per person per trip in the `ghoomate_messages` collection (indexes in `src/schema.ts`). Only that person can read it.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -169,5 +169,5 @@ GhoomMate says two or three words ("One sec…") before a tool that looks someth
 2. **Register.** Add `reel` to `SKILLS` in `skills/index.ts`.
 3. **UI (optional).** Add a variant such as `{ type: 'reel.started'; jobId }` to `UiEvent` (and `UiAction` if needed) in `protocol.ts`, and mirror it in the frontend `protocol.ts`. Push it with `void ctx.ui(event)`, then register a renderer in the frontend `uiEvents.ts`.
 4. **Fallback copy.** Remove the "reel is coming soon" line from `skills/navigation.ts`.
-5. **Backend.** If the skill needs a new endpoint, follow the usual module checklist: `src/<module>/`, a migration, the route in `src/app.ts`, and a doc.
+5. **Backend.** If the skill needs a new endpoint, follow the usual module checklist: `src/<module>/`, its collections and indexes in `src/schema.ts`, the route in `src/app.ts`, and a doc.
 6. **Tests.** Put pure parsing and validation in a helper and unit-test it with `node:test`, as `members.ts` is tested. Then try it by voice and by "Type instead".

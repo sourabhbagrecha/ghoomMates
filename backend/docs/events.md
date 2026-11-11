@@ -13,11 +13,11 @@ This module holds a **verified calendar** from November 2026 to December 2027, m
 | `src/events/logic.ts` | Pure functions: which events fall in a window, each event’s crowd at the sites it touches, and “plan around it” (a quieter time, a quieter site, where else is calm). |
 | `src/events/service.ts` | Adds an event to a trip’s itinerary through the trips module’s own `ItineraryService.addStop`. |
 | `src/events/ask.ts` | “Ask GhoomMate about this festival”: Gemini answers from the event’s facts only; the best matching curated note answers otherwise. |
-| `src/events/app.ts` | The router, mounted at `/api/events` before the catch-all `/api` ledger in `src/app.ts`, and `createPostgresEvents()` which wires the trips bridge. |
+| `src/events/app.ts` | The router, mounted at `/api/events` before the catch-all `/api` ledger in `src/app.ts`, and `createMongoEvents()` which wires the trips bridge. |
 | `src/events/dates.ts` | Calendar-day maths on `YYYY-MM-DD` strings in India’s time. |
 | `src/voice/skills/events.ts` | A GhoomMate voice skill, `whats_on`: “is Diwali during our trip?”, “aaj kuch special hai?” |
 
-**No migration.** The calendar lives in code, like the heritage sites and the makers; adding to a plan writes an ordinary `trip_stops` row through the trips module.
+**No collection of its own.** The calendar lives in code, like the heritage sites and the makers; adding to a plan writes an ordinary `trip_stops` document through the trips module.
 
 ## Endpoints
 

@@ -1,6 +1,6 @@
 # GhoomMates backend
 
-Single Node.js + TypeScript server for every GhoomMates backend module. One process, one port, one shared PostgreSQL connection pool (local or Google Cloud SQL).
+Single Node.js + TypeScript server for every GhoomMates backend module. One process, one port, one shared MongoDB Atlas client.
 
 | Prefix | Module | Source | Docs |
 | --- | --- | --- | --- |
@@ -13,7 +13,7 @@ Single Node.js + TypeScript server for every GhoomMates backend module. One proc
 
 Copy `.env.example` to `.env`. All modules read the same file.
 
-- `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`: shared Cloud SQL database, reached through the [Cloud SQL Node.js Connector](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector) with Application Default Credentials (`gcloud auth application-default login` locally, `roles/cloudsql.client` on the Cloud Run service account). `DATABASE_URL` can replace them with any Postgres connection string, including a direct encrypted connection to the instance's public IP that needs no Google credentials (see `.env.example`). Without either, auth uses an in-memory store and the expense API is disabled.
+- `MONGODB_CONNECTION_STRING`, `MONGODB_DB` (default `ghoomates`): shared MongoDB Atlas database, also used by the face services in `cloud/`. Atlas Network Access must allow your IP (Cloud Run needs `0.0.0.0/0`). `DB_POOL_SIZE` caps the driver pool (default 10). Without a connection string, auth uses an in-memory store and the expense API is disabled.
 - `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `CLIENT_ORIGIN`: auth.
 - `API_KEY`: required to enable the expense API (at least 32 characters). Without it, `/api/*` returns 503.
 
@@ -21,19 +21,16 @@ Copy `.env.example` to `.env`. All modules read the same file.
 
 ## Running locally
 
-Local PostgreSQL is configured in the ignored `backend/.env` using `DATABASE_URL`.
-The development database is `ghoomates`, owned by the `ghoomates_local` role, on `127.0.0.1:5432`.
-The password is kept in `.env`. Start the installed service with:
+The database is MongoDB Atlas, configured in the ignored `backend/.env` with `MONGODB_CONNECTION_STRING`
+and `MONGODB_DB`. Check the connection, or open a shell on the app database (needs `mongosh` installed):
 
 ```bash
-brew services start postgresql@14
 npm --prefix backend run test:connection
+npm --prefix backend run mongosh
 ```
 
-Migrations apply automatically on startup. To switch to Cloud SQL later, comment out
-`DATABASE_URL` and enable `CLOUD_SQL_INSTANCE` with its `DB_USER`, `DB_PASSWORD`, and
-`DB_NAME` settings. Cloud SQL takes priority when both connection settings are enabled.
-Switching connections does not copy local data into the cloud database.
+There are no migrations: `src/schema.ts` lists every collection and its indexes, and startup creates
+whatever is missing.
 
 Requires Node.js 22.18+ (runs the TypeScript sources directly, no build step).
 
@@ -51,20 +48,20 @@ Default address: `http://127.0.0.1:3000` (`PORT` in `.env` overrides it). The fr
 ## Tests
 
 ```bash
-npm test                 # routing, auth, and expense domain tests (node:test)
+npm test                 # every module's tests (node:test)
 npm run test:unit        # expense domain tests only
-DB_NAME=ghoomates_test npm run test:expenses    # expense domain + API tests (needs a database)
+npm run test:expenses    # expense domain + API tests
 npm run typecheck
-npm run test:connection  # connect, apply migrations, list table row counts
+npm run test:connection  # connect, create indexes, list collection document counts
 ```
 
-The API tests write groups to the configured database; point them at the `ghoomates_test` database, not `ghoomates`.
+Tests that need a database start an in-process MongoDB (`tests/mongo.ts`, a single-node replica set so transactions work) and give each test file its own empty database, so `npm test` needs no external database. `TEST_MONGODB_CONNECTION_STRING` points them at an existing server instead.
 
 ## Layout
 
-- `src/index.ts`: startup, environment, shared database pool, graceful shutdown.
-- `src/db.ts`: Cloud SQL / Postgres pool, migration runner, transaction helper.
-- `migrations/`: SQL schema migrations, applied in filename order on startup and tracked in `schema_migrations`.
+- `src/index.ts`: startup, environment, shared database client, graceful shutdown.
+- `src/db.ts`: MongoDB client, transaction helper, duplicate-key check.
+- `src/schema.ts`: collections and indexes (created on startup) and the document contract that replaced the SQL tables.
 - `src/app.ts`: top-level router that dispatches by path prefix.
 - `src/env.ts`: `.env` loader.
 - `src/auth/`: OAuth module.

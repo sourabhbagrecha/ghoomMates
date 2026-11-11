@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ApiError, integer, object, requireThat, text } from '../expenses/domain.ts';
 import { ExpenseService } from '../expenses/service.ts';
-import { transaction, type Database, type Pool, type Tx } from '../db.ts';
+import { transaction, type ClientSession, type Database, type Db } from '../db.ts';
 import { IMAGE_TYPES, type MediaStorage } from '../storage.ts';
 import { mapMatches, parseSelfies, selfieHash, type FaceSearch, type FaceSearchResult } from './faces.ts';
 import { fitStopsToLength, tripLength } from './itinerary.ts';
@@ -18,6 +18,11 @@ export type TripRow = {
   created_by: string; created_at: Date;
 };
 
+// Mongo doc → TripRow: _id is the trip id
+function tripRow({ _id, ...doc }: Record<string, any>): TripRow {
+  return { id: _id, ...doc } as TripRow;
+}
+
 export type TripAccess = { trip: TripRow; memberId: string; role: string };
 
 function inviteCode() {
@@ -25,7 +30,7 @@ function inviteCode() {
   return Array.from(bytes, b => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-// A real calendar day: Date.parse rolls 2026-02-31 over into March, and Postgres would then reject it with a 500
+// A real calendar day: Date.parse rolls 2026-02-31 over into March
 function isCalendarDate(value: string) {
   const at = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(at.getTime()) && at.toISOString().startsWith(value);
@@ -44,13 +49,15 @@ function optionalText(value: unknown, field: string, max = 200): string {
 }
 
 export class TripService {
-  private pool: Pool;
+  private database: Database;
+  private db: Db;
   private ledger: ExpenseService;
   private storage: MediaStorage;
   private clientOrigin: string;
 
   constructor(database: Database, storage: MediaStorage, clientOrigin: string) {
-    this.pool = database.pool;
+    this.database = database;
+    this.db = database.db;
     this.ledger = new ExpenseService(database);
     this.storage = storage;
     this.clientOrigin = clientOrigin.replace(/\/$/, '');
@@ -79,27 +86,27 @@ export class TripService {
   // Resolves the caller's membership; non-members get 404 so trip ids don't leak.
   async access(tripId: string, userId: string): Promise<TripAccess> {
     if (!UUID.test(tripId)) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
-    const { rows: [row] } = await this.pool.query(
-      `SELECT t.*, m.ledger_member_id, m.role FROM trips t
-       JOIN trip_members m ON m.trip_id = t.id AND m.user_id = $2
-       WHERE t.id = $1`,
-      [tripId, userId],
-    );
-    if (!row) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
-    const { ledger_member_id, role, ...trip } = row;
-    return { trip: trip as TripRow, memberId: ledger_member_id, role };
+    const [trip, member] = await Promise.all([
+      this.db.collection('trips').findOne({ _id: tripId as any }),
+      this.db.collection('trip_members').findOne({ trip_id: tripId, user_id: userId }),
+    ]);
+    if (!trip || !member) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
+    return { trip: tripRow(trip), memberId: member.ledger_member_id, role: member.role };
   }
 
   private async members(tripId: string) {
-    const { rows } = await this.pool.query(
-      `SELECT m.ledger_member_id, m.user_id, m.role, m.joined_at, u.name, u.username, u.picture, u.preferences, g.balance_paise
-       FROM trip_members m
-       JOIN users u ON u.id = m.user_id
-       JOIN group_members g ON g.id = m.ledger_member_id
-       WHERE m.trip_id = $1
-       ORDER BY g.position`,
-      [tripId],
-    );
+    const members = await this.db.collection('trip_members').find({ trip_id: tripId }).toArray();
+    const [users, ledger] = await Promise.all([
+      this.db.collection('users').find({ _id: { $in: members.map(m => m.user_id) } as any }).toArray(),
+      this.db.collection('group_members').find({ _id: { $in: members.map(m => m.ledger_member_id) } as any }).toArray(),
+    ]);
+    const userById = new Map(users.map(u => [u._id as unknown as string, u]));
+    const ledgerById = new Map(ledger.map(g => [g._id as unknown as string, g]));
+    const rows = members.flatMap(m => {
+      const u = userById.get(m.user_id);
+      const g = ledgerById.get(m.ledger_member_id);
+      return u && g ? [{ ledger_member_id: m.ledger_member_id, user_id: m.user_id, role: m.role, joined_at: m.joined_at as Date, name: u.name, username: u.username, picture: u.picture, preferences: u.preferences, balance_paise: g.balance_paise, position: g.position as number }] : [];
+    }).sort((a, b) => a.position - b.position);
     return rows.map(r => ({
       memberId: r.ledger_member_id,
       userId: r.user_id,
@@ -117,25 +124,33 @@ export class TripService {
   }
 
   async list(userId: string) {
-    const { rows } = await this.pool.query(
-      `SELECT t.*, m.ledger_member_id, m.role, g.balance_paise AS my_balance,
-         (SELECT count(*) FROM trip_members x WHERE x.trip_id = t.id) AS member_count,
-         (SELECT count(*) FROM trip_photos p WHERE p.trip_id = t.id) AS photo_count,
-         (SELECT coalesce(sum(e.amount_paise), 0) FROM expenses e WHERE e.group_id = t.expense_group_id) AS total_spent
-       FROM trips t
-       JOIN trip_members m ON m.trip_id = t.id AND m.user_id = $1
-       JOIN group_members g ON g.id = m.ledger_member_id
-       ORDER BY coalesce(t.start_date, t.created_at::date) DESC, t.created_at DESC`,
-      [userId],
+    const mine = await this.db.collection('trip_members').find({ user_id: userId }).toArray();
+    const tripIds = mine.map(m => m.trip_id);
+    const trips = (await this.db.collection('trips').find({ _id: { $in: tripIds } as any }).toArray()).map(tripRow);
+    // Per-trip counts and totals, keyed by trip id (or ledger group id for spend)
+    const countBy = async (name: string, match: object, key: string, sum: number | string = 1) => new Map(
+      (await this.db.collection(name).aggregate([{ $match: match }, { $group: { _id: `$${key}`, n: { $sum: sum } } }]).toArray())
+        .map(r => [r._id as string, Number(r.n)]),
     );
-    return Promise.all(rows.map(async r => ({
+    const [memberCounts, photoCounts, spent, balances] = await Promise.all([
+      countBy('trip_members', { trip_id: { $in: tripIds } }, 'trip_id'),
+      countBy('trip_photos', { trip_id: { $in: tripIds } }, 'trip_id'),
+      countBy('expenses', { group_id: { $in: trips.map(t => t.expense_group_id) } }, 'group_id', '$amount_paise'),
+      this.db.collection('group_members').find({ _id: { $in: mine.map(m => m.ledger_member_id) } as any }).toArray(),
+    ]);
+    const memberOf = new Map(mine.map(m => [m.trip_id as string, m]));
+    const balanceOf = new Map(balances.map(g => [g._id as unknown as string, g.balance_paise as number]));
+    // Newest first by start date, or by the day it was created for trips without dates
+    const sortKey = (t: TripRow) => t.start_date ?? t.created_at.toISOString().slice(0, 10);
+    trips.sort((a, b) => sortKey(b).localeCompare(sortKey(a)) || b.created_at.getTime() - a.created_at.getTime());
+    return Promise.all(trips.map(async r => ({
       ...await this.publicTrip(r),
-      role: r.role,
-      memberId: r.ledger_member_id,
-      memberCount: Number(r.member_count),
-      photoCount: Number(r.photo_count),
-      totalSpentPaise: Number(r.total_spent),
-      myBalancePaise: r.my_balance,
+      role: memberOf.get(r.id)!.role,
+      memberId: memberOf.get(r.id)!.ledger_member_id,
+      memberCount: memberCounts.get(r.id) ?? 0,
+      photoCount: photoCounts.get(r.id) ?? 0,
+      totalSpentPaise: spent.get(r.expense_group_id) ?? 0,
+      myBalancePaise: balanceOf.get(memberOf.get(r.id)!.ledger_member_id),
       members: (await this.members(r.id)).map(({ memberId, userId, name, picture, colour }) => ({ memberId, userId, name, picture, colour })),
     })));
   }
@@ -161,18 +176,20 @@ export class TripService {
     const details = body.details === undefined ? {} : object(body.details);
     requireThat(JSON.stringify(details).length <= 8_000, 'details is too large');
 
-    const tripId = await transaction(this.pool, async (tx) => {
-      const group = await this.ledger.createGroup({ name, members: [user.name.slice(0, 100) || 'Organiser'] }, tx) as { id: string; members: { id: string }[] };
+    const destination = optionalText(body.destination, 'destination');
+    const budget = optionalText(body.budget, 'budget', 50);
+    const cover = optionalText(body.cover, 'cover', 300);
+    const tripId = await transaction(this.database, async (session) => {
+      const group = await this.ledger.createGroup({ name, members: [user.name.slice(0, 100) || 'Organiser'] }, session) as { id: string; members: { id: string }[] };
       const id = randomUUID();
-      await tx.query(
-        `INSERT INTO trips (id, name, group_name, destination, start_date, end_date, budget, cover, details, invite_code, expense_group_id, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [id, name, groupName, optionalText(body.destination, 'destination'), startDate, endDate,
-          optionalText(body.budget, 'budget', 50), optionalText(body.cover, 'cover', 300), JSON.stringify(details), inviteCode(), group.id, user.id],
-      );
-      await tx.query(
-        `INSERT INTO trip_members (trip_id, user_id, ledger_member_id, role) VALUES ($1, $2, $3, 'organiser')`,
-        [id, user.id, group.members[0].id],
+      const now = new Date();
+      await this.db.collection('trips').insertOne({
+        _id: id as any, name, group_name: groupName, destination, start_date: startDate, end_date: endDate, budget, cover, details,
+        invite_code: inviteCode(), expense_group_id: group.id, created_by: user.id, created_at: now, day_titles: [],
+      }, { session });
+      await this.db.collection('trip_members').insertOne(
+        { trip_id: id, user_id: user.id, ledger_member_id: group.members[0].id, role: 'organiser', joined_at: now },
+        { session },
       );
       return id;
     });
@@ -201,23 +218,24 @@ export class TripService {
       if (access.role !== 'organiser') throw new ApiError(403, 'FORBIDDEN', 'Only the organiser can change the dates');
     }
     const updated = { ...trip, ...next };
-    const movedStops = await transaction(this.pool, async (tx) => {
-      await tx.query(
-        `UPDATE trips SET name = $2, group_name = $3, destination = $4, start_date = $5, end_date = $6, budget = $7, cover = $8, details = $9
-         WHERE id = $1`,
-        [trip.id, next.name, next.group_name, next.destination, next.start_date, next.end_date, next.budget, next.cover, JSON.stringify(next.details)],
-      );
+    const movedStops = await transaction(this.database, async (session) => {
+      await this.db.collection('trips').updateOne({ _id: trip.id as any }, { $set: next }, { session });
       const length = tripLength(updated);
-      return length < tripLength(trip) ? fitStopsToLength(tx, trip.id, length) : 0;
+      return length < tripLength(trip) ? fitStopsToLength(this.db, trip.id, length, session) : 0;
     });
     return { ...await this.detail({ ...access, trip: updated }), movedStops };
   }
 
-  private async tripByCode(code: string, db: Pool | Tx = this.pool, forUpdate = false) {
+  // With a session, bumping version write-locks the trip doc until the transaction ends (the old FOR UPDATE).
+  private async tripByCode(code: string, session?: ClientSession) {
     requireThat(typeof code === 'string' && /^[a-z0-9]{4,32}$/i.test(code), 'Invalid invite code');
-    const { rows: [trip] } = await db.query<TripRow>(`SELECT * FROM trips WHERE invite_code = $1${forUpdate ? ' FOR UPDATE' : ''}`, [code.toLowerCase()]);
+    const trips = this.db.collection('trips');
+    const filter = { invite_code: code.toLowerCase() };
+    const trip = session
+      ? await trips.findOneAndUpdate(filter, { $inc: { version: 1 } }, { session, returnDocument: 'after' })
+      : await trips.findOne(filter);
     if (!trip) throw new ApiError(404, 'INVITE_NOT_FOUND', 'This invite link is not valid');
-    return trip;
+    return tripRow(trip);
   }
 
   // Public preview behind an invite link: enough to decide whether to join.
@@ -235,13 +253,13 @@ export class TripService {
   }
 
   async join(user: { id: string; name: string }, code: string) {
-    const tripId = await transaction(this.pool, async (tx) => {
-      // The trip row lock serializes joins, so a double tap can't add the same user twice.
-      const trip = await this.tripByCode(code, tx, true);
-      const { rows: [existing] } = await tx.query('SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2', [trip.id, user.id]);
-      if (existing) return trip.id;
-      const member = await this.ledger.addMember(trip.expense_group_id, { name: user.name.slice(0, 100) || 'Mate' }, tx) as { id: string };
-      await tx.query(`INSERT INTO trip_members (trip_id, user_id, ledger_member_id, role) VALUES ($1, $2, $3, 'mate')`, [trip.id, user.id, member.id]);
+    const tripId = await transaction(this.database, async (session) => {
+      // Locking the trip doc serializes joins, so a double tap can't add the same user twice.
+      const trip = await this.tripByCode(code, session);
+      const members = this.db.collection('trip_members');
+      if (await members.findOne({ trip_id: trip.id, user_id: user.id }, { session })) return trip.id;
+      const member = await this.ledger.addMember(trip.expense_group_id, { name: user.name.slice(0, 100) || 'Mate' }, session) as { id: string };
+      await members.insertOne({ trip_id: trip.id, user_id: user.id, ledger_member_id: member.id, role: 'mate', joined_at: new Date() }, { session });
       return trip.id;
     });
     return this.detail(await this.access(tripId, user.id));
@@ -263,54 +281,52 @@ export class TripService {
     const receiptKey = await this.receiptKey(access, body.receiptKey);
     const groupId = access.trip.expense_group_id;
     const ledgerInput = { description: body.description, payerId: body.payerMemberId, amountPaise: body.amountPaise, split: body.split };
-    const result = await this.ledger.mutate(`${groupId}/expenses`, idempotencyKey || randomUUID(), { ...ledgerInput, category, receiptKey }, async (tx) => {
-      const expense = await this.ledger.addExpense(groupId, ledgerInput, tx) as { id: string };
-      await tx.query('UPDATE expenses SET category = $2, receipt_key = $3, created_by = $4 WHERE id = $1', [expense.id, category, receiptKey, userId]);
+    const result = await this.ledger.mutate(`${groupId}/expenses`, idempotencyKey || randomUUID(), { ...ledgerInput, category, receiptKey }, async (session) => {
+      const expense = await this.ledger.addExpense(groupId, ledgerInput, session) as { id: string };
+      await this.db.collection('expenses').updateOne({ _id: expense.id as any }, { $set: { category, receipt_key: receiptKey, created_by: userId } }, { session });
       return { ...expense, category, receiptKey, createdBy: userId };
     }) as { id: string };
     return (await this.expenses(access, 1, 0, result.id))[0];
   }
 
   async expenses(access: TripAccess, limit: number, offset: number, onlyId?: string) {
-    const { rows } = await this.pool.query(
-      `SELECT e.id, e.payer_id, e.description, e.amount_paise, e.split_type, e.category, e.receipt_key, e.created_by, e.created_at,
-         (SELECT json_agg(json_build_object('memberId', s.member_id, 'amountPaise', s.amount_paise) ORDER BY s.position)
-          FROM expense_shares s WHERE s.expense_id = e.id) AS shares
-       FROM expenses e
-       WHERE e.group_id = $1 AND ($4::uuid IS NULL OR e.id = $4)
-       ORDER BY e.sequence DESC LIMIT $2 OFFSET $3`,
-      [access.trip.expense_group_id, limit, offset, onlyId ?? null],
-    );
+    const rows = await this.db.collection('expenses')
+      .find({ group_id: access.trip.expense_group_id, ...(onlyId ? { _id: onlyId as any } : {}) })
+      .sort({ sequence: -1 }).skip(offset).limit(limit).toArray();
     return Promise.all(rows.map(async r => ({
-      id: r.id,
+      id: r._id as unknown as string,
       description: r.description,
       amountPaise: r.amount_paise,
       payerMemberId: r.payer_id,
       splitType: r.split_type,
       category: r.category,
-      shares: (r.shares ?? []).map((s: { memberId: string; amountPaise: number | string }) => ({ memberId: s.memberId, amountPaise: Number(s.amountPaise) })),
+      shares: [...(r.shares ?? [])].sort((a, b) => a.position - b.position)
+        .map((s: { member_id: string; amount_paise: number }) => ({ memberId: s.member_id, amountPaise: Number(s.amount_paise) })),
       receiptUrl: r.receipt_key ? await this.storage.readUrl(r.receipt_key).catch(() => null) : null,
       createdBy: r.created_by,
-      createdAt: r.created_at.toISOString(),
+      createdAt: new Date(r.created_at).toISOString(),
     })));
   }
 
   // Balances, suggested transfers, totals and category split in one call for the Expenses tab.
   async summary(access: TripAccess) {
     const groupId = access.trip.expense_group_id;
-    const [balances, transfers, totals] = await Promise.all([
+    const [balances, transfers, expenses] = await Promise.all([
       this.ledger.balances(groupId),
       this.ledger.suggestions(groupId),
-      this.pool.query(`SELECT category, sum(amount_paise) AS amount, count(*) AS n FROM expenses WHERE group_id = $1 GROUP BY category`, [groupId]),
+      this.db.collection('expenses').find({ group_id: groupId }, { projection: { category: 1, amount_paise: 1, payer_id: 1, shares: 1 } }).toArray(),
     ]);
-    const categories = totals.rows.map(r => ({ category: r.category, amountPaise: Number(r.amount), count: Number(r.n) }))
-      .sort((a, b) => b.amountPaise - a.amountPaise);
+    const totals = new Map<string, { category: string; amountPaise: number; count: number }>();
     // What a naive "everyone pays back each payer" approach would take, for the "saved N transfers" stat
-    const { rows: [pairs] } = await this.pool.query(
-      `SELECT count(DISTINCT (s.member_id, e.payer_id)) AS n FROM expense_shares s JOIN expenses e ON e.id = s.expense_id
-       WHERE e.group_id = $1 AND s.member_id <> e.payer_id AND s.amount_paise > 0`,
-      [groupId],
-    );
+    const pairs = new Set<string>();
+    for (const e of expenses) {
+      const total = totals.get(e.category) ?? { category: e.category, amountPaise: 0, count: 0 };
+      total.amountPaise += Number(e.amount_paise);
+      total.count += 1;
+      totals.set(e.category, total);
+      for (const s of e.shares ?? []) if (s.member_id !== e.payer_id && s.amount_paise > 0) pairs.add(`${s.member_id}:${e.payer_id}`);
+    }
+    const categories = [...totals.values()].sort((a, b) => b.amountPaise - a.amountPaise);
     return {
       currency: 'INR',
       memberId: access.memberId,
@@ -318,7 +334,7 @@ export class TripService {
       expenseCount: categories.reduce((sum, c) => sum + c.count, 0),
       balances,
       transfers,
-      naiveTransferCount: Number(pairs.n),
+      naiveTransferCount: pairs.size,
       categories,
     };
   }
@@ -329,7 +345,7 @@ export class TripService {
     requireThat(body.fromMemberId === access.memberId || body.toMemberId === access.memberId, 'You can only record payments you sent or received');
     const groupId = access.trip.expense_group_id;
     const ledgerInput = { fromMemberId: body.fromMemberId, toMemberId: body.toMemberId, amountPaise: body.amountPaise, confirmed: true, note: body.note || 'Settled in GhoomMates' };
-    return this.ledger.mutate(`${groupId}/settlements`, idempotencyKey || randomUUID(), ledgerInput, (tx) => this.ledger.addSettlement(groupId, ledgerInput, tx));
+    return this.ledger.mutate(`${groupId}/settlements`, idempotencyKey || randomUUID(), ledgerInput, (session) => this.ledger.addSettlement(groupId, ledgerInput, session));
   }
 
   async settlements(access: TripAccess, limit: number, offset: number) {
@@ -367,64 +383,66 @@ export class TripService {
         caption: optionalText(p.caption, 'caption', 300),
       };
     }));
-    await this.pool.query(
-      `INSERT INTO trip_photos (id, trip_id, uploaded_by, object_key, content_type, size_bytes, width, height, caption)
-       SELECT p.id, $1, $2, p.key, p.type, p.size, p.width, p.height, p.caption
-       FROM unnest($3::uuid[], $4::text[], $5::text[], $6::bigint[], $7::int[], $8::int[], $9::text[]) AS p (id, key, type, size, width, height, caption)
-       ON CONFLICT (object_key) DO NOTHING`,
-      [access.trip.id, userId, photos.map(p => p.id), photos.map(p => p.key), photos.map(p => p.contentType), photos.map(p => p.size),
-        photos.map(p => p.width), photos.map(p => p.height), photos.map(p => p.caption)],
-    );
+    // Upsert on object_key: a photo registered twice keeps its first doc
+    const now = new Date();
+    await this.db.collection('trip_photos').bulkWrite(photos.map(p => ({
+      updateOne: {
+        filter: { object_key: p.key },
+        update: { $setOnInsert: {
+          _id: p.id as any, trip_id: access.trip.id, uploaded_by: userId, content_type: p.contentType, size_bytes: p.size,
+          width: p.width, height: p.height, caption: p.caption, created_at: now,
+        } },
+        upsert: true,
+      },
+    })));
     return { added: photos.length };
   }
 
-  // face_photos is created by the cloud/ migration; before it runs, every photo is simply pending.
-  private async faceIndex(tripId: string, keys: string[], total: number) {
-    try {
-      const { rows } = await this.pool.query(
-        'SELECT object_name, status, face_count FROM face_photos WHERE trip_id = $1 AND object_name = ANY($2::text[])',
-        [tripId, keys],
-      );
-      const { rows: [s] } = await this.pool.query(
-        `SELECT count(*) FILTER (WHERE fp.status = 'indexed') AS indexed,
-                count(*) FILTER (WHERE fp.status = 'no_faces') AS no_faces,
-                count(*) FILTER (WHERE fp.status = 'error') AS failed,
-                count(*) FILTER (WHERE fp.object_name IS NULL) AS pending,
-                coalesce(sum(fp.face_count), 0) AS faces
-         FROM trip_photos p LEFT JOIN face_photos fp ON fp.object_name = p.object_key AND fp.trip_id = p.trip_id
-         WHERE p.trip_id = $1`,
-        [tripId],
-      );
-      return {
-        byKey: new Map(rows.map(r => [r.object_name as string, { status: r.status as string, count: Number(r.face_count) }])),
-        summary: { indexed: Number(s.indexed), noFaces: Number(s.no_faces), pending: Number(s.pending), failed: Number(s.failed), faces: Number(s.faces) },
-      };
-    } catch (err: any) {
-      if (err?.code !== '42P01') throw err;
-      return { byKey: new Map<string, { status: string; count: number }>(), summary: { indexed: 0, noFaces: 0, pending: total, failed: 0, faces: 0 } };
-    }
+  // face_photos is written by the cloud/ face services; a trip photo with no face_photos doc yet is pending.
+  private async faceIndex(tripId: string, keys: string[]) {
+    const [rows, [s]] = await Promise.all([
+      this.db.collection('face_photos').find({ trip_id: tripId, object_name: { $in: keys } }, { projection: { object_name: 1, status: 1, face_count: 1 } }).toArray(),
+      this.db.collection('trip_photos').aggregate([
+        { $match: { trip_id: tripId } },
+        { $lookup: { from: 'face_photos', localField: 'object_key', foreignField: 'object_name', pipeline: [{ $match: { trip_id: tripId } }, { $project: { status: 1, face_count: 1 } }], as: 'fp' } },
+        { $unwind: { path: '$fp', preserveNullAndEmptyArrays: true } },
+        { $group: {
+          _id: null,
+          indexed: { $sum: { $cond: [{ $eq: ['$fp.status', 'indexed'] }, 1, 0] } },
+          no_faces: { $sum: { $cond: [{ $eq: ['$fp.status', 'no_faces'] }, 1, 0] } },
+          failed: { $sum: { $cond: [{ $eq: ['$fp.status', 'error'] }, 1, 0] } },
+          pending: { $sum: { $cond: [{ $ifNull: ['$fp', false] }, 0, 1] } },
+          faces: { $sum: '$fp.face_count' },
+        } },
+      ]).toArray(),
+    ]);
+    return {
+      byKey: new Map(rows.map(r => [r.object_name as string, { status: r.status as string, count: Number(r.face_count) }])),
+      summary: { indexed: s?.indexed ?? 0, noFaces: s?.no_faces ?? 0, pending: s?.pending ?? 0, failed: s?.failed ?? 0, faces: s?.faces ?? 0 },
+    };
   }
 
   async photos(access: TripAccess, limit: number, offset: number) {
-    const { rows } = await this.pool.query(
-      `SELECT p.id, p.object_key, p.width, p.height, p.caption, p.created_at, p.uploaded_by, u.name AS uploader
-       FROM trip_photos p JOIN users u ON u.id = p.uploaded_by
-       WHERE p.trip_id = $1 ORDER BY p.created_at DESC, p.id LIMIT $2 OFFSET $3`,
-      [access.trip.id, limit, offset],
-    );
-    const { rows: [count] } = await this.pool.query('SELECT count(*) AS n FROM trip_photos WHERE trip_id = $1', [access.trip.id]);
-    const total = Number(count.n);
-    const faces = await this.faceIndex(access.trip.id, rows.map(r => r.object_key), total);
+    const collection = this.db.collection('trip_photos');
+    const [rows, total] = await Promise.all([
+      collection.find({ trip_id: access.trip.id }).sort({ created_at: -1, _id: 1 }).skip(offset).limit(limit).toArray(),
+      collection.countDocuments({ trip_id: access.trip.id }),
+    ]);
+    const [uploaders, faces] = await Promise.all([
+      this.db.collection('users').find({ _id: { $in: [...new Set(rows.map(r => r.uploaded_by))] } as any }, { projection: { name: 1 } }).toArray(),
+      this.faceIndex(access.trip.id, rows.map(r => r.object_key)),
+    ]);
+    const nameOf = new Map(uploaders.map(u => [u._id as unknown as string, u.name as string]));
     return {
       total,
       faceSummary: faces.summary,
       items: await Promise.all(rows.map(async r => ({
-        id: r.id,
+        id: r._id as unknown as string,
         url: await this.storage.readUrl(r.object_key),
         width: r.width,
         height: r.height,
         caption: r.caption,
-        uploadedBy: { userId: r.uploaded_by, name: r.uploader },
+        uploadedBy: { userId: r.uploaded_by, name: nameOf.get(r.uploaded_by) },
         createdAt: r.created_at.toISOString(),
         faces: faces.byKey.get(r.object_key) ?? { status: 'pending', count: 0 },
       }))),
@@ -437,11 +455,9 @@ export class TripService {
   async findMe(access: TripAccess, userId: string, body: unknown, faceSearch: FaceSearch) {
     const selfies = parseSelfies(body);
     const hashes = selfies.map(selfieHash);
-    const { rows: cached } = await this.pool.query(
-      'SELECT selfie_hash, embedding FROM user_face_embeddings WHERE user_id = $1 AND selfie_hash = ANY($2::text[])',
-      [userId, hashes],
-    );
-    const byHash = new Map(cached.map(r => [r.selfie_hash as string, (r.embedding as (number | string)[]).map(Number)]));
+    const embeddings = this.db.collection('user_face_embeddings');
+    const cached = await embeddings.find({ user_id: userId, selfie_hash: { $in: hashes } }).toArray();
+    const byHash = new Map(cached.map(r => [r.selfie_hash as string, (r.embedding as number[]).map(Number)]));
     let result: FaceSearchResult;
     if (hashes.every(h => byHash.has(h))) {
       result = await faceSearch.searchByEmbeddings(access.trip.id, hashes.map(h => byHash.get(h)!));
@@ -450,20 +466,22 @@ export class TripService {
       const fresh = result.embeddings;
       if (fresh?.length === hashes.length) {
         // A failed cache write must not fail the search; the next one just embeds again.
-        await this.pool.query('DELETE FROM user_face_embeddings WHERE user_id = $1 AND selfie_hash <> ALL($2::text[])', [userId, hashes])
-          .then(() => Promise.all(hashes.map((h, i) => this.pool.query(
-            `INSERT INTO user_face_embeddings (user_id, selfie_hash, embedding) VALUES ($1, $2, $3::real[])
-             ON CONFLICT (user_id, selfie_hash) DO UPDATE SET embedding = EXCLUDED.embedding`,
-            [userId, h, fresh[i]],
-          ))))
+        await embeddings.deleteMany({ user_id: userId, selfie_hash: { $nin: hashes } })
+          .then(() => embeddings.bulkWrite(hashes.map((h, i) => ({
+            updateOne: {
+              filter: { user_id: userId, selfie_hash: h },
+              update: { $set: { embedding: fresh[i] }, $setOnInsert: { created_at: new Date() } },
+              upsert: true,
+            },
+          }))))
           .catch(() => undefined);
       }
     }
     const names = result.matches.map(m => m.object_name);
-    const { rows } = names.length
-      ? await this.pool.query('SELECT id, object_key FROM trip_photos WHERE trip_id = $1 AND object_key = ANY($2::text[])', [access.trip.id, names])
-      : { rows: [] };
-    const matches = mapMatches(result.matches, new Map(rows.map(r => [r.object_key as string, r.id as string])));
+    const rows = names.length
+      ? await this.db.collection('trip_photos').find({ trip_id: access.trip.id, object_key: { $in: names } }, { projection: { object_key: 1 } }).toArray()
+      : [];
+    const matches = mapMatches(result.matches, new Map(rows.map(r => [r.object_key as string, r._id as unknown as string])));
     return { matches, threshold: result.threshold, truncated: result.truncated };
   }
 }

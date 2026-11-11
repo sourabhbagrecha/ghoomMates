@@ -16,7 +16,7 @@ npm run seed:demo -- --no-photos                    # skip the four sample photo
 
 The script talks to the same HTTP API the app uses, so it needs a running backend (`--api`, else `$BACKEND_URL`, else `http://127.0.0.1:$PORT` from `backend/.env`). It signs in as dev test accounts (`POST /auth/dev/login`, the sign-in page's quick accounts), then calls trips, itinerary, makers, hospitality, impact and expenses exactly as the app would, so every rule of those modules applies and nothing is written behind their backs. Against a deployed server it works only where the test sign-in is on for those emails (`ALLOW_DEV_LOGIN=true` plus `DEV_LOGIN_EMAILS` listing them, see `deploy.md`).
 
-Dates are India time (IST): day 1 is today there, whatever zone the laptop is in. The seed runs against whatever database the backend uses, which for local dev is the shared Cloud SQL one, so the deployed app shows the same trip.
+Dates are India time (IST): day 1 is today there, whatever zone the laptop is in. The seed runs against whatever database the backend uses, which for local dev is the shared MongoDB Atlas one, so the deployed app shows the same trip.
 
 ## What it creates
 
@@ -38,7 +38,7 @@ Dates are India time (IST): day 1 is today there, whatever zone the laptop is in
 - The trip is found by its name among the account's own trips, **while it has not ended**. Found: it is reused and only the missing pieces are added (a mate who was not in the trip joins, an empty itinerary gets the plan, a missing booking is made, and so on). Not found, or ended: a new trip is created, and the old one stays as a past trip.
 - A trip that is not live today is reused anyway if it is still ahead (the seed says "not started yet"). To get a trip that is live on a later day, let the old one end and run the seed again.
 - `--email` picks the organiser. The squad is always six: the organiser plus five from the pool, and with an organiser outside the pool the demo account is the one left out.
-- Nothing is ever deleted or overwritten, and the script does not touch other people's trips. There is no delete API for trips, so removing the demo trip takes SQL.
+- Nothing is ever deleted or overwritten, and the script does not touch other people's trips. There is no delete API for trips, so removing the demo trip takes manual deletes in `mongosh` (`npm run mongosh`).
 
 ## What to show with it
 

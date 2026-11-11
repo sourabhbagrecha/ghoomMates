@@ -19,7 +19,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY faces ./faces
-COPY migrations ./migrations
 
 # Download and load both models once at build time, so cold starts don't fetch about 215 MB.
 RUN python -m faces.warmup \

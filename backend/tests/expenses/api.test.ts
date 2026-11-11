@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, test } from 'node:test';
 import { expect } from '../expect.ts';
-import { openDatabase, type Database } from '../../src/db.ts';
-import { loadEnv } from '../../src/env.ts';
-loadEnv();
+import type { Database } from '../../src/db.ts';
 import { createApp } from '../../src/expenses/app.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 const apiKey = 'test-secret-'.repeat(4);
 
 let db: Database;
@@ -12,7 +11,7 @@ let server: Awaited<ReturnType<typeof serve>>;
 const start = async () => { server = await serve(mount('/api', createApp(db, apiKey))); };
 const app = (path: string, init?: RequestInit) => server.request(path, init);
 beforeEach(async () => {
-  db = await openDatabase();
+  db = await testDatabase();
   await start();
 });
 afterEach(async () => {
@@ -101,11 +100,12 @@ test('settlement rejects self-payments, unconfirmed records, and cross-group par
   }
   expect((await request(`${base}/settlements`)).data.items).toHaveLength(0);
 });
-test('ledger and idempotency survive opening a new database pool', async () => {
+test('ledger and idempotency survive opening a new database connection', async () => {
   const payload = { name: 'Persistent trip', members: ['Asha'] };
   const initial = await request('/api/groups', payload, 'persistent');
   expect(initial.status).toBe(201);
-  await server.close(); await db.close(); db = await openDatabase(); await start();
+  // Same database through a fresh handle and a fresh app, so nothing survives in memory.
+  await server.close(); db = { ...db, db: db.client.db(db.db.databaseName) }; await start();
   expect((await request('/api/groups', payload, 'persistent')).data).toEqual(initial.data);
   expect((await request(`/api/groups/${initial.data.id}`)).status).toBe(200);
 });

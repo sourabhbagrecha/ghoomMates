@@ -11,10 +11,10 @@ Everything a partner sees is an aggregate. The console is a demo-grade control r
 | `src/ops/forecast.ts` | Pure functions: the sites × hours forecast (`buildForecast`), KPIs, hotspot windows, best alternative hour, reach, and the calmer site and time for an advisory. |
 | `src/ops/sample.ts` | A deterministic, clearly flagged layer of simulated squads for the demo (see below). |
 | `src/ops/demand.ts` | Reads planned heritage stops from `trip_stops` for a city and day. |
-| `src/ops/advisories.ts` | Validation, the public shape travellers see, and the stores (Postgres, or in memory without a database). |
+| `src/ops/advisories.ts` | Validation, the public shape travellers see, and the stores (MongoDB, or in memory without a database). |
 | `src/ops/draft.ts`, `src/ops/hindi.ts` | The bilingual draft: Gemini polishes a hand-written baseline, the template is the fallback. Hindi site names and time phrasing. |
 | `src/ops/app.ts` | The router, mounted at `/api/ops` (before the catch-all `/api` ledger in `src/app.ts`). |
-| `migrations/023_heritage_ops.sql` | `heritage_advisories` (idempotent). The forecast itself is computed, not stored. |
+| `src/schema.ts` | The `heritage_advisories` collection and its `(city, advisory_date)` index. The forecast itself is computed, not stored. |
 
 ## Endpoints
 

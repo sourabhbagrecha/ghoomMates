@@ -1,6 +1,7 @@
 // Advisories a site manager publishes ("City Palace is expected packed 10 AM–12 PM"): validation, storage and the
-// public shape travellers see. They live in Postgres, or in memory when the server runs without a database.
+// public shape travellers see. They live in MongoDB, or in memory when the server runs without a database.
 import { randomUUID } from 'node:crypto';
+import type { Database } from '../db.ts';
 import { integer, object, requireThat, text } from '../expenses/domain.ts';
 import { formatTime } from '../heritage/crowd.ts';
 import { SITE_BY_ID, type HeritageCity } from '../heritage/sites.ts';
@@ -13,10 +14,8 @@ const MAX_WINDOW_MINUTES = 12 * 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: string) => UUID.test(value);
 
-/** Minimal slice of the database, so tests can pass a fake `{ pool: { query } }` */
-export type OpsDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: unknown[] }> };
-};
+/** Only the Db handle is used */
+export type OpsDb = Pick<Database, 'db'>;
 
 export type StoredAdvisory = {
   id: string;
@@ -164,62 +163,58 @@ export interface AdvisoryStore {
   withdraw(id: string): Promise<boolean>;
 }
 
-type Row = {
-  id: string; city: HeritageCity; site_id: string; advisory_date: string | Date; start_minutes: number; end_minutes: number;
+type Doc = {
+  _id: string; city: HeritageCity; site_id: string; advisory_date: string; start_minutes: number; end_minutes: number;
   level: AdvisoryLevel; message_en: string; message_hi: string; alt_site_id: string | null; alt_minutes: number | null;
-  reach_squads: number | null; reach_people: number | null; created_by: string | null; created_at: Date | string;
+  reach_squads: number | null; reach_people: number | null; created_by: string | null; created_at: Date; withdrawn_at: Date | null;
 };
 
-const COLUMNS = `id, city, site_id, advisory_date, start_minutes, end_minutes, level, message_en, message_hi, alt_site_id, alt_minutes,
-  reach_squads, reach_people, created_by, created_at`;
-
-function fromRow(r: Row): StoredAdvisory {
-  const date = r.advisory_date instanceof Date
-    ? `${r.advisory_date.getFullYear()}-${String(r.advisory_date.getMonth() + 1).padStart(2, '0')}-${String(r.advisory_date.getDate()).padStart(2, '0')}`
-    : String(r.advisory_date).slice(0, 10);
+function fromDoc(r: Doc): StoredAdvisory {
   return {
-    id: r.id, city: r.city, siteId: r.site_id, date, startMinutes: r.start_minutes, endMinutes: r.end_minutes, level: r.level,
+    id: r._id, city: r.city, siteId: r.site_id, date: r.advisory_date, startMinutes: r.start_minutes, endMinutes: r.end_minutes, level: r.level,
     messageEn: r.message_en, messageHi: r.message_hi, altSiteId: r.alt_site_id, altMinutes: r.alt_minutes,
-    reachSquads: r.reach_squads, reachPeople: r.reach_people, createdBy: r.created_by, createdAt: new Date(r.created_at).toISOString(),
+    reachSquads: r.reach_squads, reachPeople: r.reach_people, createdBy: r.created_by, createdAt: r.created_at.toISOString(),
   };
 }
 
-export class PostgresAdvisoryStore implements AdvisoryStore {
+export class MongoAdvisoryStore implements AdvisoryStore {
   private db: OpsDb;
 
   constructor(db: OpsDb) {
     this.db = db;
   }
 
+  private get advisories() {
+    return this.db.db.collection<Doc>('heritage_advisories');
+  }
+
   async create(input: NewAdvisory) {
-    const id = randomUUID();
-    const { rows } = await this.db.pool.query(
-      `INSERT INTO heritage_advisories (id, city, site_id, advisory_date, start_minutes, end_minutes, level, message_en, message_hi,
-         alt_site_id, alt_minutes, reach_squads, reach_people, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING ${COLUMNS}`,
-      [id, input.city, input.siteId, input.date, input.startMinutes, input.endMinutes, input.level, input.messageEn, input.messageHi,
-        input.altSiteId, input.altMinutes, input.reachSquads, input.reachPeople, input.createdBy],
-    );
-    return fromRow(rows[0] as Row);
+    const doc: Doc = {
+      _id: randomUUID(), city: input.city, site_id: input.siteId, advisory_date: input.date, start_minutes: input.startMinutes,
+      end_minutes: input.endMinutes, level: input.level, message_en: input.messageEn, message_hi: input.messageHi,
+      alt_site_id: input.altSiteId, alt_minutes: input.altMinutes, reach_squads: input.reachSquads, reach_people: input.reachPeople,
+      created_by: input.createdBy, created_at: new Date(), withdrawn_at: null,
+    };
+    await this.advisories.insertOne(doc);
+    return fromDoc(doc);
   }
 
   async list({ city, fromDate, date }: { city?: HeritageCity; fromDate: string; date?: string }) {
-    const { rows } = await this.db.pool.query(
-      `SELECT ${COLUMNS} FROM heritage_advisories
-       WHERE withdrawn_at IS NULL AND advisory_date >= $1::date AND ($2::date IS NULL OR advisory_date = $2::date)
-         AND ($3::text IS NULL OR city = $3)
-       ORDER BY advisory_date, start_minutes, created_at LIMIT 100`,
-      [fromDate, date ?? null, city ?? null],
-    );
-    return (rows as Row[]).map(fromRow);
+    const docs = await this.advisories
+      .find({
+        withdrawn_at: null,
+        advisory_date: date ? { $gte: fromDate, $eq: date } : { $gte: fromDate },
+        ...(city ? { city } : {}),
+      })
+      .sort({ advisory_date: 1, start_minutes: 1, created_at: 1 })
+      .limit(100)
+      .toArray();
+    return docs.map(fromDoc);
   }
 
   async withdraw(id: string) {
-    const { rowCount } = await this.db.pool.query(
-      'UPDATE heritage_advisories SET withdrawn_at = now() WHERE id = $1 AND withdrawn_at IS NULL',
-      [id],
-    );
-    return (rowCount ?? 0) > 0;
+    const { modifiedCount } = await this.advisories.updateOne({ _id: id, withdrawn_at: null }, { $set: { withdrawn_at: new Date() } });
+    return modifiedCount > 0;
   }
 }
 

@@ -4,7 +4,7 @@ This folder contains two Cloud Run services that let a trip member find every tr
 
 | Service | Trigger | What it does |
 | --- | --- | --- |
-| `face-indexer` | Eventarc, on `google.cloud.storage.object.v1.finalized` and `.deleted` in bucket `ghoomates` | Downloads each new trip photo, detects faces, embeds them, and stores them in Cloud SQL (pgvector). When a photo is deleted, its faces are removed. |
+| `face-indexer` | Eventarc, on `google.cloud.storage.object.v1.finalized` and `.deleted` in bucket `ghoomates` | Downloads each new trip photo, detects faces, embeds them, and stores them in MongoDB Atlas (Atlas Vector Search). When a photo is deleted, its faces are removed. |
 | `face-search` | Private HTTPS, called by the backend with an ID token | Embeds the largest face in each of 1 to 3 selfies and returns the trip photos that contain that person, ranked by distance, with face boxes. |
 
 The face pipeline must match the prototype notebook exactly: Pillow `exif_transpose`, conversion to RGB, a thumbnail at most 1600 px on its longest side, then `DeepFace.represent(model_name="Facenet512", detector_backend="retinaface", align=True, enforce_detection=True)`, followed by L2-normalization.
@@ -15,7 +15,7 @@ The search has to run here rather than in the backend. A selfie must be embedded
 browser ──PUT──> gs://ghoomates/trips/<tripId>/photos/<uuid>.jpg
                       │ object.v1.finalized / deleted
                       ▼
-                 Eventarc ──> face-indexer ──> Cloud SQL: face_photos, faces (vector(512), HNSW)
+                 Eventarc ──> face-indexer ──> Atlas: face_photos, faces (float32[512], vector index)
                                                                ▲
 backend ──ID token──> face-search  (selfies in memory only) ───┘
 ```
@@ -28,25 +28,24 @@ cloud/
   faces/pipeline.py     Pillow preprocessing, DeepFace call, face filtering, bbox scaling, L2-normalization
   faces/indexer.py      face-indexer Flask app (CloudEvent parsing, routing, idempotency, status codes)
   faces/search.py       face-search Flask app (request validation, selfie embedding)
-  faces/store.py        all SQL: upsert/replace faces, generation-aware deletes, search query, grouping
-  faces/db.py           connection pool (psycopg 3); accepts the backend's DATABASE_URL as is
+  faces/store.py        all MongoDB access: upsert/replace faces, generation-aware deletes, $vectorSearch, grouping
+  faces/db.py           one pymongo MongoClient per process (MONGODB_CONNECTION_STRING, MONGODB_DB)
   faces/storage.py      reads objects from GCS, or from a local folder in development
   faces/main.py         WSGI entry point; SERVICE=indexer|search picks the app; models load once at startup
-  faces/migrate.py      applies migrations/*.sql, tracked in face_schema_migrations
+  faces/migrate.py      creates the face_photos / faces indexes and the Atlas Vector Search index (idempotent)
   faces/warmup.py       Docker build step that downloads and loads both models into the image
   faces/backfill.py     indexes photos that were uploaded before the trigger existed
   faces/logs.py         JSON logs with a severity field for Cloud Logging
-  migrations/001_faces.sql
   scripts/send_event.py      sends a fake GCS CloudEvent to the local indexer
   scripts/search_selfie.py   calls face-search with selfie files
   tests/                pytest: unit, database, and end-to-end integration tests
   Dockerfile            runtime stage (deployed) and test stage (local only)
-  docker-compose.yml    pgvector Postgres, migrate, indexer, search, tests
+  docker-compose.yml    MongoDB Atlas Local, migrate, indexer, search, tests
   cloudbuild.yaml       Cloud Build config that builds the runtime stage
   deploy.sh             every deploy command, one step at a time
   requirements.txt      runtime dependencies, all pinned (Python 3.12)
   requirements-dev.txt  adds pytest on top of requirements.txt
-  .env.example          DATABASE_URL template; the real value goes in cloud/.env (gitignored)
+  .env.example          MONGODB_CONNECTION_STRING template; the real value goes in cloud/.env (gitignored)
 ```
 
 ## How it fits the app
@@ -82,81 +81,54 @@ Notes:
 - **Selfies.** Each selfie uses its largest face that passes the filters. With several selfies, a gallery face's distance is its minimum across all of them.
 - **Engine.** deepface 0.0.103 can run on TensorFlow, PyTorch, or ONNX. The image sets `DEEPFACE_BACKEND_ENGINE=tensorflow` so it uses the same TensorFlow Keras weights as the notebook.
 
-## Data model (`migrations/001_faces.sql`)
+## Data model (`faces/migrate.py`)
+
+Two collections in the backend's Atlas database (`MONGODB_DB`, default `ghoomates`). The backend's `schema.ts` leaves them to this service.
 
 ```text
-face_photos  id, bucket, object_name, generation, trip_id, width, height, face_count,
+face_photos  _id (ObjectId), bucket, object_name, generation, trip_id (uuid string), width, height, face_count,
              status (indexed | no_faces | error), error, model_name, detector, indexed_at
-             UNIQUE (bucket, object_name), btree (trip_id)
-faces        id, photo_id -> face_photos ON DELETE CASCADE, trip_id, x, y, w, h, det_confidence,
-             embedding vector(512), model_name, detector, created_at
-             HNSW (embedding vector_cosine_ops), btree (trip_id), btree (photo_id)
+             unique (bucket, object_name), (trip_id), (object_name, trip_id)
+faces        _id, photo_id -> face_photos._id, trip_id, x, y, w, h, det_confidence,
+             embedding (BSON float32 vector, 512), model_name, detector, created_at,
+             bucket, object_name, generation, width, height   (copied from the photo)
+             (photo_id), (trip_id), vector search index faces_embedding
 ```
 
-- `faces.trip_id` duplicates the photo's trip, so the scope filter runs on the same table the HNSW index scans.
-- `model_name` and `detector` are stored on faces (as requested) and also on photos. The photo copy means photos recorded as `no_faces` are also picked up for re-indexing after a model change.
-- Migrations are tracked in their own `face_schema_migrations` table and use their own advisory lock. The backend's runner (`schema_migrations`) and this one never interact.
+- `faces_embedding` is an Atlas Vector Search index: `embedding` (512 dims, cosine) plus `trip_id`, `model_name` and `detector` as filter fields, so the trip filter is applied inside the approximate scan.
+- Each face carries its photo's fields, so a search is one `$vectorSearch` with no join. Deleting a photo deletes its faces in the same transaction (there are no foreign keys).
+- `model_name` and `detector` are stored on faces and also on photos. The photo copy means photos recorded as `no_faces` are also picked up for re-indexing after a model change.
+- `python -m faces.migrate` is idempotent: it creates the regular indexes, creates the vector index only if it is missing, and waits until it is queryable.
 
-## Search and the HNSW index
+## Search
 
-Cloud SQL for PostgreSQL 13 and later provides **pgvector 0.8.5**. The instance is PostgreSQL 18.6 with 0.8.5 available, so `hnsw.iterative_scan` (added in pgvector 0.8.0) is available.
+For each selfie, the search runs one aggregation on `faces`:
 
-For each selfie, the search runs this inside one transaction:
-
-```sql
-SET LOCAL hnsw.ef_search = 100;                -- HNSW_EF_SEARCH
-SET LOCAL hnsw.iterative_scan = relaxed_order; -- HNSW_ITERATIVE_SCAN
-SET LOCAL hnsw.max_scan_tuples = 100000;       -- HNSW_MAX_SCAN_TUPLES
-
-WITH nearest AS MATERIALIZED (
-  SELECT ... , f.embedding <=> $q AS distance
-  FROM faces f
-  WHERE f.trip_id = $trip AND f.model_name = $model AND f.detector = $detector
-  ORDER BY f.embedding <=> $q
-  LIMIT $k
-)
-SELECT ... FROM nearest JOIN face_photos ... ORDER BY distance;
+```js
+{ $vectorSearch: {
+    index: "faces_embedding", path: "embedding", queryVector: q,
+    numCandidates: min(max(10 * k, 100), 10000), limit: k,
+    filter: { $and: [{ trip_id: { $eq: trip } }, { model_name: { $eq: model } }, { detector: { $eq: detector } }] } } },
+{ $project: { photo_id: 1, x: 1, ..., score: { $meta: "vectorSearchScore" } } }
 ```
 
-Python then keeps faces with distance below `MATCH_THRESHOLD`, takes each face's minimum distance across the selfies, and groups the faces by photo. A photo's distance is its closest face.
+Atlas reports cosine similarity as `score = (1 + cos) / 2`, so the code converts it back to cosine distance, `distance = 2 * (1 - score)` (= `1 - cos`). `MATCH_THRESHOLD = 0.40` keeps the meaning it had with pgvector. Python then keeps faces with distance below the threshold, takes each face's minimum distance across the selfies, and groups the faces by photo. A photo's distance is its closest face.
 
-The two known gotchas, and how they are handled:
+**Filtering.** `filter` is a pre-filter: Atlas walks the HNSW graph looking only at faces of this trip, model and detector, so `limit` results come back whenever the trip has that many faces, however many faces other trips hold. (This replaces the pgvector `hnsw.iterative_scan` setup, where the scope filter ran after the approximate scan.) `numCandidates` is the size of the candidate list; 10 times `k` gives near-exact recall.
 
-1. **`hnsw.ef_search` caps results (40 by default).** A plain HNSW scan returns at most `ef_search` candidates, however large `LIMIT` is.
-2. **The scope filter is applied after the approximate scan.** Without iterative scan, the index returns its `ef_search` nearest faces across every trip, and Postgres then discards those from other trips. A selfie could return 3 matches, or none, even when the person is in 300 of this trip's photos.
+**No silent truncation.** The first query asks for `SEARCH_INITIAL_K = 500` faces. If every returned face is a match, there may be more, so `k` doubles and the query runs again. This stops at the first non-match or at `SEARCH_MAX_K = 10000` (Atlas caps `limit` and `numCandidates` at 10000, so larger values are lowered). If the cap is reached, the response says `"truncated": true` and a WARNING is logged. Someone in hundreds of photos is never dropped without a signal.
 
-With `hnsw.iterative_scan = relaxed_order`, the index scan keeps going after the first `ef_search` candidates until `LIMIT k` rows pass the `trip_id` filter, or until it has visited `hnsw.max_scan_tuples` tuples. `relaxed_order` can return rows slightly out of order, so the materialized CTE is sorted again outside (the pattern the pgvector docs recommend). `strict_order` is exact but slower.
+**Eventual consistency.** The vector index is updated asynchronously from the oplog, so a photo becomes searchable about a second after it is indexed. The database tests wait for it (`wait_searchable` in `tests/conftest.py`).
 
-**No silent truncation.** The first query asks for `SEARCH_INITIAL_K = 500` faces. If every returned face is a match, there may be more, so `k` doubles and the query runs again. This stops at the first non-match or at `SEARCH_MAX_K = 20000`. If the cap is reached, the response says `"truncated": true` and a WARNING is logged. Someone in hundreds of photos is never dropped without a signal.
-
-**Trade-offs.**
-
-- A higher `ef_search` improves recall, but every query costs more. With iterative scan it only sets the size of the first batch, so 100 is enough.
-- `max_scan_tuples` bounds the work when one trip is a tiny fraction of a large table. Raise it if logs ever show a trip returning fewer matches than expected.
-- If you turn iterative scan off (`HNSW_ITERATIVE_SCAN=off`), you must raise `ef_search` to at least `k`, up to its maximum of 1000. That makes every query slower and still loses results once a trip is a small share of all faces.
-
-**Which index Postgres uses.** The query has the shape HNSW serves (`ORDER BY embedding <=> q LIMIT k`), but the planner chooses by cost. Measured on pgvector 0.8.5 / Postgres 18 with random 512-dim faces:
-
-| Faces in table | Faces in the trip | k = 40 | k = 100 | k = 500 |
-| --- | --- | --- | --- | --- |
-| 3,000 | 3,000 (all) | HNSW | HNSW | seq scan + sort |
-| 10,000 | 3,700 | HNSW | trip btree + sort | trip btree + sort |
-| 30,000 | 5,700 | trip btree + sort | trip btree + sort | trip btree + sort |
-
-When the trip filter is selective, Postgres reads only that trip's faces through `faces_trip_idx` and sorts them exactly. That is both faster and exact, and the `ef_search` and filtering gotchas don't apply to it. HNSW is chosen when the trip makes up most of the table and `k` is small, which is the case the iterative scan settings protect.
-
-Two tests cover this:
-
-- `test_planner_uses_hnsw_for_a_broad_scope` checks the plan with EXPLAIN.
-- `test_iterative_scan_keeps_filtered_hnsw_results_complete` forces the HNSW path. With 120 matches in trip A and 200 lookalikes in trip B, it shows a plain scan (`iterative_scan=off`, `ef_search=40`) silently returns fewer than 120 photos, while the deployed settings return all 120.
+`test_trip_filter_finds_the_match_among_other_trips_and_noise` covers recall with the filter: one match in trip A among 1,500 strangers, while trip B holds 200 closer lookalikes and 1,500 strangers. The search finds it and never returns anything from trip B.
 
 ## Event handling
 
 - **Delivery.** Eventarc delivers at least once and retries non-2xx responses with backoff. The indexer is idempotent:
   - A `finalized` event for a generation that is already `indexed` or `no_faces` with the current model is skipped.
-  - Otherwise, one transaction upserts the photo row, deletes its faces, and inserts the new ones.
-  - The upsert only applies if the stored generation is not newer, so a late retry of an old generation never overwrites a newer upload.
-- **Deletes.** A `deleted` event removes the photo row, and its faces cascade, but only if the stored generation is not newer. GCS also sends `deleted` for the old generation when an object is overwritten, and that event must not remove the new upload.
+  - Otherwise, one transaction upserts the photo document, deletes its faces, and inserts the new ones.
+  - The upsert only matches if the stored generation is not newer (`generation: {$lte}`). If a newer one is stored, the upsert collides with the unique `(bucket, object_name)` index and the event is treated as stale, so a late retry of an old generation never overwrites a newer upload.
+- **Deletes.** A `deleted` event removes the photo document and its faces (one transaction), but only if the stored generation is not newer. GCS also sends `deleted` for the old generation when an object is overwritten, and that event must not remove the new upload.
 - **Permanent failures return 204 with the status recorded,** so Eventarc does not retry them for a day:
   - corrupt or unsupported image: `error`, with the message
   - no usable faces: `no_faces`
@@ -169,7 +141,7 @@ Two tests cover this:
 
 ## Searching by cached embedding
 
-Detecting and embedding the selfie is the slow part of a search. The backend caches it: the first search sends the selfie and `face-search` returns each selfie's embedding (`selfies[].embedding`, 512 floats). The backend stores it in `user_face_embeddings` (migration `028`, keyed by user and a hash of the selfie) and later sends `{ "trip_id": "…", "embeddings": [[…512 floats…]] }` instead of images. That request skips decoding, RetinaFace and Facenet and runs only the SQL below. Changing the profile selfie changes the hash, so it misses the cache and is embedded again. The response has the same shape, except `selfies` is empty.
+Detecting and embedding the selfie is the slow part of a search. The backend caches it: the first search sends the selfie and `face-search` returns each selfie's embedding (`selfies[].embedding`, 512 floats). The backend stores it in the `user_face_embeddings` collection (unique on user and a hash of the selfie, see `backend/src/schema.ts`) and later sends `{ "trip_id": "…", "embeddings": [[…512 floats…]] }` instead of images. That request skips decoding, RetinaFace and Facenet and runs only the vector search above. Changing the profile selfie changes the hash, so it misses the cache and is embedded again. The response has the same shape, except `selfies` is empty.
 
 ## face-search API
 
@@ -214,7 +186,7 @@ The backend already holds the `ghoomates-storage` service account key (`GCS_CRED
 ```ts
 // backend/src/trips/faces.ts (suggested)
 import { GoogleAuth, type IdTokenClient } from 'google-auth-library';
-import type { Pool } from '../db.ts';
+import type { Database } from '../db.ts';
 
 const FACE_SEARCH_URL = process.env.FACE_SEARCH_URL ?? ''; // https://face-search-<hash>.asia-south1.run.app
 const credentials = JSON.parse(Buffer.from(process.env.GCS_CREDENTIALS_BASE64 ?? '', 'base64').toString('utf8'));
@@ -226,7 +198,7 @@ type FaceMatch = {
 };
 
 // Call only after checking the user is a member of tripId. selfies: data URLs or base64 (users.picture works as is).
-export async function findMyPhotos(pool: Pool, tripId: string, selfies: string[]) {
+export async function findMyPhotos(db: Database, tripId: string, selfies: string[]) {
   // The ID token's audience must be the service URL; the client caches and refreshes the token.
   client ??= new GoogleAuth({ credentials }).getIdTokenClient(FACE_SEARCH_URL);
   const res = await (await client).request<{ matches: FaceMatch[]; truncated: boolean }>({
@@ -237,11 +209,9 @@ export async function findMyPhotos(pool: Pool, tripId: string, selfies: string[]
   });
   // Keep only photos registered in the album, and attach their ids.
   const keys = res.data.matches.map(m => m.object_name);
-  const { rows } = await pool.query<{ id: string; object_key: string }>(
-    'SELECT id, object_key FROM trip_photos WHERE trip_id = $1 AND object_key = ANY($2::text[])',
-    [tripId, keys],
-  );
-  const idByKey = new Map(rows.map(r => [r.object_key, r.id]));
+  const rows = await db.db.collection('trip_photos')
+    .find({ trip_id: tripId, object_key: { $in: keys } }, { projection: { object_key: 1 } }).toArray();
+  const idByKey = new Map(rows.map(r => [r.object_key as string, String(r._id)]));
   return {
     truncated: res.data.truncated,
     photos: res.data.matches
@@ -260,7 +230,7 @@ You need Docker Desktop. On Apple Silicon the image builds natively for arm64; e
 
 ```bash
 cd cloud
-docker compose up --build             # db (pgvector 0.8.5 on Postgres 18, like Cloud SQL), migrate, indexer :8081, search :8082
+docker compose up --build             # db (MongoDB Atlas Local: mongod + mongot, on :27018), migrate, indexer :8081, search :8082
 ```
 
 In a second terminal, run the following. The scripts use only the Python standard library.
@@ -274,8 +244,8 @@ python3 scripts/send_event.py ~/Pictures/beach.heic --trip 6f1c7f9e-0000-4000-80
 python3 scripts/search_selfie.py ~/Pictures/me.jpg --trip 6f1c7f9e-0000-4000-8000-000000000001
 # Delete event (removes the photo's faces).
 python3 scripts/send_event.py ~/Pictures/group.jpg --trip 6f1c7f9e-0000-4000-8000-000000000001 --deleted
-# Look at the rows.
-docker compose exec db psql -U faces -d faces -c "SELECT object_name, status, face_count FROM face_photos"
+# Look at the documents.
+docker compose exec db mongosh ghoomates --quiet --eval 'db.face_photos.find({}, {object_name: 1, status: 1, face_count: 1})'
 ```
 
 Sending the same image again uses a new generation (the current time), so it is re-indexed. To see a redelivery being skipped, send a new object name twice with the same generation, for example `--name trips/<trip>/photos/dup.jpg --generation 5`. An older generation than the stored one is skipped as stale.
@@ -289,22 +259,22 @@ docker compose --profile test run --rm tests pytest -v tests/test_pipeline.py te
 ```
 
 - `test_pipeline.py` covers preprocessing (EXIF orientation, modes, HEIC, thumbnail, corrupt files), bbox scaling, face filtering, L2-normalization, and largest-face selection. A fake replaces DeepFace.
-- `test_events.py` covers CloudEvent parsing, which objects get indexed, config, the DSN, and search request validation.
-- `test_indexer_db.py` covers idempotency, generations, deletes, and permanent versus transient failures, against real Postgres.
-- `test_search_db.py` covers the search SQL: trip scoping, the threshold, minimum distance over several selfies, grouping, k doubling (no truncation), model filtering, the HNSW plan, and the filtered-HNSW gotcha with and without iterative scan.
+- `test_events.py` covers CloudEvent parsing, which objects get indexed, config (including the Atlas `k` cap), lazy database connection, and search request validation.
+- `test_indexer_db.py` covers idempotency, generations, deletes, and permanent versus transient failures, against MongoDB with transactions.
+- `test_search_db.py` covers `$vectorSearch`: trip scoping, the threshold, minimum distance over several selfies, grouping, k doubling (no truncation), model filtering, recall with the trip filter, and the 503 when the database is down.
 - `test_integration.py` indexes sample photos with the real models through the indexer endpoint, then searches with a selfie. The photos come from the deepface repository's test set, at a pinned commit.
 
-The database tests create and drop their own database, so they never touch the `faces` database the local stack uses.
+The database tests need `TEST_MONGODB_CONNECTION_STRING` (set by the compose `tests` service; locally: `TEST_MONGODB_CONNECTION_STRING='mongodb://localhost:27018/?directConnection=true' pytest`). They create and drop their own database (`faces_test_<random>`), so they never touch the `ghoomates` database the local stack uses. Without it they are skipped.
 
 ## Deploy
 
-Every command is in `deploy.sh` and runs one step at a time. Nothing has been run. The defaults are project `optimal-comfort-510810-d1`, region `asia-south1` (Mumbai, where bucket `ghoomates` is), and the Cloud SQL instance at the public IP in `cloud/.env`.
+Every command is in `deploy.sh` and runs one step at a time. Nothing has been run. The defaults are project `optimal-comfort-510810-d1`, region `asia-south1` (Mumbai, where bucket `ghoomates` is), and the Atlas cluster in `cloud/.env`.
 
 ### Order
 
 ```bash
 cd cloud
-cat .env                          # cloud/.env (gitignored) already holds the real DATABASE_URL
+cat .env                          # cloud/.env (gitignored) must hold MONGODB_CONNECTION_STRING (same as the backend's)
 gcloud auth login                 # if needed; your account must be able to change IAM in the project
 gcloud auth application-default login   # only needed for ./deploy.sh backfill
 docker compose build migrate      # builds ghoommates-faces:local, used by the migrate and backfill steps
@@ -313,7 +283,7 @@ docker compose build migrate      # builds ghoommates-faces:local, used by the m
 ./deploy.sh registry     # 2. Artifact Registry repository
 ./deploy.sh accounts     # 3. service accounts face-indexer, face-search, face-trigger
 ./deploy.sh iam          # 4. bucket and project roles
-./deploy.sh migrate      # 5. CREATE EXTENSION vector + tables, in Cloud SQL
+./deploy.sh migrate      # 5. face_photos / faces indexes + the faces_embedding vector index, in Atlas
 ./deploy.sh build        # 6. Cloud Build builds and pushes the image (about 10 to 15 minutes the first time)
 ./deploy.sh indexer      # 7. deploy face-indexer
 ./deploy.sh search       # 8. deploy face-search (MIN_SEARCH_INSTANCES=1 ./deploy.sh search for a warm demo)
@@ -325,11 +295,11 @@ docker compose build migrate      # builds ghoommates-faces:local, used by the m
 
 Steps 9 and 10 come after the deploys because IAM bindings on a service, and triggers pointing at it, need the service to exist. If `triggers` fails with a permission error on the project's first Eventarc trigger, wait a minute and run it again. Google's docs say the Eventarc service agent can take a moment to be set up. A new trigger can take up to two minutes to start delivering.
 
-**About the database URL.** As agreed, the connection is the public IP URL and there is no Secret Manager secret. The URL, including the password, is set as a plain environment variable on both services. It is visible to anyone in the project with `run.services.get`. To move it into Secret Manager later:
+**About the connection string.** There is no Secret Manager secret: `MONGODB_CONNECTION_STRING`, including the password, is set as a plain environment variable on both services. It is visible to anyone in the project with `run.services.get`. Atlas Network Access must allow Cloud Run's egress (it has no fixed IP without a NAT, so `0.0.0.0/0` for the hackathon). To move the string into Secret Manager later:
 
-1. Create a secret `ghoommates-db-url`.
+1. Create a secret `ghoommates-mongodb-uri`.
 2. Grant `roles/secretmanager.secretAccessor` (the commented lines in `deploy.sh iam`).
-3. Replace the `DATABASE_URL` line of the env file with `--set-secrets=DATABASE_URL=ghoommates-db-url:latest`.
+3. Replace the `MONGODB_CONNECTION_STRING` line of the env file with `--set-secrets=MONGODB_CONNECTION_STRING=ghoommates-mongodb-uri:latest`.
 
 ### Commands and flags
 
@@ -373,17 +343,14 @@ Steps 9 and 10 come after the deploys because IAM bindings on a service, and tri
 
 These roles are not granted. Each is commented in `deploy.sh` with the reason:
 
-- **Cloud SQL Client** is only needed with the Cloud SQL connector. The services connect straight to the public IP.
 - **Secret Manager Secret Accessor** is not needed because no secret is used.
 
-`docker run --rm -e DATABASE_URL=… ghoommates-faces:local python -m faces.migrate` (step `migrate`):
+`docker run --rm -e MONGODB_CONNECTION_STRING=… -e MONGODB_DB=… ghoommates-faces:local python -m faces.migrate` (step `migrate`):
 
 - `--rm`: deletes the container when it exits.
-- `-e DATABASE_URL`: passes the connection URL.
+- `-e MONGODB_CONNECTION_STRING`, `-e MONGODB_DB`: the cluster and database.
 - `ghoommates-faces:local`: the image `docker compose build` creates.
-- `python -m faces.migrate`: applies `migrations/*.sql` once each, under an advisory lock.
-
-The `ghoomates` user is a member of `cloudsqlsuperuser`, which Cloud SQL requires for `CREATE EXTENSION vector`.
+- `python -m faces.migrate`: creates the indexes if missing and waits for the vector index to be queryable. Safe to rerun. The database user needs a role that can create search indexes (`readWrite` plus Atlas's search index privileges, e.g. `dbAdmin`, or Atlas admin).
 
 `gcloud builds submit .` (step `build`):
 
@@ -398,7 +365,7 @@ The `ghoomates` user is a member of `cloudsqlsuperuser`, which Cloud SQL require
 
 | Flag | Value | Why |
 | --- | --- | --- |
-| `--region` | `asia-south1` | Same region as the bucket and Cloud SQL. |
+| `--region` | `asia-south1` | Same region as the bucket. |
 | `--image` | the built image | Same image for both services. |
 | `--service-account` | `face-indexer@…` | Runtime identity, with read access to the bucket. |
 | `--no-allow-unauthenticated` | | Callers need `roles/run.invoker`. Only the trigger's account has it. |
@@ -411,7 +378,7 @@ The `ghoomates` user is a member of `cloudsqlsuperuser`, which Cloud SQL require
 | `--min-instances` | `0` | Scales to zero when nobody uploads. |
 | `--max-instances` | `10` | Caps parallel indexing (see sizing below). |
 | `--cpu-boost` | | Extra CPU during startup to load TensorFlow and the models faster. |
-| `--env-vars-file` | temp YAML | `SERVICE=indexer`, `LOG_LEVEL`, `DATABASE_URL`. A file avoids shell quoting problems with the URL and is deleted right after. |
+| `--env-vars-file` | temp YAML | `SERVICE=indexer`, `LOG_LEVEL`, `MONGODB_CONNECTION_STRING`, `MONGODB_DB`. A file avoids shell quoting problems with the URL and is deleted right after. |
 
 `gcloud run deploy face-search` (step `search`) uses the same flags with these differences:
 
@@ -447,15 +414,15 @@ Retries are left at the default, which retries non-2xx responses with backoff. `
 - `-e GOOGLE_CLOUD_PROJECT`: sets the project for the storage client.
 - `-e BUCKET`, `-e PREFIX=trips/`: what to scan.
 
-The backfill runs the same indexer code locally against Cloud SQL. Photos that are already indexed are skipped.
+The backfill runs the same indexer code locally against Atlas. Photos that are already indexed are skipped.
 
 `gcloud run services list --filter="metadata.name~^face-" --format=table(...)` and `gcloud eventarc triggers list --location` (step `status`): `--filter` keeps only these two services, and `--format` prints the name, URL, and live revision.
 
 ### Sizing and cost
 
-- **Connections.** Each instance uses a pool of at most 2 connections (`DB_POOL_MAX`). With 10 indexers and 3 search instances, that is at most 26 connections, against the instance's `max_connections` of 800 plus the backend's 10.
+- **Connections.** Each instance has one `MongoClient` with at most 4 pooled connections (plus pymongo's monitoring connections). With 10 indexers and 3 search instances that stays well under an Atlas cluster's connection limit.
 - **Bulk uploads.** In local Docker a photo takes about 5 to 7 seconds, almost all of it RetinaFace plus Facenet512 (`timings_ms.analyze`). A bulk upload of 500 photos queues in Eventarc and drains about 10 at a time, so roughly 4 to 6 minutes. Raise `MAX_INDEXER_INSTANCES` if you want it faster; the database has plenty of headroom.
-- **Cold start.** The models are in the image (`DEEPFACE_HOME=/opt/deepface`), so a cold start only loads TensorFlow and about 215 MB of weights from local disk, plus one warm-up inference. Expect roughly 10 to 25 seconds; measure it after deploying in the `models loaded` log line. A warm search takes about 5 seconds per selfie (face detection on the 1600 px image dominates; the SQL takes about 15 ms).
+- **Cold start.** The models are in the image (`DEEPFACE_HOME=/opt/deepface`), so a cold start only loads TensorFlow and about 215 MB of weights from local disk, plus one warm-up inference. Expect roughly 10 to 25 seconds; measure it after deploying in the `models loaded` log line. A warm search takes about 5 seconds per selfie (face detection on the 1600 px image dominates; the vector search is milliseconds).
 - **Warm search instance (`min-instances=1` on face-search).** An idle 2 vCPU / 4 GiB instance is billed at Cloud Run's idle min-instance rate the whole time. That is roughly 40 to 60 USD a month in asia-south1, which I believe is a Tier 2 region; check the Cloud Run pricing page or calculator before relying on this. For a hackathon, set it to 1 only around demos:
   - `MIN_SEARCH_INSTANCES=1 ./deploy.sh search` before the demo
   - `MIN_SEARCH_INSTANCES=0 ./deploy.sh search` after it
@@ -465,5 +432,5 @@ The backfill runs the same indexer code locally against Cloud SQL. Photos that a
 ## Operations
 
 - **Logs.** In Logs Explorer, query `resource.labels.service_name="face-indexer" jsonPayload.status="error"`.
-- **Re-index after changing `MODEL_NAME`, `DETECTOR_BACKEND` or preprocessing.** Deploy, then run `./deploy.sh backfill`. Rows with a different `model_name`/`detector` are not skipped, so every photo is re-indexed. Search only compares faces from the current model.
-- **Photos that failed.** `SELECT object_name, error FROM face_photos WHERE status = 'error'`.
+- **Re-index after changing `MODEL_NAME`, `DETECTOR_BACKEND` or preprocessing.** Deploy, then run `./deploy.sh backfill`. Documents with a different `model_name`/`detector` are not skipped, so every photo is re-indexed. Search only compares faces from the current model.
+- **Photos that failed.** `db.face_photos.find({ status: 'error' }, { object_name: 1, error: 1 })` in mongosh.

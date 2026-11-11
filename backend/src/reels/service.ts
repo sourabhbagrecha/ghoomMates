@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ApiError, object, requireThat } from '../expenses/domain.ts';
 import { sniffImageType } from '../artworks/images.ts';
 import { claudeReadsImage, type Claude } from '../claude.ts';
+import type { Database } from '../db.ts';
 import type { Gemini, GeminiPart } from '../gemini.ts';
 import { logger } from '../logger.ts';
 import type { MediaStorage } from '../storage.ts';
@@ -23,10 +24,9 @@ import {
   type ReelScene,
 } from './plan.ts';
 
-/** Only the pool's query is used, so tests can pass a fake `{ pool: { query } }`. */
-export type ReelsDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: any[] }> };
-};
+export type ReelsDb = Pick<Database, 'db'>;
+// Documents keyed by a uuid (or usr_ id) string
+type Doc = { _id: string; [field: string]: any };
 
 export type ReelOptions = {
   // Photos Gemini looks at for one reel
@@ -94,19 +94,18 @@ export class ReelService {
   // Non-members get 404 so trip ids don't leak.
   async assertMember(tripId: string, userId: string) {
     if (!UUID.test(tripId)) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
-    const { rowCount } = await this.db.pool.query('SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2', [tripId, userId]);
-    if (!rowCount) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
+    const member = await this.db.db.collection('trip_members').findOne({ trip_id: tripId, user_id: userId }, { projection: { _id: 1 } });
+    if (!member) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
   }
 
   /** The squad's reels, newest first. */
   async list(tripId: string) {
-    const { rows } = await this.db.pool.query(
-      `SELECT r.id, r.prompt, r.plan, r.source, r.created_by, u.name AS creator, r.created_at
-       FROM trip_reels r LEFT JOIN users u ON u.id = r.created_by
-       WHERE r.trip_id = $1 ORDER BY r.created_at DESC, r.id LIMIT $2`,
-      [tripId, LIST_SIZE],
-    );
-    return { items: await Promise.all((rows as ReelRow[]).map((row) => this.present(tripId, row))) };
+    const docs = await this.db.db.collection('trip_reels').find({ trip_id: tripId }).sort({ created_at: -1, _id: 1 }).limit(LIST_SIZE).toArray();
+    const names = await this.userNames(docs.map((doc) => doc.created_by));
+    const rows: ReelRow[] = docs.map((doc) => ({
+      id: String(doc._id), prompt: doc.prompt, plan: doc.plan, source: doc.source, created_by: doc.created_by, creator: names.get(doc.created_by) ?? null, created_at: doc.created_at,
+    }));
+    return { items: await Promise.all(rows.map((row) => this.present(tripId, row))) };
   }
 
   /** Cuts a reel from { prompt, photoIds? }. photoIds narrows it to the photos someone picked in the viewer. */
@@ -117,21 +116,21 @@ export class ReelService {
     const picked = body.photoIds === undefined ? [] : body.photoIds;
     requireThat(Array.isArray(picked) && picked.length <= 100 && picked.every((id) => typeof id === 'string' && UUID.test(id)), 'photoIds must be ids of this trip’s photos');
 
-    const { rows: [trip] } = await this.db.pool.query(
-      `SELECT t.name, t.destination, t.start_date, t.end_date,
-         (SELECT count(*) FROM trip_members m WHERE m.trip_id = t.id) AS mates,
-         (SELECT count(*) FROM trip_photos p WHERE p.trip_id = t.id) AS photos
-       FROM trips t WHERE t.id = $1`,
-      [tripId],
-    );
-    const { rows } = await this.db.pool.query(
-      `SELECT p.id, p.object_key, p.size_bytes, p.caption, u.name AS uploader, p.created_at
-       FROM trip_photos p LEFT JOIN users u ON u.id = p.uploaded_by
-       WHERE p.trip_id = $1 ${picked.length ? 'AND p.id = ANY($2::uuid[])' : ''}
-       ORDER BY p.created_at, p.id`,
-      picked.length ? [tripId, picked] : [tripId],
-    );
-    const photos = rows as PhotoRow[];
+    const { db } = this.db;
+    const [tripDoc, mates, photoCount, photoDocs] = await Promise.all([
+      db.collection<Doc>('trips').findOne({ _id: tripId }, { projection: { name: 1, destination: 1, start_date: 1, end_date: 1 } }),
+      db.collection('trip_members').countDocuments({ trip_id: tripId }),
+      db.collection('trip_photos').countDocuments({ trip_id: tripId }),
+      db.collection<Doc>('trip_photos')
+        .find({ trip_id: tripId, ...(picked.length ? { _id: { $in: picked as string[] } } : {}) })
+        .sort({ created_at: 1, _id: 1 })
+        .toArray(),
+    ]);
+    const trip = tripDoc ? { name: tripDoc.name, destination: tripDoc.destination, start_date: tripDoc.start_date ?? null, end_date: tripDoc.end_date ?? null, mates, photos: photoCount } : undefined;
+    const uploaders = await this.userNames(photoDocs.map((doc) => doc.uploaded_by));
+    const photos: PhotoRow[] = photoDocs.map((doc) => ({
+      id: doc._id, object_key: doc.object_key, size_bytes: doc.size_bytes ?? null, caption: doc.caption ?? null, uploader: uploaders.get(doc.uploaded_by) ?? null, created_at: doc.created_at,
+    }));
     if (photos.length < 2) {
       throw new ApiError(422, 'NOT_ENOUGH_PHOTOS', picked.length ? 'Pick at least 2 photos for the reel' : 'Add a few more photos to cut a reel');
     }
@@ -141,13 +140,13 @@ export class ReelService {
     const { plan, source } = await this.writePlan(prompt, { name: tripName, destination: trip?.destination ?? '' }, photos, tripFacts(trip));
 
     const id = randomUUID();
-    const { rows: [saved] } = await this.db.pool.query(
-      `INSERT INTO trip_reels (id, trip_id, created_by, prompt, plan, source, model)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7) RETURNING created_at`,
-      [id, tripId, user.id, prompt, JSON.stringify(plan), source, { gemini: this.gemini.models.smart, claude: this.claude?.model ?? '', template: '' }[source]],
-    );
+    const createdAt = new Date();
+    await db.collection<Doc>('trip_reels').insertOne({
+      _id: id, trip_id: tripId, created_by: user.id, prompt, plan, source,
+      model: { gemini: this.gemini.models.smart, claude: this.claude?.model ?? '', template: '' }[source], created_at: createdAt,
+    });
     logger.info('Reels', `${user.name} cut a ${plan.scenes.length}-scene ${plan.style} reel for trip ${tripId} in ${Date.now() - started} ms (${source})`);
-    return this.present(tripId, { id, prompt, plan, source, created_by: user.id, creator: user.name, created_at: saved.created_at });
+    return this.present(tripId, { id, prompt, plan, source, created_by: user.id, creator: user.name, created_at: createdAt });
   }
 
   // Gemini's cut when it can see the photos and answers sensibly, then Claude's from the same photos and prompt, and the
@@ -225,13 +224,21 @@ export class ReelService {
     return kept;
   }
 
+  // Names by user id, for the people who made reels or uploaded photos
+  private async userNames(ids: string[]) {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return new Map<string, string>();
+    const users = await this.db.db.collection<Doc>('users').find({ _id: { $in: unique } }, { projection: { name: 1 } }).toArray();
+    return new Map(users.map((u) => [u._id, u.name as string]));
+  }
+
   private async present(tripId: string, row: ReelRow): Promise<Reel> {
     const stored = row.plan.scenes.map(upgradeScene);
     const ids = [...new Set(stored.flatMap((scene) => scene.photoIds))];
-    const { rows } = ids.length
-      ? await this.db.pool.query('SELECT id, object_key FROM trip_photos WHERE trip_id = $1 AND id = ANY($2::uuid[])', [tripId, ids])
-      : { rows: [] };
-    const urls = new Map(await Promise.all((rows as { id: string; object_key: string }[]).map(async (r) => [r.id, await this.storage.readUrl(r.object_key)] as const)));
+    const rows = ids.length
+      ? await this.db.db.collection<Doc>('trip_photos').find({ trip_id: tripId, _id: { $in: ids } }, { projection: { object_key: 1 } }).toArray()
+      : [];
+    const urls = new Map(await Promise.all(rows.map(async (r) => [r._id, await this.storage.readUrl(r.object_key)] as const)));
     // A photo deleted since the reel was cut simply drops out of it, and so does a photo scene left without one
     const scenes = stored.flatMap(({ photoIds, ...scene }): PresentedScene[] => {
       const photos = photoIds.filter((id) => urls.has(id)).map((id) => ({ id, url: urls.get(id)! }));

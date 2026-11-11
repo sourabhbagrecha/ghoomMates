@@ -8,7 +8,7 @@ import { PACKED_FROM, BUSY_FROM, cityOf, dayNoteFor, formatTime, indiaNow } from
 import type { HeritageCity } from '../heritage/sites.ts';
 import { object } from '../expenses/domain.ts';
 import {
-  MemoryAdvisoryStore, PostgresAdvisoryStore, isActive, isIsoDate, isUuid, parseNewAdvisory, parseSiteId, parseWindow,
+  MemoryAdvisoryStore, MongoAdvisoryStore, isActive, isIsoDate, isUuid, parseNewAdvisory, parseSiteId, parseWindow,
   partnerAdvisory, publicAdvisory, type AdvisoryStore, type OpsDb,
 } from './advisories.ts';
 import { loadPlannedStops } from './demand.ts';
@@ -75,7 +75,7 @@ function reachSummary(reach: ReturnType<typeof reachOf>) {
 // Mount under /api/ops.
 export function createOpsApp({ db, authenticate, gemini, env = process.env, now = () => new Date() }: OpsAppOptions) {
   const router = Router();
-  const store: AdvisoryStore = db ? new PostgresAdvisoryStore(db) : new MemoryAdvisoryStore();
+  const store: AdvisoryStore = db ? new MongoAdvisoryStore(db) : new MemoryAdvisoryStore();
   const sampleByDefault = flag(env.OPS_SAMPLE_SQUADS, true);
   if (!db) logger.warn('Ops', 'No database: the console shows the modelled baseline plus sample squads, and advisories are kept in memory');
 

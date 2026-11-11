@@ -98,35 +98,35 @@ Stops add `axis`, `forMembers` (first names) and `split`. The response adds `fai
 
 ## Data
 
-Migrations `003_trips.sql` and `004_itinerary.sql`:
+MongoDB collections; indexes are in `src/schema.ts` and created on startup. `_id` is a UUID string except where noted.
 
 ```text
-trips             id, name, group_name, destination, start_date, end_date, budget, cover, details, day_titles,
+trips             _id, name, group_name, destination, start_date, end_date, budget, cover, details, day_titles,
                   invite_code, expense_group_id → groups, created_by → users
-trip_members      trip_id, user_id, ledger_member_id → group_members, role (organiser | mate)
-trip_photos       id, trip_id, uploaded_by, object_key, content_type, size_bytes, width, height, caption
-trip_stops        id, trip_id, day_number, time, minutes, title, tag, place, notes, created_by
-trip_stop_rsvps   stop_id, user_id, rsvp
+trip_members      _id (ObjectId), trip_id, user_id, ledger_member_id → group_members, role (organiser | mate)
+trip_photos       _id, trip_id, uploaded_by, object_key, content_type, size_bytes, width, height, caption
+trip_stops        _id, trip_id, day_number, time, minutes, title, tag, place, notes, created_by
+trip_stop_rsvps   _id (ObjectId), stop_id, user_id, rsvp
 expenses          + category, receipt_key, created_by
 ```
 
+The arrows are references checked in code, not foreign keys. Deleting stops goes through `deleteStopsCascade` (`src/trips/itinerary.ts`), which stands in for the old `ON DELETE` cascades: it removes the stops' RSVPs and impact legs and unlinks (`$unset stop_id`) maker bookings and hospitality reservations, inside the caller's transaction.
+
 ## Tests
 
-`npm test` covers date changes with a fake database (`tests/trips/dates.test.ts`) and the app's date maths (`tests/trips/tripDates.test.ts`, which runs `frontend/src/data/tripDates.ts`, a plain file with no imports).
-
-The end-to-end suite needs a real database:
+`npm test` covers date changes (`tests/trips/dates.test.ts`), the stop-delete cascade (`tests/trips/cascade.test.ts`), the app's date maths (`tests/trips/tripDates.test.ts`, which runs `frontend/src/data/tripDates.ts`, a plain file with no imports) and the end-to-end suite (`tests/trips/api.test.ts`). They run against an in-process MongoDB (`tests/mongo.ts`), a fresh database per test file, so no external database is needed. To run just this module:
 
 ```bash
-DATABASE_URL=<…/ghoomates_test> npm run test:trips
+npm run test:trips
 ```
 
-Runs create → invite → join → expenses → settle → photo/receipt upload (local storage) and the itinerary draft/save/RSVP flow against a real database. It leaves test rows behind, so point it at `ghoomates_test`.
+The end-to-end suite runs create → invite → join → expenses → settle → photo/receipt upload (local storage) and the itinerary draft/save/RSVP flow.
 
 ## Face matching
 
-A Python service under `cloud/` indexes every photo uploaded under `trips/<tripId>/photos/` into `face_photos` and `faces` (same database, created by the cloud migration, not by the backend). `face_photos.object_name` equals `trip_photos.object_key`. If those tables do not exist yet, the album still works and every photo reports `pending`.
+A Python service under `cloud/` indexes every photo uploaded under `trips/<tripId>/photos/` into the `face_photos` and `faces` collections (same database; their indexes are created by `cloud/faces/migrate.py`, not by the backend). `face_photos.object_name` equals `trip_photos.object_key`. If those collections are still empty, the album still works and every photo reports `pending`.
 
-`GET /api/trips/:id/photos` adds, per item, `faces: { status: 'pending' | 'indexed' | 'no_faces' | 'error', count }` (no `face_photos` row means `pending`, count 0), and at the top level `faceSummary: { indexed, noFaces, pending, failed, faces }` counted over the whole trip (`faces` is the sum of face counts).
+`GET /api/trips/:id/photos` adds, per item, `faces: { status: 'pending' | 'indexed' | 'no_faces' | 'error', count }` (no `face_photos` document means `pending`, count 0), and at the top level `faceSummary: { indexed, noFaces, pending, failed, faces }` counted over the whole trip (`faces` is the sum of face counts).
 
 `POST /api/trips/:id/photos/find-me` (members only) takes `{ "selfies": [dataUrlOrBase64, ...] }` with 1 to 3 JPEG, PNG or WebP images. It has its own 25 MiB JSON limit and still requires `Content-Type: application/json`. Selfies are forwarded to `face-search` in memory and never logged or stored.
 

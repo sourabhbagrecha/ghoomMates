@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Database } from '../db.ts';
 import { ApiError, object, requireThat } from '../expenses/domain.ts';
 import { GeminiError, type Gemini, type InlineData } from '../gemini.ts';
 import { logger } from '../logger.ts';
@@ -7,10 +8,9 @@ import { countPeople, describeCast, type Cast } from './cast.ts';
 import { sniffImageType } from './images.ts';
 import { ARTWORK_STYLE_IDS, artworkPrompt, artworkStyle, type ArtworkStyle } from './styles.ts';
 
-/** Only the pool's query is used, so tests can pass a fake `{ pool: { query } }`. */
-export type ArtworksDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: any[] }> };
-};
+export type ArtworksDb = Pick<Database, 'db'>;
+// Documents keyed by a uuid (or usr_ id) string
+type Doc = { _id: string; [field: string]: any };
 
 export type ArtworkOptions = {
   // Paintings per trip in any rolling 24 hours (ARTWORKS_PER_TRIP_PER_DAY)
@@ -101,29 +101,26 @@ export class ArtworkService {
   // Non-members get 404 so trip ids don't leak.
   async assertMember(tripId: string, userId: string) {
     if (!UUID.test(tripId)) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
-    const { rowCount } = await this.db.pool.query('SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2', [tripId, userId]);
-    if (!rowCount) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
+    const member = await this.db.db.collection('trip_members').findOne({ trip_id: tripId, user_id: userId }, { projection: { _id: 1 } });
+    if (!member) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
   }
 
   async limit(tripId: string): Promise<ArtworkLimit> {
-    const { rows: [row] } = await this.db.pool.query(
-      `SELECT count(*) AS n FROM trip_artworks WHERE trip_id = $1 AND created_at > now() - interval '24 hours'`,
-      [tripId],
-    );
-    const used = Number(row?.n ?? 0);
+    const used = await this.db.db.collection('trip_artworks').countDocuments({ trip_id: tripId, created_at: { $gt: new Date(Date.now() - 24 * 3600e3) } });
     return { perDay: this.dailyLimit, used, remaining: Math.max(0, this.dailyLimit - used - (this.inflight.get(tripId) ?? 0)) };
   }
 
   /** The squad's paintings, newest first, with fresh read URLs. */
   async list(tripId: string) {
-    const { rows } = await this.db.pool.query(
-      `SELECT a.id, a.photo_id, a.style, a.object_key, a.created_by, u.name AS creator, a.created_at
-       FROM trip_artworks a LEFT JOIN users u ON u.id = a.created_by
-       WHERE a.trip_id = $1 ORDER BY a.created_at DESC, a.id LIMIT $2`,
-      [tripId, GALLERY_SIZE],
-    );
+    const docs = await this.db.db.collection('trip_artworks').find({ trip_id: tripId }).sort({ created_at: -1, _id: 1 }).limit(GALLERY_SIZE).toArray();
+    const creators = [...new Set(docs.map((doc) => doc.created_by as string))];
+    const users = creators.length ? await this.db.db.collection<Doc>('users').find({ _id: { $in: creators } }, { projection: { name: 1 } }).toArray() : [];
+    const names = new Map(users.map((u) => [u._id, u.name as string]));
+    const rows: ArtworkRow[] = docs.map((doc) => ({
+      id: String(doc._id), photo_id: doc.photo_id ?? null, style: doc.style, object_key: doc.object_key, created_by: doc.created_by, creator: names.get(doc.created_by) ?? null, created_at: doc.created_at,
+    }));
     // One missing object must not empty the whole gallery
-    const items = (await Promise.all((rows as ArtworkRow[]).map((row) => this.present(row).catch(() => null)))).filter((item) => item !== null);
+    const items = (await Promise.all(rows.map((row) => this.present(row).catch(() => null)))).filter((item) => item !== null);
     return { items, limit: await this.limit(tripId) };
   }
 
@@ -136,8 +133,8 @@ export class ArtworkService {
     requireThat(typeof photoId === 'string' && UUID.test(photoId), 'photoId must be the id of one of this trip’s photos');
     if (!this.gemini.imageEnabled) throw new ApiError(503, 'ARTWORK_UNAVAILABLE', 'Painting isn’t switched on for this server yet.');
 
-    const { rows: photos } = await this.db.pool.query('SELECT id, object_key, size_bytes FROM trip_photos WHERE id = $1 AND trip_id = $2', [photoId, tripId]);
-    const photo = photos[0] as PhotoRow | undefined;
+    const doc = await this.db.db.collection<Doc>('trip_photos').findOne({ _id: photoId, trip_id: tripId }, { projection: { object_key: 1, size_bytes: 1 } });
+    const photo: PhotoRow | undefined = doc ? { id: doc._id, object_key: doc.object_key, size_bytes: doc.size_bytes ?? null } : undefined;
     if (!photo) throw new ApiError(404, 'PHOTO_NOT_FOUND', 'That photo is not in this trip');
 
     const release = await this.reserve(tripId);
@@ -176,13 +173,13 @@ export class ArtworkService {
     const id = randomUUID();
     const key = `trips/${tripId}/artworks/${id}.${IMAGE_TYPES[type] ?? 'png'}`;
     await this.storage.put(key, painted.data, type);
-    const { rows: [saved] } = await this.db.pool.query(
-      `INSERT INTO trip_artworks (id, trip_id, photo_id, created_by, style, object_key, content_type, size_bytes, model)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING created_at`,
-      [id, tripId, photo.id, user.id, style.id, key, type, painted.data.length, this.gemini.models.image],
-    );
+    const createdAt = new Date();
+    await this.db.db.collection<Doc>('trip_artworks').insertOne({
+      _id: id, trip_id: tripId, photo_id: photo.id, created_by: user.id, style: style.id, object_key: key, content_type: type,
+      size_bytes: painted.data.length, model: this.gemini.models.image, created_at: createdAt,
+    });
     logger.info('Artworks', `${user.name} painted a ${style.name} for trip ${tripId} in ${Date.now() - started} ms (${cast ? `${cast.people} people` : 'no cast list'})`);
-    return this.present({ id, photo_id: photo.id, style: style.id, object_key: key, created_by: user.id, creator: user.name, created_at: saved.created_at });
+    return this.present({ id, photo_id: photo.id, style: style.id, object_key: key, created_by: user.id, creator: user.name, created_at: createdAt });
   }
 
   private async castOf(photoId: string, image: InlineData): Promise<Cast | null> {

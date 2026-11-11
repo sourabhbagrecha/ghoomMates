@@ -6,7 +6,7 @@
 #   ./deploy.sh registry    create the Artifact Registry repository
 #   ./deploy.sh accounts    create the three service accounts
 #   ./deploy.sh iam         grant project and bucket roles
-#   ./deploy.sh migrate     create pgvector, face_photos and faces in Cloud SQL
+#   ./deploy.sh migrate     create the face_photos / faces indexes and the vector search index in Atlas
 #   ./deploy.sh build       build the image with Cloud Build and push it
 #   ./deploy.sh indexer     deploy face-indexer
 #   ./deploy.sh search      deploy face-search
@@ -38,26 +38,31 @@ MAX_INDEXER_INSTANCES="${MAX_INDEXER_INSTANCES:-10}"
 MAX_SEARCH_INSTANCES="${MAX_SEARCH_INSTANCES:-3}"
 MIN_SEARCH_INSTANCES="${MIN_SEARCH_INSTANCES:-0}"
 
-load_database_url() {
-  if [[ -z "${DATABASE_URL:-}" && -f .env ]]; then
-    DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -n1 | cut -d= -f2-)"
+load_mongodb_settings() {
+  if [[ -z "${MONGODB_CONNECTION_STRING:-}" && -f .env ]]; then
+    MONGODB_CONNECTION_STRING="$(grep -E '^MONGODB_CONNECTION_STRING=' .env | head -n1 | cut -d= -f2-)"
   fi
-  if [[ -z "${DATABASE_URL:-}" ]]; then
-    echo "Set DATABASE_URL in cloud/.env (see .env.example)" >&2
+  if [[ -z "${MONGODB_DB:-}" && -f .env ]]; then
+    MONGODB_DB="$(grep -E '^MONGODB_DB=' .env | head -n1 | cut -d= -f2-)"
+  fi
+  MONGODB_DB="${MONGODB_DB:-ghoomates}"
+  if [[ -z "${MONGODB_CONNECTION_STRING:-}" ]]; then
+    echo "Set MONGODB_CONNECTION_STRING in cloud/.env (see .env.example)" >&2
     exit 1
   fi
 }
 
 # Writes a Cloud Run env vars file (YAML) to a private temp file and prints its path.
 env_file() {
-  load_database_url
+  load_mongodb_settings
   local file
   file="$(mktemp)"
   chmod 600 "$file"
   {
     echo "SERVICE: '$1'"
     echo "LOG_LEVEL: 'INFO'"
-    echo "DATABASE_URL: '${DATABASE_URL//\'/\'\'}'"
+    echo "MONGODB_CONNECTION_STRING: '${MONGODB_CONNECTION_STRING//\'/\'\'}'"
+    echo "MONGODB_DB: '${MONGODB_DB//\'/\'\'}'"
   } > "$file"
   echo "$file"
 }
@@ -112,18 +117,18 @@ step_iam() {
     --role="roles/pubsub.publisher" \
     --condition=None
 
-  # Not needed with the direct DATABASE_URL connection. Grant these only if you switch to the Cloud SQL
-  # connector (roles/cloudsql.client) or move the password into Secret Manager (secretAccessor):
+  # Not needed while MONGODB_CONNECTION_STRING is passed as an env var. Grant this only if you move it into
+  # Secret Manager:
   # for sa in "$INDEXER_SA" "$SEARCH_SA"; do
-  #   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/cloudsql.client" --condition=None
-  #   gcloud secrets add-iam-policy-binding ghoommates-db-url --project="$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/secretmanager.secretAccessor"
+  #   gcloud secrets add-iam-policy-binding ghoommates-mongodb-uri --project="$PROJECT_ID" --member="serviceAccount:${sa}" --role="roles/secretmanager.secretAccessor"
   # done
 }
 
 step_migrate() {
-  load_database_url
+  load_mongodb_settings
   # Uses the image docker compose builds locally (docker compose build migrate); no Python setup needed.
-  docker run --rm -e DATABASE_URL="$DATABASE_URL" ghoommates-faces:local python -m faces.migrate
+  docker run --rm -e MONGODB_CONNECTION_STRING="$MONGODB_CONNECTION_STRING" -e MONGODB_DB="$MONGODB_DB" \
+    ghoommates-faces:local python -m faces.migrate
 }
 
 step_build() {
@@ -216,10 +221,11 @@ step_triggers() {
 }
 
 step_backfill() {
-  load_database_url
+  load_mongodb_settings
   # Runs the indexer locally (local image, your Application Default Credentials) over existing trip photos.
   docker run --rm \
-    -e DATABASE_URL="$DATABASE_URL" \
+    -e MONGODB_CONNECTION_STRING="$MONGODB_CONNECTION_STRING" \
+    -e MONGODB_DB="$MONGODB_DB" \
     -e BUCKET="$BUCKET" \
     -e PREFIX="trips/" \
     -e GOOGLE_CLOUD_PROJECT="$PROJECT_ID" \

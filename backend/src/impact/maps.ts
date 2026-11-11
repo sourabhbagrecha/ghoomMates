@@ -1,5 +1,5 @@
 // Optional: real road and footpath distances from the Google Maps Platform Routes API (computeRoutes).
-// Only used when GOOGLE_MAPS_API_KEY is set; every answer is cached in Postgres, and any failure falls back to the
+// Only used when GOOGLE_MAPS_API_KEY is set; every answer is cached in MongoDB, and any failure falls back to the
 // straight-line estimate in emissions.ts, so the footprint never depends on it.
 import { logger } from '../logger.ts';
 import type { ImpactCache } from './cache.ts';

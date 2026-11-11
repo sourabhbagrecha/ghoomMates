@@ -1,24 +1,19 @@
 import test from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
-import { createVoiceApp, type VoiceDb } from '../../src/voice/app.ts';
+import { createVoiceApp } from '../../src/voice/app.ts';
 import type { VoiceAgent } from '../../src/voice/wake.ts';
 import type { User } from '../../src/auth/types.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 
 const LIVEKIT_ENV = { LIVEKIT_URL: 'wss://test.livekit.cloud', LIVEKIT_API_KEY: 'test-key', LIVEKIT_API_SECRET: 'test-secret-'.repeat(4) };
 const TOKEN = 'user-jwt-abc';
 const user = { id: 'usr_1', username: 'asha', email: 'asha@test.local', name: 'Asha' } as User;
 
-// Fake pool: usr_1 is a member of 11111111-1111-4111-8111-111111111111 only.
-const db: VoiceDb = {
-  pool: {
-    query: async (_sql, values) => {
-      const member = values?.[0] === '11111111-1111-4111-8111-111111111111' && values?.[1] === 'usr_1';
-      return { rowCount: member ? 1 : 0, rows: member ? [{ '?column?': 1 }] : [] };
-    },
-  },
-};
+// usr_1 is a member of 11111111-1111-4111-8111-111111111111 only.
+const db = await testDatabase();
+await db.db.collection('trip_members').insertOne({ trip_id: '11111111-1111-4111-8111-111111111111', user_id: 'usr_1', ledger_member_id: 'ledger-usr_1', role: 'mate' });
 
 const authenticate = async (token: string) => {
   if (token !== TOKEN) throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');

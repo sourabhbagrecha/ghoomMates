@@ -1,52 +1,26 @@
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
-import { createVoiceApp, type VoiceDb } from '../../src/voice/app.ts';
+import { createVoiceApp } from '../../src/voice/app.ts';
 import { createHistoryRecorder, historyContext, historySection, type HistoryItem, type HistoryMessage } from '../../src/voice/history.ts';
 import type { User } from '../../src/auth/types.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 
 const TRIP = '11111111-1111-4111-8111-111111111111';
 const OTHER_TRIP = '22222222-2222-4222-8222-222222222222';
 const asha = { id: 'usr_1', username: 'asha', email: 'asha@test.local', name: 'Asha', preferences: { ghoomate: { notes: [] } } } as unknown as User;
 const ravi = { id: 'usr_2', username: 'ravi', email: 'ravi@test.local', name: 'Ravi' } as User;
 
-type Row = { id: number; trip_id: string; user_id: string; role: string; text: string; created_at: Date };
-
-// In-memory stand-in for the few queries the history routes run. Both users are in TRIP; nobody is in OTHER_TRIP.
-function fakeDb() {
-  const rows: Row[] = [];
-  const db: VoiceDb = {
-    pool: {
-      query: async (sql, values = []) => {
-        if (sql.includes('FROM trip_members')) {
-          const member = values[0] === TRIP && (values[1] === asha.id || values[1] === ravi.id);
-          return { rowCount: member ? 1 : 0, rows: member ? [{}] : [] };
-        }
-        if (sql.startsWith('INSERT INTO ghoomate_messages')) {
-          for (let i = 2; i < values.length; i += 2) {
-            rows.push({ id: rows.length + 1, trip_id: values[0] as string, user_id: values[1] as string, role: values[i] as string, text: values[i + 1] as string, created_at: new Date() });
-          }
-          return { rowCount: (values.length - 2) / 2, rows: [] };
-        }
-        if (sql.startsWith('SELECT id, role, text, created_at FROM ghoomate_messages')) {
-          const mine = rows.filter(r => r.trip_id === values[0] && r.user_id === values[1]).sort((a, b) => b.id - a.id).slice(0, values[2] as number);
-          return { rowCount: mine.length, rows: mine };
-        }
-        if (sql.startsWith('DELETE FROM ghoomate_messages')) {
-          const before = rows.length;
-          for (let i = rows.length - 1; i >= 0; i--) if (rows[i].trip_id === values[0] && rows[i].user_id === values[1]) rows.splice(i, 1);
-          return { rowCount: before - rows.length, rows: [] };
-        }
-        throw new Error(`Unexpected query: ${sql}`);
-      },
-    },
-  };
-  return { db, rows };
+// Both users are in TRIP; nobody is in OTHER_TRIP.
+async function fakeDb() {
+  const database = await testDatabase();
+  await database.db.collection('trip_members').insertMany([asha, ravi].map(u => ({ trip_id: TRIP, user_id: u.id, ledger_member_id: `ledger-${u.id}`, role: 'mate' })));
+  return database;
 }
 
 async function withServer(run: (call: (user: User, method: string, path: string, body?: unknown) => Promise<Response>) => Promise<void>) {
-  const { db } = fakeDb();
+  const db = await fakeDb();
   const authenticate = async (token: string) => {
     if (token === 'asha') return asha;
     if (token === 'ravi') return ravi;

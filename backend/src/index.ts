@@ -3,16 +3,16 @@ import { isDatabaseConfigured, openDatabase } from './db.ts';
 import { loadEnv } from './env.ts';
 import { createArtworksApp } from './artworks/app.ts';
 import { createApp as createAuthApp } from './auth/app.ts';
-import { createInMemoryOAuthDatabase, createPostgresOAuthDatabase } from './auth/database.ts';
+import { createInMemoryOAuthDatabase, createMongoOAuthDatabase } from './auth/database.ts';
 import { signJwt } from './auth/jwt.ts';
 import { OAuthService } from './auth/service.ts';
-import { createEventsApp, createPostgresEvents } from './events/app.ts';
+import { createEventsApp, createMongoEvents } from './events/app.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
 import { createClaude } from './claude.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
-import { createMakersApp, createPostgresMakers } from './makers/app.ts';
+import { createMakersApp, createMongoMakers } from './makers/app.ts';
 import { createImpactApp } from './impact/app.ts';
 import { createHospitalityApp } from './hospitality/app.ts';
 import { logger } from './logger.ts';
@@ -42,20 +42,20 @@ const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 const apiKey = process.env.API_KEY ?? '';
 if (apiKey && apiKey.length < 32) throw new Error('Set API_KEY to a secret of at least 32 characters in .env');
 
-// One shared Cloud SQL (Postgres) pool for every module. Without a database, auth runs on an
+// One shared MongoDB Atlas database for every module. Without a database, auth runs on an
 // in-memory store and the expense API is disabled.
 let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
 let dbMode = 'In-memory (fallback)';
 if (isDatabaseConfigured()) {
   try {
     db = await openDatabase();
-    dbMode = process.env.CLOUD_SQL_INSTANCE ? `Cloud SQL (${process.env.CLOUD_SQL_INSTANCE})` : 'Postgres (DATABASE_URL)';
+    dbMode = `MongoDB (${db.db.databaseName})`;
   } catch (err: any) {
     logger.warn('Server', `Cloud database connection failed (${err.message}). Falling back to in-memory store.`);
   }
 }
 
-const authDb = db ? createPostgresOAuthDatabase(db) : createInMemoryOAuthDatabase();
+const authDb = db ? createMongoOAuthDatabase(db) : createInMemoryOAuthDatabase();
 if (!db) {
   logger.info('Server', 'Running auth with in-memory store');
 }
@@ -115,9 +115,8 @@ if (db) {
 
 // Kaavad Tales: hand-written stories and shipped narration need no database, stamps and the passport do. Speech goes through
 // Vertex AI when it is set up, since the API key's free tier allows only 10 speech requests a day.
-const noDatabase = { pool: { query: async () => { throw new Error('No database configured'); } } };
 const stories = createStoriesApp({
-  db: db ?? noDatabase,
+  db,
   storage,
   gemini,
   vertex: process.env.VERTEX_PROJECT ? createGemini({ ...process.env, GEMINI_API_KEY: '' }) : undefined,
@@ -145,7 +144,7 @@ const app = createServer({
   reels,
   impact,
   heritage: createHeritageApp(),
-  makers: createMakersApp({ gemini, authenticate, ...(db ? createPostgresMakers(db, storage, clientOrigin) : {}) }),
+  makers: createMakersApp({ gemini, authenticate, ...(db ? createMongoMakers(db, storage, clientOrigin) : {}) }),
   // Hosts and the dashboard work without a database; squad tables reuse the trips module's membership check and stop insert
   hospitality: createHospitalityApp({
     authenticate,
@@ -159,7 +158,7 @@ const app = createServer({
   // Heritage Ops works without a database too (modelled baseline, advisories kept in memory)
   ops: createOpsApp({ db, authenticate, gemini }),
   // Mewar Utsav: browsing needs no database, adding an event to a plan does
-  events: createEventsApp({ gemini, authenticate, ...(db ? { trips: createPostgresEvents(db, storage, clientOrigin) } : {}) }),
+  events: createEventsApp({ gemini, authenticate, ...(db ? { trips: createMongoEvents(db, storage, clientOrigin) } : {}) }),
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {

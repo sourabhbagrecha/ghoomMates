@@ -16,7 +16,7 @@ Everything works with Gemini, the database or GCS unavailable: the key sites hav
 | `src/stories/speech.ts`, `wav.ts`, `narration.ts` | What the narrator says (years and numerals spelled out), joining per-panel recordings into one track with panel start times, and recording through Gemini speech. |
 | `src/stories/quiz.ts` | Server-side scoring, grades, deterministic option shuffling. |
 | `src/stories/service.ts`, `app.ts` | Orchestration and the routes. |
-| `migrations/021_stories.sql` | `story_cache`, `story_narrations`, `heritage_stamps`. |
+| `src/schema.ts` | Indexes for the `story_cache`, `story_narrations` and `heritage_stamps` collections. |
 | `scripts/stories/art.ts`, `narration.ts` | One-off generators for the committed art and narration. |
 
 ## Endpoints (mounted at `/api/stories`)

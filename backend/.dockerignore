@@ -3,6 +3,4 @@
 !package-lock.json
 !src/
 !src/**
-!migrations/
-!migrations/**
 !Dockerfile

@@ -8,7 +8,7 @@ Authentication module of the unified GhoomMates backend (routes under `/auth/*`)
   - Authorization code redirect flow (`/auth/google/url` & `/auth/google/callback`)
   - Google Identity Services (GIS) / One-Tap verification (`/auth/google/verify`)
 - **JWT Session Tokens**: Standard HMAC-SHA256 stateless session tokens with configurable expiration
-- **Cloud SQL Persistence**: Upserts users in the Postgres `users` table (unique `google_id` and lowercase `email`), with in-memory fallback for offline/local development
+- **MongoDB Persistence**: Upserts users in the MongoDB Atlas `users` collection (unique indexes on `google_id`, lowercase `email` and `username`), with in-memory fallback for offline/local development
 - **Dev Mode / Test Accounts**: Instant 1-click test accounts for effortless local UI development before configuring Google Cloud credentials
 - **CORS & Vite Proxy**: Out-of-the-box preflight and header support for `http://localhost:5173`
 
@@ -31,11 +31,9 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:5173/#/auth/callback
 
-# Google Cloud SQL (Postgres), shared with the expense module
-CLOUD_SQL_INSTANCE=optimal-comfort-510810-d1:asia-south1:ghoomates
-DB_USER=ghoomates
-DB_PASSWORD=...
-DB_NAME=ghoomates
+# MongoDB Atlas, shared with every other module
+MONGODB_CONNECTION_STRING=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
+MONGODB_DB=ghoomates
 ```
 
 ---
@@ -75,8 +73,8 @@ npm run test:auth
 
 ### Persisted user profiles
 
-Login creates a user with a unique `username` (the public user ID), name, verified-provider email, `picture`, and `preferences` JSON object. The internal `id` stays stable when a username changes. Users without a chosen username receive a generated one. Existing accounts are backfilled by migration `002_user_profiles.sql`, applied automatically at backend startup.
+Login creates a user with a unique `username` (the public user ID), name, verified-provider email, `picture`, and `preferences` JSON object. The internal `id` (`usr_…`, the document's `_id`) stays stable when a username changes. Users without a chosen username receive a generated one (their `id`, in the MongoDB store).
 
-Authenticated `PATCH /auth/profile` accepts `username`, `name`, `picture`, and `preferences`. Usernames normalize to lowercase without a leading `@`, use 3–64 letters, numbers, dots or underscores, and return 409 if taken. Preferences merge at the top level; nested values are replaced. `GET /auth/me` and login responses return the saved profile. Subsequent logins retain custom names, photos and preferences. Email comes from the login provider.
+Authenticated `PATCH /auth/profile` accepts `username`, `name`, `picture`, and `preferences`. Usernames normalize to lowercase without a leading `@`, use 3–64 letters, numbers, dots or underscores, and return 409 if taken. Preferences merge at the top level; nested values are replaced, and keys containing `.` or starting with `$` are dropped. `GET /auth/me` and login responses return the saved profile. Subsequent logins retain custom names, photos and preferences. Email comes from the login provider.
 
-Onboarding saves the chosen username, name, photo and avatar colour. Profile settings and quiz preferences also save to the backend. Photos are stored in the existing picture column as compressed data URLs. Persistent storage requires DATABASE_URL or the Cloud SQL environment configuration; the in-memory development database resets on restart.
+Onboarding saves the chosen username, name, photo and avatar colour. Profile settings and quiz preferences also save to the backend. Photos are stored in the user's `picture` field as compressed data URLs. Persistent storage requires `MONGODB_CONNECTION_STRING`; the in-memory development database resets on restart.

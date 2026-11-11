@@ -1,4 +1,5 @@
-# Local stack: pgvector Postgres (same pgvector version as Cloud SQL) + both services + a test runner.
+# Local stack: MongoDB Atlas Local (mongod + mongot, so $vectorSearch and transactions work as on Atlas) + both
+# services + a test runner.
 # Objects are read from ./local-bucket instead of GCS. See README "Local development".
 x-faces: &faces
   build:
@@ -6,7 +7,9 @@ x-faces: &faces
     target: runtime
   image: ghoommates-faces:local
   environment: &faces-env
-    DATABASE_URL: postgresql://faces:faces@db:5432/faces
+    # Atlas Local is a single-node replica set that advertises its container hostname; connect to it directly.
+    MONGODB_CONNECTION_STRING: mongodb://db:27017/?directConnection=true
+    MONGODB_DB: ghoomates
     LOCAL_MEDIA_DIR: /media
     LOG_LEVEL: INFO
   volumes:
@@ -14,20 +17,17 @@ x-faces: &faces
 
 services:
   db:
-    image: pgvector/pgvector:0.8.5-pg18
-    environment:
-      POSTGRES_USER: faces
-      POSTGRES_PASSWORD: faces
-      POSTGRES_DB: faces
-    # 5433 so it never clashes with a Postgres already on 5432.
-    ports: ["5433:5432"]
+    image: mongodb/mongodb-atlas-local:8.0.34
+    # 27018 so it never clashes with a MongoDB already on 27017.
+    ports: ["27018:27017"]
     volumes:
-      - faces-db:/var/lib/postgresql
+      - faces-db:/data/db
+    # The image's own check (healthy once mongod and mongot, the search engine, are up), polled more often.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U faces -d faces"]
+      test: ["CMD", "/usr/local/bin/runner", "healthcheck"]
       interval: 2s
-      timeout: 3s
-      retries: 30
+      timeout: 10s
+      retries: 60
 
   migrate:
     <<: *faces
@@ -60,7 +60,7 @@ services:
     image: ghoommates-faces:test
     profiles: ["test"]
     environment:
-      TEST_DATABASE_URL: postgresql://faces:faces@db:5432/faces
+      TEST_MONGODB_CONNECTION_STRING: mongodb://db:27017/?directConnection=true
       SAMPLE_CACHE_DIR: /tmp/face-samples
     depends_on:
       db: { condition: service_healthy }

@@ -1,3 +1,4 @@
+import type { Database } from '../db.ts';
 import { GeminiError, type Gemini } from '../gemini.ts';
 import { ApiError } from '../http.ts';
 import { SITE_BY_ID, SITES, type HeritageSite } from '../heritage/sites.ts';
@@ -12,13 +13,11 @@ import { gradeFor, scoreQuiz, type Grade } from './quiz.ts';
 import { narrationHash } from './speech.ts';
 import { QUIZ_SIZE, type Audience, type Lang, type NarrationInfo, type Story, type StoryBody } from './types.ts';
 
-/** Only the pool's query is used, so tests can pass a fake `{ pool: { query } }`. */
-export type StoriesDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: any[] }> };
-};
+export type StoriesDb = Pick<Database, 'db'>;
 
 export type StoriesOptions = {
-  db: StoriesDb;
+  /** Hand-written stories and shipped narration work without one; stamps, the passport and the caches need it */
+  db: StoriesDb | undefined;
   storage: MediaStorage;
   gemini: Gemini;
   /** Vertex AI client: records the narration (the API key's free tier allows 10 speech requests a day) and gives stories a second chance when the key is out of quota */
@@ -40,7 +39,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** After Gemini fails (quota, outage), retellings are skipped for this long so readers get the classic telling at once */
 const COOLDOWN_MS = 45_000;
 
-const stampView = (row: { site_id: string; score: number; total: number; stamped_at: Date | string }): StampView => ({
+type StampRow = { site_id: string; score: number; total: number; stamped_at: Date | string };
+
+const stampView = (row: StampRow): StampView => ({
   siteId: row.site_id,
   score: row.score,
   total: row.total,
@@ -56,7 +57,7 @@ function isStoryBody(value: unknown): value is StoryBody {
 }
 
 export class StoriesService {
-  private db: StoriesDb;
+  private db: StoriesDb | undefined;
   private storage: MediaStorage;
   private gemini: Gemini;
   private vertex?: Gemini;
@@ -75,6 +76,12 @@ export class StoriesService {
     this.slowMs = slowMs;
     this.now = now;
     this.retryMs = retryMs;
+  }
+
+  // Throws (and so lands in the same fallbacks as a database outage) when there is no database
+  private col(name: string) {
+    if (!this.db) throw new Error('No database configured');
+    return this.db.db.collection(name);
   }
 
   site(siteId: string): HeritageSite {
@@ -220,10 +227,10 @@ export class StoriesService {
   private async bucketFor(tripId?: string | null, viewerId?: string | null): Promise<string> {
     if (!tripId || !viewerId || !UUID.test(tripId)) return '';
     try {
-      const member = await this.db.pool.query('SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2', [tripId, viewerId]);
-      if (!member.rowCount) return '';
-      const { rows } = await this.db.pool.query('SELECT u.preferences FROM trip_members m JOIN users u ON u.id = m.user_id WHERE m.trip_id = $1', [tripId]);
-      return vibeBucket(rows.map(row => row.preferences?.vibe));
+      if (!await this.isMember(tripId, viewerId)) return '';
+      const members = await this.col('trip_members').find({ trip_id: tripId }, { projection: { user_id: 1 } }).toArray();
+      const users = await this.col('users').find({ _id: { $in: members.map(m => m.user_id) } }, { projection: { preferences: 1 } }).toArray();
+      return vibeBucket(users.map(user => user.preferences?.vibe));
     } catch (err) {
       logger.warn('Stories', `Could not read the squad's vibe: ${(err as Error).message}`);
       return '';
@@ -232,11 +239,8 @@ export class StoriesService {
 
   private async readCache(siteId: string, lang: Lang, audience: Audience, bucket: string): Promise<StoryBody | null> {
     try {
-      const { rows } = await this.db.pool.query(
-        'SELECT story FROM story_cache WHERE site_id = $1 AND lang = $2 AND audience = $3 AND vibe_bucket = $4',
-        [siteId, lang, audience, bucket],
-      );
-      return isStoryBody(rows[0]?.story) ? rows[0].story : null;
+      const row = await this.col('story_cache').findOne({ site_id: siteId, lang, audience, vibe_bucket: bucket });
+      return isStoryBody(row?.story) ? row.story : null;
     } catch (err) {
       logger.warn('Stories', `Story cache unavailable: ${(err as Error).message}`);
       return null;
@@ -245,10 +249,11 @@ export class StoriesService {
 
   private async writeCache(siteId: string, lang: Lang, audience: Audience, bucket: string, story: StoryBody, model: string) {
     try {
-      await this.db.pool.query(
-        `INSERT INTO story_cache (site_id, lang, audience, vibe_bucket, story, model) VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (site_id, lang, audience, vibe_bucket) DO NOTHING`,
-        [siteId, lang, audience, bucket, JSON.stringify(story), model],
+      // The first retelling cached wins
+      await this.col('story_cache').updateOne(
+        { site_id: siteId, lang, audience, vibe_bucket: bucket },
+        { $setOnInsert: { story, model, created_at: new Date() } },
+        { upsert: true },
       );
     } catch (err) {
       logger.warn('Stories', `Could not cache the story: ${(err as Error).message}`);
@@ -281,12 +286,7 @@ export class StoriesService {
 
   private async findNarration(story: Story, bucket: string, hash: string): Promise<NarrationResult | null> {
     try {
-      const { rows } = await this.db.pool.query(
-        `SELECT audio_key, duration_sec, marks FROM story_narrations
-         WHERE site_id = $1 AND lang = $2 AND audience = $3 AND vibe_bucket = $4 AND text_hash = $5`,
-        [story.siteId, story.lang, story.audience, bucket, hash],
-      );
-      const row = rows[0];
+      const row = await this.col('story_narrations').findOne({ site_id: story.siteId, lang: story.lang, audience: story.audience, vibe_bucket: bucket, text_hash: hash });
       if (!row || !Array.isArray(row.marks)) return null;
       return { url: await this.storage.readUrl(row.audio_key), durationSec: Number(row.duration_sec), marks: row.marks.map(Number), source: 'gemini', cached: true };
     } catch (err) {
@@ -312,10 +312,10 @@ export class StoriesService {
       throw new ApiError(503, 'NARRATION_UNAVAILABLE', 'The recording could not be saved. Try again shortly.');
     }
     try {
-      await this.db.pool.query(
-        `INSERT INTO story_narrations (site_id, lang, audience, vibe_bucket, text_hash, audio_key, duration_sec, marks, voice)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING`,
-        [story.siteId, story.lang, story.audience, bucket, hash, key, joined.durationSec, JSON.stringify(joined.marks), NARRATOR_VOICE],
+      await this.col('story_narrations').updateOne(
+        { site_id: story.siteId, lang: story.lang, audience: story.audience, vibe_bucket: bucket, text_hash: hash },
+        { $setOnInsert: { audio_key: key, duration_sec: joined.durationSec, marks: joined.marks, voice: NARRATOR_VOICE, created_at: new Date() } },
+        { upsert: true },
       );
     } catch (err) {
       logger.warn('Stories', `Could not remember the narration: ${(err as Error).message}`);
@@ -339,8 +339,7 @@ export class StoriesService {
 
   private async isMember(tripId: string, userId: string) {
     if (!UUID.test(tripId)) return false;
-    const { rowCount } = await this.db.pool.query('SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2', [tripId, userId]);
-    return !!rowCount;
+    return !!await this.col('trip_members').findOne({ trip_id: tripId, user_id: userId }, { projection: { _id: 1 } });
   }
 
   /** Trip members only; non-members get 404 so trip ids don't leak */
@@ -349,8 +348,8 @@ export class StoriesService {
   }
 
   private async stampsOf(userId: string): Promise<StampView[]> {
-    const { rows } = await this.db.pool.query('SELECT site_id, score, total, stamped_at FROM heritage_stamps WHERE user_id = $1 ORDER BY stamped_at', [userId]);
-    return rows.filter(row => SITE_BY_ID.has(row.site_id)).map(stampView);
+    const rows = await this.col('heritage_stamps').find({ user_id: userId }).sort({ stamped_at: 1, _id: 1 }).toArray();
+    return rows.filter(row => SITE_BY_ID.has(row.site_id)).map(row => stampView(row as unknown as StampRow));
   }
 
   /** Scores the quiz on the server and stamps the passport of the player and anyone who listened with them (best score kept) */
@@ -367,29 +366,36 @@ export class StoriesService {
     let listeners: string[] = [];
     if (squadTrip) {
       // Only people on the same trip can be stamped along with you
-      const { rows } = await this.db.pool.query('SELECT user_id FROM trip_members WHERE trip_id = $1', [squadTrip]);
+      const rows = await this.col('trip_members').find({ trip_id: squadTrip }, { projection: { user_id: 1 } }).toArray();
       const members = new Set(rows.map(row => row.user_id as string));
       listeners = withUserIds.filter(id => members.has(id) && id !== viewerId);
     }
     const recipients = [...new Set([viewerId, ...listeners])];
 
-    const { rows: stamped } = await this.db.pool.query(
-      `INSERT INTO heritage_stamps (user_id, site_id, score, total, lang, trip_id)
-       SELECT recipient, $2::text, $3::int, $4::int, $5::text, $6::uuid FROM unnest($1::text[]) AS recipient
-       ON CONFLICT (user_id, site_id) DO UPDATE SET score = GREATEST(heritage_stamps.score, excluded.score), updated_at = now()
-       RETURNING user_id, score, total, (xmax = 0) AS inserted`,
-      [recipients, siteId, result.score, result.total, story.lang, squadTrip],
-    );
-    const mine = stamped.find(row => row.user_id === viewerId);
+    // One stamp per person per site, keeping the best score; the rest is set only on the first stamp
+    const now = new Date();
+    const { upsertedIds } = await this.col('heritage_stamps').bulkWrite(recipients.map(userId => ({
+      updateOne: {
+        filter: { user_id: userId, site_id: siteId },
+        update: {
+          $max: { score: result.score },
+          $set: { updated_at: now },
+          $setOnInsert: { total: result.total, lang: story.lang, trip_id: squadTrip, stamped_at: now },
+        },
+        upsert: true,
+      },
+    })));
+    const firstTime = recipients.indexOf(viewerId) in upsertedIds;
 
     const stamps = await this.stampsOf(viewerId);
+    const mine = stamps.find(stamp => stamp.siteId === siteId);
     return {
       siteId,
       siteName: story.siteName,
       ...result,
       /** The best round you have had here, which can be higher than this one */
-      best: mine ? { score: mine.score as number, total: mine.total as number, grade: gradeFor(mine.score, mine.total) } : { score: result.score, total: result.total, grade: result.grade },
-      firstTime: !!mine?.inserted,
+      best: mine ? { score: mine.score, total: mine.total, grade: mine.grade } : { score: result.score, total: result.total, grade: result.grade },
+      firstTime,
       stampedWith: listeners.length,
       passport: { stamped: stamps.length, totalSites: SITES.length },
       ...(squadTrip ? { squad: await this.squadAt(squadTrip, siteId) } : {}),
@@ -398,23 +404,21 @@ export class StoriesService {
 
   /** Who in the squad holds the stamp for one site */
   private async squadAt(tripId: string, siteId: string) {
-    const { rows } = await this.db.pool.query(
-      `SELECT m.ledger_member_id AS member_id, m.user_id, u.name, u.picture, s.score, s.total
-       FROM trip_members m
-       JOIN users u ON u.id = m.user_id
-       LEFT JOIN heritage_stamps s ON s.user_id = m.user_id AND s.site_id = $2
-       WHERE m.trip_id = $1
-       ORDER BY m.joined_at`,
-      [tripId, siteId],
-    );
-    const members = rows.map(row => ({
-      memberId: row.member_id as string,
-      userId: row.user_id as string,
-      name: row.name as string,
-      picture: (row.picture ?? null) as string | null,
-      stamped: row.score !== null && row.score !== undefined,
-    }));
+    const squad = await this.squadOf(tripId);
+    const stamped = new Set((await this.col('heritage_stamps').find({ site_id: siteId, user_id: { $in: squad.map(m => m.userId) } }, { projection: { user_id: 1 } }).toArray()).map(s => s.user_id));
+    const members = squad.map(member => ({ ...member, stamped: stamped.has(member.userId) }));
     return { total: members.length, stamped: members.filter(m => m.stamped).length, members };
+  }
+
+  /** The trip's members who still have an account, in the order they joined */
+  private async squadOf(tripId: string) {
+    const members = await this.col('trip_members').find({ trip_id: tripId }).sort({ joined_at: 1, _id: 1 }).toArray();
+    const users = await this.col('users').find({ _id: { $in: members.map(m => m.user_id) } }, { projection: { name: 1, picture: 1 } }).toArray();
+    const byId = new Map(users.map(u => [u._id as unknown as string, u]));
+    return members.filter(m => byId.has(m.user_id)).map(m => {
+      const user = byId.get(m.user_id)!;
+      return { memberId: m.ledger_member_id as string, userId: m.user_id as string, name: user.name as string, picture: (user.picture ?? null) as string | null };
+    });
   }
 
   /** Your stamps, and the catalogue of every site (stamped or not yet) */
@@ -440,23 +444,11 @@ export class StoriesService {
 
   private async tripPassportNow(tripId: string, userId: string) {
     await this.assertMember(tripId, userId);
-    const { rows } = await this.db.pool.query(
-      `SELECT m.ledger_member_id AS member_id, m.user_id, u.name, u.picture, s.site_id, s.score, s.total, s.stamped_at
-       FROM trip_members m
-       JOIN users u ON u.id = m.user_id
-       LEFT JOIN heritage_stamps s ON s.user_id = m.user_id
-       WHERE m.trip_id = $1
-       ORDER BY m.joined_at, s.stamped_at`,
-      [tripId],
-    );
-    const people = new Map<string, { memberId: string; userId: string; name: string; picture: string | null; stamps: StampView[] }>();
+    const squad = await this.squadOf(tripId);
+    const people = new Map(squad.map(member => [member.userId, { ...member, stamps: [] as StampView[] }]));
+    const rows = await this.col('heritage_stamps').find({ user_id: { $in: [...people.keys()] } }).sort({ stamped_at: 1, _id: 1 }).toArray();
     for (const row of rows) {
-      let person = people.get(row.user_id);
-      if (!person) {
-        person = { memberId: row.member_id, userId: row.user_id, name: row.name, picture: row.picture ?? null, stamps: [] };
-        people.set(row.user_id, person);
-      }
-      if (row.site_id && SITE_BY_ID.has(row.site_id)) person.stamps.push(stampView(row));
+      if (SITE_BY_ID.has(row.site_id)) people.get(row.user_id)?.stamps.push(stampView(row as unknown as StampRow));
     }
     const members = [...people.values()].map(person => ({
       ...person,

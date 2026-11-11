@@ -63,19 +63,19 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
 
   // Mounted before the internal /api ledger, whose service-token check would reject user requests.
   app.use('/api/trips', trips ?? (() => {
-    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Trips need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Trips need a database; set MONGODB_CONNECTION_STRING');
   }));
   app.use('/api/voice', voice ?? (() => {
-    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Voice needs a database; set MONGODB_CONNECTION_STRING');
   }));
   app.use('/api/artworks', artworks ?? (() => {
-    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Artworks need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Artworks need a database; set MONGODB_CONNECTION_STRING');
   }));
   app.use('/api/reels', reels ?? (() => {
-    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Reels need a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Reels need a database; set MONGODB_CONNECTION_STRING');
   }));
   app.use('/api/impact', impact ?? (() => {
-    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Impact needs a database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+    throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Impact needs a database; set MONGODB_CONNECTION_STRING');
   }));
   if (heritage) app.use('/api/heritage', heritage);
   if (makers) app.use('/api/makers', makers);

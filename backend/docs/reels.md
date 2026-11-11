@@ -29,7 +29,7 @@ Writer failures never fail the request: Claude steps in for Gemini, the template
 4. `normalizePlan()` keeps only shown photos (each once in photo scenes; collages may reuse them), at most one map and one stats scene (only when there are facts), at most two text cards (only with words), map pins with real coordinates within 2° of the first, and emoji-only stickers (up to 3). It clamps scenes to 1 to 5 seconds (2.5 minimum for maps and stats) and 55 seconds in all, and replaces unknown kinds, styles, moves, transitions, effects and layouts. Fewer than 3 usable scenes, or fewer than 2 with photos, counts as a failure.
 5. **Claude fallback** (`src/claude.ts`): if Gemini is off, errors, times out or gives too few usable scenes, the same prompt, labels and photos go to Claude (`CLAUDE_MODEL`, default `claude-opus-5-5`, effort `medium`) with the plan as a JSON Schema structured output (`CLAUDE_REEL_SCHEMA`), checked by the same `normalizePlan()`. HEIC photos are left out for Claude, which doesn't read them. Gemini gets up to 50 seconds and Claude whatever is left of 105 seconds (at least 20). Requests opt into Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a policy decline is retried on another Claude model rather than failing.
 6. Without either, or when both fail: `templatePlan()` takes up to 10 (14 for fast edits) photos spread over the trip, with a look read from the prompt's words, adds a collage in the middle when there are 6 or more photos and a stats scene at the end when there are facts.
-7. Store the plan in `trip_reels` (migration `027_reels.sql`) and return it with photo links.
+7. Store the plan in `trip_reels` (indexes in `src/schema.ts`) and return it with photo links.
 
 ## Scenes
 

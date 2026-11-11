@@ -1,9 +1,10 @@
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
+import { testDatabase } from '../mongo.ts';
 import {
-  MemoryAdvisoryStore, PostgresAdvisoryStore, addDays, isActive, isIsoDate, parseNewAdvisory, parseWindow, partnerAdvisory,
-  publicAdvisory, type NewAdvisory, type OpsDb,
+  MemoryAdvisoryStore, MongoAdvisoryStore, addDays, isActive, isIsoDate, parseNewAdvisory, parseWindow, partnerAdvisory,
+  publicAdvisory, type NewAdvisory,
 } from '../../src/ops/advisories.ts';
 
 const TODAY = '2026-11-01';
@@ -136,37 +137,24 @@ describe('storage', () => {
     expect(await store.list({ fromDate: '2026-11-01' })).toHaveLength(2);
   });
 
-  test('the Postgres store inserts, reads back Date columns, and counts withdrawals by rows touched', async () => {
-    const calls: { sql: string; values: unknown[] }[] = [];
-    const db: OpsDb = {
-      pool: {
-        query: async (sql, values = []) => {
-          calls.push({ sql, values });
-          if (sql.startsWith('INSERT')) {
-            return {
-              rowCount: 1,
-              rows: [{
-                id: values[0], city: values[1], site_id: values[2], advisory_date: new Date(2026, 10, 2), start_minutes: values[4], end_minutes: values[5],
-                level: values[6], message_en: values[7], message_hi: values[8], alt_site_id: values[9], alt_minutes: values[10],
-                reach_squads: values[11], reach_people: values[12], created_by: values[13], created_at: new Date('2026-11-01T10:00:00Z'),
-              }],
-            };
-          }
-          if (sql.startsWith('UPDATE')) return { rowCount: values[0] === 'known' ? 1 : 0, rows: [] };
-          return { rowCount: 0, rows: [] };
-        },
-      },
-    };
-    const store = new PostgresAdvisoryStore(db);
+  test('the MongoDB store inserts, filters, orders by day and time, and soft-deletes withdrawals', async () => {
+    const store = new MongoAdvisoryStore(await testDatabase());
     const saved = await store.create(sample());
     expect(saved.date).toBe('2026-11-02');
-    expect(saved.createdAt).toBe('2026-11-01T10:00:00.000Z');
     expect(saved.reachSquads).toBe(41);
-    expect(await store.withdraw('known')).toBe(true);
+    expect(saved.altSiteId).toBe('bagore-ki-haveli');
+    expect(Number.isNaN(Date.parse(saved.createdAt))).toBe(false);
+    const later = await store.create(sample({ date: '2026-11-03' }));
+    const early = await store.create(sample({ startMinutes: 480, endMinutes: 540, altSiteId: null, altMinutes: null, reachSquads: null, reachPeople: null, createdBy: null }));
+    const listed = await store.list({ city: 'Udaipur', fromDate: TODAY });
+    expect(listed.map(a => a.id)).toEqual([early.id, saved.id, later.id]);
+    expect(listed[0]).toEqual({ ...early });
+    expect((await store.list({ fromDate: TODAY, date: '2026-11-03' })).map(a => a.id)).toEqual([later.id]);
+    expect(await store.list({ city: 'Jaipur' as never, fromDate: TODAY })).toHaveLength(0);
+    expect(await store.list({ fromDate: '2026-11-04' })).toHaveLength(0);
+    expect(await store.withdraw(saved.id)).toBe(true);
+    expect(await store.withdraw(saved.id)).toBe(false);
     expect(await store.withdraw('other')).toBe(false);
-    await store.list({ city: 'Udaipur', fromDate: TODAY });
-    const select = calls.at(-1)!;
-    expect(select.sql.includes('withdrawn_at IS NULL')).toBe(true);
-    expect(select.values).toEqual([TODAY, null, 'Udaipur']);
+    expect(await store.list({ fromDate: TODAY })).toHaveLength(2);
   });
 });

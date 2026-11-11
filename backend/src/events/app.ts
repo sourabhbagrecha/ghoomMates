@@ -55,7 +55,7 @@ export function createEventsApp({ gemini, authenticate, trips, now = () => new D
 
   const requireUser: RequestHandler = async (req, res, next) => {
     if (!service || !authenticate) {
-      throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Adding to a plan needs the database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+      throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Adding to a plan needs the database; set MONGODB_CONNECTION_STRING');
     }
     const token = bearer(req);
     if (!token) throw new ApiError(401, 'UNAUTHORIZED', 'Sign in to continue');
@@ -105,18 +105,17 @@ export function createEventsApp({ gemini, authenticate, trips, now = () => new D
 }
 
 /** The real trips bridge, for when the server has a database */
-export function createPostgresEvents(db: Database, storage: MediaStorage, clientOrigin: string): EventsTrips {
+export function createMongoEvents(db: Database, storage: MediaStorage, clientOrigin: string): EventsTrips {
   const tripService = new TripService(db, storage, clientOrigin);
   const itinerary = new ItineraryService(db);
   return {
     access: (tripId, userId) => tripService.access(tripId, userId),
     addStop: (access, userId, input) => itinerary.addStop(access, userId, input),
     hasStop: async (tripId, dayNumber, title) => {
-      const { rows } = await db.pool.query(
-        'SELECT 1 FROM trip_stops WHERE trip_id = $1 AND day_number = $2 AND lower(title) = lower($3) LIMIT 1',
-        [tripId, dayNumber, title],
-      );
-      return rows.length > 0;
+      // Same title ignoring case; the title is escaped so it matches literally
+      const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const exact = new RegExp(`^${escaped}$`, 'i');
+      return Boolean(await db.db.collection('trip_stops').findOne({ trip_id: tripId, day_number: dayNumber, title: exact }, { projection: { _id: 1 } }));
     },
   };
 }

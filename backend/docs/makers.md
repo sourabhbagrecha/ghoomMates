@@ -11,9 +11,9 @@ Visitors struggle to find genuine artisans. Touts and machine-made “handicraft
 | `src/makers/logic.ts` | Pure functions: `haversineKm`, `listMakers` (craft filter, nearest-to-a-site sort), `fairPriceCheck`, `availabilityFor` (slots for a date), the FAQ matcher and the facts Gemini may use. |
 | `src/makers/ask.ts` | `POST /:id/ask`: Gemini answers from the maker's and craft's facts only; the best curated FAQ answer otherwise. |
 | `src/makers/service.ts` | Booking: validates, checks the slot, saves the booking, adds the itinerary stop through the trips module. |
-| `src/makers/store.ts` | `MakersStore` interface and the Postgres store (`maker_bookings`). |
-| `src/makers/app.ts` | The router, mounted at `/api/makers`, and `createPostgresMakers()` which wires the store and the trips bridge. |
-| `migrations/020_makers.sql` | One table, `maker_bookings`. Crafts and makers live in code, not the database. |
+| `src/makers/store.ts` | `MakersStore` interface and the MongoDB store (`maker_bookings`, plus the `maker_slots` seat counters). |
+| `src/makers/app.ts` | The router, mounted at `/api/makers`, and `createMongoMakers()` which wires the store and the trips bridge. |
+| `src/schema.ts` | Indexes for `maker_bookings` and `maker_slots`. Crafts and makers live in code, not the database. |
 
 Browsing, the price checker, slots and the ask box need **no sign-in and no database**. Booking needs both (a signed-in trip member), and answers `503 SERVICE_UNAVAILABLE` without a database.
 
@@ -50,7 +50,7 @@ The demo case: a ₹2,500 “antique” medium (A4) Mewar miniature is 1.4× the
 1. The trip is checked with `TripService.access` (non-members get 404).
 2. The date becomes a day number of the trip (`400 DATE_OUTSIDE_TRIP` if it falls outside; trips without dates take `dayNumber` or day 1).
 3. The slot must exist that weekday, not be a closed date (Diwali, 8 Nov 2026, is closed for every maker), start at least three hours from now, and have room: every session takes up to the maker's maximum group, and a group needs at least the minimum.
-4. The booking row is written under a per-slot advisory lock, so two squads can't both take the last places.
+4. The booking is written in a transaction that first adds its people to the slot's `maker_slots` counter (`$inc`, `_id` = maker, date and slot) and refuses if the total passes the maximum group. Two squads booking at once write-conflict on that counter and the loser retries against the new total, so they can't both take the last places. Cancelling gives the places back.
 5. The stop is added with the trips module's own `ItineraryService.addStop`, tagged Culture, with the cost, the maker and what you take away in the notes. The `place` text deliberately avoids heritage-site names so the itinerary doesn't attach a crowd forecast (and a “move to a quieter time” nudge) to a workshop. If the stop can't be added, the booking is cancelled, so nobody is booked into a session that isn't in the plan.
 
 Payment is not handled: the stop says to pay the maker directly (UPI or cash). Booking is simulated for the sample makers.

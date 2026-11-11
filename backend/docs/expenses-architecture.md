@@ -2,7 +2,7 @@
 **Module:** `expenses`  
 **Monorepo Path:** `backend` (module `src/expenses/`, served by the unified backend)  
 **Ecosystem:** GhoomMates Travel Companion Platform  
-**Runtimes:** Node.js (v22.18+) &bull; **Database:** Google Cloud SQL for PostgreSQL 18
+**Runtimes:** Node.js (v22.18+) &bull; **Database:** MongoDB Atlas
 
 ---
 
@@ -12,7 +12,7 @@ The `expenses` module of the unified backend is the component within the **Ghoom
 
 ### Key Tenets
 1. **Zero Financial Precision Drift**: No floating-point numbers are used for monetary calculations. All amounts are stored and calculated as 64-bit integer **paise** ($1\text{ INR} = 100\text{ paise}$).
-2. **ACID Transactional Consistency**: All balance mutations, sequential audit logs, and idempotency states execute within a single Postgres transaction.
+2. **ACID Transactional Consistency**: All balance mutations, sequential audit logs, and idempotency states execute within a single MongoDB multi-document transaction.
 3. **Strict Idempotency**: All state-modifying requests require a unique `Idempotency-Key` header hashed via SHA-256 to prevent duplicate charges or double payments.
 4. **Platform & Runtime Neutrality**: Runs on standard Node.js, executing the TypeScript sources directly with no build step.
 
@@ -35,9 +35,9 @@ flowchart TD
         ServiceLayer["ExpenseService\n(Transactional Workflows)"]
     end
 
-    subgraph Storage["Google Cloud Platform (Managed)"]
-        CloudSQL["Google Cloud SQL\n(PostgreSQL 18, instance ghoomates)"]
-        Tables[("Tables:\ngroups, group_members\nexpenses, expense_shares\nsettlements\nidempotency_keys")]
+    subgraph Storage["MongoDB Atlas (Managed)"]
+        Atlas["MongoDB Atlas\n(database ghoomates)"]
+        Collections[("Collections:\ngroups, group_members\nexpenses (shares embedded)\nsettlements\nidempotency_keys")]
     end
 
     Web -->|HTTPS| Gateway
@@ -46,8 +46,8 @@ flowchart TD
     Auth --> Router
     Router --> ServiceLayer
     ServiceLayer <--> Domain
-    ServiceLayer -->|Cloud SQL Node.js Connector\nTLS + IAM-authorized| CloudSQL
-    CloudSQL --- Tables
+    ServiceLayer -->|MongoDB Node.js driver\nTLS, mongodb+srv| Atlas
+    Atlas --- Collections
 ```
 
 ---
@@ -61,23 +61,23 @@ erDiagram
     GROUP ||--|{ MEMBER : "contains"
     GROUP ||--|{ EXPENSE : "records"
     GROUP ||--|{ SETTLEMENT : "tracks"
-    EXPENSE ||--|{ EXPENSE_SHARE : "splits into"
+    EXPENSE ||--|{ EXPENSE_SHARE : "embeds (shares array)"
     IDEMPOTENCY ||--o| GROUP : "protects writes"
 
     GROUP {
-        string id PK "UUID"
+        string _id PK "UUID"
         string name "Trip or Group Title"
         string currency "Strictly 'INR'"
-        bigint sequence "Strictly monotonically increasing"
-        timestamptz created_at
+        int sequence "Strictly monotonically increasing"
+        date created_at
     }
 
     MEMBER {
-        uuid id PK
-        uuid group_id FK
+        string _id PK "UUID"
+        string group_id FK "checked in code"
         int position "Display order"
         string name "Display Name (1-100 chars)"
-        bigint balance_paise "Net balance; sums to zero per group"
+        int balance_paise "Net balance; sums to zero per group"
     }
 
     EXPENSE {
@@ -92,10 +92,9 @@ erDiagram
     }
 
     EXPENSE_SHARE {
-        uuid expense_id PK "Expense Reference"
-        int position PK "Participant order"
-        uuid member_id FK "Member Reference"
-        bigint amount_paise "Share owed in paise"
+        int position "Participant order"
+        string member_id FK "Member Reference"
+        int amount_paise "Share owed in paise"
     }
 
     SETTLEMENT {
@@ -111,7 +110,7 @@ erDiagram
     }
 
     IDEMPOTENCY {
-        string id PK "SHA-256(scope, key)"
+        string _id PK "SHA-256(scope, key)"
         string scope "Route identifier"
         string request "Canonical input JSON string"
         string response "Cached response JSON"
@@ -157,61 +156,61 @@ sequenceDiagram
     actor Client as API Client / Gateway
     participant Router as App Router (app.ts)
     participant Service as ExpenseService
-    participant DB as Cloud SQL (PostgreSQL)
+    participant DB as MongoDB Atlas
 
     Client->>Router: POST /api/groups/{id}/expenses (with Idempotency-Key)
     Router->>Service: mutate(scope, key, payload, action)
-    Service->>DB: BEGIN
+    Service->>DB: startSession + withTransaction
 
     rect rgb(240, 248, 255)
-        Note over Service,DB: Inside one READ COMMITTED transaction
-        Service->>DB: pg_advisory_xact_lock(sha256(scope, key))
-        Service->>DB: SELECT idempotency_keys WHERE id = sha256(scope, key)
+        Note over Service,DB: Inside one snapshot transaction (driver retries it on a write conflict)
+        Service->>DB: findOne idempotency_keys { _id: sha256(scope, key) }
         alt Key Exists
             DB-->>Service: Return cached record
             Service-->>Client: 201 Cached JSON (Early Return)
         else Key Does Not Exist
-            Service->>DB: SELECT groups WHERE id FOR UPDATE
-            Service->>DB: SELECT group_members (current balances)
-            Service->>Service: Validate payer & participants
-            Service->>Service: Recalculate balances & bump sequence (N+1)
-            Service->>DB: UPDATE groups.sequence, group_members.balance_paise
-            Service->>DB: INSERT expenses (sequence N+1) + expense_shares
-            Service->>DB: INSERT idempotency_keys (request, response)
+            Service->>DB: findOneAndUpdate groups { $inc: { sequence: 1 } } (claims the group)
+            Service->>DB: find group_members (current balances)
+            Service->>Service: Validate payer & participants, recalculate balances
+            Service->>DB: bulkWrite group_members { $inc: { balance_paise: delta } }
+            Service->>DB: insertOne expenses (sequence N+1, shares embedded)
+            Service->>DB: insertOne idempotency_keys (request, response)
         end
     end
 
-    DB-->>Service: COMMIT
+    DB-->>Service: commitTransaction
     Service-->>Router: Success Result
     Router-->>Client: 201 Created (JSON Response)
 ```
+
+Every ledger write to a group bumps the same `groups` document first, so two concurrent writes to one group write-conflict and the driver re-runs the loser on a fresh snapshot, where it sees the winner's balances (and, for a retried key, the stored response). A retry whose snapshot predates the winner's commit gets a duplicate key on the `idempotency_keys` insert instead; `mutate` runs the transaction once more, which replays the stored response.
 
 ---
 
 ## 6. Storage & Database Tier
 
-### Google Cloud SQL for PostgreSQL
-The service connects to the `ghoomates` Cloud SQL instance (`optimal-comfort-510810-d1:asia-south1:ghoomates`) through the Cloud SQL Node.js Connector, which fetches ephemeral certificates with Application Default Credentials. No authorized networks or Auth Proxy are needed. The auth and expense modules share one `pg` pool. The schema lives in `migrations/` and is applied on startup.
+### MongoDB Atlas
+The service connects to MongoDB Atlas with the official Node.js driver over TLS (`mongodb+srv://`); Atlas Network Access must allow the caller (Cloud Run needs `0.0.0.0/0`). Every module shares one `MongoClient`. Collections and indexes are declared in `src/schema.ts` and created on startup if missing; there are no migrations.
 
 #### Connection Parameters
 
 | Variable | Example | Purpose |
 | :--- | :--- | :--- |
-| **`CLOUD_SQL_INSTANCE`** | `project:region:instance` | Instance connection name used by the connector. |
-| **`CLOUD_SQL_IP_TYPE`** | `PUBLIC` | `PUBLIC`, `PRIVATE`, or `PSC`. |
-| **`DB_USER` / `DB_PASSWORD`** | `ghoomates` | Built-in Postgres user. |
-| **`DB_NAME`** | `ghoomates` | Database (`ghoomates_test` for API tests). |
-| **`DATABASE_URL`** | `postgres://…` | Alternative to the connector for local Postgres or the Auth Proxy. |
+| **`MONGODB_CONNECTION_STRING`** | `mongodb+srv://user:pass@cluster.mongodb.net/` | Atlas connection string. |
+| **`MONGODB_DB`** | `ghoomates` | Database name (default `ghoomates`). |
+| **`DB_POOL_SIZE`** | `10` | Driver connection pool size. |
+
+API tests use an in-process MongoDB replica set (`tests/mongo.ts`) with a fresh database per test file.
 
 #### Keys & Indexes
 
-| Table | Key | Unique | Purpose |
+| Collection | Key | Unique | Purpose |
 | :--- | :--- | :--- | :--- |
-| `groups` | `id` | **Yes** | Primary key; row lock serializes ledger writes per group. |
-| `group_members` | `(group_id, id)` | **Yes** | Target of composite foreign keys that keep members within their group. |
+| `groups` | `_id` | **Yes** | Primary key; the `$inc` on `sequence` serializes ledger writes per group. |
+| `group_members` | `(group_id, position)` | **Yes** | Member display order; membership of payers and parties is checked in code (no foreign keys). |
 | `expenses` | `(group_id, sequence)` | **Yes** | Chronological reverse-pagination feed. |
 | `settlements` | `(group_id, sequence)` | **Yes** | Chronological payment history. |
-| `idempotency_keys` | `id` | **Yes** | Constant-time duplicate detection. |
+| `idempotency_keys` | `_id` | **Yes** | Constant-time duplicate detection. |
 
 ---
 
@@ -235,10 +234,10 @@ The service connects to the `ghoomates` Cloud SQL instance (`optimal-comfort-510
 Local Dev (Port 3000) ---> Cloud Run (Port 8080)
    ├── Node 22.18+             ├── node:24-slim Container
    ├── Direct TLS connection   ├── Managed VPC & Secret Manager
-   └── Automatic .env loader   └── Zero-trust Service Account (cloudsql.client)
+   └── Automatic .env loader   └── MongoDB Atlas over TLS
 ```
 
 ### Health Probes & Monitoring
 - **Liveness & Readiness**: `GET /health` returns `200 {"status":"ok"}` without database locking overhead, suitable for Cloud Run / Kubernetes probes.
-- **Graceful Shutdown**: Intercepts `SIGINT` and `SIGTERM` to close HTTP listeners, and drain the Postgres connection pool cleanly without dropping in-flight transactions.
+- **Graceful Shutdown**: Intercepts `SIGINT` and `SIGTERM` to close HTTP listeners, and close the MongoDB client cleanly without dropping in-flight transactions.
 

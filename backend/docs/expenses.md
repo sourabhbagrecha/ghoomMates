@@ -2,30 +2,28 @@
 
 Expense-splitting module of the unified GhoomMates backend, mounted at `/api/*`. See [../README.md](../README.md) for running the server.
 
-Node.js + TypeScript HTTP API backed by Google Cloud SQL for PostgreSQL, shared with the auth module. Money remains integer paise; the HTTP API is unchanged.
+Node.js + TypeScript HTTP API backed by MongoDB Atlas, shared with the auth module and every other module. Money remains integer paise; the HTTP API is unchanged.
 
 > 📖 **Architecture & Design Document**: For data models, entity relationships, splitting algorithms, and transaction lifecycles, see [expenses-architecture.md](expenses-architecture.md).
 
-## Connecting to Cloud SQL
+## Connecting to MongoDB
 
-The server connects to the `ghoomates` Cloud SQL instance through the [Cloud SQL Node.js Connector](https://github.com/GoogleCloudPlatform/cloud-sql-nodejs-connector), which authorizes with [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc) and encrypts the connection without authorized networks or the Auth Proxy. Locally, run `gcloud auth application-default login`; on Cloud Run, grant the service account `roles/cloudsql.client`. Configure `backend/.env`:
+The server connects to MongoDB Atlas with the official Node.js driver. Atlas Network Access must allow the caller's IP (Cloud Run needs `0.0.0.0/0`). Configure `backend/.env`:
 
 ```env
 HOST=127.0.0.1
 PORT=3000
 API_KEY=your-32-char-random-secret
-CLOUD_SQL_INSTANCE=optimal-comfort-510810-d1:asia-south1:ghoomates
-DB_USER=ghoomates
-DB_PASSWORD=...
-DB_NAME=ghoomates
+MONGODB_CONNECTION_STRING=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
+MONGODB_DB=ghoomates
 ```
 
-`DATABASE_URL=postgres://user:password@host:5432/db` can replace the Cloud SQL variables, for example with a local Postgres or the Cloud SQL Auth Proxy. Pending files in `migrations/` are applied on startup, in filename order, under an advisory lock.
+There are no migrations: on startup, `src/schema.ts` creates any missing collection and index. Transactions need a replica set, which every Atlas cluster is.
 
 ### Verification & Run Commands
 
 ```bash
-# Connect, apply migrations, and list table row counts:
+# Connect, create indexes, and list collection document counts:
 npm run test:connection
 
 # Run end-to-end trip verification (group, expense, split, settlement); writes sample data:
@@ -40,10 +38,10 @@ npm start
 ```bash
 npm run test:unit
 npm run typecheck
-DB_NAME=ghoomates_test npm run test:expenses
+npm run test:expenses
 ```
 
-API tests create groups in the configured database and never delete them, so run them against the `ghoomates_test` database rather than `ghoomates`. They cover duplicate retries, concurrent expenses, simultaneous settlement attempts, new connection pools, and history pagination. Requests from a laptop cross the network to `asia-south1`, so the suite allows 30 seconds per test.
+API tests run against an in-process MongoDB replica set (`tests/mongo.ts`), each file in its own throwaway database, so they need no external database and never touch `ghoomates`. They cover duplicate retries, concurrent expenses, simultaneous settlement attempts, a new database connection, and history pagination. The suite allows 30 seconds per test.
 
 ## Current scope
 
@@ -53,7 +51,7 @@ API tests create groups in the configured database and never delete them, so run
 - Immutable expenses, paginated expense history, and member net balances.
 - Suggested transfers based on net balances, including partial settlements.
 - Manually confirmed payment records and settlement history.
-- Postgres transactions and persistent idempotency keys on every POST.
+- MongoDB multi-document transactions and persistent idempotency keys on every POST.
 
 This is an **internal API MVP**, not a public multi-user service. The service bearer token grants access to every group; names represent ledger participants, not authenticated users. Do not embed this key in frontend code. User login, per-member authorization, invitations, expense corrections/voids, multiple payers, and rate limiting are future work. The server binds to localhost by default.
 
@@ -76,7 +74,7 @@ All routes except `GET /health` require `Authorization: Bearer <API_KEY>`. All P
 | POST | `/api/groups/:id/settlements` | Record a manually confirmed payment |
 | GET | `/api/groups/:id/settlements?limit=50&offset=0` | List payments, newest first |
 
-List limits are 1–100. Offset pagination preserves the existing API, but Postgres still scans skipped rows; use small offsets in this MVP and move to cursor pagination for large histories. Mutations return HTTP 201; replaying the same key and request returns the original body with 201. Reusing the key with different content returns 409. Keys are scoped to the group/resource (group creation has its own scope) and currently retained indefinitely. A failed validation does not consume the key.
+List limits are 1–100. Offset pagination preserves the existing API, but MongoDB still walks skipped documents; use small offsets in this MVP and move to cursor pagination for large histories. Mutations return HTTP 201; replaying the same key and request returns the original body with 201. Reusing the key with different content returns 409. Keys are scoped to the group/resource (group creation has its own scope) and currently retained indefinitely. A failed validation does not consume the key.
 
 ### Create a group
 
@@ -151,29 +149,31 @@ Errors use `{"error":{"code":"VALIDATION_ERROR","message":"..."}}` with appropri
 
 ## Data model
 
-Schema: [`migrations/001_initial_schema.sql`](../migrations/001_initial_schema.sql).
+Collections and indexes: [`src/schema.ts`](../src/schema.ts). `_id` is the UUID string.
 
 ```text
-groups            id, name, currency, sequence, created_at
-group_members     id, group_id, position, name, balance_paise
-expenses          id, group_id, sequence, payer_id, description, amount_paise, split_type, created_at
-expense_shares    expense_id, position, group_id, member_id, amount_paise
-settlements       id, group_id, sequence, from_member_id, to_member_id, amount_paise, note, verification, created_at
-idempotency_keys  id = sha256(scope, key), scope, request, response, created_at
+groups            _id, name, currency, sequence, created_at
+group_members     _id, group_id, position, name, balance_paise          unique (group_id, position)
+expenses          _id, group_id, sequence, payer_id, description, amount_paise, split_type, created_at,
+                  category, receipt_key, created_by,
+                  shares: [{ position, member_id, amount_paise }]      unique (group_id, sequence)
+settlements       _id, group_id, sequence, from_member_id, to_member_id, amount_paise, note, verification, created_at
+                                                                        unique (group_id, sequence)
+idempotency_keys  _id = sha256(scope, key), scope, request, response, created_at
 ```
 
-Each member row holds that member's net balance. Each expense or settlement locks its group row (`SELECT … FOR UPDATE`), rereads balances, updates them and the group sequence, inserts an immutable history row, and stores its idempotency response in **one transaction**. Concurrent writes to a group therefore queue on the lock and see current balances; no external payment calls happen inside the transaction. Requests sharing an idempotency key also serialize on a transaction-scoped advisory lock, so simultaneous retries replay the first response. The per-group sequence orders history even when timestamps match.
+Each member document holds that member's net balance. Each expense or settlement runs in **one transaction**: it first bumps the group's `sequence` with `$inc`, rereads balances, applies the balance changes as `$inc` deltas, inserts an immutable history document with its shares embedded, and stores its idempotency response. Because every write to a group updates the same group document, concurrent writes to a group write-conflict and the driver re-runs the losers on a fresh snapshot, so each sees current balances; no external payment calls happen inside the transaction. Requests sharing an idempotency key also bump that sequence, so a retry re-runs and replays the stored response; one whose snapshot predates the winner's commit hits a duplicate key on the `idempotency_keys` insert and is run once more to replay it. The per-group sequence orders history even when timestamps match.
 
-Composite foreign keys on `(group_id, member_id)` make the database reject payers, participants, or settlement parties from another group. Group writes serialize through one row, which suits trip-sized groups rather than a high-throughput shared ledger. All writes must go through this service to keep balances equal to the ledger; direct SQL edits can break that invariant.
+There are no foreign keys: the service checks that payers, participants and settlement parties belong to the group before writing. Group writes serialize through one document, which suits trip-sized groups rather than a high-throughput shared ledger. All writes must go through this service to keep balances equal to the ledger; direct edits in `mongosh` can break that invariant.
 
 ## Layout
 
 - `src/index.ts`: unified server startup, environment configuration, graceful shutdown.
 - `src/expenses/app.ts`: async HTTP routing, service authentication, validation, errors.
 - `src/expenses/domain.ts`: integer money allocation and transfer suggestions.
-- `src/expenses/service.ts`: SQL ledger operations and atomic idempotency.
-- `src/db.ts`: shared Cloud SQL pool, migration runner, transaction helper.
-- `migrations/`: SQL schema.
+- `src/expenses/service.ts`: MongoDB ledger operations and atomic idempotency.
+- `src/db.ts`: shared MongoDB client, transaction helper, duplicate-key check.
+- `src/schema.ts`: collections and indexes.
 - `tests/expenses/`: domain and database-backed API tests.
 
 ## Deploy and test remotely

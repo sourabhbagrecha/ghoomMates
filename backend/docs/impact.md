@@ -2,7 +2,7 @@
 
 Udaipur takes millions of visitors a year, and a squad of 4–10 moves as one: one ride, one queue, one dinner bill. This module turns the plan the squad already made into numbers it can see and share: the **footprint** of getting around, the **crowd-hours** it dodged by visiting at quiet hours, and the **₹ kept with local people**. Squads pledge small promises, get three concrete swaps, and earn a badge that goes on a shareable **Squad Impact Card**.
 
-Everything is computed on demand from the itinerary (`trip_stops`) and the expense ledger (`expenses`). The module only reads those tables; it never writes to the trips, itinerary or expenses modules.
+Everything is computed on demand from the itinerary (`trip_stops`) and the expense ledger (`expenses`). The module only reads those collections; it never writes to the trips, itinerary or expenses modules.
 
 ## Pieces
 
@@ -17,8 +17,8 @@ Everything is computed on demand from the itinerary (`trip_stops`) and the expen
 | `src/impact/ai.ts` | Gemini's two optional jobs (sort expenses, re-word swaps), both cached, time-boxed (4 s) and validated. |
 | `src/impact/maps.ts` | Optional Google Routes API distances behind `GOOGLE_MAPS_API_KEY`. |
 | `src/impact/report.ts` | Pure assembly of the report from plain inputs (this is what the tests pin down). |
-| `src/impact/service.ts`, `app.ts` | Postgres reads and writes; the Express router. |
-| `migrations/022_impact.sql` | `impact_legs`, `impact_pledges`, `impact_cache`. |
+| `src/impact/service.ts`, `app.ts` | MongoDB reads and writes; the Express router. |
+| `src/schema.ts` | Indexes for the `impact_legs`, `impact_pledges` and `impact_cache` collections. A leg is removed with its stops (`deleteStopsCascade` in `trips/itinerary.ts`). |
 
 ## API
 
@@ -109,7 +109,7 @@ Rules that don't fire leave the expense for **Gemini** (one batched call, ≤ 25
 
 ## Pledges, score and badge
 
-Eight pledges (refill bottles because the lakes are the city's drinking water, no single-use plastic at the ghats, temple dress code, no flash on palace murals, walk or e-rickshaw in the old city, buy direct from makers, visit at quiet hours, eat at family kitchens). Each member ticks their own; the table keeps `(trip, user, pledge)`.
+Eight pledges (refill bottles because the lakes are the city's drinking water, no single-use plastic at the ghats, temple dress code, no flash on palace murals, walk or e-rickshaw in the old city, buy direct from makers, visit at quiet hours, eat at family kitchens). Each member ticks their own; the collection keeps `(trip, user, pledge)`, unique.
 
 Score (0–100) = lighter rides 30 (saving against solo cabs, full marks at 85%) + quiet hours 20 (quiet visits full, moderate 60%) + kept local 25 (full marks at 60% of spend) + pledges 25 (ticks ÷ squad × pledges). Badges: **Ghat Visitor** (0), **Pol Walker** (30), **Lake Guardian** (55), **Mewar Steward** (80).
 
@@ -126,7 +126,7 @@ Rule-based, from the plan as it stands, best first: walk a short hop, swap an au
 
 ## Fallbacks
 
-Gemini, the Routes API, the cache table and an empty itinerary are all optional: the report is complete with rules, curated data and straight-line estimates. A Gemini or Routes failure is logged once and the module leaves that service alone for a minute (Gemini) or five (Routes). Ride and pledge edits never wait on Gemini; they use only what is already cached.
+Gemini, the Routes API, the cache collection and an empty itinerary are all optional: the report is complete with rules, curated data and straight-line estimates. A Gemini or Routes failure is logged once and the module leaves that service alone for a minute (Gemini) or five (Routes). Ride and pledge edits never wait on Gemini; they use only what is already cached.
 
 ## Not covered yet
 

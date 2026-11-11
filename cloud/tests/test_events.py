@@ -1,4 +1,4 @@
-"""Event parsing, routing (what gets indexed), config, DSN handling and search request validation."""
+"""Event parsing, routing (what gets indexed), config and search request validation."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import base64
 import pytest
 
 from faces.config import Settings
-from faces.db import normalize_dsn
 from faces.indexer import FINALIZED, parse_event, route
 from faces.search import InvalidRequest, decode_selfie, parse_embeddings, parse_request
 from tests.conftest import TRIP_A
@@ -19,7 +18,7 @@ OBJECT = {"bucket": "ghoomates", "name": f"trips/{TRIP_A}/photos/a.jpg", "genera
 def test_parse_binary_mode_event():
     e = parse_event({"ce-id": "42", "ce-type": FINALIZED}, OBJECT)
     assert (e.id, e.type, e.bucket, e.name, e.generation, e.content_type, e.size) == (
-        "42", FINALIZED, "ghoommates", OBJECT["name"], 1730000000000001, "image/jpeg", 12345)
+        "42", FINALIZED, "ghoomates", OBJECT["name"], 1730000000000001, "image/jpeg", 12345)
 
 
 def test_parse_structured_mode_event():
@@ -82,10 +81,20 @@ def test_defaults_match_the_notebook():
     assert (s.max_image_side, s.min_face_px, s.min_face_confidence, s.match_threshold) == (1600, 40, 0.90, 0.40)
 
 
-def test_node_style_no_verify_becomes_libpq_require():
-    url = "postgres://u:p%40ss@1.2.3.4:5432/db?sslmode=no-verify&application_name=x"
-    assert normalize_dsn(url) == "postgres://u:p%40ss@1.2.3.4:5432/db?sslmode=require&application_name=x"
-    assert normalize_dsn("postgresql://u@h/db") == "postgresql://u@h/db"
+def test_search_k_never_exceeds_the_atlas_vector_search_cap():
+    s = Settings.from_env({"SEARCH_MAX_K": "50000", "SEARCH_INITIAL_K": "20000"})
+    assert (s.search_initial_k, s.search_max_k) == (10000, 10000)
+    assert Settings.from_env({"MONGODB_CONNECTION_STRING": " mongodb://h/ "}).mongodb_connection_string == "mongodb://h/"
+    assert Settings().mongodb_db == "ghoomates"
+
+
+def test_opening_the_database_does_not_connect():
+    from faces.db import open_db
+
+    # A dead host (or an unresolvable mongodb+srv name) must not fail or block startup.
+    db = open_db(Settings(mongodb_connection_string="mongodb+srv://u:p@nowhere.invalid/", mongodb_db="x"))
+    assert db.name == "x"
+    db.client.close()
 
 
 def test_selfies_accept_base64_and_data_urls(settings):

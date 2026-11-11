@@ -1,32 +1,32 @@
 import { after, before, test } from 'node:test';
 import express from 'express';
 import { expect } from '../expect.ts';
-import { openDatabase, type Database } from '../../src/db.ts';
-import { loadEnv } from '../../src/env.ts';
-loadEnv();
+import type { Database } from '../../src/db.ts';
 import { ApiError, errorHandler, notFound } from '../../src/http.ts';
 import { createMediaRouter, createMediaStorage } from '../../src/storage.ts';
 import { createApp } from '../../src/trips/app.ts';
 import type { User } from '../../src/auth/types.ts';
 import { serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 
-// Run against the test database: DB_NAME=ghoomates_test, or a DATABASE_URL pointing at it.
 let db: Database;
 let server: Awaited<ReturnType<typeof serve>>;
 const users = new Map<string, User>();
 
 async function createUser(name: string) {
   const id = `usr_test_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
-  const { rows: [row] } = await db.pool.query(
-    `INSERT INTO users (id, username, google_id, email, email_verified, name) VALUES ($1, $1, $1, $2, true, $3) RETURNING id, email, name`,
-    [id, `${id}@test.local`, name],
-  );
-  users.set(id, { ...row, username: id, preferences: {}, googleId: id, emailVerified: true, createdAt: '', updatedAt: '', lastLoginAt: '' });
+  const email = `${id}@test.local`;
+  const now = new Date();
+  await db.db.collection('users').insertOne({
+    _id: id as any, username: id, google_id: id, email, email_verified: true, name, picture: null, preferences: {},
+    created_at: now, updated_at: now, last_login_at: now,
+  });
+  users.set(id, { id, email, name, username: id, preferences: {}, googleId: id, emailVerified: true, createdAt: '', updatedAt: '', lastLoginAt: '' });
   return id;
 }
 
 before(async () => {
-  db = await openDatabase();
+  db = await testDatabase();
   // Local media storage: the same signed-URL flow as GCS, without network access
   const storage = createMediaStorage('test-secret-'.repeat(4), {});
   const authenticate = async (token: string) => {
@@ -41,10 +41,8 @@ before(async () => {
   server = await serve(app);
 });
 
-after(async () => {
-  await server.close();
-  await db.close();
-});
+// The test database goes away with the in-process server (tests/mongo.ts stops it after this file)
+after(() => server.close());
 
 async function call(token: string | null, path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST') {
   const response = await server.request(path, {
@@ -130,6 +128,16 @@ test('create, invite, join, split an expense, settle, and upload a photo', async
   expect((await call(ben, `/api/trips/${trip.id}/photos`, { photos: [{ key: `trips/${crypto.randomUUID()}/photos/x.png` }] })).status).toBe(400);
   const photos = (await call(asha, `/api/trips/${trip.id}/photos`)).data;
   expect(photos.total).toBe(1);
+  expect(photos.faceSummary).toEqual({ indexed: 0, noFaces: 0, pending: 1, failed: 0, faces: 0 });
+  expect(photos.items[0].faces).toEqual({ status: 'pending', count: 0 });
+  // The face service indexes it (a face_photos doc in another trip with the same name doesn't count)
+  await db.db.collection('face_photos').insertMany([
+    { bucket: 'b', object_name: upload.data.key, generation: 1, trip_id: trip.id, face_count: 2, status: 'indexed', indexed_at: new Date() },
+    { bucket: 'b', object_name: upload.data.key, generation: 1, trip_id: crypto.randomUUID(), face_count: 5, status: 'indexed', indexed_at: new Date() },
+  ]);
+  const indexed = (await call(asha, `/api/trips/${trip.id}/photos`)).data;
+  expect(indexed.faceSummary).toEqual({ indexed: 1, noFaces: 0, pending: 0, failed: 0, faces: 2 });
+  expect(indexed.items[0].faces).toEqual({ status: 'indexed', count: 2 });
   const image = await server.request(photos.items[0].url);
   expect(image.status).toBe(200);
   expect(Buffer.from(await image.arrayBuffer()).equals(png)).toBe(true);
@@ -152,7 +160,7 @@ test('create, invite, join, split an expense, settle, and upload a photo', async
 test('draft, share and edit an itinerary with RSVPs', async () => {
   const asha = await createUser('Asha');
   const ben = await createUser('Ben');
-  await db.pool.query(`UPDATE users SET preferences = $2 WHERE id = $1`, [asha, JSON.stringify({ vibe: { adventure: 0.9, food: 0.8, nightlife: 0.2, culture: 0.5, chill: 0.6, shops: 0.3 } })]);
+  await db.db.collection('users').updateOne({ _id: asha as any }, { $set: { preferences: { vibe: { adventure: 0.9, food: 0.8, nightlife: 0.2, culture: 0.5, chill: 0.6, shops: 0.3 } } } });
   const trip = (await call(asha, '/api/trips', { name: 'Jaipur Royal Weekend', destination: 'Jaipur', startDate: '2026-12-11', endDate: '2026-12-13', details: { tweaks: ['More food stops'] } })).data;
   await call(ben, '/api/trips/join', { code: trip.inviteCode });
 

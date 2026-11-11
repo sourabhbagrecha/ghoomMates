@@ -1,7 +1,7 @@
 """Every tunable constant of the face services. Each one can be overridden with an env var of the same name.
 
 The face pipeline defaults match the prototype notebook. Changing MODEL_NAME, DETECTOR_BACKEND, ALIGN or the
-preprocessing changes the embedding space: re-index every photo afterwards (rows keep model_name and detector).
+preprocessing changes the embedding space: re-index every photo afterwards (documents keep model_name and detector).
 """
 
 from __future__ import annotations
@@ -31,6 +31,10 @@ def _bool(env: Mapping[str, str], name: str, default: bool) -> bool:
 
 def _list(env: Mapping[str, str], name: str, default: str) -> tuple[str, ...]:
     return tuple(item.strip().lower() for item in _str(env, name, default).split(",") if item.strip())
+
+
+# Atlas Vector Search's maximum for $vectorSearch limit and numCandidates.
+VECTOR_SEARCH_MAX = 10_000
 
 
 @dataclass(frozen=True)
@@ -68,17 +72,14 @@ class Settings:
 
     # Search: first fetch SEARCH_INITIAL_K nearest faces per selfie; if all of them are matches, double k
     # until a non-match shows up or SEARCH_MAX_K is reached (then the response says truncated: true).
+    # Atlas Vector Search caps limit and numCandidates at 10000, so a larger SEARCH_MAX_K is lowered to that.
     search_initial_k: int = 500
-    search_max_k: int = 20000
-    # pgvector HNSW scan settings (pgvector 0.8+). See README "Search and the HNSW index".
-    hnsw_ef_search: int = 100
-    hnsw_iterative_scan: str = "relaxed_order"
-    hnsw_max_scan_tuples: int = 100000
+    search_max_k: int = 10000
 
-    # Postgres. postgres:// URL; sslmode=no-verify (node-postgres style) is accepted and means sslmode=require.
-    database_url: str = ""
-    db_pool_min: int = 1
-    db_pool_max: int = 2
+    # MongoDB Atlas (mongodb+srv:// URL, same cluster as the backend) and the database the face collections live in.
+    mongodb_connection_string: str = ""
+    mongodb_db: str = "ghoomates"
+    # Seconds to find a reachable server before a request fails (indexer 500, search 503).
     db_connect_timeout: int = 10
 
     # Local development: read objects from this directory (LOCAL_MEDIA_DIR/<object name>) instead of GCS.
@@ -88,6 +89,9 @@ class Settings:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "include_regex", re.compile(self.include_pattern))
+        max_k = min(self.search_max_k, VECTOR_SEARCH_MAX)
+        object.__setattr__(self, "search_max_k", max_k)
+        object.__setattr__(self, "search_initial_k", min(self.search_initial_k, max_k))
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -115,12 +119,8 @@ class Settings:
             max_selfie_bytes=_int(env, "MAX_SELFIE_BYTES", d.max_selfie_bytes),
             search_initial_k=_int(env, "SEARCH_INITIAL_K", d.search_initial_k),
             search_max_k=_int(env, "SEARCH_MAX_K", d.search_max_k),
-            hnsw_ef_search=_int(env, "HNSW_EF_SEARCH", d.hnsw_ef_search),
-            hnsw_iterative_scan=_str(env, "HNSW_ITERATIVE_SCAN", d.hnsw_iterative_scan),
-            hnsw_max_scan_tuples=_int(env, "HNSW_MAX_SCAN_TUPLES", d.hnsw_max_scan_tuples),
-            database_url=_str(env, "DATABASE_URL", d.database_url),
-            db_pool_min=_int(env, "DB_POOL_MIN", d.db_pool_min),
-            db_pool_max=_int(env, "DB_POOL_MAX", d.db_pool_max),
+            mongodb_connection_string=_str(env, "MONGODB_CONNECTION_STRING", d.mongodb_connection_string),
+            mongodb_db=_str(env, "MONGODB_DB", d.mongodb_db),
             db_connect_timeout=_int(env, "DB_CONNECT_TIMEOUT", d.db_connect_timeout),
             local_media_dir=_str(env, "LOCAL_MEDIA_DIR", d.local_media_dir),
         )

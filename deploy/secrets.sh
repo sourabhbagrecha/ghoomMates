@@ -8,8 +8,8 @@
 # One secret per setting, named ghoommates-<setting in kebab case> (JWT_SECRET -> ghoommates-jwt-secret):
 #   JWT_SECRET             a fresh random value, never the one in backend/.env (that is the dev secret, and the
 #                          dev default is public in this repo, so anyone could forge sessions with it)
-#   DB_PASSWORD, GOOGLE_CLIENT_SECRET, GCS_CREDENTIALS_BASE64, GEMINI_API_KEY, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
-#   GOOGLE_MAPS_API_KEY    copied from the environment or from backend/.env (an exported variable wins)
+#   MONGODB_CONNECTION_STRING, GOOGLE_CLIENT_SECRET, GCS_CREDENTIALS_BASE64, GEMINI_API_KEY, LIVEKIT_API_KEY,
+#   LIVEKIT_API_SECRET, GOOGLE_MAPS_API_KEY    copied from the environment or from backend/.env (an exported variable wins)
 # A setting that is missing (or still a placeholder from .env.example) is skipped. Safe to run again: unchanged
 # values add no new version, and an existing JWT secret is kept so sessions survive.
 #
@@ -113,10 +113,10 @@ for key in $SECRET_KEYS; do
   report "$name" "$outcome" "from $key"
 done
 
-if [[ "$DRY_RUN" != 1 ]] && ! secret_exists "$(secret_name DB_PASSWORD)"; then
+if [[ "$DRY_RUN" != 1 ]] && ! secret_exists "$(secret_name MONGODB_CONNECTION_STRING)"; then
   say ""
-  warn "DB_PASSWORD has no secret yet, and deploy/cloudrun.sh needs it. Put the Cloud SQL password of user $DB_USER in $ENV_FILE"
-  warn "(DB_PASSWORD=...) or export it, then run this again."
+  warn "MONGODB_CONNECTION_STRING has no secret yet, and deploy/cloudrun.sh needs it. Put the Atlas connection string in"
+  warn "$ENV_FILE (MONGODB_CONNECTION_STRING=mongodb+srv://...) or export it, then run this again."
 fi
 
 say ""
