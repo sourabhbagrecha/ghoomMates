@@ -22,12 +22,14 @@ export function EditProfilePage() {
   const profile = useProfileStore()
   const vibe = currentVibe()
   const [toast, showToast] = useToast()
-  const [draft, setDraft] = useState(() => ({
+  // photo stays undefined until picked or removed here, so the account's current photo shows (and is kept on save)
+  // even after a selfie update on this page replaces it on the server
+  const [draft, setDraft] = useState<{ name: string; username: string; colour: string; photo?: string | null }>(() => ({
     name: displayName(profile),
     username: profile.username,
     colour: profile.colour,
-    photo: profile.photo,
   }))
+  const photo = draft.photo === undefined ? profile.photo : draft.photo
   const [confirmDelete, setConfirmDelete] = useState(false)
   const selfieInput = useRef<HTMLInputElement>(null)
   const update = (patch: Partial<typeof draft>) => setDraft((d) => ({ ...d, ...patch }))
@@ -72,14 +74,14 @@ export function EditProfilePage() {
             }}
           />
           <span className="profile-edit__photo">
-            <ProfileAvatar name={draft.name} colour={draft.colour} photo={draft.photo} size={96} />
+            <ProfileAvatar name={draft.name} colour={draft.colour} photo={photo} size={96} />
             <span className="profile-edit__camera">
               <img src={iconCamera} alt="" width={16} height={16} />
             </span>
           </span>
-          <span className="profile-edit__photo-label">{draft.photo ? 'Change photo' : 'Add a photo'}</span>
+          <span className="profile-edit__photo-label">{photo ? 'Change photo' : 'Add a photo'}</span>
         </label>
-        {draft.photo && (
+        {photo && (
           <LinkButton className="profile-edit__remove-photo" onClick={() => update({ photo: null })}>
             Use my initial instead
           </LinkButton>

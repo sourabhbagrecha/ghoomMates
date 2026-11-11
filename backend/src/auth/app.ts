@@ -213,7 +213,10 @@ export function createApp(db: OAuthDatabase, config: AuthAppConfig) {
       if (req.body.picture.startsWith('data:') || req.body.picture.startsWith('blob:')) {
         throw new ApiError(400, 'PICTURE_UPLOAD_REQUIRED', 'Upload the picture with POST /auth/uploads and send its pictureKey');
       }
-      patch.picture = req.body.picture;
+      // A media URL must be one of this user's pictures that still exists: a stale one (deleted when a newer selfie
+      // replaced it) would leave a broken photo, and another user's would get their picture deleted by the cleanup below
+      const key = keyOfMediaUrl(req.body.picture);
+      patch.picture = key ? mediaUrl(await uploadedKey(config.storage, current.id, key, 'picture', ['selfies', 'avatars'])) : req.body.picture;
     }
     // The selfie doubles as the profile photo; removing it removes that photo too
     if (patch.selfieKey && patch.picture === undefined) patch.picture = mediaUrl(patch.selfieKey);

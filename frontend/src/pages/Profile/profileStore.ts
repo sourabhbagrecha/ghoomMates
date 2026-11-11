@@ -103,9 +103,10 @@ const persist = (patch: Partial<ProfileState>) => {
 }
 
 export const profileActions = {
-  saveProfile: async (patch: Pick<ProfileState, 'name' | 'username' | 'colour' | 'photo'>) => {
+  /** `photo` undefined leaves the photo as the server has it (a selfie saved meanwhile may have replaced it); null removes it */
+  saveProfile: async (patch: Pick<ProfileState, 'name' | 'username' | 'colour'> & { photo?: string | null }) => {
     await updateUserProfile({ name: patch.name ?? undefined, username: patch.username,
-      picture: patch.photo ?? '', preferences: { colour: patch.colour } })
+      picture: patch.photo === undefined ? undefined : patch.photo ?? '', preferences: { colour: patch.colour } })
     notice = 'Profile saved'
   },
   /** Uploads the selfie (a data: or blob: URL); the signed-in account then carries its URL */
