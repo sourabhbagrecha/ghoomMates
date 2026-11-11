@@ -17,7 +17,8 @@ deploy/cloudrun.sh         # build, deploy the web service (voice worker include
 ```text
  the jury's phone (browser)
    │
-   ├─ https ─▶ ghoommates.sourabh.org: Cloudflare Worker ─▶ Cloud Run "ghoommates"  (public)  the React app, /api, /auth, /health
+   ├─ https ─▶ ghoommates.sourabh.org: Cloudflare Worker  (serves the React app, frontend/dist, from the edge)
+   │             └─ /api, /auth, /health ─▶ Cloud Run "ghoommates"  (public)
    │                             ├─ Cloud SQL connector ─▶ Cloud SQL "ghoomates"  (Postgres 18 + pgvector)
    │                             ├─ its service account ─▶ Vertex AI, Gemini API
    │                             ├─ ID token ────────────▶ Cloud Run "face-search"  (private) ─▶ Cloud SQL
@@ -32,8 +33,8 @@ deploy/cloudrun.sh         # build, deploy the web service (voice worker include
 
 | Piece | What it is | Notes |
 | --- | --- | --- |
-| `ghoommates-proxy` (Cloudflare Worker) | `deploy/worker`: serves `ghoommates.sourabh.org` by forwarding every request to the `run.app` address (Cloud Run domain mapping is not offered in asia-south1). Deploy with `npm install && cf deploy` in that folder; `cf` is the Cloudflare CLI. | Free plan, 100,000 requests a day. `deploy/cloudrun.sh` defaults `PUBLIC_URL` to the domain; `PUBLIC_URL=` deploys for the `run.app` address instead. |
-| `ghoommates` (Cloud Run) | The `Dockerfile` image: `node backend/src/index.ts` serves `/api`, `/auth`, `/health` and, from `SERVE_FRONTEND_DIR`, the built React app (gzip, immutable caching for hashed assets, SPA fallback). | 1 vCPU, 1 GiB, 0 to 4 instances, public. CPU stays allocated while an instance is up, so the voice worker keeps its LiveKit connection; Cloud Run stops an instance after about 15 minutes without requests, and the web app pings `/health` every minute during a call. |
+| `ghoommates-proxy` (Cloudflare Worker) | `deploy/worker`: serves `ghoommates.sourabh.org`. The built React app is uploaded with it as Workers static assets and served from Cloudflare's edge (hashed `/assets/*` cached for a year, `index.html` always revalidated, other page addresses get `index.html`, scanner probes a 404, and the Worker cuts byte ranges out of `.m4a` narration itself because Cloudflare ignores `Range` on static assets and Safari needs it); only `/api/*`, `/auth/*` and `/health` are forwarded to the `run.app` address (Cloud Run domain mapping is not offered in asia-south1), so page loads from bots, link previews and signed-out visitors never wake Cloud Run. Deploy with `npm install && cf deploy` in that folder; `cf` is the Cloudflare CLI, and the deploy builds `frontend/` first. **A frontend change is live on the domain only after a Worker deploy** (CI does it when `CLOUDFLARE_API_TOKEN` is set, see "Automatic deploys"). | Free plan: 100,000 Worker requests a day; static asset requests are free and do not count. `deploy/cloudrun.sh` defaults `PUBLIC_URL` to the domain; `PUBLIC_URL=` deploys for the `run.app` address instead. |
+| `ghoommates` (Cloud Run) | The `Dockerfile` image: `node backend/src/index.ts` serves `/api`, `/auth`, `/health` and, from `SERVE_FRONTEND_DIR`, the built React app (gzip, immutable caching for hashed assets, SPA fallback). The domain takes the app from the Worker instead; the copy in the image is what the `run.app` address and `docker run` serve. | 1 vCPU, 1 GiB, 0 to 4 instances, public. CPU stays allocated while an instance is up, so the voice worker keeps its LiveKit connection; Cloud Run stops an instance after about 15 minutes without requests, and the web app pings `/health` every minute during a call. |
 | Voice worker | `backend/src/voice/inline.ts` starts `node backend/src/voice/agent.ts start` next to the server and restarts it if it crashes. Dials out to LiveKit, takes sessions, calls the API as the user. `VOICE_IN_WEB=0 deploy/cloudrun.sh all` brings back the old separate `ghoommates-agent` service (always on, 1 instance minimum). | Only runs while the web service has an instance. |
 | Cloud SQL `ghoomates` | Postgres 18 with pgvector, shared with the team. The web service uses the Cloud SQL Node connector (`CLOUD_SQL_INSTANCE`), so it needs the `roles/cloudsql.client` role, not an IP allow-list. Migrations run at startup. | Same database and data as local dev. |
 | GCS `ghoomates` | Photos, receipts, selfies. The browser uploads and downloads with short-lived signed URLs; the signing key is `GCS_CREDENTIALS_BASE64`. | Bucket CORS already allows the app. |
@@ -107,7 +108,9 @@ Every push to `main` runs `.github/workflows/deploy.yml`: the GitHub runner buil
 
 GitHub signs in to Google with Workload Identity Federation as `ghoommates-deployer`; no key is stored in GitHub. Only pushes to `main` of this repository are accepted. The account can push images to the `ghoomates` registry and roll out, and cannot read secrets, the database or the bucket. `deploy/github-ci.sh` sets this up once (re-runnable, `DRY_RUN=1` to preview) and lists each permission. To turn CI off, delete the workload identity pool `github`.
 
-The Cloudflare Worker in `deploy/worker` is not deployed by CI; it rarely changes. Run `npm install && cf deploy` in that folder after editing it.
+Then the same job deploys the Cloudflare Worker in `deploy/worker` (`npm ci` and `npx cf deploy`, which builds `frontend/` and uploads it with the Worker), because the domain serves the web app from the Worker, not from the image. It runs only when the repository secret `CLOUDFLARE_API_TOKEN` exists; without it the job warns and the domain keeps serving the previous web app until someone runs `npm install && cf deploy` in `deploy/worker`. **One-time setup (TODO):** in the Cloudflare dashboard, create an API token from the "Edit Cloudflare Workers" template, limited to the account and the `sourabh.org` zone (the Worker is attached to `ghoommates.sourabh.org` as a custom domain), and add it with `gh secret set CLOUDFLARE_API_TOKEN`. If the token reaches more than one account, also `gh variable set CLOUDFLARE_ACCOUNT_ID`.
+
+The release check (`/health` and `/` on the domain) sees the Worker's copy of the app, which CI deploys after it; `curl https://ghoommates-449943395156.asia-south1.run.app/` checks the image's copy.
 
 ## Sign-in for the jury
 
@@ -146,7 +149,7 @@ Rough figures from Google's public price lists (Mumbai is a "Tier 2" Cloud Run r
 
 | Item | Estimate |
 | --- | --- |
-| Web service with the voice worker: 1 vCPU + 1 GiB, CPU allocated for each instance's whole life ($0.0000216 per vCPU-s, $0.0000024 per GiB-s) | about $0.09 an hour while someone is using the app (plus up to 15 idle minutes after); nothing with no instance. Hidden tabs stop refreshing and the Cloudflare Worker turns away scanner probes, so neither keeps an instance up. The first visit after idle waits for a cold start of a few seconds. `WEB_MIN_INSTANCES=1` removes it for a demo, at about $2.30 a day. |
+| Web service with the voice worker: 1 vCPU + 1 GiB, CPU allocated for each instance's whole life ($0.0000216 per vCPU-s, $0.0000024 per GiB-s) | about $0.09 an hour while someone is using the app (plus up to 15 idle minutes after); nothing with no instance. Hidden tabs stop refreshing, the Cloudflare Worker serves the web app itself and turns away scanner probes, so none of those keeps an instance up (or starts one). The first visit after idle waits for a cold start of a few seconds. `WEB_MIN_INSTANCES=1` removes it for a demo, at about $2.30 a day. |
 | Cloud Build | nothing for CI (it builds on the GitHub runner). A laptop `deploy/cloudrun.sh` still builds in Cloud Build, on the default machine, inside its free build minutes. |
 | Artifact Registry, Secret Manager | cents (about 300 MB per image tag; delete old tags) |
 | Gemini, Vertex AI | pay per call; the reason for the budget alert |
@@ -208,7 +211,7 @@ A local build is for your CPU (arm64 on an M-series Mac); `deploy/cloudrun.sh` b
 | `deploy/secrets.sh` | `backend/.env` to Secret Manager |
 | `deploy/common.sh`, `deploy/cloudbuild.yaml` | Shared settings and helpers; the Cloud Build config |
 | `.github/workflows/deploy.yml`, `deploy/github-ci.sh` | Deploy on every push to `main`; its one-time Google Cloud setup |
-| `deploy/worker/` | The Cloudflare Worker that serves `ghoommates.sourabh.org` |
+| `deploy/worker/` | The Cloudflare Worker that serves `ghoommates.sourabh.org`: `cloudflare.config.ts` (domain, static assets, which paths run the Worker), `vite.config.ts` (builds `frontend/`, uses `frontend/dist` as the assets, writes their cache rules), `src/index.js` (forwards the backend's paths, SPA fallback, scanner 404s) |
 | `backend/src/frontend.ts` | The router that serves `frontend/dist` (`SERVE_FRONTEND_DIR`) |
 | `backend/src/auth/devLogin.ts` | When the test sign-in works and for whom |
 | `backend/tests/deploy/production.test.ts` | Tests for both |
