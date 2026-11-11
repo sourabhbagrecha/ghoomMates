@@ -16,8 +16,8 @@ export type VoiceConnection =
   | { status: 'idle' }
   /** Opened outside a trip: GhoomMate needs a trip to work on */
   | { status: 'no-trip' }
-  /** Asking the backend for a session token */
-  | { status: 'starting' }
+  /** Asking the backend for a session token; `slow` once it's been a while (it's waking the agent service) */
+  | { status: 'starting'; slow?: boolean }
   /** Joining the LiveKit room */
   | { status: 'connecting' }
   /** In the room; the agent may still be on its way */
@@ -30,8 +30,10 @@ type Session = { id: number; room: Room; tripId: string | null }
 
 // The agent worker normally joins in 1–3s; past this it’s almost certainly not running
 const AGENT_TIMEOUT_MS = 12_000
-// A call sends the server no requests, and Cloud Run may stop an idle instance (and the voice worker in it)
+// A call sends the agent service no requests, and Cloud Run may stop an idle instance (and the call on it)
 const KEEPALIVE_MS = 60_000
+// Past this the session request is waiting on a cold agent service (up to ~25 s), so the overlay says so
+const SLOW_START_MS = 3000
 
 /** The open trip, but only while you’re inside it (#/trip/…); Home and planning screens have none */
 const currentTripId = () => {
@@ -41,6 +43,7 @@ const currentTripId = () => {
 
 function sessionError(err: unknown): VoiceError {
   if (err instanceof ApiRequestError) {
+    if (err.code === 'VOICE_AGENT_WAKING') return { kind: 'napping', detail: err.code }
     if (err.status === 503 || err.code === 'VOICE_DISABLED') return { kind: 'disabled', detail: err.code }
     if (err.status === 0) return { kind: 'network' }
     return { kind: 'failed', detail: `${err.code}: ${err.message}` }
@@ -122,6 +125,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     const dropMic = () => void mic.then((track) => track?.stop())
     void (async () => {
       setConn({ status: 'starting' })
+      const slow = window.setTimeout(() => {
+        if (!cancelled) setConn((c) => (c.status === 'starting' ? { status: 'starting', slow: true } : c))
+      }, SLOW_START_MS)
       let token
       try {
         token = await voiceApi.createSession(tripId)
@@ -129,6 +135,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         dropMic()
         if (!cancelled) setConn({ status: 'error', error: sessionError(err) })
         return
+      } finally {
+        window.clearTimeout(slow)
       }
       if (cancelled) return dropMic()
       setConn({ status: 'connecting' })
@@ -182,10 +190,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     }
   }, [conn.status, session])
 
-  // Keep the server up while the call lasts
+  // Keep the agent service up while the call lasts
   useEffect(() => {
     if (conn.status !== 'live') return
-    const timer = window.setInterval(() => void fetch('/health').catch(() => {}), KEEPALIVE_MS)
+    const timer = window.setInterval(() => void voiceApi.keepalive().catch(() => {}), KEEPALIVE_MS)
     return () => window.clearInterval(timer)
   }, [conn.status])
 

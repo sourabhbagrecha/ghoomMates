@@ -54,7 +54,7 @@ const ERRORS: Record<VoiceErrorKind, { title: string; text: string }> = {
     text: 'GhoomMate needs the LiveKit keys on the backend. Everything else still works, mate.',
   },
   network: { title: 'Can’t reach GhoomMate', text: 'Check your connection and give it another go.' },
-  napping: { title: 'GhoomMate is napping', text: 'Is the agent worker running? Give it a nudge, then try again.' },
+  napping: { title: 'GhoomMate is napping', text: 'It didn’t wake up in time. Give it a few seconds, then try again.' },
   dropped: { title: 'Lost GhoomMate', text: 'The call dropped. Want to reconnect?' },
   failed: { title: 'GhoomMate tripped up', text: 'Something went wrong starting the chat. Give it another go?' },
 }
@@ -281,7 +281,9 @@ export function VoiceOverlay({
         ? 'Type it to me'
         : phase === 'waking' && queued
           ? 'Waking up… I’ll answer in a sec'
-          : STATUS[phase]
+          : conn.status === 'starting' && conn.slow
+            ? 'Waking GhoomMate… a few more seconds'
+            : STATUS[phase]
 
   if (minimized) {
     return (

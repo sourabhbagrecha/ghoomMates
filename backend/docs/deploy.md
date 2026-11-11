@@ -1,12 +1,12 @@
 # Deploying GhoomMates on Google Cloud Run
 
-One image, one Cloud Run service: the **web service** runs the Express API, the built React app and the GhoomMate **voice worker** (a child process, `VOICE_WORKER=inline`), so one URL is the whole product and it scales to zero when nobody is using it. Everything else (Cloud SQL, the photo bucket, face indexing, Vertex AI, LiveKit) already exists and is only wired in.
+One image, two Cloud Run services, both scaling to zero when nobody is using the app: the **web service** runs the Express API and the built React app, billed only while it handles requests; the **voice agent service** runs the GhoomMate worker, and the web service wakes it when someone opens a chat. Everything else (Cloud SQL, the photo bucket, face indexing, Vertex AI, LiveKit) already exists and is only wired in.
 
 Short version, from the repo root, with `gcloud` signed in as a project owner and `backend/.env` filled in:
 
 ```bash
 deploy/secrets.sh          # backend/.env -> Secret Manager (values are never printed)
-deploy/cloudrun.sh         # build, deploy the web service (voice worker included), print the URL
+deploy/cloudrun.sh all     # build, deploy the voice agent and the web service, print the URL
 # then add the printed redirect URI to the Google OAuth client (see "Google sign-in")
 ```
 
@@ -21,20 +21,21 @@ deploy/cloudrun.sh         # build, deploy the web service (voice worker include
    │                             ├─ Cloud SQL connector ─▶ Cloud SQL "ghoomates"  (Postgres 18 + pgvector)
    │                             ├─ its service account ─▶ Vertex AI, Gemini API
    │                             ├─ ID token ────────────▶ Cloud Run "face-search"  (private) ─▶ Cloud SQL
+   │                             ├─ ID token, GET / ─────▶ Cloud Run "ghoommates-agent"  (private): wake, keepalive
    │                             └─ signed URLs ─────────▶ handed to the browser (below)
    │
    ├─ PUT / GET, signed URL ─▶ GCS bucket "ghoomates"
    │                             └─ object finalized ─▶ Eventarc ─▶ Cloud Run "face-indexer" (private) ─▶ Cloud SQL
    │
-   └─ WebRTC (microphone) ───▶ LiveKit Cloud ◀── wss ── voice worker, a child process of Cloud Run "ghoommates"
-                                                          └─ http on 127.0.0.1, as the user ─▶ the same server
+   └─ WebRTC (microphone) ───▶ LiveKit Cloud ◀── wss ── voice worker in Cloud Run "ghoommates-agent"
+                                                          └─ https, as the user ─▶ ghoommates.sourabh.org /api
 ```
 
 | Piece | What it is | Notes |
 | --- | --- | --- |
 | `ghoommates-proxy` (Cloudflare Worker) | `deploy/worker`: serves `ghoommates.sourabh.org` by forwarding every request to the `run.app` address (Cloud Run domain mapping is not offered in asia-south1). Deploy with `npm install && cf deploy` in that folder; `cf` is the Cloudflare CLI. | Free plan, 100,000 requests a day. `deploy/cloudrun.sh` defaults `PUBLIC_URL` to the domain; `PUBLIC_URL=` deploys for the `run.app` address instead. |
-| `ghoommates` (Cloud Run) | The `Dockerfile` image: `node backend/src/index.ts` serves `/api`, `/auth`, `/health` and, from `SERVE_FRONTEND_DIR`, the built React app (gzip, immutable caching for hashed assets, SPA fallback). | 1 vCPU, 1 GiB, 0 to 4 instances, public. CPU stays allocated while an instance is up, so the voice worker keeps its LiveKit connection; Cloud Run stops an instance after about 15 minutes without requests, and the web app pings `/health` every minute during a call. |
-| Voice worker | `backend/src/voice/inline.ts` starts `node backend/src/voice/agent.ts start` next to the server and restarts it if it crashes. Dials out to LiveKit, takes sessions, calls the API as the user. `VOICE_IN_WEB=0 deploy/cloudrun.sh all` brings back the old separate `ghoommates-agent` service (always on, 1 instance minimum). | Only runs while the web service has an instance. |
+| `ghoommates` (Cloud Run) | The `Dockerfile` image: `node backend/src/index.ts` serves `/api`, `/auth`, `/health` and, from `SERVE_FRONTEND_DIR`, the built React app (gzip, immutable caching for hashed assets, SPA fallback). | 1 vCPU, 1 GiB, 0 to 4 instances, public. Request-based billing (`--cpu-throttling`): every piece of work happens inside a request, so an instance costs nothing between requests. |
+| `ghoommates-agent` (Cloud Run) | The same image running `node backend/src/voice/agent.ts start`: the LiveKit worker dials out to LiveKit, takes sessions and calls the API as the user. Its LiveKit health server (port 8081, `GET /`) answers 200 only once the worker is registered with LiveKit. `POST /api/voice/session` on the web service wakes it with an ID-token GET to that endpoint (`VOICE_AGENT_URL`, `backend/src/voice/wake.ts`) and waits up to 25 s before handing out the token, because LiveKit drops a dispatch that finds no registered worker. During a call the app calls `POST /api/voice/keepalive` every minute, which pings it again, since Cloud Run stops an instance that gets no requests. | 1 vCPU, 1 GiB, 0 to 1 instances, CPU always allocated while up (the LiveKit connection and the call run between requests), gen2. Private: ingress all, but only `ghoommates-web` has `roles/run.invoker` (internal ingress would need a VPC connector on the web service). Scales to zero about 15 minutes after the last chat; the first chat after that waits for a cold start of ~5 to 15 s ("Waking GhoomMate…"). `VOICE_IN_WEB=1 deploy/cloudrun.sh` puts the worker back inside the web service (`VOICE_WORKER=inline`, CPU always allocated there). |
 | Cloud SQL `ghoomates` | Postgres 18 with pgvector, shared with the team. The web service uses the Cloud SQL Node connector (`CLOUD_SQL_INSTANCE`), so it needs the `roles/cloudsql.client` role, not an IP allow-list. Migrations run at startup. | Same database and data as local dev. |
 | GCS `ghoomates` | Photos, receipts, selfies. The browser uploads and downloads with short-lived signed URLs; the signing key is `GCS_CREDENTIALS_BASE64`. | Bucket CORS already allows the app. |
 | Eventarc, `face-indexer`, `face-search` | Deployed separately from `cloud/`. An upload fires `face-indexer`; the web service calls `face-search` with an ID token for "find me". | See `cloud/README.md`. |
@@ -63,7 +64,7 @@ deploy/secrets.sh             # create them; run again whenever a value changes
 | `ghoommates-google-client-secret` | `GOOGLE_CLIENT_SECRET` | web (Google sign-in) |
 | `ghoommates-gcs-credentials-base64` | `GCS_CREDENTIALS_BASE64` | web (signed URLs, face-search ID token) |
 | `ghoommates-gemini-api-key` | `GEMINI_API_KEY` | web |
-| `ghoommates-livekit-api-key`, `ghoommates-livekit-api-secret` | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | web and voice worker |
+| `ghoommates-livekit-api-key`, `ghoommates-livekit-api-secret` | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | web and voice agent |
 | `ghoommates-google-maps-api-key` | `GOOGLE_MAPS_API_KEY` | web (optional) |
 
 The JWT secret is generated because the dev default is public in this repo; anyone could forge a session with it. The ledger `API_KEY` is deliberately not deployed, so `/api/*` (the internal expense ledger) answers 503. Settings other modules add: `EXTRA_SECRET_KEYS="FOO" deploy/secrets.sh` and the same variable for `deploy/cloudrun.sh`; non-secret ones with `EXTRA_ENV_KEYS`.
@@ -73,13 +74,14 @@ The JWT secret is generated because the dev default is public in this repo; anyo
 **3. Deploy.**
 
 ```bash
+deploy/cloudrun.sh all       # the voice agent, then the web service
 deploy/cloudrun.sh           # web service only
-deploy/cloudrun.sh all       # web service and the voice worker
+deploy/cloudrun.sh agent     # voice agent only
 ```
 
-It enables the APIs, creates the service accounts `ghoommates-web` and `ghoommates-agent`, grants `roles/cloudsql.client`, `roles/aiplatform.user`, `roles/storage.objectAdmin` on the bucket and `roles/secretmanager.secretAccessor` per secret, builds the image (a few minutes), deploys with `--set-secrets` and an env-vars file, allows anyone to open the web service, checks `/health` and `/`, and prints the URL. Every run deploys a new revision of the current code; infrastructure steps that already exist are no-ops. `SKIP_SETUP=1` skips the APIs, accounts and roles on re-deploys, `SKIP_BUILD=1` redeploys the `:latest` image. Sizes, names and who may open the service are environment variables (`WEB_MIN_INSTANCES`, `AGENT_CPU`, `PUBLIC_ACCESS`, `PUBLIC_URL`, ...); the header of `deploy/cloudrun.sh` lists them and `deploy/common.sh` has the defaults.
+It enables the APIs, creates the service accounts `ghoommates-web` and `ghoommates-agent`, grants `roles/cloudsql.client`, `roles/aiplatform.user`, `roles/storage.objectAdmin` on the bucket, `roles/secretmanager.secretAccessor` per secret and `roles/run.invoker` on the agent service to `ghoommates-web`, builds the image (a few minutes), deploys with `--set-secrets` and an env-vars file, allows anyone to open the web service, checks `/health` and `/`, and prints the URL. Every run deploys a new revision of the current code; infrastructure steps that already exist are no-ops. `SKIP_SETUP=1` skips the APIs, accounts and roles on re-deploys, `SKIP_BUILD=1` redeploys the `:latest` image. Sizes, names and who may open the service are environment variables (`WEB_MIN_INSTANCES`, `AGENT_CPU`, `PUBLIC_ACCESS`, `PUBLIC_URL`, ...); the header of `deploy/cloudrun.sh` lists them and `deploy/common.sh` has the defaults.
 
-The web service's environment is rewritten on every deploy (`--env-vars-file`), so anything set by hand in the console is dropped. `CLIENT_ORIGIN`, `GOOGLE_REDIRECT_URI`, `CLOUD_SQL_INSTANCE`, `GHOOMATE_AGENT_NAME` and the rest are computed. The URL is known before the first deploy: `https://ghoommates-449943395156.asia-south1.run.app` (service name, project number, region); the script checks that Cloud Run agrees.
+The web service's environment is rewritten on every deploy (`--env-vars-file`), so anything set by hand in the console is dropped. `CLIENT_ORIGIN`, `GOOGLE_REDIRECT_URI`, `CLOUD_SQL_INSTANCE`, `GHOOMATE_AGENT_NAME`, `VOICE_AGENT_URL` and the rest are computed. The URL is known before the first deploy: `https://ghoommates-449943395156.asia-south1.run.app` (service name, project number, region); the script checks that Cloud Run agrees.
 
 **4. Google sign-in** (the one step gcloud cannot do). In the Cloud Console: APIs & Services, Credentials, the OAuth 2.0 client whose ID is your `GOOGLE_CLIENT_ID`:
 
@@ -89,11 +91,13 @@ The web service's environment is rewritten on every deploy (`--env-vars-file`), 
 
 Changes can take a few minutes to apply. If you deploy to a custom domain (`PUBLIC_URL=https://app.example.com deploy/cloudrun.sh`), use that origin instead.
 
-**5. Voice.** Deployed with the web service. The web service and its worker both use the agent name `ghoomate-prod` (`AGENT_NAME=` changes it). The voice doc says the deployed app keeps the shared default `ghoomate`, but any teammate who runs `npm run dev` without their own `GHOOMATE_AGENT_NAME` registers under that name and would steal jury sessions, so the deployment gets its own. The worker should log `registered worker`:
+**5. Voice.** `deploy/cloudrun.sh all` deploys the agent service before the web service. Both use the agent name `ghoomate-prod` (`AGENT_NAME=` changes it). The voice doc says the deployed app keeps the shared default `ghoomate`, but any teammate who runs `npm run dev` without their own `GHOOMATE_AGENT_NAME` registers under that name and would steal jury sessions, so the deployment gets its own. Open a chat once: the web service logs `Voice agent ready after … ms` and the worker logs `registered worker`:
 
 ```bash
-gcloud run services logs read ghoommates --region=asia-south1 --limit=50 | grep -i worker
+gcloud run services logs read ghoommates-agent --region=asia-south1 --limit=50 | grep -i worker
 ```
+
+**Moving from the single service** (the web service running the worker with CPU always allocated): run `deploy/cloudrun.sh all` once, by hand. It creates `ghoommates-agent` (min 0, max 1) and lets `ghoommates-web` invoke it, then redeploys the web service with `--cpu-throttling`, `VOICE_AGENT_URL` set and `VOICE_WORKER` gone. CI's `release` only changes images, so it cannot make this switch. Run `deploy/github-ci.sh` once as well, so CI may roll new images out to the agent service (`roles/iam.serviceAccountUser` on `ghoommates-agent`).
 
 **Fallback if voice misbehaves on Cloud Run** (the worker needs outbound WebRTC from a Cloud Run container; test it once): run the worker on a laptop with `GHOOMATE_AGENT_NAME=ghoomate-prod BACKEND_URL=https://ghoommates-449943395156.asia-south1.run.app npm run dev:agent`. The deployed web service dispatches to that name.
 
@@ -101,7 +105,7 @@ gcloud run services logs read ghoommates --region=asia-south1 --limit=50 | grep 
 
 ## Automatic deploys
 
-Every push to `main` runs `.github/workflows/deploy.yml`: the GitHub runner builds the image from the pushed commit (Docker Buildx, layers cached in the GitHub Actions cache) and pushes it to Artifact Registry under the tag `deploy/cloudrun.sh image` prints, then `SKIP_BUILD=1 deploy/cloudrun.sh release` rolls that image out as a new revision of `ghoommates` and fails the job if `https://ghoommates.sourabh.org/health` or the web app does not answer. Cloud Build is not used, so CI costs nothing on Google's side; the repository is public, so GitHub's runner minutes are free too. No tests run.
+Every push to `main` runs `.github/workflows/deploy.yml`: the GitHub runner builds the image from the pushed commit (Docker Buildx, layers cached in the GitHub Actions cache) and pushes it to Artifact Registry under the tag `deploy/cloudrun.sh image` prints, then `SKIP_BUILD=1 deploy/cloudrun.sh release` rolls that image out as a new revision of `ghoommates` and fails the job if `https://ghoommates.sourabh.org/health` or the web app does not answer, then rolls the same image out to `ghoommates-agent` (skipped while it does not exist; a new revision starts one instance briefly to check it). Cloud Build is not used, so CI costs nothing on Google's side; the repository is public, so GitHub's runner minutes are free too. No tests run.
 
 `release` changes only the image. Environment variables, secrets and the service account stay as the last full `deploy/cloudrun.sh` left them, so after changing `backend/.env` or a secret, run `deploy/secrets.sh` and `deploy/cloudrun.sh` by hand.
 
@@ -146,7 +150,8 @@ Rough figures from Google's public price lists (Mumbai is a "Tier 2" Cloud Run r
 
 | Item | Estimate |
 | --- | --- |
-| Web service with the voice worker: 1 vCPU + 1 GiB, CPU allocated for each instance's whole life ($0.0000216 per vCPU-s, $0.0000024 per GiB-s) | about $0.09 an hour while someone is using the app (plus up to 15 idle minutes after); nothing with no instance. Hidden tabs stop refreshing and the Cloudflare Worker turns away scanner probes, so neither keeps an instance up. The first visit after idle waits for a cold start of a few seconds. `WEB_MIN_INSTANCES=1` removes it for a demo, at about $2.30 a day. |
+| Web service: 1 vCPU + 1 GiB, request-based billing | Only while requests are in flight (rounded up to 100 ms), at a higher per-second rate than instance-based billing, plus a per-request fee. An idle instance between requests, and the ~15 minutes Cloud Run keeps it around afterwards, cost nothing, and Cloud Run's monthly free tier covers a hackathon's traffic. The first visit after idle waits for a cold start of a few seconds; `WEB_MIN_INSTANCES=1` removes it for a demo (an idle minimum instance is billed at a lower rate). |
+| Voice agent: 1 vCPU + 1 GiB, CPU allocated while an instance is up ($0.0000216 per vCPU-s, $0.0000024 per GiB-s) | about $0.09 an hour while it is up: each chat's length plus up to 15 idle minutes after the last one, so a few cents for a short chat, and nothing when nobody talks to GhoomMate. Before the split the web service billed this way after every stray request (about 6 instance-hours a day). `AGENT_MIN_INSTANCES=1` keeps it connected for a demo, at about $2 a day. |
 | Cloud Build | nothing for CI (it builds on the GitHub runner). A laptop `deploy/cloudrun.sh` still builds in Cloud Build, on the default machine, inside its free build minutes. |
 | Artifact Registry, Secret Manager | cents (about 300 MB per image tag; delete old tags) |
 | Gemini, Vertex AI | pay per call; the reason for the budget alert |
@@ -171,7 +176,7 @@ gcloud artifacts docker images list asia-south1-docker.pkg.dev/optimal-comfort-5
 6. Itinerary draft returns a Gemini plan, not the template one (the `GEMINI_API_KEY` secret is present).
 7. Voice: tap GhoomMate on a phone, allow the microphone, say a sentence. The agent logs show `received job request`. Nobody else is registered as `ghoomate-prod`.
 8. Prepare a demo trip, squad and photos in advance; if the test sign-in is on, use the demo accounts for it.
-9. Warm the web service a few minutes before (any request), and make a QR code of the URL for the jury.
+9. Warm the web service a few minutes before (any request) and open one GhoomMate chat to wake the agent. It stays up ~15 minutes; for the whole demo, `gcloud run services update ghoommates-agent --min-instances=1 --region=asia-south1` (back to 0 afterwards). Make a QR code of the URL for the jury.
 10. Backup: `npm run dev` plus `npm run share` (ngrok) on a laptop.
 11. Afterwards: redeploy without `ALLOW_DEV_LOGIN`, `pause`, stop or resize Cloud SQL.
 
@@ -187,6 +192,7 @@ gcloud artifacts docker images list asia-south1-docker.pkg.dev/optimal-comfort-5
 | The service answers 403 | Not public: an organisation policy (domain restricted sharing) may have refused `allUsers`. Ask an admin, or `PUBLIC_ACCESS=no-invoker-check deploy/cloudrun.sh`, which turns off Cloud Run's IAM check instead. |
 | Uploads work but photos disappear | `GCS_CREDENTIALS_BASE64` is missing, so the container disk was used. Create the secret and redeploy. |
 | Voice never answers | The worker is not registered (agent logs), the names differ (`GHOOMATE_AGENT_NAME`), or the LiveKit secrets are missing. Use the laptop fallback above. |
+| "GhoomMate is napping" after a long "Waking GhoomMate…" | `POST /api/voice/session` gave up after 25 s (`VOICE_AGENT_WAKING`); the web logs say `Voice agent not ready` with the last answer. `401`/`403`: `ghoommates-web` lacks `roles/run.invoker` on `ghoommates-agent` (`deploy/cloudrun.sh agent` grants it). `503 not connected to livekit`: the worker cannot reach LiveKit (agent logs). A slow cold start: try again, it is warm now. |
 | Build fails with a permission error | Give the Cloud Build account `roles/artifactregistry.writer` and `roles/logging.logWriter` (the face services build the same way). |
 
 ## Try the image locally (optional)
@@ -204,7 +210,8 @@ A local build is for your CPU (arm64 on an M-series Mac); `deploy/cloudrun.sh` b
 | File | Role |
 | --- | --- |
 | `Dockerfile`, `.dockerignore`, `.gcloudignore` | The image, and what stays out of the Docker and Cloud Build uploads (`.env` files, `node_modules`, `.claude/`) |
-| `deploy/cloudrun.sh` | Setup, build, deploy, public access, health check, pause and resume |
+| `deploy/cloudrun.sh` | Setup, build, deploy both services, public access, health check, pause and resume |
+| `backend/src/voice/wake.ts` | Wakes the agent service and waits for its worker to register; the keepalive ping |
 | `deploy/secrets.sh` | `backend/.env` to Secret Manager |
 | `deploy/common.sh`, `deploy/cloudbuild.yaml` | Shared settings and helpers; the Cloud Build config |
 | `.github/workflows/deploy.yml`, `deploy/github-ci.sh` | Deploy on every push to `main`; its one-time Google Cloud setup |

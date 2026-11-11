@@ -47,6 +47,7 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `GHOOMATE_AGENT_NAME` | `ghoomate` | Worker name that sessions dispatch to. LiveKit shares a project's sessions across every worker with the same name, so in dev set your own (e.g. `ghoomate-animesh`). The API and the worker both read it, so your app only reaches your worker. The deployed app keeps the default. |
 | `GHOOMATE_IDLE_PROCESSES` | `1` | Job processes kept started and loaded, so a chat starts without spawning Node and importing the agent (about 1–2 s). `0` turns it off, which you may want while editing the agent: the warm process runs the code from when it started, so an edit applies from the chat after next. |
 | `BACKEND_URL` | `http://127.0.0.1:$PORT` | Where the worker calls the API |
+| `VOICE_AGENT_URL` | — | Cloud Run only (`deploy/cloudrun.sh` sets it): the worker's own scale-to-zero service. `POST /api/voice/session` wakes it and waits up to 25 s for the worker to register with LiveKit (else 503 `VOICE_AGENT_WAKING`), because LiveKit drops a dispatch that finds no worker. During a call the overlay calls `POST /api/voice/keepalive` every minute so Cloud Run keeps that instance up. Unset in dev: no waking. See `backend/docs/deploy.md`. |
 
 ## Files
 

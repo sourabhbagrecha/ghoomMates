@@ -1,7 +1,7 @@
-// VOICE_WORKER=inline: the web server runs the GhoomMate worker (agent.ts) as a child process, so one Cloud Run service
-// with CPU always allocated and no minimum instances serves both. The worker is connected to LiveKit whenever the app
-// has an instance up and costs nothing when nobody is around. It calls the API on this server's port (BACKEND_URL
-// defaults to 127.0.0.1:$PORT).
+// VOICE_WORKER=inline: the web server runs the GhoomMate worker (agent.ts) as a child process, so one container serves
+// both. On Cloud Run that needs CPU always allocated on the web service (deploy with VOICE_IN_WEB=1); the default
+// deploy runs the worker as its own scale-to-zero service instead (VOICE_AGENT_URL, see wake.ts). The worker calls
+// the API on this server's port (BACKEND_URL defaults to 127.0.0.1:$PORT).
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { logger } from '../logger.ts';

@@ -1,6 +1,6 @@
 # Every push to main builds the image on the GitHub runner (no Cloud Build, so no build bill), pushes it to Artifact
-# Registry and rolls it out to the Cloud Run web service (https://ghoommates.sourabh.org) with
-# `SKIP_BUILD=1 deploy/cloudrun.sh release`. Settings and secrets stay as the last full `deploy/cloudrun.sh` left them.
+# Registry and rolls it out to the Cloud Run web service (https://ghoommates.sourabh.org) and the voice agent service
+# with `SKIP_BUILD=1 deploy/cloudrun.sh release`. Settings and secrets stay as the last full `deploy/cloudrun.sh` left them.
 # GitHub signs in to Google with Workload Identity Federation, so no key is stored here; deploy/github-ci.sh sets that
 # up once. See "Automatic deploys" in backend/docs/deploy.md.
 name: Deploy to Cloud Run

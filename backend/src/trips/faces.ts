@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { GoogleAuth, type IdTokenClient } from 'google-auth-library';
+import { GoogleAuth } from 'google-auth-library';
 import { ApiError } from '../http.ts';
+import { idTokenHeaders, isLocalUrl } from '../idToken.ts';
 import { logger } from '../logger.ts';
 import { decodeCredentials } from '../storage.ts';
 
@@ -47,24 +48,13 @@ type Deps = {
   timeoutMs?: number;
 };
 
-function isLocal(url: string) {
-  return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
-}
-
+// The ID token is minted for the GCS_CREDENTIALS_BASE64 account, which has roles/run.invoker on face-search.
 function googleAuthHeaders(env = process.env) {
-  let client: Promise<IdTokenClient> | undefined;
-  return async (url: string) => {
-    // The ID token audience must be the service URL; the client caches and refreshes the token.
-    client ??= (async () => {
-      const credentials = decodeCredentials(env);
-      if (!credentials) throw new Error('GCS_CREDENTIALS_BASE64 is required to call face-search');
-      return new GoogleAuth({ credentials }).getIdTokenClient(url);
-    })();
-    const headers = new Headers((await client.then(c => c.getRequestHeaders(url))) as HeadersInit);
-    const out: Record<string, string> = {};
-    headers.forEach((value, key) => { out[key] = value; });
-    return out;
-  };
+  return idTokenHeaders(() => {
+    const credentials = decodeCredentials(env);
+    if (!credentials) throw new Error('GCS_CREDENTIALS_BASE64 is required to call face-search');
+    return new GoogleAuth({ credentials });
+  });
 }
 
 const unavailable = () => new ApiError(503, 'FACE_SEARCH_UNAVAILABLE', 'Face search is temporarily unavailable. Try again shortly.');
@@ -77,7 +67,7 @@ export function createFaceSearch({ url, fetch: fetchImpl = fetch, authHeaders, t
     const started = Date.now();
     let res: Response;
     try {
-      const auth = isLocal(url) ? {} : await headersFor(url);
+      const auth = isLocalUrl(url) ? {} : await headersFor(url);
       res = await fetchImpl(`${url}/search`, {
         method: 'POST',
         headers: { ...auth, 'Content-Type': 'application/json' },

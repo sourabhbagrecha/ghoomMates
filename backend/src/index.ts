@@ -26,6 +26,7 @@ import { TripService } from './trips/service.ts';
 import { createVoiceApp } from './voice/app.ts';
 import { startInlineVoiceWorker } from './voice/inline.ts';
 import { liveKitConfig } from './voice/session.ts';
+import { createVoiceAgent } from './voice/wake.ts';
 
 loadEnv();
 
@@ -104,6 +105,8 @@ if (db) {
     // A separate 2-hour token for the agent, so the user's 7-day session JWT never leaves the browser.
     agentToken: (user) => signJwt({ userId: user.id, email: user.email, name: user.name }, jwtSecret, 2 * 60 * 60),
     env: process.env,
+    // Cloud Run: the worker's own service scales to zero, so each session wakes it first (backend/docs/deploy.md)
+    agent: process.env.VOICE_AGENT_URL?.trim() ? createVoiceAgent({ url: process.env.VOICE_AGENT_URL.trim() }) : undefined,
   });
   impact = createImpactApp({ db, authenticate, gemini, env: process.env });
 } else {
@@ -180,7 +183,8 @@ const server = app.listen(port, hostname, (err?: Error) => {
   logger.info('Server', `Listening at http://${hostname}:${port}`);
 });
 
-// Cloud Run: the voice worker lives in the same container, so the app scales to zero as one piece
+// VOICE_WORKER=inline: the voice worker runs in this process's container (no separate agent service, but the
+// container then needs CPU outside requests). Cloud Run uses the separate agent service (VOICE_AGENT_URL) instead.
 const stopVoiceWorker = process.env.VOICE_WORKER === 'inline' && voice && liveKitConfig() ? startInlineVoiceWorker() : undefined;
 
 let stopping = false;

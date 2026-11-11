@@ -2,6 +2,7 @@ import test from 'node:test';
 import { expect } from '../expect.ts';
 import { ApiError } from '../../src/http.ts';
 import { createVoiceApp, type VoiceDb } from '../../src/voice/app.ts';
+import type { VoiceAgent } from '../../src/voice/wake.ts';
 import type { User } from '../../src/auth/types.ts';
 import { mount, serve } from '../helpers.ts';
 
@@ -24,10 +25,12 @@ const authenticate = async (token: string) => {
   return user;
 };
 
-async function withServer(env: Record<string, string | undefined>, run: (post: (body: unknown, token?: string | null) => Promise<Response>) => Promise<void>) {
-  const server = await serve(mount('/api/voice', createVoiceApp({ db, authenticate, agentToken: (user) => `agent-jwt-${user.id}`, env })));
+type Post = (body: unknown, token?: string | null, path?: string) => Promise<Response>;
+
+async function withServer(env: Record<string, string | undefined>, run: (post: Post) => Promise<void>, agent?: VoiceAgent) {
+  const server = await serve(mount('/api/voice', createVoiceApp({ db, authenticate, agentToken: (user) => `agent-jwt-${user.id}`, env, agent })));
   try {
-    await run((body, token = TOKEN) => server.request('/api/voice/session', {
+    await run((body, token = TOKEN, path = '/api/voice/session') => server.request(path, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(body),
@@ -92,5 +95,61 @@ test('dispatches to the GHOOMATE_AGENT_NAME worker when one is set', async () =>
     expect(res.status).toBe(200);
     const { participantToken } = await res.json();
     expect(jwtPayload(participantToken).roomConfig.agents[0].agentName).toBe('ghoomate-asha');
+  });
+});
+
+// A fake agent service: `up` is what its health check says; counts the calls
+function fakeAgent(up: boolean) {
+  const calls = { ready: 0, ping: 0 };
+  const agent: VoiceAgent = {
+    ready: async () => { calls.ready += 1; return up; },
+    ping: async () => { calls.ping += 1; return up; },
+  };
+  return { agent, calls };
+}
+
+test('wakes the agent service before minting the token', async () => {
+  const { agent, calls } = fakeAgent(true);
+  await withServer(LIVEKIT_ENV, async (post) => {
+    const res = await post({ tripId: '11111111-1111-4111-8111-111111111111' });
+    expect(res.status).toBe(200);
+    expect(typeof (await res.json()).participantToken).toBe('string');
+    expect(calls.ready).toBe(1);
+  }, agent);
+});
+
+test('returns 503 VOICE_AGENT_WAKING when the agent service is not ready in time', async () => {
+  const { agent } = fakeAgent(false);
+  await withServer(LIVEKIT_ENV, async (post) => {
+    const res = await post({ tripId: '11111111-1111-4111-8111-111111111111' });
+    expect(res.status).toBe(503);
+    expect((await res.json()).error.code).toBe('VOICE_AGENT_WAKING');
+  }, agent);
+});
+
+test('does not wake the agent for a trip the user is not in', async () => {
+  const { agent, calls } = fakeAgent(true);
+  await withServer(LIVEKIT_ENV, async (post) => {
+    expect((await post({ tripId: '22222222-2222-4222-8222-222222222222' })).status).toBe(404);
+    expect(calls.ready).toBe(0);
+  }, agent);
+});
+
+test('keepalive pings the agent service, and needs a signed-in user', async () => {
+  const { agent, calls } = fakeAgent(true);
+  await withServer(LIVEKIT_ENV, async (post) => {
+    expect((await post({}, null, '/api/voice/keepalive')).status).toBe(401);
+    const res = await post({}, TOKEN, '/api/voice/keepalive');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(calls.ping).toBe(1);
+  }, agent);
+});
+
+test('keepalive answers ok without an agent service (local dev, inline worker)', async () => {
+  await withServer(LIVEKIT_ENV, async (post) => {
+    const res = await post({}, TOKEN, '/api/voice/keepalive');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 });

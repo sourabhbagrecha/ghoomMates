@@ -4,6 +4,7 @@ import { ApiError, jsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { User } from '../auth/types.ts';
 import { createVoiceSession, liveKitConfig } from './session.ts';
+import type { VoiceAgent } from './wake.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
@@ -21,6 +22,9 @@ export type VoiceAppOptions = {
   tripDetail?: (tripId: string, userId: string) => Promise<unknown>;
   /** Source of LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET. Defaults to process.env. */
   env?: Record<string, string | undefined>;
+  /** The worker's own Cloud Run service (VOICE_AGENT_URL), woken before each session. Unset: the worker is always
+   *  connected (a laptop, or VOICE_WORKER=inline), so sessions start straight away. */
+  agent?: VoiceAgent;
 };
 
 function bearer(req: Request) {
@@ -31,7 +35,7 @@ function bearer(req: Request) {
 // GhoomMate: voice sessions (a LiveKit token whose room dispatches the agent) and chat history. Mount under /api/voice.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env = process.env }: VoiceAppOptions) {
+export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env = process.env, agent }: VoiceAppOptions) {
   const config = liveKitConfig(env);
   if (!config) logger.warn('Voice', 'GhoomMate voice is disabled: set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET');
   const router = Router();
@@ -59,6 +63,11 @@ export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env =
     if (!config) throw new ApiError(503, 'VOICE_DISABLED', 'GhoomMate voice is not configured on this server');
     const user = res.locals.user as User;
     const tripId = await memberTrip((req.body as { tripId?: unknown })?.tripId, user);
+    // LiveKit dispatches the agent when the user joins the room and drops the job if no worker is registered then,
+    // so the token waits until the (scaled-to-zero) agent service is up and registered.
+    if (agent && !(await agent.ready())) {
+      throw new ApiError(503, 'VOICE_AGENT_WAKING', 'GhoomMate is still waking up. Try again in a few seconds.');
+    }
 
     const session = await createVoiceSession(config, {
       tripId,
@@ -68,6 +77,12 @@ export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env =
     });
     logger.info('Voice', `${user.email} started a GhoomMate session in ${session.roomName} (agent "${config.agentName}")`);
     res.json(session);
+  });
+
+  // Pinged every minute during a call: the call itself sends the agent service no requests, and Cloud Run stops an
+  // instance that gets none. Without a separate agent service this request alone keeps the web instance up.
+  router.post('/keepalive', async (_req, res) => {
+    res.json({ ok: agent ? await agent.ping() : true });
   });
 
   async function recentHistory(tripId: string, userId: string, limit: number) {

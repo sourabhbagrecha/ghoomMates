@@ -10,7 +10,7 @@
 #   roles/artifactregistry.writer on the image repository only              push the image built on the GitHub runner,
 #                                                                           and let Cloud Run resolve it
 #   roles/run.developer                                                     roll out a new revision
-#   roles/iam.serviceAccountUser on the web runtime account                 run the revision as it
+#   roles/iam.serviceAccountUser on the web and voice agent runtime accounts  run the revisions as them
 #   roles/cloudbuild.builds.editor, roles/serviceusage.serviceUsageConsumer,  (unused since CI builds on the runner;
 #   roles/logging.viewer, roles/storage.admin on gs://<project>_cloudbuild,   left for a Cloud Build fallback, could go)
 #   roles/iam.serviceAccountUser on the Cloud Build account
@@ -83,7 +83,7 @@ ok "roles/storage.admin on gs://${PROJECT_ID}_cloudbuild"
 retry 5 6 quietly gcloud artifacts repositories add-iam-policy-binding "$REPO" --project="$PROJECT_ID" --location="$REGION" \
   --member="serviceAccount:$deployer" --role=roles/artifactregistry.writer
 ok "roles/artifactregistry.writer on the $REPO image repository"
-for account in "$build_sa" "$WEB_SA_NAME@$PROJECT_ID.iam.gserviceaccount.com"; do
+for account in "$build_sa" "$WEB_SA_NAME@$PROJECT_ID.iam.gserviceaccount.com" "$AGENT_SA_NAME@$PROJECT_ID.iam.gserviceaccount.com"; do
   retry 5 6 quietly gcloud iam service-accounts add-iam-policy-binding "$account" --project="$PROJECT_ID" \
     --member="serviceAccount:$deployer" --role=roles/iam.serviceAccountUser
   ok "roles/iam.serviceAccountUser on $account"
