@@ -9,14 +9,10 @@ ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 
 # --- Where things live (facts about the shared GhoomMates project) -------------------------------------------------
 PROJECT_ID="${PROJECT_ID:-optimal-comfort-510810-d1}"
-REGION="${REGION:-asia-south1}"                      # Mumbai: the Cloud SQL instance and the bucket are here too
+REGION="${REGION:-asia-south1}"                      # Mumbai: the bucket is here too
 REPO="${REPO:-ghoomates}"                            # Artifact Registry repository (created by cloud/deploy.sh registry)
 IMAGE_NAME="${IMAGE_NAME:-web}"
 BUCKET="${BUCKET:-ghoomates}"
-SQL_INSTANCE_NAME="${SQL_INSTANCE_NAME:-ghoomates}"
-CLOUD_SQL_INSTANCE="${CLOUD_SQL_INSTANCE:-${PROJECT_ID}:${REGION}:${SQL_INSTANCE_NAME}}"
-DB_USER="${DB_USER:-ghoomates}"
-DB_NAME="${DB_NAME:-ghoomates}"
 FACE_SEARCH_SERVICE="${FACE_SEARCH_SERVICE:-face-search}"
 
 # --- What gets deployed -------------------------------------------------------------------------------------------
@@ -121,13 +117,14 @@ secret_exists() {
   return 1
 }
 
-# Settings that become secrets. JWT_SECRET and DB_PASSWORD are required; the others switch a feature off when missing.
+# Settings that become secrets. JWT_SECRET and MONGODB_CONNECTION_STRING (the Atlas URI, with its password) are required;
+# the others switch a feature off when missing.
 # EXTRA_SECRET_KEYS="FOO BAR" adds more (a key another module needs).
-SECRET_KEYS="JWT_SECRET DB_PASSWORD GOOGLE_CLIENT_SECRET GCS_CREDENTIALS_BASE64 GEMINI_API_KEY LIVEKIT_API_KEY LIVEKIT_API_SECRET GOOGLE_MAPS_API_KEY ${EXTRA_SECRET_KEYS:-}"
+SECRET_KEYS="JWT_SECRET MONGODB_CONNECTION_STRING GOOGLE_CLIENT_SECRET GCS_CREDENTIALS_BASE64 GEMINI_API_KEY LIVEKIT_API_KEY LIVEKIT_API_SECRET GOOGLE_MAPS_API_KEY ${EXTRA_SECRET_KEYS:-}"
 
 # Plain (non-secret) settings copied into the web service's environment when set in the environment or in ENV_FILE.
 # EXTRA_ENV_KEYS="FOO BAR" adds more.
-PLAIN_KEYS="GOOGLE_CLIENT_ID LIVEKIT_URL GEMINI_MODEL GEMINI_SMART_MODEL GEMINI_IMAGE_MODEL GEMINI_TTS_MODEL DB_POOL_SIZE ${EXTRA_ENV_KEYS:-}"
+PLAIN_KEYS="GOOGLE_CLIENT_ID LIVEKIT_URL GEMINI_MODEL GEMINI_SMART_MODEL GEMINI_IMAGE_MODEL GEMINI_TTS_MODEL MONGODB_DB DB_POOL_SIZE ${EXTRA_ENV_KEYS:-}"
 
 # env_value KEY: the value from the process environment, else the first non-empty assignment in ENV_FILE.
 # The file is parsed, never sourced (values may contain $ or quotes). Quotes around the value are removed, as the
@@ -140,10 +137,10 @@ env_value() {
   printf '%s' "$value"
 }
 
-# Template values from .env.example (replace_with_..., your_...) are not real settings.
+# Template values from .env.example (replace_with_..., your_..., mongodb+srv://<user>:<password>@...) are not real settings.
 is_placeholder() {
   case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
-    ''|replace_with*|your_*|your-*|changeme*|'<'*) return 0 ;;
+    ''|replace_with*|your_*|your-*|changeme*|'<'*|*'<password>'*) return 0 ;;
     *) return 1 ;;
   esac
 }

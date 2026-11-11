@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import type { Gemini } from '../../src/gemini.ts';
@@ -6,6 +7,7 @@ import type { User } from '../../src/auth/types.ts';
 import type { OpsDb } from '../../src/ops/advisories.ts';
 import { createOpsApp } from '../../src/ops/app.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 
 const asha = { id: 'usr_1', username: 'asha', email: 'asha@test.local', name: 'Asha' } as User;
 const authenticate = async (token: string) => {
@@ -23,40 +25,26 @@ const planned = (n: number, title: string, minutes: number, extra: Partial<Plann
     trip_id: `trip-secret-${title}-${minutes}-${i}`, title, place: '', tag: 'Culture', minutes, destination: 'Udaipur', name: 'Secret Squad Trip', people: 4, ...extra,
   }));
 
-/** In-memory stand-in for the queries the ops routes run */
-function fakeDb(rows: PlannedRow[] = []) {
-  const advisories: Record<string, unknown>[] = [];
-  const calls: string[] = [];
-  const db: OpsDb = {
-    pool: {
-      query: async (sql, values = []) => {
-        calls.push(sql);
-        if (sql.includes('FROM trip_stops')) return { rowCount: rows.length, rows };
-        if (sql.startsWith('INSERT INTO heritage_advisories')) {
-          const row = {
-            id: values[0], city: values[1], site_id: values[2], advisory_date: values[3], start_minutes: values[4], end_minutes: values[5],
-            level: values[6], message_en: values[7], message_hi: values[8], alt_site_id: values[9], alt_minutes: values[10],
-            reach_squads: values[11], reach_people: values[12], created_by: values[13], created_at: new Date('2026-11-01T06:00:00Z'), withdrawn_at: null,
-          };
-          advisories.push(row);
-          return { rowCount: 1, rows: [row] };
-        }
-        if (sql.includes('FROM heritage_advisories')) {
-          const [from, date, city] = values as [string, string | null, string | null];
-          const found = advisories.filter(r => !r.withdrawn_at && (r.advisory_date as string) >= from && (!date || r.advisory_date === date) && (!city || r.city === city));
-          return { rowCount: found.length, rows: found };
-        }
-        if (sql.startsWith('UPDATE heritage_advisories')) {
-          const row = advisories.find(r => r.id === values[0] && !r.withdrawn_at);
-          if (row) row.withdrawn_at = new Date();
-          return { rowCount: row ? 1 : 0, rows: [] };
-        }
-        throw new Error(`Unexpected query: ${sql}`);
-      },
-    },
-  };
-  return { db, advisories, calls };
+/** A fresh database with each planned row seeded as its own trip starting tomorrow, with one stop on day 1 */
+async function seededDb(rows: PlannedRow[] = []): Promise<{ db: OpsDb }> {
+  const database = await testDatabase();
+  const trips = new Map<string, PlannedRow>();
+  for (const row of rows) trips.set(row.trip_id, row);
+  if (trips.size) {
+    await database.db.collection<any>('trips').insertMany([...trips.values()].map(r => ({
+      _id: r.trip_id, name: r.name, destination: r.destination, start_date: TOMORROW, invite_code: randomUUID(), expense_group_id: randomUUID(),
+    })));
+    await database.db.collection('trip_members').insertMany([...trips.values()].flatMap(r =>
+      Array.from({ length: r.people }, (_, i) => ({ trip_id: r.trip_id, user_id: `usr_${i}`, ledger_member_id: randomUUID() }))));
+    await database.db.collection<any>('trip_stops').insertMany(rows.map(r => ({
+      _id: randomUUID(), trip_id: r.trip_id, day_number: 1, time: '10:00 AM', minutes: r.minutes, title: r.title, tag: r.tag, place: r.place,
+    })));
+  }
+  return { db: database };
 }
+
+/** A database whose every read fails */
+const brokenDb = { db: { collection() { throw new Error('connection lost'); } } } as unknown as OpsDb;
 
 function fakeGemini(json: Gemini['json'], enabled = true): Gemini {
   return {
@@ -104,7 +92,7 @@ describe('the forecast', () => {
       ...planned(4, 'Lunch near City Palace', 600, { tag: 'Food' }),
       ...planned(3, 'City Palace', 600, { destination: 'Goa', name: 'Goa Gang' }),
     ];
-    const { db } = fakeDb(rows);
+    const { db } = await seededDb(rows);
     await withServer({ db }, async (call) => {
       const res = await call('GET', `/Udaipur/forecast?date=${TOMORROW}&sample=0`);
       expect(res.status).toBe(200);
@@ -162,8 +150,7 @@ describe('the forecast', () => {
   });
 
   test('falls back to the baseline when the planned stops can’t be read', async () => {
-    const db: OpsDb = { pool: { query: async () => { throw new Error('connection lost'); } } };
-    await withServer({ db }, async (call) => {
+    await withServer({ db: brokenDb }, async (call) => {
       const res = await call('GET', `/Udaipur/forecast?date=${TOMORROW}&sample=0`);
       expect(res.status).toBe(200);
       expect((await res.json()).meta.live).toBe(false);
@@ -186,7 +173,7 @@ describe('the forecast', () => {
 
 describe('advisories', () => {
   test('publish, show to travellers, withdraw', async () => {
-    const { db } = fakeDb(planned(6, 'City Palace museum', 630));
+    const { db } = await seededDb(planned(6, 'City Palace museum', 630));
     await withServer({ db }, async (call) => {
       expect((await call('POST', '/advisories', advisory, null)).status).toBe(401);
 
@@ -226,7 +213,7 @@ describe('advisories', () => {
   });
 
   test('small reach is hidden and the relief estimate needs a real group', async () => {
-    const { db } = fakeDb(planned(2, 'City Palace museum', 630));
+    const { db } = await seededDb(planned(2, 'City Palace museum', 630));
     await withServer({ db }, async (call) => {
       const body = await (await call('POST', '/advisories', { ...advisory, sample: false })).json();
       expect(body.reach).toEqual({ squads: '<3', people: null, includesSample: false, relief: null, pickup: 0.3 });
@@ -243,7 +230,7 @@ describe('advisories', () => {
   });
 
   test('previews the reach of a window while the manager adjusts it', async () => {
-    const { db } = fakeDb([...planned(4, 'City Palace museum', 600), ...planned(3, 'City Palace museum', 780)]);
+    const { db } = await seededDb([...planned(4, 'City Palace museum', 600), ...planned(3, 'City Palace museum', 780)]);
     await withServer({ db }, async (call) => {
       const window = (startMinutes: number, endMinutes: number) =>
         call('POST', '/advisories/reach', { siteId: 'city-palace', date: TOMORROW, startMinutes, endMinutes, sample: false });
@@ -288,8 +275,7 @@ describe('advisories', () => {
   });
 
   test('travellers see no advisories rather than an error when the store fails', async () => {
-    const db: OpsDb = { pool: { query: async () => { throw new Error('connection lost'); } } };
-    await withServer({ db }, async (call) => {
+    await withServer({ db: brokenDb }, async (call) => {
       const res = await call('GET', '/advisories?city=Udaipur', undefined, null);
       expect(res.status).toBe(200);
       expect((await res.json()).items).toHaveLength(0);

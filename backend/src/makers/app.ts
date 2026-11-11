@@ -14,7 +14,7 @@ import { CRAFT_BY_ID, CRAFTS, ITEM_SIZES, type ItemSize } from './crafts.ts';
 import { availabilityFor, fairPriceCheck, isIsoDate, listMakers, summarise } from './logic.ts';
 import { CLOSED_DATES, MAKER_BY_ID, MAKERS } from './makers.ts';
 import { MakersService, type MakersTrips } from './service.ts';
-import { PostgresMakersStore, type MakersStore } from './store.ts';
+import { MongoMakersStore, type MakersStore } from './store.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
@@ -58,7 +58,7 @@ export function createMakersApp({ gemini, authenticate, store, trips, now = () =
 
   const requireUser: RequestHandler = async (req, res, next) => {
     if (!service || !authenticate) {
-      throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Booking workshops needs the database; set DATABASE_URL or CLOUD_SQL_INSTANCE');
+      throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Booking workshops needs the database; set MONGODB_CONNECTION_STRING');
     }
     const token = bearer(req);
     if (!token) throw new ApiError(401, 'UNAUTHORIZED', 'Sign in to continue');
@@ -155,11 +155,11 @@ export function createMakersApp({ gemini, authenticate, store, trips, now = () =
 }
 
 /** The real store and trips bridge, for when the server has a database */
-export function createPostgresMakers(db: Database, storage: MediaStorage, clientOrigin: string): { store: MakersStore; trips: MakersTrips } {
+export function createMongoMakers(db: Database, storage: MediaStorage, clientOrigin: string): { store: MakersStore; trips: MakersTrips } {
   const tripService = new TripService(db, storage, clientOrigin);
   const itinerary = new ItineraryService(db);
   return {
-    store: new PostgresMakersStore(db),
+    store: new MongoMakersStore(db),
     trips: {
       access: (tripId, userId) => tripService.access(tripId, userId),
       addStop: (access, userId, input) => itinerary.addStop(access, userId, input),

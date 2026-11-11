@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask, Response, jsonify, request
+from pymongo.database import Database
 
 from faces import store
 from faces.config import Settings
@@ -80,7 +81,7 @@ def route(name: str, content_type: str, settings: Settings) -> tuple[str | None,
     return match.group("scope").lower(), None
 
 
-def create_app(settings: Settings, engine: FaceEngine, pool: Any, reader: ObjectReader) -> Flask:
+def create_app(settings: Settings, engine: FaceEngine, db: Database, reader: ObjectReader) -> Flask:
     app = Flask("face-indexer")
 
     @app.get("/healthz")
@@ -122,8 +123,7 @@ def create_app(settings: Settings, engine: FaceEngine, pool: Any, reader: Object
             return "", 500
 
     def handle_deleted(event: StorageEvent, fields: dict[str, Any], started: float) -> tuple[str, int]:
-        with pool.connection() as conn:
-            removed = store.delete_photo(conn, event.bucket, event.name, event.generation)
+        removed = store.delete_photo(db, event.bucket, event.name, event.generation)
         fields["timings_ms"] = {"total": ms(started)}
         log(logger, logging.INFO, "photo removed" if removed else "nothing to remove", **fields)
         return "", 204
@@ -134,18 +134,16 @@ def create_app(settings: Settings, engine: FaceEngine, pool: Any, reader: Object
 
         def save(status: str, **kwargs: Any) -> None:
             t = time.monotonic()
-            with pool.connection() as conn:
-                saved = store.save_photo(
-                    conn, bucket=event.bucket, name=event.name, generation=event.generation, trip_id=trip_id,
-                    status=status, settings=settings, **kwargs,
-                )
+            saved = store.save_photo(
+                db, bucket=event.bucket, name=event.name, generation=event.generation, trip_id=trip_id,
+                status=status, settings=settings, **kwargs,
+            )
             timings["db_write"] = ms(t)
             if saved is None:
                 fields["skipped"] = "stale event: a newer generation is already stored"
 
         t = time.monotonic()
-        with pool.connection() as conn:
-            reason = store.skip_reason(store.get_photo(conn, event.bucket, event.name), event.generation, settings)
+        reason = store.skip_reason(store.get_photo(db, event.bucket, event.name), event.generation, settings)
         timings["db_read"] = ms(t)
         if reason:
             timings["total"] = ms(started)

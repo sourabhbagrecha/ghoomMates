@@ -1,6 +1,6 @@
 # Runtime dependencies for both services, fully pinned (resolved for CPython 3.12 on linux x86_64).
 # Direct dependencies: deepface, retina-face, tensorflow, tf-keras, pillow, pillow-heif, flask, gunicorn,
-# psycopg[binary], psycopg-pool, google-cloud-storage. Everything else is transitive.
+# pymongo, google-cloud-storage. Everything else is transitive.
 absl-py==2.5.1
 astunparse==1.6.3
 beautifulsoup4==4.15.0
@@ -11,6 +11,7 @@ charset-normalizer==3.5.2
 click==8.5.0
 cryptography==50.0.2
 deepface==0.0.103
+dnspython==2.9.2
 filelock==4.2.6
 Flask==3.1.3
 flatbuffers==25.12.19
@@ -49,13 +50,11 @@ pillow==13.0.0
 pillow_heif==1.8.1
 proto-plus==1.29.0
 protobuf==7.36.2
-psycopg==3.3.6
-psycopg-binary==3.3.6
-psycopg-pool==3.3.3
 pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pycparser==3.12
 Pygments==2.21.0
+pymongo==4.19.0
 PySocks==1.7.1
 python-dateutil==3.0.0
 requests==2.34.2

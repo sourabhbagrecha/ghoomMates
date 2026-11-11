@@ -25,7 +25,7 @@ export type BookingRecord = {
 
 export type NewBooking = Pick<BookingRecord, 'tripId' | 'makerId' | 'bookedBy' | 'dayNumber' | 'date' | 'slot' | 'people' | 'pricePerPerson' | 'total' | 'note'>;
 
-/** Where bookings live. The Postgres store is the real one; tests swap in an in-memory one. */
+/** Where bookings live. The MongoDB store is the real one; tests swap in an in-memory one. */
 export interface MakersStore {
   /** People already booked per slot on a date, across every trip */
   booked(makerId: string, date: string): Promise<Record<string, number>>;
@@ -39,79 +39,84 @@ export interface MakersStore {
   forTrip(tripId: string): Promise<BookingRecord[]>;
 }
 
-type Row = {
-  id: string; trip_id: string; maker_id: string; booked_by: string; stop_id: string | null; day_number: number;
+type Doc = {
+  _id: string; trip_id: string; maker_id: string; booked_by: string; stop_id: string | null; day_number: number;
   workshop_date: string; slot: string; people: number; price_per_person_inr: number; total_inr: number;
   status: 'confirmed' | 'cancelled'; note: string; created_at: Date;
 };
 
-const COLUMNS = 'id, trip_id, maker_id, booked_by, stop_id, day_number, workshop_date, slot, people, price_per_person_inr, total_inr, status, note, created_at';
-
-const record = (r: Row): BookingRecord => ({
-  id: r.id, tripId: r.trip_id, makerId: r.maker_id, bookedBy: r.booked_by, stopId: r.stop_id, dayNumber: r.day_number,
+const record = (r: Doc): BookingRecord => ({
+  id: r._id, tripId: r.trip_id, makerId: r.maker_id, bookedBy: r.booked_by, stopId: r.stop_id ?? null, dayNumber: r.day_number,
   date: r.workshop_date, slot: r.slot, people: r.people, pricePerPerson: r.price_per_person_inr, total: r.total_inr,
   status: r.status, note: r.note, createdAt: r.created_at.toISOString(),
 });
 
-export class PostgresMakersStore implements MakersStore {
-  private db: Database;
+// The maker_slots counter holding how many people are confirmed into one workshop slot
+const slotId = (makerId: string, date: string, slot: string) => `${makerId}:${date}:${slot}`;
+
+export class MongoMakersStore implements MakersStore {
+  private database: Database;
 
   constructor(database: Database) {
-    this.db = database;
+    this.database = database;
+  }
+
+  private get bookings() {
+    return this.database.db.collection<Doc>('maker_bookings');
+  }
+
+  private get slots() {
+    return this.database.db.collection<{ _id: string; people: number }>('maker_slots');
   }
 
   async booked(makerId: string, date: string) {
-    const { rows } = await this.db.pool.query<{ slot: string; people: number }>(
-      `SELECT slot, sum(people)::int AS people FROM maker_bookings
-       WHERE maker_id = $1 AND workshop_date = $2 AND status = 'confirmed' GROUP BY slot`,
-      [makerId, date],
-    );
-    return Object.fromEntries(rows.map(r => [r.slot, r.people]));
+    const rows = await this.bookings.aggregate<{ _id: string; people: number }>([
+      { $match: { maker_id: makerId, workshop_date: date, status: 'confirmed' } },
+      { $group: { _id: '$slot', people: { $sum: '$people' } } },
+    ]).toArray();
+    return Object.fromEntries(rows.map(r => [r._id, r.people]));
   }
 
   async findOpen(tripId: string, makerId: string, date: string, slot: string) {
-    const { rows: [row] } = await this.db.pool.query<Row>(
-      `SELECT ${COLUMNS} FROM maker_bookings
-       WHERE trip_id = $1 AND maker_id = $2 AND workshop_date = $3 AND slot = $4 AND status = 'confirmed'`,
-      [tripId, makerId, date, slot],
-    );
-    return row ? record(row) : null;
+    const doc = await this.bookings.findOne({ trip_id: tripId, maker_id: makerId, workshop_date: date, slot, status: 'confirmed' });
+    return doc ? record(doc) : null;
   }
 
   async create(input: NewBooking, capacity: number) {
-    return transaction(this.db.pool, async (tx) => {
-      // One booking at a time per slot, so two squads can't both take the last seats
-      await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`maker:${input.makerId}:${input.date}:${input.slot}`]);
-      const { rows: [taken] } = await tx.query<{ people: number }>(
-        `SELECT coalesce(sum(people), 0)::int AS people FROM maker_bookings
-         WHERE maker_id = $1 AND workshop_date = $2 AND slot = $3 AND status = 'confirmed'`,
-        [input.makerId, input.date, input.slot],
+    return transaction(this.database, async (session) => {
+      // Taking seats bumps the slot's counter, so two squads booking at once conflict and one retries against the new total
+      const counter = await this.slots.findOneAndUpdate(
+        { _id: slotId(input.makerId, input.date, input.slot) },
+        { $inc: { people: input.people } },
+        { upsert: true, returnDocument: 'after', session },
       );
-      if (taken.people + input.people > capacity) {
+      if (counter!.people > capacity) {
         throw new ApiError(409, 'SLOT_UNAVAILABLE', 'Someone just took those spots. Pick another slot.');
       }
-      const { rows: [row] } = await tx.query<Row>(
-        `INSERT INTO maker_bookings (id, trip_id, maker_id, booked_by, day_number, workshop_date, slot, people, price_per_person_inr, total_inr, note)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING ${COLUMNS}`,
-        [randomUUID(), input.tripId, input.makerId, input.bookedBy, input.dayNumber, input.date, input.slot, input.people, input.pricePerPerson, input.total, input.note],
-      );
-      return record(row);
+      const doc: Doc = {
+        _id: randomUUID(), trip_id: input.tripId, maker_id: input.makerId, booked_by: input.bookedBy, stop_id: null, day_number: input.dayNumber,
+        workshop_date: input.date, slot: input.slot, people: input.people, price_per_person_inr: input.pricePerPerson, total_inr: input.total,
+        status: 'confirmed', note: input.note, created_at: new Date(),
+      };
+      await this.bookings.insertOne(doc, { session });
+      return record(doc);
     });
   }
 
   async attachStop(id: string, stopId: string) {
-    await this.db.pool.query('UPDATE maker_bookings SET stop_id = $2 WHERE id = $1', [id, stopId]);
+    await this.bookings.updateOne({ _id: id }, { $set: { stop_id: stopId } });
   }
 
   async cancel(id: string) {
-    await this.db.pool.query(`UPDATE maker_bookings SET status = 'cancelled' WHERE id = $1`, [id]);
+    await transaction(this.database, async (session) => {
+      const doc = await this.bookings.findOneAndUpdate({ _id: id, status: 'confirmed' }, { $set: { status: 'cancelled' } }, { session });
+      // Free the seats it held
+      if (doc) await this.slots.updateOne({ _id: slotId(doc.maker_id, doc.workshop_date, doc.slot) }, { $inc: { people: -doc.people } }, { session });
+    });
   }
 
   async forTrip(tripId: string) {
-    const { rows } = await this.db.pool.query<Row>(
-      `SELECT ${COLUMNS} FROM maker_bookings WHERE trip_id = $1 AND status = 'confirmed' ORDER BY workshop_date, created_at`,
-      [tripId],
-    );
-    return rows.map(record);
+    const docs = await this.bookings.find({ trip_id: tripId, status: 'confirmed' }).sort({ workshop_date: 1, created_at: 1 }).toArray();
+    return docs.map(record);
   }
 }

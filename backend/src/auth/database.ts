@@ -2,7 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { ApiError } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { User } from './types.ts';
-import type { Database, Pool } from '../db.ts';
+import type { Collection } from 'mongodb';
+import { isDuplicateKey, type Database } from '../db.ts';
 
 export type ProfilePatch = { picture?: string; name?: string; username?: string; preferences?: Record<string, unknown> };
 
@@ -117,50 +118,54 @@ class InMemoryOAuthDatabase implements OAuthDatabase {
   }
 }
 
-const USER_COLUMNS = 'id, username, preferences, google_id, email, email_verified, name, given_name, family_name, picture, locale, created_at, updated_at, last_login_at';
+type UserDoc = {
+  _id: string; username: string; preferences: Record<string, unknown>; google_id: string; email: string; email_verified: boolean;
+  name: string; given_name: string | null; family_name: string | null; picture: string | null; locale: string | null;
+  created_at: Date; updated_at: Date; last_login_at: Date;
+};
 
-function toUser(row: Record<string, any>): User {
+function toUser(doc: UserDoc): User {
   return {
-    id: row.id,
-    username: row.username,
-    preferences: row.preferences,
-    googleId: row.google_id,
-    email: row.email,
-    emailVerified: row.email_verified,
-    name: row.name,
-    givenName: row.given_name ?? undefined,
-    familyName: row.family_name ?? undefined,
-    picture: row.picture ?? undefined,
-    locale: row.locale ?? undefined,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-    lastLoginAt: row.last_login_at.toISOString(),
+    id: doc._id,
+    username: doc.username,
+    preferences: doc.preferences ?? {},
+    googleId: doc.google_id,
+    email: doc.email,
+    emailVerified: doc.email_verified,
+    name: doc.name,
+    givenName: doc.given_name ?? undefined,
+    familyName: doc.family_name ?? undefined,
+    picture: doc.picture ?? undefined,
+    locale: doc.locale ?? undefined,
+    createdAt: doc.created_at.toISOString(),
+    updatedAt: doc.updated_at.toISOString(),
+    lastLoginAt: doc.last_login_at.toISOString(),
   };
 }
 
-class PostgresOAuthDatabase implements OAuthDatabase {
+class MongoOAuthDatabase implements OAuthDatabase {
   readonly isConnected = true;
-  private pool: Pool;
+  private users: Collection<UserDoc>;
 
-  constructor(pool: Pool) {
-    this.pool = pool;
+  constructor(database: Database) {
+    this.users = database.db.collection<UserDoc>('users');
   }
 
-  private async findOne(where: string, value: string): Promise<User | null> {
-    const { rows: [row] } = await this.pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE ${where} = $1`, [value]);
-    return row ? toUser(row) : null;
+  private async findOne(filter: Partial<UserDoc>): Promise<User | null> {
+    const doc = await this.users.findOne(filter);
+    return doc ? toUser(doc) : null;
   }
 
   findUserById(id: string) {
-    return this.findOne('id', id);
+    return this.findOne({ _id: id });
   }
 
   findUserByGoogleId(googleId: string) {
-    return this.findOne('google_id', googleId);
+    return this.findOne({ google_id: googleId });
   }
 
   findUserByEmail(email: string) {
-    return this.findOne('email', email.toLowerCase().trim());
+    return this.findOne({ email: email.toLowerCase().trim() });
   }
 
   async upsertGoogleUser(profile: {
@@ -174,62 +179,54 @@ class PostgresOAuthDatabase implements OAuthDatabase {
   }): Promise<{ user: User; isNew: boolean }> {
     const email = profile.email.toLowerCase().trim();
     const existing = (await this.findUserByGoogleId(profile.googleId)) || (await this.findUserByEmail(email));
+    const now = new Date();
 
     if (existing) {
-      // The picture is the user's selfie and is never overwritten with Google's.
-      const { rows: [row] } = await this.pool.query(
-        `UPDATE users SET
-           google_id = $2,
-           email = $3,
-           email_verified = COALESCE($4, email_verified),
-           name = COALESCE(NULLIF(name, ''), $5),
-           given_name = COALESCE(NULLIF($6, ''), given_name),
-           family_name = COALESCE(NULLIF($7, ''), family_name),
-           locale = COALESCE(NULLIF($8, ''), locale),
-           updated_at = now(),
-           last_login_at = now()
-         WHERE id = $1
-         RETURNING ${USER_COLUMNS}`,
-        [existing.id, profile.googleId, email, profile.emailVerified ?? null, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
-      );
-      const user = toUser(row);
-      logger.info('DB:Postgres', `Updated existing user in Postgres: ${user.email} (${user.id})`);
+      // The picture is the user's selfie and is never overwritten with Google's; a custom name is kept too.
+      const set: Partial<UserDoc> = { google_id: profile.googleId, email, updated_at: now, last_login_at: now };
+      if (profile.emailVerified !== undefined) set.email_verified = profile.emailVerified;
+      if (!existing.name) set.name = profile.name;
+      if (profile.givenName) set.given_name = profile.givenName;
+      if (profile.familyName) set.family_name = profile.familyName;
+      if (profile.locale) set.locale = profile.locale;
+      const doc = await this.users.findOneAndUpdate({ _id: existing.id }, { $set: set }, { returnDocument: 'after' });
+      const user = toUser(doc!);
+      logger.info('DB:Mongo', `Updated existing user in MongoDB: ${user.email} (${user.id})`);
       return { user, isNew: false };
     }
 
-    const { rows: [row] } = await this.pool.query(
-      `INSERT INTO users (id, username, google_id, email, email_verified, name, given_name, family_name, locale)
-       VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING ${USER_COLUMNS}`,
-      [`usr_${randomBytes(8).toString('hex')}`, profile.googleId, email, profile.emailVerified ?? true, profile.name, profile.givenName ?? null, profile.familyName ?? null, profile.locale ?? null]
-    );
-    const user = toUser(row);
-    logger.info('DB:Postgres', `Inserted new user in Postgres: ${user.email} (${user.id})`);
+    const id = `usr_${randomBytes(8).toString('hex')}`;
+    const doc: UserDoc = {
+      _id: id, username: id, preferences: {}, google_id: profile.googleId, email, email_verified: profile.emailVerified ?? true,
+      name: profile.name, given_name: profile.givenName ?? null, family_name: profile.familyName ?? null, picture: null,
+      locale: profile.locale ?? null, created_at: now, updated_at: now, last_login_at: now,
+    };
+    await this.users.insertOne(doc);
+    const user = toUser(doc);
+    logger.info('DB:Mongo', `Inserted new user in MongoDB: ${user.email} (${user.id})`);
     return { user, isNew: true };
   }
 
   async updateUserProfile(id: string, patch: ProfilePatch): Promise<User | null> {
-    const { rows: [row] } = await this.pool.query(
-      `UPDATE users SET
-         picture = CASE WHEN $2 THEN $3 ELSE picture END,
-         name = COALESCE($4, name),
-         username = COALESCE($5, username),
-         preferences = preferences || COALESCE($6::jsonb, '{}'::jsonb),
-         updated_at = now()
-       WHERE id = $1
-       RETURNING ${USER_COLUMNS}`,
-      [id, patch.picture !== undefined, patch.picture ?? null, patch.name ?? null, patch.username ?? null, patch.preferences ? JSON.stringify(patch.preferences) : null]
-    ).catch((error) => {
-      if (error.code === '23505') throw new ApiError(409, 'USERNAME_TAKEN', 'This username is already taken');
+    const set: Record<string, unknown> = { updated_at: new Date() };
+    if (patch.picture !== undefined) set.picture = patch.picture;
+    if (patch.name != null) set.name = patch.name;
+    if (patch.username != null) set.username = patch.username;
+    // Shallow merge, one dotted path per key. Keys Mongo can't address as a path ('a.b', '$x') are dropped.
+    for (const [key, value] of Object.entries(patch.preferences ?? {})) {
+      if (key && !key.includes('.') && !key.startsWith('$')) set[`preferences.${key}`] = value;
+    }
+    const doc = await this.users.findOneAndUpdate({ _id: id }, { $set: set }, { returnDocument: 'after' }).catch((error) => {
+      if (isDuplicateKey(error)) throw new ApiError(409, 'USERNAME_TAKEN', 'This username is already taken');
       throw error;
     });
-    if (row) {
-      logger.info('DB:Postgres', `Updated user profile in Postgres: ${id}`);
+    if (doc) {
+      logger.info('DB:Mongo', `Updated user profile in MongoDB: ${id}`);
     }
-    return row ? toUser(row) : null;
+    return doc ? toUser(doc) : null;
   }
 
-  // The pool is shared with other modules and closed by its owner.
+  // The client is shared with other modules and closed by its owner.
   async terminate(): Promise<void> {}
 }
 
@@ -237,6 +234,6 @@ export function createInMemoryOAuthDatabase(): OAuthDatabase {
   return new InMemoryOAuthDatabase();
 }
 
-export function createPostgresOAuthDatabase(database: Database): OAuthDatabase {
-  return new PostgresOAuthDatabase(database.pool);
+export function createMongoOAuthDatabase(database: Database): OAuthDatabase {
+  return new MongoOAuthDatabase(database);
 }

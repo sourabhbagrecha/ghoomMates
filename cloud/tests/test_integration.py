@@ -1,4 +1,4 @@
-"""End to end with the real models: index sample photos through the indexer endpoint into Postgres, then find
+"""End to end with the real models: index sample photos through the indexer endpoint into MongoDB, then find
 them through the search endpoint with a selfie.
 
 Sample images come from the deepface repository's test dataset (pinned commit), downloaded once into
@@ -22,7 +22,7 @@ from faces.indexer import FINALIZED
 from faces.indexer import create_app as create_indexer
 from faces.search import create_app as create_search
 from faces.storage import LocalReader
-from tests.conftest import TRIP_A, TRIP_B
+from tests.conftest import TRIP_A, TRIP_B, wait_searchable
 
 pytestmark = [pytest.mark.db, pytest.mark.integration]
 
@@ -62,17 +62,17 @@ def engine():
 
 
 @pytest.fixture(scope="module")
-def clients(samples, engine, pool, tmp_path_factory):
-    with pool.connection() as conn:
-        conn.execute("TRUNCATE face_photos, faces RESTART IDENTITY")
+def clients(samples, engine, db, tmp_path_factory):
+    db.face_photos.delete_many({})
+    db.faces.delete_many({})
     bucket_dir = tmp_path_factory.mktemp("bucket")
     for name, trip in GALLERY.items():
         target = bucket_dir / f"trips/{trip}/photos/{name}"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((samples / name).read_bytes())
     settings = Settings()
-    indexer = create_indexer(settings, engine, pool, LocalReader(str(bucket_dir))).test_client()
-    search = create_search(settings, engine, pool).test_client()
+    indexer = create_indexer(settings, engine, db, LocalReader(str(bucket_dir))).test_client()
+    search = create_search(settings, engine, db).test_client()
     for i, (name, trip) in enumerate(GALLERY.items(), start=1):
         response = indexer.post(
             "/",
@@ -81,6 +81,7 @@ def clients(samples, engine, pool, tmp_path_factory):
             headers={"ce-id": f"e{i}", "ce-type": FINALIZED},
         )
         assert response.status_code == 204
+    wait_searchable(db)
     return indexer, search
 
 
@@ -95,11 +96,11 @@ def names(result):
     return {m["object_name"].rsplit("/", 1)[1] for m in result["matches"]}
 
 
-def test_every_gallery_photo_was_indexed_with_faces(clients, pool):
-    with pool.connection() as conn:
-        rows = conn.execute("SELECT object_name, status, face_count, width, height FROM face_photos").fetchall()
-    assert len(rows) == len(GALLERY)
-    for object_name, status, face_count, width, height in rows:
+def test_every_gallery_photo_was_indexed_with_faces(clients, db):
+    photos = list(db.face_photos.find())
+    assert len(photos) == len(GALLERY)
+    for p in photos:
+        object_name, status, face_count, width, height = (p[k] for k in ("object_name", "status", "face_count", "width", "height"))
         assert status == "indexed" and face_count >= 1, object_name
         assert width > 0 and height > 0
 

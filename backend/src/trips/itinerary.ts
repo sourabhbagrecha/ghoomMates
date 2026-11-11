@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ApiError, integer, object, requireThat, text } from '../expenses/domain.ts';
-import { transaction, type Database, type Pool, type Tx } from '../db.ts';
+import { transaction, type ClientSession, type Database, type Db } from '../db.ts';
 import { logger } from '../logger.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { TripAccess } from './service.ts';
@@ -73,25 +73,40 @@ export function tripLength(trip: TripAccess['trip']) {
  * (their times stay), and the day titles shrink with the trip. Returns how many stops moved.
  * Call it in the same transaction that saves the new dates.
  */
-export async function fitStopsToLength(db: Pick<Tx, 'query'>, tripId: string, length: number) {
-  const moved = await db.query('UPDATE trip_stops SET day_number = $2::int WHERE trip_id = $1 AND day_number > $2::int', [tripId, length]);
-  await db.query(
-    `UPDATE trips SET day_titles = coalesce(
-       (SELECT jsonb_agg(t.title ORDER BY t.n) FROM jsonb_array_elements(day_titles) WITH ORDINALITY AS t (title, n) WHERE t.n <= $2::int),
-       '[]'::jsonb)
-     WHERE id = $1 AND jsonb_array_length(day_titles) > $2::int`,
-    [tripId, length],
+export async function fitStopsToLength(db: Db, tripId: string, length: number, session?: ClientSession) {
+  const moved = await db.collection('trip_stops').updateMany({ trip_id: tripId, day_number: { $gt: length } }, { $set: { day_number: length } }, { session });
+  await db.collection('trips').updateOne(
+    { _id: tripId as any, [`day_titles.${length}`]: { $exists: true } },
+    [{ $set: { day_titles: { $slice: ['$day_titles', length] } } }],
+    { session },
   );
-  return moved.rowCount ?? 0;
+  return moved.modifiedCount;
+}
+
+/**
+ * Deletes stops and what hung off them (the old ON DELETE rules): their RSVPs and impact legs go, maker bookings and
+ * hospitality reservations stay but lose the stop link.
+ */
+export async function deleteStopsCascade(db: Db, stopIds: string[], session?: ClientSession) {
+  if (!stopIds.length) return;
+  const ids = { $in: stopIds };
+  // One at a time: a transaction's operations can't run in parallel on its session
+  await db.collection('trip_stop_rsvps').deleteMany({ stop_id: ids }, { session });
+  await db.collection('impact_legs').deleteMany({ $or: [{ from_stop_id: ids }, { to_stop_id: ids }] }, { session });
+  await db.collection('maker_bookings').updateMany({ stop_id: ids }, { $unset: { stop_id: '' } }, { session });
+  await db.collection('hospitality_reservations').updateMany({ stop_id: ids }, { $unset: { stop_id: '' } }, { session });
+  await db.collection('trip_stops').deleteMany({ _id: ids as any }, { session });
 }
 
 export class ItineraryService {
-  private pool: Pool;
+  private database: Database;
+  private db: Db;
   private geminiKey?: string;
   private geminiModel: string;
 
   constructor(database: Database, env = process.env) {
-    this.pool = database.pool;
+    this.database = database;
+    this.db = database.db;
     this.geminiKey = env.GEMINI_API_KEY || undefined;
     // Lite with minimal thinking drafts a multi-day plan in under 10 seconds
     this.geminiModel = env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
@@ -103,20 +118,20 @@ export class ItineraryService {
 
   async itinerary(access: TripAccess, userId: string) {
     const trip = access.trip;
-    const { rows: stops } = await this.pool.query(
-      `SELECT s.id, s.day_number, s.time, s.title, s.tag, s.place, s.notes, s.created_by,
-         coalesce((SELECT json_agg(json_build_object('memberId', m.ledger_member_id, 'userId', r.user_id, 'rsvp', r.rsvp))
-           FROM trip_stop_rsvps r JOIN trip_members m ON m.trip_id = s.trip_id AND m.user_id = r.user_id
-           WHERE r.stop_id = s.id), '[]') AS rsvps
-       FROM trip_stops s WHERE s.trip_id = $1 ORDER BY s.day_number, s.minutes, s.created_at`,
-      [trip.id],
-    );
-    const { rows: members } = await this.pool.query<{ ledger_member_id: string }>(
-      'SELECT ledger_member_id FROM trip_members WHERE trip_id = $1 ORDER BY joined_at',
-      [trip.id],
-    );
-    const { rows: [row] } = await this.pool.query<{ day_titles: string[] }>('SELECT day_titles FROM trips WHERE id = $1', [trip.id]);
-    const titles = row?.day_titles ?? [];
+    const [docs, members, row] = await Promise.all([
+      this.db.collection('trip_stops').find({ trip_id: trip.id }).sort({ day_number: 1, minutes: 1, created_at: 1 }).toArray(),
+      this.db.collection('trip_members').find({ trip_id: trip.id }).sort({ joined_at: 1 }).toArray(),
+      this.db.collection('trips').findOne({ _id: trip.id as any }, { projection: { day_titles: 1 } }),
+    ]);
+    const rsvpDocs = await this.db.collection('trip_stop_rsvps').find({ stop_id: { $in: docs.map(s => s._id) } }).toArray();
+    // RSVPs from people who left the trip don't count
+    const memberOf = new Map(members.map(m => [m.user_id as string, m.ledger_member_id as string]));
+    const stops = docs.map(s => ({
+      id: s._id as unknown as string, day_number: s.day_number as number, time: s.time as string, title: s.title as string,
+      tag: s.tag as string, place: s.place as string, notes: s.notes as string,
+      rsvps: rsvpDocs.filter(r => r.stop_id === s._id && memberOf.has(r.user_id)).map(r => ({ memberId: memberOf.get(r.user_id)!, userId: r.user_id, rsvp: r.rsvp })),
+    }));
+    const titles: string[] = row?.day_titles ?? [];
     const length = Math.max(tripLength(trip), titles.length, ...stops.map(s => s.day_number));
     const city = cityOf(trip.destination || trip.name);
     return {
@@ -157,19 +172,13 @@ export class ItineraryService {
       const title = day.title === undefined || day.title === '' ? '' : text(day.title, 'day title', 120);
       return { title, stops: (day.stops as unknown[]).map(stopInput) };
     });
-    await transaction(this.pool, async (tx) => {
-      await tx.query('DELETE FROM trip_stops WHERE trip_id = $1', [access.trip.id]);
-      await tx.query('UPDATE trips SET day_titles = $2 WHERE id = $1', [access.trip.id, JSON.stringify(days.map(d => d.title))]);
-      const rows = days.flatMap((d, i) => d.stops.map(s => ({ ...s, id: randomUUID(), day: i + 1 })));
-      if (!rows.length) return;
-      await tx.query(
-        `INSERT INTO trip_stops (id, trip_id, day_number, time, minutes, title, tag, place, notes, created_by)
-         SELECT r.id, $1, r.day, r.time, r.minutes, r.title, r.tag, r.place, r.notes, $2
-         FROM unnest($3::uuid[], $4::int[], $5::text[], $6::int[], $7::text[], $8::text[], $9::text[], $10::text[])
-           AS r (id, day, time, minutes, title, tag, place, notes)`,
-        [access.trip.id, userId, rows.map(r => r.id), rows.map(r => r.day), rows.map(r => r.time), rows.map(r => r.minutes),
-          rows.map(r => r.title), rows.map(r => r.tag), rows.map(r => r.place), rows.map(r => r.notes)],
-      );
+    await transaction(this.database, async (session) => {
+      const old = await this.db.collection('trip_stops').find({ trip_id: access.trip.id }, { projection: { _id: 1 }, session }).toArray();
+      await deleteStopsCascade(this.db, old.map(s => s._id as unknown as string), session);
+      await this.db.collection('trips').updateOne({ _id: access.trip.id as any }, { $set: { day_titles: days.map(d => d.title) } }, { session });
+      const now = new Date();
+      const rows = days.flatMap((d, i) => d.stops.map(s => ({ _id: randomUUID() as any, trip_id: access.trip.id, day_number: i + 1, ...s, created_by: userId, created_at: now })));
+      if (rows.length) await this.db.collection('trip_stops').insertMany(rows, { session });
     });
     return this.itinerary(access, userId);
   }
@@ -179,21 +188,18 @@ export class ItineraryService {
     const day = integer(body.dayNumber, 'dayNumber', 1, 60);
     const stop = stopInput(body);
     const id = randomUUID();
-    await transaction(this.pool, async (tx) => {
-      await tx.query(
-        `INSERT INTO trip_stops (id, trip_id, day_number, time, minutes, title, tag, place, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [id, access.trip.id, day, stop.time, stop.minutes, stop.title, stop.tag, stop.place, stop.notes, userId],
-      );
+    await transaction(this.database, async (session) => {
+      const now = new Date();
+      await this.db.collection('trip_stops').insertOne({ _id: id as any, trip_id: access.trip.id, day_number: day, ...stop, created_by: userId, created_at: now }, { session });
       // Whoever adds a stop is going
-      await tx.query(`INSERT INTO trip_stop_rsvps (stop_id, user_id, rsvp) VALUES ($1, $2, 'going')`, [id, userId]);
+      await this.db.collection('trip_stop_rsvps').insertOne({ stop_id: id, user_id: userId, rsvp: 'going', updated_at: now }, { session });
     });
     return { id };
   }
 
   private async assertStop(access: TripAccess, stopId: string) {
     requireThat(/^[0-9a-f-]{36}$/i.test(stopId), 'Invalid stop id');
-    const { rows: [row] } = await this.pool.query('SELECT 1 FROM trip_stops WHERE id = $1 AND trip_id = $2', [stopId, access.trip.id]);
+    const row = await this.db.collection('trip_stops').findOne({ _id: stopId as any, trip_id: access.trip.id }, { projection: { _id: 1 } });
     if (!row) throw new ApiError(404, 'NOT_FOUND', 'Stop not found');
   }
 
@@ -202,28 +208,20 @@ export class ItineraryService {
     const body = object(input);
     const stop = stopInput(body);
     const day = body.dayNumber === undefined ? null : integer(body.dayNumber, 'dayNumber', 1, 60);
-    await this.pool.query(
-      `UPDATE trip_stops SET time = $2, minutes = $3, title = $4, tag = $5, place = $6, notes = $7, day_number = coalesce($8, day_number)
-       WHERE id = $1`,
-      [stopId, stop.time, stop.minutes, stop.title, stop.tag, stop.place, stop.notes, day],
-    );
+    await this.db.collection('trip_stops').updateOne({ _id: stopId as any }, { $set: { ...stop, ...(day === null ? {} : { day_number: day }) } });
     return { id: stopId };
   }
 
   async deleteStop(access: TripAccess, stopId: string) {
     await this.assertStop(access, stopId);
-    await this.pool.query('DELETE FROM trip_stops WHERE id = $1', [stopId]);
+    await transaction(this.database, (session) => deleteStopsCascade(this.db, [stopId], session));
   }
 
   async rsvp(access: TripAccess, userId: string, stopId: string, input: unknown) {
     await this.assertStop(access, stopId);
     const rsvp = object(input).rsvp;
     requireThat(RSVPS.includes(rsvp as never), 'rsvp must be going, maybe or skip');
-    await this.pool.query(
-      `INSERT INTO trip_stop_rsvps (stop_id, user_id, rsvp) VALUES ($1, $2, $3)
-       ON CONFLICT (stop_id, user_id) DO UPDATE SET rsvp = excluded.rsvp, updated_at = now()`,
-      [stopId, userId, rsvp],
-    );
+    await this.db.collection('trip_stop_rsvps').updateOne({ stop_id: stopId, user_id: userId }, { $set: { rsvp, updated_at: new Date() } }, { upsert: true });
     return { rsvp };
   }
 
@@ -231,10 +229,8 @@ export class ItineraryService {
 
   // The squad's vibe: every member's quiz scores (0–1 per axis), kept per member rather than averaged.
   private async squadVibe(tripId: string) {
-    const { rows } = await this.pool.query(
-      `SELECT u.name, u.preferences FROM trip_members m JOIN users u ON u.id = m.user_id WHERE m.trip_id = $1`,
-      [tripId],
-    );
+    const members = await this.db.collection('trip_members').find({ trip_id: tripId }, { projection: { user_id: 1 } }).toArray();
+    const rows = await this.db.collection('users').find({ _id: { $in: members.map(m => m.user_id) } as any }, { projection: { name: 1, preferences: 1 } }).toArray();
     const vibes = rows
       .map(r => ({ name: String(r.name).split(' ')[0], vibe: r.preferences?.vibe as Record<string, number> | undefined }))
       .filter(r => r.vibe && VIBE_AXES.every(a => typeof r.vibe![a] === 'number'));

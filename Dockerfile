@@ -37,7 +37,6 @@ WORKDIR /app
 COPY --from=server-deps --chown=node:node /app/backend/node_modules backend/node_modules
 COPY --chown=node:node backend/package.json backend/
 COPY --chown=node:node backend/src backend/src
-COPY --chown=node:node backend/migrations backend/migrations
 COPY --from=web --chown=node:node /app/frontend/dist frontend/dist
 # Local-disk fallback for uploads when GCS is not configured (not durable on Cloud Run)
 RUN mkdir -p backend/uploads && chown node:node backend/uploads

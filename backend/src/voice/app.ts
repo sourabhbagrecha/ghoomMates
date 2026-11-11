@@ -3,15 +3,13 @@ import type { Request, RequestHandler } from 'express';
 import { ApiError, jsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { User } from '../auth/types.ts';
+import type { Database } from '../db.ts';
 import { createVoiceSession, liveKitConfig } from './session.ts';
 import type { VoiceAgent } from './wake.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
-/** Only the pool's query is used, so tests can pass a fake `{ pool: { query } }`. */
-export type VoiceDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: unknown[] }> };
-};
+export type VoiceDb = Pick<Database, 'db'>;
 
 export type VoiceAppOptions = {
   db: VoiceDb;
@@ -35,7 +33,7 @@ function bearer(req: Request) {
 // GhoomMate: voice sessions (a LiveKit token whose room dispatches the agent) and chat history. Mount under /api/voice.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env = process.env, agent }: VoiceAppOptions) {
+export function createVoiceApp({ db: { db }, authenticate, agentToken, tripDetail, env = process.env, agent }: VoiceAppOptions) {
   const config = liveKitConfig(env);
   if (!config) logger.warn('Voice', 'GhoomMate voice is disabled: set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET');
   const router = Router();
@@ -54,8 +52,8 @@ export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env =
     if (typeof raw !== 'string' || !raw.trim()) throw new ApiError(400, 'VALIDATION_ERROR', 'tripId is required');
     const tripId = raw.trim();
     if (!UUID.test(tripId)) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
-    const { rowCount } = await db.pool.query('SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2', [tripId, user.id]);
-    if (!rowCount) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
+    const member = await db.collection('trip_members').findOne({ trip_id: tripId, user_id: user.id }, { projection: { _id: 1 } });
+    if (!member) throw new ApiError(404, 'NOT_FOUND', 'Trip not found');
     return tripId;
   }
 
@@ -86,12 +84,10 @@ export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env =
   });
 
   async function recentHistory(tripId: string, userId: string, limit: number) {
-    const { rows } = await db.pool.query(
-      `SELECT id, role, text, created_at FROM ghoomate_messages WHERE trip_id = $1 AND user_id = $2 ORDER BY id DESC LIMIT $3`,
-      [tripId, userId, limit],
-    );
-    return (rows as { id: string | number; role: HistoryRole; text: string; created_at: Date | string }[])
-      .map(r => ({ id: String(r.id), role: r.role, text: r.text, createdAt: new Date(r.created_at).toISOString() }))
+    // ObjectIds grow with insert order, like the old bigserial id
+    const rows = await db.collection('ghoomate_messages').find({ trip_id: tripId, user_id: userId }).sort({ _id: -1 }).limit(limit).toArray();
+    return rows
+      .map(r => ({ id: String(r._id), role: r.role, text: r.text, createdAt: new Date(r.created_at).toISOString() }))
       .reverse();
   }
 
@@ -123,12 +119,8 @@ export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env =
     const body = (req.body ?? {}) as { tripId?: unknown; messages?: unknown };
     const tripId = await memberTrip(body.tripId, user);
     const messages = historyMessages(body.messages);
-    const values: unknown[] = [tripId, user.id];
-    const rows = messages.map((m, i) => {
-      values.push(m.role, m.text);
-      return `($1, $2, $${3 + i * 2}, $${4 + i * 2})`;
-    });
-    await db.pool.query(`INSERT INTO ghoomate_messages (trip_id, user_id, role, text) VALUES ${rows.join(', ')}`, values);
+    const createdAt = new Date();
+    await db.collection('ghoomate_messages').insertMany(messages.map(m => ({ trip_id: tripId, user_id: user.id, role: m.role, text: m.text, created_at: createdAt })));
     res.status(201).json({ saved: messages.length });
   });
 
@@ -136,9 +128,9 @@ export function createVoiceApp({ db, authenticate, agentToken, tripDetail, env =
   router.delete('/history', async (req, res) => {
     const user = res.locals.user as User;
     const tripId = await memberTrip(req.query.tripId, user);
-    const { rowCount } = await db.pool.query('DELETE FROM ghoomate_messages WHERE trip_id = $1 AND user_id = $2', [tripId, user.id]);
+    const { deletedCount } = await db.collection('ghoomate_messages').deleteMany({ trip_id: tripId, user_id: user.id });
     logger.info('Voice', `${user.email} cleared their GhoomMate history in trip ${tripId}`);
-    res.json({ deleted: rowCount ?? 0 });
+    res.json({ deleted: deletedCount });
   });
 
   return router;

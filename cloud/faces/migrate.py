@@ -1,49 +1,60 @@
-"""Applies cloud/migrations/*.sql in filename order, each in its own transaction, once per database.
+"""Creates the indexes of face_photos and faces, including the Atlas Vector Search index. Idempotent: run it
+before the first deploy and again whenever it changes. The backend's schema.ts leaves these two collections alone.
 
-Tracked in face_schema_migrations, separate from the backend's schema_migrations, so the two runners never
-interfere. Usage: DATABASE_URL=... python -m faces.migrate
+Usage: MONGODB_CONNECTION_STRING=... python -m faces.migrate
 """
 
 from __future__ import annotations
 
-import os
 import sys
-from pathlib import Path
+import time
 
-import psycopg
+from pymongo import ASCENDING, IndexModel
+from pymongo.database import Database
+from pymongo.operations import SearchIndexModel
 
-from faces.db import normalize_dsn
+from faces.config import Settings
+from faces.db import open_db
+from faces.store import VECTOR_INDEX
 
-MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
-LOCK_ID = 7_253_611  # the backend uses 7_253_610
+
+def vector_index_definition(settings: Settings) -> dict:
+    return {"fields": [
+        {"type": "vector", "path": "embedding", "numDimensions": settings.embedding_dim, "similarity": "cosine"},
+        # Pre-filters: applied inside the ANN scan, so a trip's faces are found among every other trip's.
+        {"type": "filter", "path": "trip_id"},
+        {"type": "filter", "path": "model_name"},
+        {"type": "filter", "path": "detector"},
+    ]}
 
 
-def migrate(database_url: str, directory: Path = MIGRATIONS_DIR) -> list[str]:
-    applied_now = []
-    with psycopg.connect(normalize_dsn(database_url), autocommit=True, connect_timeout=15) as conn:
-        conn.execute("SELECT pg_advisory_lock(%s)", (LOCK_ID,))
-        try:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS face_schema_migrations "
-                "(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
-            )
-            applied = {r[0] for r in conn.execute("SELECT name FROM face_schema_migrations").fetchall()}
-            for path in sorted(directory.glob("*.sql")):
-                if path.name in applied:
-                    continue
-                with conn.transaction():
-                    conn.execute(path.read_text())
-                    conn.execute("INSERT INTO face_schema_migrations (name) VALUES (%s)", (path.name,))
-                applied_now.append(path.name)
-                print(f"applied {path.name}")
-        finally:
-            conn.execute("SELECT pg_advisory_unlock(%s)", (LOCK_ID,))
-    return applied_now
+def migrate(db: Database, settings: Settings, wait: float = 300) -> None:
+    """Waits up to `wait` seconds for the vector index to be queryable (it builds asynchronously)."""
+    # Linked to the backend's trip_photos by object name (object_name = trip_photos.object_key), not by id: the
+    # upload event usually arrives before the backend registers the photo.
+    db.face_photos.create_indexes([
+        IndexModel([("bucket", ASCENDING), ("object_name", ASCENDING)], unique=True),
+        IndexModel([("trip_id", ASCENDING)]),
+        # The backend's trips faceIndex() looks photos up by object_name within a trip (incl. a $lookup).
+        IndexModel([("object_name", ASCENDING), ("trip_id", ASCENDING)]),
+    ])
+    db.faces.create_indexes([IndexModel([("photo_id", ASCENDING)]), IndexModel([("trip_id", ASCENDING)])])
+    if not list(db.faces.list_search_indexes(VECTOR_INDEX)):
+        db.faces.create_search_index(
+            SearchIndexModel(vector_index_definition(settings), name=VECTOR_INDEX, type="vectorSearch")
+        )
+    deadline = time.monotonic() + wait
+    while not all(i.get("queryable") for i in db.faces.list_search_indexes(VECTOR_INDEX)):
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"{VECTOR_INDEX} is not queryable after {wait:.0f}s")
+        time.sleep(1)
 
 
 if __name__ == "__main__":
-    url = os.environ.get("DATABASE_URL", "")
-    if not url:
-        sys.exit("Set DATABASE_URL")
-    done = migrate(url)
-    print(f"{len(done)} migration(s) applied" if done else "face migrations already up to date")
+    settings = Settings.from_env()
+    if not settings.mongodb_connection_string:
+        sys.exit("Set MONGODB_CONNECTION_STRING")
+    db = open_db(settings)
+    migrate(db, settings)
+    print(f"face indexes ready in {settings.mongodb_db}: face_photos, faces, {VECTOR_INDEX}")
+    db.client.close()

@@ -10,7 +10,7 @@ Udaipur's heritage core (City Palace, Jagdish Temple, the ghats on Pichola) take
 | `src/heritage/crowd.ts` | Pure functions: `levelAt` (0–100 or closed), `labelFor` (quiet < 40 ≤ moderate < 65 ≤ busy < 82 ≤ packed), `suggestFor` (the nudge), `crowdForStop`, `liveCrowds`, `crowdBrief` (the Gemini prompt section). |
 | `src/heritage/app.ts` | `GET /api/heritage/:city/live[?at=ISO]`: every site now (or at `at`), busiest first. Public, no user data. |
 
-No migration: forecasts are computed, not stored.
+Nothing in the database: forecasts are computed, not stored.
 
 ## How it plugs in
 

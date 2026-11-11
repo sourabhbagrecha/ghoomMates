@@ -7,9 +7,9 @@ import { ApiError } from '../../src/http.ts';
 import { CLAUDE_REEL_SCHEMA, REEL_SCHEMA, normalizePlan, spread, styleFromPrompt, templatePlan, upgradeScene, type ReelCandidate } from '../../src/reels/plan.ts';
 import { tripFacts } from '../../src/reels/service.ts';
 import { createReelsApp } from '../../src/reels/app.ts';
-import type { ReelsDb } from '../../src/reels/service.ts';
 import type { MediaStorage } from '../../src/storage.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 
 const TRIP = '11111111-1111-4111-8111-111111111111';
 const photoId = (n: number) => `aaaaaaaa-aaaa-4aaa-8aaa-${String(n).padStart(12, '0')}`;
@@ -140,36 +140,20 @@ describe('reel plans', () => {
   });
 });
 
-/* Routes, with a fake database, storage and Gemini */
+/* Routes, with a real test database and fake storage and Gemini */
 
-function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6, claude?: Claude, carto?: { apiKey: string; fetchImpl: typeof fetch }) {
-  const reels: any[] = [];
-  const db: ReelsDb = {
-    pool: {
-      async query(text: string, values: unknown[] = []) {
-        if (text.includes('FROM trip_members')) return { rowCount: values[1] === asha.id ? 1 : 0, rows: [] };
-        if (text.includes('FROM trips')) return { rowCount: 1, rows: [{ name: 'Goa Trip', destination: 'Goa' }] };
-        if (text.includes('FROM trip_photos p')) {
-          const all = Array.from({ length: photoCount }, (_, i) => ({
-            id: photoId(i + 1), object_key: `trips/${TRIP}/photos/${i + 1}.jpg`, size_bytes: JPEG.length, caption: null, uploader: 'Asha', created_at: new Date('2026-11-03'),
-          }));
-          const picked = values[1] as string[] | undefined;
-          const rows = picked ? all.filter((p) => picked.includes(p.id)) : all;
-          return { rowCount: rows.length, rows };
-        }
-        if (text.includes('FROM trip_photos')) {
-          const ids = values[1] as string[];
-          return { rowCount: ids.length, rows: ids.map((id) => ({ id, object_key: `key-${id}` })) };
-        }
-        if (text.startsWith('INSERT INTO trip_reels')) {
-          reels.unshift({ model: values[6], id: values[0], prompt: values[3], plan: JSON.parse(values[4] as string), source: values[5], created_by: values[2], creator: 'Asha', created_at: new Date() });
-          return { rowCount: 1, rows: [{ created_at: new Date() }] };
-        }
-        if (text.includes('FROM trip_reels')) return { rowCount: reels.length, rows: reels };
-        throw new Error(`Unexpected query: ${text}`);
-      },
-    },
-  };
+async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6, claude?: Claude, carto?: { apiKey: string; fetchImpl: typeof fetch }) {
+  const database = await testDatabase();
+  const { db } = database;
+  await db.collection<any>('users').insertMany([asha, ravi].map(({ id, ...u }) => ({ _id: id, google_id: `g-${id}`, ...u })));
+  await db.collection<any>('trips').insertOne({ _id: TRIP, name: 'Goa Trip', destination: 'Goa', start_date: null, end_date: null });
+  await db.collection('trip_members').insertOne({ trip_id: TRIP, user_id: asha.id, role: 'organiser' });
+  if (photoCount) {
+    await db.collection<any>('trip_photos').insertMany(Array.from({ length: photoCount }, (_, i) => ({
+      _id: photoId(i + 1), trip_id: TRIP, uploaded_by: asha.id, object_key: `key-${photoId(i + 1)}`, content_type: 'image/jpeg', size_bytes: JPEG.length, caption: '', created_at: new Date('2026-11-03'),
+    })));
+  }
+  const reels = () => db.collection('trip_reels').find().sort({ created_at: -1 }).toArray();
   const storage = { read: async () => JPEG, readUrl: async (key: string) => `https://media.test/${key}` } as unknown as MediaStorage;
   const authenticate = async (token: string) => {
     if (token === 'asha') return asha;
@@ -177,7 +161,7 @@ function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6, c
     throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');
   };
   const fullGemini = { models: { lite: 'lite', smart: 'smart', image: 'image', tts: 'tts' }, imageEnabled: false, ...gemini } as Gemini;
-  return { app: mount('/api/reels', createReelsApp({ db, storage, gemini: fullGemini, claude, cartoApiKey: carto?.apiKey, fetchImpl: carto?.fetchImpl, authenticate })), reels };
+  return { app: mount('/api/reels', createReelsApp({ db: database, storage, gemini: fullGemini, claude, cartoApiKey: carto?.apiKey, fetchImpl: carto?.fetchImpl, authenticate })), reels };
 }
 
 const post = (body: unknown, token = 'asha') => ({
@@ -196,7 +180,7 @@ describe('reel routes', () => {
         return { title: 'Goa nights', tagline: 'Again soon', style: 'dreamy', scenes: [4, 2, 6].map((photo) => ({ photo, caption: '', seconds: 3, motion: 'zoom-in', transition: 'fade' })) } as T;
       },
     };
-    const { app } = fakes(gemini);
+    const { app } = await fakes(gemini);
     const server = await serve(app);
     try {
       const res = await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'A dreamy reel of our nights' }));
@@ -221,7 +205,7 @@ describe('reel routes', () => {
   });
 
   test('falls back to the template cut when Gemini fails, and uses only picked photos', async () => {
-    const { app } = fakes({ enabled: true, json: async () => { throw new GeminiError('Gemini 429: busy', 429); } });
+    const { app } = await fakes({ enabled: true, json: async () => { throw new GeminiError('Gemini 429: busy', 429); } });
     const server = await serve(app);
     try {
       const res = await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'fast hype edit', photoIds: [photoId(1), photoId(3), photoId(5)] }));
@@ -245,7 +229,7 @@ describe('reel routes', () => {
         return { title: 'Lake nights', tagline: 'Soon', style: 'cinematic', scenes: [5, 1, 3].map((photo) => ({ photo, caption: 'x', seconds: 2, motion: 'pan-up', transition: 'wipe' })) } as T;
       },
     };
-    const { app, reels } = fakes({ enabled: true, json: async () => { throw new GeminiError('Gemini 503: overloaded', 503); } }, 6, claude);
+    const { app, reels } = await fakes({ enabled: true, json: async () => { throw new GeminiError('Gemini 503: overloaded', 503); } }, 6, claude);
     const server = await serve(app);
     try {
       const res = await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'A moody reel of the lake' }));
@@ -254,7 +238,7 @@ describe('reel routes', () => {
       expect(reel.source).toBe('claude');
       expect(reel.plan.title).toBe('Lake nights');
       expect(reel.plan.scenes.map((s: { photos: { id: string }[] }) => s.photos[0].id)).toEqual([photoId(5), photoId(1), photoId(3)]);
-      expect(reels[0].model).toBe('claude-opus-5-5');
+      expect((await reels())[0].model).toBe('claude-opus-5-5');
       const parts = request!.prompt as { text?: string; inlineData?: unknown }[];
       expect(parts.filter((p) => p.inlineData).length).toBe(6);
       expect(parts[0].text?.includes('A moody reel of the lake')).toBe(true);
@@ -268,7 +252,7 @@ describe('reel routes', () => {
     const answers: Claude = { enabled: true, model: 'claude-opus-5-5', json: async <T,>() => ({ title: 'Ok', tagline: 'Ok', style: 'retro', scenes: [1, 2, 3].map((photo) => ({ photo, caption: '', seconds: 2, motion: 'zoom-in', transition: 'fade' })) }) as T };
     const declines: Claude = { enabled: true, model: 'claude-opus-5-5', json: async () => { throw new ClaudeError('Claude declined (cyber)'); } };
     for (const [claude, source] of [[answers, 'claude'], [declines, 'template']] as const) {
-      const { app } = fakes({ enabled: false }, 6, claude);
+      const { app } = await fakes({ enabled: false }, 6, claude);
       const server = await serve(app);
       try {
         const reel = await (await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'our trip' }))).json();
@@ -280,7 +264,7 @@ describe('reel routes', () => {
   });
 
   test('checks the prompt, the photos and membership', async () => {
-    const { app } = fakes({ enabled: false }, 1);
+    const { app } = await fakes({ enabled: false }, 1);
     const server = await serve(app);
     try {
       expect((await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: '' }))).status).toBe(400);
@@ -310,7 +294,7 @@ describe('map tiles', () => {
   }
 
   test('without a key the app is told to use Esri and there is no tile route', async () => {
-    const { app } = fakes({ enabled: false });
+    const { app } = await fakes({ enabled: false });
     const server = await serve(app);
     try {
       const list = await (await server.request(`/api/reels/trips/${TRIP}`, { headers: { Authorization: 'Bearer asha' } })).json();
@@ -323,7 +307,7 @@ describe('map tiles', () => {
 
   test('with a key, retina CARTO tiles come through this server with the key added, cached, and without signing in', async () => {
     const carto = fakeCarto(30);
-    const { app } = fakes({ enabled: false }, 6, undefined, { apiKey: 'secret key', fetchImpl: carto.fetchImpl });
+    const { app } = await fakes({ enabled: false }, 6, undefined, { apiKey: 'secret key', fetchImpl: carto.fetchImpl });
     const server = await serve(app);
     try {
       const list = await (await server.request(`/api/reels/trips/${TRIP}`, { headers: { Authorization: 'Bearer asha' } })).json();
@@ -345,7 +329,7 @@ describe('map tiles', () => {
 
   test('only CARTO styles and real tile numbers are proxied', async () => {
     const carto = fakeCarto();
-    const { app } = fakes({ enabled: false }, 6, undefined, { apiKey: 'k', fetchImpl: carto.fetchImpl });
+    const { app } = await fakes({ enabled: false }, 6, undefined, { apiKey: 'k', fetchImpl: carto.fetchImpl });
     const server = await serve(app);
     try {
       for (const path of ['evil/3/1/1.png', 'voyager/19/1/1.png', 'voyager/3/8/1.png', 'voyager/3/1/8.png', 'voyager/3/-1/1.png', 'voyager/x/1/1.png']) {
@@ -360,7 +344,7 @@ describe('map tiles', () => {
   test('a CARTO failure is a 502, not a broken image cached for later', async () => {
     let fail = true;
     const fetchImpl = (async () => (fail ? new Response('nope', { status: 403 }) : new Response(PNG, { status: 200 }))) as typeof fetch;
-    const { app } = fakes({ enabled: false }, 6, undefined, { apiKey: 'k', fetchImpl });
+    const { app } = await fakes({ enabled: false }, 6, undefined, { apiKey: 'k', fetchImpl });
     const server = await serve(app);
     try {
       expect((await server.request('/api/reels/tiles/carto/dark_all/2/1/1.png')).status).toBe(502);

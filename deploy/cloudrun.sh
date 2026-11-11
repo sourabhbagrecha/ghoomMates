@@ -159,12 +159,12 @@ collect_secrets() {
 }
 have_secret() { case "$SECRET_FOUND" in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
-# The web service gets every secret in SECRET_KEYS; only the JWT secret and the database password are required.
+# The web service gets every secret in SECRET_KEYS; only the JWT secret and the database connection string are required.
 web_secret_spec() {
   local key
   for key in $SECRET_KEYS; do
     case "$key" in
-      JWT_SECRET|DB_PASSWORD) printf '%s:required ' "$key" ;;
+      JWT_SECRET|MONGODB_CONNECTION_STRING) printf '%s:required ' "$key" ;;
       *) printf '%s:optional ' "$key" ;;
     esac
   done
@@ -199,7 +199,7 @@ grant_project_role() { # SERVICE_ACCOUNT ROLE
 setup() {
   step "Google Cloud APIs"
   run gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
-    secretmanager.googleapis.com sqladmin.googleapis.com aiplatform.googleapis.com storage.googleapis.com \
+    secretmanager.googleapis.com aiplatform.googleapis.com storage.googleapis.com \
     --project="$PROJECT_ID"
 
   step "Artifact Registry repository $REPO"
@@ -215,7 +215,6 @@ setup() {
   ensure_service_account "$AGENT_SA_NAME" "GhoomMates voice agent (Cloud Run runtime)"
 
   step "What the web service may do ($(web_sa))"
-  grant_project_role "$(web_sa)" roles/cloudsql.client        # the Cloud SQL connector (CLOUD_SQL_INSTANCE)
   grant_project_role "$(web_sa)" roles/aiplatform.user        # Vertex AI: images, and Gemini without an API key
   retry 5 6 quietly gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
     --member="serviceAccount:$(web_sa)" --role=roles/storage.objectAdmin
@@ -330,9 +329,6 @@ deploy_web() {
   env_open
   env_add CLIENT_ORIGIN "$PUBLIC_URL"
   env_add GOOGLE_REDIRECT_URI "$PUBLIC_URL/auth/callback"
-  env_add CLOUD_SQL_INSTANCE "$CLOUD_SQL_INSTANCE"
-  env_add DB_USER "$DB_USER"
-  env_add DB_NAME "$DB_NAME"
   env_add GCS_BUCKET "$BUCKET"
   env_add VERTEX_PROJECT "$(env_or VERTEX_PROJECT "$PROJECT_ID")"
   env_add VERTEX_LOCATION "$(env_or VERTEX_LOCATION global)"
@@ -535,7 +531,7 @@ main() {
       step "Scale to zero"
       set_min_instances "$WEB_SERVICE" 0
       set_min_instances "$AGENT_SERVICE" 0
-      say "  Cloud Run is idle now. The Cloud SQL instance keeps running (and billing): see backend/docs/deploy.md." ;;
+      say "  Cloud Run is idle now. MongoDB Atlas is billed separately: see backend/docs/deploy.md." ;;
     resume)
       step "Back to the usual minimum instances"
       set_min_instances "$WEB_SERVICE" "$WEB_MIN_INSTANCES"

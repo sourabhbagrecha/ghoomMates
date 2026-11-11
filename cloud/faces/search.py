@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from flask import Flask, Response, jsonify, request
+from pymongo.database import Database
 
 from faces import store
 from faces.config import Settings
@@ -75,7 +76,7 @@ def parse_embeddings(body: dict[str, Any], settings: Settings) -> list[np.ndarra
     return out
 
 
-def create_app(settings: Settings, engine: FaceEngine, pool: Any) -> Flask:
+def create_app(settings: Settings, engine: FaceEngine, db: Database) -> Flask:
     app = Flask("face-search")
     # Base64 adds a third; this stays under Cloud Run's 32 MiB request limit with the defaults.
     app.config["MAX_CONTENT_LENGTH"] = settings.max_selfies * ((settings.max_selfie_bytes * 4) // 3 + 1024) + 4096
@@ -124,8 +125,7 @@ def create_app(settings: Settings, engine: FaceEngine, pool: Any) -> Flask:
 
         t = time.monotonic()
         try:
-            with pool.connection() as conn:
-                photos, truncated = store.search(conn, queries, trip_id, settings)
+            photos, truncated = store.search(db, queries, trip_id, settings)
         except Exception:
             log(logger, logging.ERROR, "search query failed", exc_info=True, trip_id=trip_id)
             return jsonify(error={"code": "SEARCH_UNAVAILABLE", "message": "Search is temporarily unavailable"}), 503

@@ -11,7 +11,7 @@ export const TRIP_ID = '11111111-1111-4111-8111-111111111111';
 export const TOKEN = 'token-asha';
 export const asha = { id: 'usr_asha', username: 'asha', email: 'asha@test.local', name: 'Asha' } as User;
 
-/** In-memory bookings, with the same capacity rule as the Postgres store */
+/** In-memory bookings, with the same capacity rule as the MongoDB store */
 export class MemoryStore implements MakersStore {
   records: BookingRecord[] = [];
   /** People other squads have already booked, per "makerId|date|slot" */

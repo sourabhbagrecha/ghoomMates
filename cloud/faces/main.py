@@ -6,7 +6,7 @@ import logging
 
 from faces import logs
 from faces.config import Settings
-from faces.db import open_pool
+from faces.db import open_db
 from faces.pipeline import FaceEngine
 
 
@@ -15,18 +15,18 @@ def build_app():
     logs.setup(settings.log_level)
     engine = FaceEngine(settings)
     engine.warm_up()
-    pool = open_pool(settings)
+    db = open_db(settings)
     logs.log(logging.getLogger("face-main"), logging.INFO, "models loaded", service=settings.service,
              model_name=settings.model_name, detector=settings.detector_backend)
     if settings.service == "search":
         from faces import search
 
-        return search.create_app(settings, engine, pool)
+        return search.create_app(settings, engine, db)
     if settings.service == "indexer":
         from faces import indexer
         from faces.storage import make_reader
 
-        return indexer.create_app(settings, engine, pool, make_reader(settings))
+        return indexer.create_app(settings, engine, db, make_reader(settings))
     raise ValueError(f"SERVICE must be indexer or search, not {settings.service!r}")
 
 

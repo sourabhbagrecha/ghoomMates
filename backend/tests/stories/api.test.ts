@@ -13,10 +13,10 @@ import { NARRATOR_VOICE } from '../../src/stories/narration.ts';
 import { mount, serve } from '../helpers.ts';
 import { OTHER_TRIP, TRIP, USERS, asha, fakeDb, fakeGemini, fakeStorage, meera, outsider, ravi, retelling, tone } from './fakes.ts';
 
-type Options = { gemini?: Gemini; vertex?: Gemini; slowMs?: number; now?: () => number; db?: ReturnType<typeof fakeDb>; storage?: ReturnType<typeof fakeStorage> };
+type Options = { gemini?: Gemini; vertex?: Gemini; slowMs?: number; now?: () => number; db?: Awaited<ReturnType<typeof fakeDb>>; storage?: ReturnType<typeof fakeStorage> };
 
-async function withServer(options: Options, run: (api: Api, ctx: { db: ReturnType<typeof fakeDb>; storage: ReturnType<typeof fakeStorage> }) => Promise<void>) {
-  const db = options.db ?? fakeDb();
+async function withServer(options: Options, run: (api: Api, ctx: { db: Awaited<ReturnType<typeof fakeDb>>; storage: ReturnType<typeof fakeStorage> }) => Promise<void>) {
+  const db = options.db ?? await fakeDb();
   const storage = options.storage ?? fakeStorage();
   const authenticate = async (token: string) => {
     const found = USERS.find(u => u.username === token);
@@ -79,7 +79,7 @@ describe('reading a story', () => {
       expect(hi.data.title).toBe('घाट किनारे प्रधानमंत्री की हवेली');
       expect(hi.data.narration.url).toBe('/stories/bagore-ki-haveli/hi.m4a');
       expect(gemini.calls.json).toHaveLength(0);
-      expect(db.state.queries).toHaveLength(0);
+      expect(db.state.queries).toBe(0);
     });
   });
 
@@ -124,7 +124,7 @@ describe('reading a story', () => {
       const again = await api(null, 'GET', '/city-palace?audience=family');
       expect(again.data.generated).toBe(true);
       expect(gemini.calls.json).toHaveLength(1);
-      expect(db.cache.size).toBe(1);
+      expect(await db.count('story_cache')).toBe(1);
       // Another audience is another retelling
       await api(null, 'GET', '/city-palace?audience=couple');
       expect(gemini.calls.json).toHaveLength(2);
@@ -189,7 +189,7 @@ describe('reading a story', () => {
     await withServer({ gemini }, async (api, { db }) => {
       const { data } = await api(null, 'GET', '/sajjangarh?audience=history');
       expect(data.generated).toBe(false);
-      expect(db.cache.size).toBe(0);
+      expect(await db.count('story_cache')).toBe(0);
     });
   });
 
@@ -204,7 +204,7 @@ describe('reading a story', () => {
       expect(gemini.calls.json).toHaveLength(2);
       expect(String(gemini.calls.json[1].prompt).includes('Your previous answer was rejected')).toBe(true);
       expect(String(gemini.calls.json[1].prompt).includes('1999')).toBe(true);
-      expect(db.cache.size).toBe(1);
+      expect(await db.count('story_cache')).toBe(1);
     });
   });
 
@@ -215,7 +215,7 @@ describe('reading a story', () => {
       expect(first.data.generated).toBe(false);
       expect(first.data.audience).toBe('classic');
       await new Promise(resolve => setTimeout(resolve, 300));
-      expect(db.cache.size).toBe(1);
+      expect(await db.count('story_cache')).toBe(1);
       const second = await api(null, 'GET', '/saheliyon-ki-bari?audience=couple');
       expect(second.data.generated).toBe(true);
       expect(gemini.calls.json).toHaveLength(1);
@@ -254,7 +254,7 @@ describe('reading a story', () => {
   });
 
   test('the story still opens when the database is down', async () => {
-    const db = fakeDb();
+    const db = await fakeDb();
     db.state.down = true;
     const gemini = fakeGemini({ json: () => retelling('city-palace') });
     await withServer({ db, gemini }, async (api) => {
@@ -309,7 +309,7 @@ describe('narration', () => {
       const [key, object] = [...storage.objects.entries()][0];
       expect(object.type).toBe('audio/wav');
       expect(key.endsWith('.wav')).toBe(true);
-      expect(db.narrations.size).toBe(1);
+      expect(await db.count('story_narrations')).toBe(1);
 
       const again = await api(ravi, 'POST', '/city-palace/narration', { lang: 'en', audience: 'family' });
       expect(again.data.cached).toBe(true);
@@ -399,7 +399,7 @@ describe('the Heritage Passport', () => {
       const worse = await api(asha, 'POST', '/city-palace/stamp', { lang: 'en', answers: [null, null, null] });
       expect(worse.data.score).toBe(0);
       expect(worse.data.best).toEqual({ score: 3, total: 3, grade: 'gold' });
-      expect(db.stamps.get('usr_1|city-palace')!.score).toBe(3);
+      expect((await db.stamp('usr_1', 'city-palace'))!.score).toBe(3);
     });
   });
 
@@ -429,9 +429,9 @@ describe('the Heritage Passport', () => {
       });
       expect(status).toBe(200);
       expect(data.stampedWith).toBe(2);
-      expect(db.stamps.has('usr_2|bagore-ki-haveli')).toBe(true);
-      expect(db.stamps.has('usr_3|bagore-ki-haveli')).toBe(true);
-      expect(db.stamps.has('usr_9|bagore-ki-haveli')).toBe(false);
+      expect(!!await db.stamp('usr_2', 'bagore-ki-haveli')).toBe(true);
+      expect(!!await db.stamp('usr_3', 'bagore-ki-haveli')).toBe(true);
+      expect(!!await db.stamp('usr_9', 'bagore-ki-haveli')).toBe(false);
       expect(data.squad.total).toBe(3);
       expect(data.squad.stamped).toBe(3);
       expect(data.squad.members.map((m: { memberId: string }) => m.memberId)).toEqual(['m1', 'm2', 'm3']);
@@ -449,8 +449,8 @@ describe('the Heritage Passport', () => {
       expect(status).toBe(200);
       expect(data.squad).toBe(undefined);
       expect(data.stampedWith).toBe(0);
-      expect(db.stamps.has('usr_1|city-palace')).toBe(false);
-      expect(db.stamps.has('usr_9|city-palace')).toBe(true);
+      expect(!!await db.stamp('usr_1', 'city-palace')).toBe(false);
+      expect(!!await db.stamp('usr_9', 'city-palace')).toBe(true);
     });
   });
 
@@ -498,7 +498,7 @@ describe('the Heritage Passport', () => {
   });
 
   test('when the database is down the passport says so and stories keep working', async () => {
-    const db = fakeDb();
+    const db = await fakeDb();
     await withServer({ db }, async (api) => {
       db.state.down = true;
       const stamp = await api(asha, 'POST', '/city-palace/stamp', { answers: rightAnswers('city-palace') });
@@ -508,6 +508,26 @@ describe('the Heritage Passport', () => {
       expect((await api(asha, 'GET', `/passport/trip/${TRIP}`)).status).toBe(503);
       expect((await api(null, 'GET', '/city-palace')).status).toBe(200);
     });
+  });
+
+  test('with no database configured, hand-written stories and their narration still work', async () => {
+    const authenticate = async () => asha;
+    const router = createStoriesApp({ db: undefined, storage: fakeStorage().storage, gemini: fakeGemini({ enabled: false }), slowMs: 50, retryMs: 1, authenticate });
+    const server = await serve(mount('/api/stories', router));
+    const call = (method: string, path: string, body?: unknown) => server.request(`/api/stories${path}`, {
+      method, headers: { authorization: 'Bearer asha', ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined,
+    });
+    try {
+      expect((await call('GET', '/city-palace')).status).toBe(200);
+      expect((await call('GET', `/city-palace?audience=family&tripId=${TRIP}`)).status).toBe(200);
+      expect((await call('POST', '/bagore-ki-haveli/narration', { lang: 'en' })).status).toBe(200);
+      const stamp = await call('POST', '/city-palace/stamp', { answers: rightAnswers('city-palace') });
+      expect(stamp.status).toBe(503);
+      expect((await stamp.json()).error.code).toBe('PASSPORT_UNAVAILABLE');
+      expect((await call('GET', '/passport')).status).toBe(503);
+    } finally {
+      await server.close();
+    }
   });
 });
 

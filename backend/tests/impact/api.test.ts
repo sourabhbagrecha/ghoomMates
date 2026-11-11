@@ -5,95 +5,53 @@ import { expect } from '../expect.ts';
 import { createServer } from '../../src/app.ts';
 import { ApiError } from '../../src/http.ts';
 import { createImpactApp } from '../../src/impact/app.ts';
-import type { ImpactDb } from '../../src/impact/cache.ts';
 import type { User } from '../../src/auth/types.ts';
 import type { Gemini } from '../../src/gemini.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 import { PLAN, TRIP, TRIP_ID, fakeGemini, stopId } from './fixtures.ts';
 
 const asha = { id: 'usr_1', username: 'asha', email: 'asha@test.local', name: 'Asha' } as User;
 const ben = { id: 'usr_2', username: 'ben', email: 'ben@test.local', name: 'Ben' } as User;
 const zed = { id: 'usr_9', username: 'zed', email: 'zed@test.local', name: 'Zed' } as User;
-const MEMBERS = [{ member_id: 'm1', user_id: asha.id, name: 'Asha' }, { member_id: 'm2', user_id: ben.id, name: 'Ben' }];
 const EXPENSES = [
-  { id: 'e1', description: 'Dal baati churma lunch', amount_paise: 480_000, category: 'food' },
-  { id: 'e2', description: 'City Palace tickets', amount_paise: 360_000, category: 'fun' },
-  { id: 'e3', description: 'Mystery gifts', amount_paise: 200_000, category: 'other' },
+  { _id: 'e1', description: 'Dal baati churma lunch', amount_paise: 480_000, category: 'food' },
+  { _id: 'e2', description: 'City Palace tickets', amount_paise: 360_000, category: 'fun' },
+  { _id: 'e3', description: 'Mystery gifts', amount_paise: 200_000, category: 'other' },
 ];
 
-/** In-memory stand-in for the few queries the impact routes run. Asha and Ben are in TRIP_ID; Zed is in no trip. */
-function fakeDb() {
-  const picks: { from: string; to: string; mode: string; by: string }[] = [];
-  const ticks: { user: string; pledge: string }[] = [];
-  const cache = new Map<string, unknown>();
-  const writes: string[] = [];
-  const db: ImpactDb = {
-    pool: {
-      query: async (sql, values = []) => {
-        const text = sql.replace(/\s+/g, ' ').trim();
-        const rows = (list: unknown[]) => ({ rowCount: list.length, rows: list });
-        if (text.includes('FROM trips t JOIN trip_members m')) {
-          const member = values[0] === TRIP_ID ? MEMBERS.find(m => m.user_id === values[1]) : undefined;
-          return rows(member ? [{
-            id: TRIP_ID, name: TRIP.name, group_name: TRIP.groupName, destination: TRIP.destination, start_date: TRIP.startDate,
-            expense_group_id: 'g1', day_titles: TRIP.dayTitles, ledger_member_id: member.member_id,
-          }] : []);
-        }
-        if (text.includes('FROM trip_members m JOIN users u')) return rows(MEMBERS);
-        if (text.includes('FROM trip_stops')) {
-          return rows(PLAN.map(s => ({ id: s.id, day_number: s.dayNumber, time: s.time, minutes: s.minutes, title: s.title, tag: s.tag, place: s.place })));
-        }
-        if (text.startsWith('SELECT from_stop_id, to_stop_id, mode FROM impact_legs')) {
-          return rows(picks.map(p => ({ from_stop_id: p.from, to_stop_id: p.to, mode: p.mode })));
-        }
-        if (text.startsWith('INSERT INTO impact_legs')) {
-          const [, from, to, mode, by] = values as string[];
-          const i = picks.findIndex(p => p.from === from && p.to === to);
-          if (i >= 0) picks.splice(i, 1);
-          picks.push({ from, to, mode, by });
-          writes.push(`leg ${mode}`);
-          return rows([]);
-        }
-        if (text.startsWith('DELETE FROM impact_legs')) {
-          const i = picks.findIndex(p => p.from === values[1] && p.to === values[2]);
-          if (i >= 0) picks.splice(i, 1);
-          writes.push('leg reset');
-          return rows([]);
-        }
-        if (text.includes('FROM impact_pledges p JOIN trip_members m')) {
-          return rows(ticks.map(t => ({ pledge_id: t.pledge, member_id: MEMBERS.find(m => m.user_id === t.user)!.member_id })));
-        }
-        if (text.startsWith('INSERT INTO impact_pledges')) {
-          const [, user, pledge] = values as string[];
-          if (!ticks.some(t => t.user === user && t.pledge === pledge)) ticks.push({ user, pledge });
-          return rows([]);
-        }
-        if (text.startsWith('DELETE FROM impact_pledges')) {
-          const i = ticks.findIndex(t => t.user === values[1] && t.pledge === values[2]);
-          if (i >= 0) ticks.splice(i, 1);
-          return rows([]);
-        }
-        if (text.includes('FROM expenses')) return rows(EXPENSES);
-        if (text.startsWith('SELECT key, value FROM impact_cache')) {
-          return rows((values[0] as string[]).filter(k => cache.has(k)).map(key => ({ key, value: cache.get(key) })));
-        }
-        if (text.startsWith('INSERT INTO impact_cache')) {
-          const [keys, json] = values as [string[], string[]];
-          keys.forEach((k, i) => { if (!cache.has(k)) cache.set(k, JSON.parse(json[i])); });
-          return rows([]);
-        }
-        throw new Error(`Unexpected query: ${text}`);
-      },
-    },
+/** A fresh database with the sample trip: Asha and Ben are in TRIP_ID; Zed is in no trip. */
+async function seededDb() {
+  const database = await testDatabase();
+  const db = database.db;
+  await db.collection<any>('trips').insertOne({
+    _id: TRIP_ID, name: TRIP.name, group_name: TRIP.groupName, destination: TRIP.destination, start_date: TRIP.startDate,
+    expense_group_id: 'g1', day_titles: TRIP.dayTitles, invite_code: 'inv1',
+  });
+  await db.collection<any>('users').insertMany([asha, ben, zed].map(u => ({ _id: u.id, name: u.name, email: u.email, username: u.username, google_id: u.id })));
+  await db.collection<any>('group_members').insertMany([{ _id: 'm1', group_id: 'g1', position: 0 }, { _id: 'm2', group_id: 'g1', position: 1 }]);
+  await db.collection('trip_members').insertMany([
+    { trip_id: TRIP_ID, user_id: ben.id, ledger_member_id: 'm2' },
+    { trip_id: TRIP_ID, user_id: asha.id, ledger_member_id: 'm1' },
+  ]);
+  await db.collection<any>('trip_stops').insertMany(PLAN.map((s, i) => ({
+    _id: s.id, trip_id: TRIP_ID, day_number: s.dayNumber, time: s.time, minutes: s.minutes, title: s.title, tag: s.tag, place: s.place,
+    created_at: new Date(Date.UTC(2026, 10, 1, 0, i)),
+  })));
+  // Newest first, as the ledger reads them
+  await db.collection<any>('expenses').insertMany(EXPENSES.map((e, i) => ({ ...e, group_id: 'g1', sequence: EXPENSES.length - i })));
+  return {
+    db: database,
+    picks: async () => (await db.collection('impact_legs').find({}).toArray()).map(p => ({ from: p.from_stop_id, to: p.to_stop_id, mode: p.mode, by: p.chosen_by })),
+    cacheKeys: async () => (await db.collection<{ _id: string }>('impact_cache').find({}).toArray()).map(c => c._id),
   };
-  return { db, picks, ticks, cache, writes };
 }
 
 async function withServer(
   options: { gemini?: Gemini } = {},
-  run: (call: (user: User | null, method: string, path: string, body?: unknown) => Promise<{ status: number; data: any }>, state: ReturnType<typeof fakeDb>) => Promise<void>,
+  run: (call: (user: User | null, method: string, path: string, body?: unknown) => Promise<{ status: number; data: any }>, state: Awaited<ReturnType<typeof seededDb>>) => Promise<void>,
 ) {
-  const state = fakeDb();
+  const state = await seededDb();
   const authenticate = async (token: string) => {
     const user = [asha, ben, zed].find(u => u.username === token);
     if (!user) throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');
@@ -171,7 +129,7 @@ describe('PUT /trips/:tripId/legs', () => {
       assert.match(walk.data.error.message, /not practical/);
       const boat = await call(asha, 'PUT', `${trip}/legs`, { ...FAR_RIDE, mode: 'boat' });
       expect(boat.status).toBe(400);
-      expect(state.picks).toEqual([]);
+      expect(await state.picks()).toEqual([]);
     });
   });
 
@@ -186,7 +144,7 @@ describe('PUT /trips/:tripId/legs', () => {
       const swapped = put.data.footprint.days[1].legs[0];
       expect([swapped.mode, swapped.chosen]).toEqual(['erickshaw', true]);
       assert.ok(put.data.footprint.totalKg < before.footprint.totalKg);
-      expect(state.picks).toEqual([{ from: FAR_RIDE.fromStopId, to: FAR_RIDE.toStopId, mode: 'erickshaw', by: ben.id }]);
+      expect(await state.picks()).toEqual([{ from: FAR_RIDE.fromStopId, to: FAR_RIDE.toStopId, mode: 'erickshaw', by: ben.id }]);
 
       // Everyone sees it
       const seen = (await call(asha, 'GET', trip)).data;
@@ -195,7 +153,7 @@ describe('PUT /trips/:tripId/legs', () => {
       const undone = await call(asha, 'PUT', `${trip}/legs`, { ...FAR_RIDE, mode: null });
       expect(undone.status).toBe(200);
       expect(undone.data.footprint.totalKg).toBe(before.footprint.totalKg);
-      expect(state.picks).toEqual([]);
+      expect(await state.picks()).toEqual([]);
     });
   });
 });
@@ -252,9 +210,9 @@ describe('with Gemini', () => {
       // Lunch ₹4,800 + the gifts ₹2,000 (Gemini: crafts) are kept; the tickets aren't
       expect(data.local.keptPaise).toBe(680_000);
       expect(data.local.byClass.find((c: any) => c.id === 'local-artisan').paise).toBe(200_000);
-      expect([...state.cache.keys()].some(k => k.startsWith('expense:'))).toBe(true);
+      expect((await state.cacheKeys()).some(k => k.startsWith('expense:'))).toBe(true);
       expect(data.swaps[0].text.startsWith('Tip: ')).toBe(true);
-      expect([...state.cache.keys()].some(k => k.startsWith('swaps:'))).toBe(true);
+      expect((await state.cacheKeys()).some(k => k.startsWith('swaps:'))).toBe(true);
       const before = gemini.calls.length;
       expect(before).toBe(2);
 

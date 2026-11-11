@@ -1,29 +1,31 @@
-"""Search SQL against a real pgvector database with synthetic embeddings: scoping, threshold, multiple selfies,
-grouping by photo, no silent truncation, and that the query uses the HNSW index."""
+"""Search against a real MongoDB with Atlas Vector Search and synthetic embeddings: scoping, threshold, multiple
+selfies, grouping by photo, no silent truncation, and that the trip filter keeps ANN results complete."""
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import numpy as np
-import psycopg
 import pytest
+from pymongo import MongoClient
 
 from faces import store
 from faces.config import Settings
 from faces.pipeline import Box
-from tests.conftest import TRIP_A, TRIP_B, cosine_distance, fake_face, near, unit
+from faces.search import create_app
+from tests.conftest import TRIP_A, TRIP_B, cosine_distance, fake_face, near, unit, wait_searchable
 
 pytestmark = pytest.mark.db
 
 
-def add(pool, name, trip, faces, settings=None, generation=1):
-    with pool.connection() as conn:
-        store.save_photo(conn, bucket="ghoomates", name=name, generation=generation, trip_id=trip, status="indexed",
-                         settings=settings or Settings(), width=1000, height=800, faces=faces)
+def add(db, name, trip, faces, settings=None, generation=1):
+    store.save_photo(db, bucket="ghoomates", name=name, generation=generation, trip_id=trip, status="indexed",
+                     settings=settings or Settings(), width=1000, height=800, faces=faces)
 
 
-def run(pool, queries, trip, settings=None):
-    with pool.connection() as conn:
-        return store.search(conn, queries, trip, settings or Settings())
+def run(db, queries, trip, settings=None):
+    wait_searchable(db)
+    return store.search(db, queries, trip, settings or Settings())
 
 
 @pytest.fixture
@@ -103,7 +105,7 @@ def test_someone_in_hundreds_of_photos_is_never_cut_off(clean_db, rng):
         add(clean_db, f"p{i:03}.jpg", TRIP_A, [fake_face(near(me, rng))])
     for i in range(30):
         add(clean_db, f"s{i:03}.jpg", TRIP_A, [fake_face(rng.normal(size=512))])
-    small_k = Settings(search_initial_k=16, hnsw_ef_search=10)
+    small_k = Settings(search_initial_k=16)
     matches, truncated = run(clean_db, [me], TRIP_A, small_k)
     assert len(matches) == 120 and truncated is False
     capped = Settings(search_initial_k=16, search_max_k=32)
@@ -117,62 +119,43 @@ def test_faces_from_another_model_are_not_compared(clean_db, rng):
     assert run(clean_db, [me], TRIP_A)[0] == []
 
 
-def bulk_noise(conn, rng, trip_id, n):
-    """n random faces (strangers) on one photo, inserted with COPY."""
-    photo_id = conn.execute(
-        "INSERT INTO face_photos (bucket, object_name, generation, trip_id, status, model_name, detector) "
-        "VALUES ('ghoomates', %s, 1, %s, 'indexed', 'Facenet512', 'retinaface') RETURNING id",
-        (f"noise-{trip_id}.jpg", trip_id),
-    ).fetchone()[0]
-    with conn.cursor().copy(
-        "COPY faces (photo_id, trip_id, x, y, w, h, det_confidence, embedding, model_name, detector) FROM STDIN"
-    ) as copy:
-        for v in rng.normal(size=(n, 512)):
-            copy.write_row((photo_id, trip_id, 0, 0, 50, 50, 0.99, store.to_vector(unit(v)), "Facenet512", "retinaface"))
+def bulk_noise(db, rng, trip_id, n):
+    """n random faces (strangers) on one photo, inserted directly."""
+    now = datetime.now(timezone.utc)
+    photo = {"bucket": "ghoomates", "object_name": f"noise-{trip_id}.jpg", "generation": 1, "trip_id": trip_id,
+             "width": None, "height": None, "model_name": "Facenet512", "detector": "retinaface"}
+    photo_id = db.face_photos.insert_one({**photo, "face_count": n, "status": "indexed", "error": None,
+                                          "indexed_at": now}).inserted_id
+    db.faces.insert_many([
+        {**photo, "photo_id": photo_id, "x": 0, "y": 0, "w": 50, "h": 50, "det_confidence": 0.99,
+         "embedding": store.to_vector(unit(v)), "created_at": now}
+        for v in rng.normal(size=(n, 512))
+    ])
 
 
-def plan_for(conn, k, trip_id=TRIP_A):
-    params = {"q": store.to_vector(unit(np.ones(512))), "trip_id": trip_id, "k": k, "model": "Facenet512",
-              "detector": "retinaface"}
-    # Client-side binding: EXPLAIN gets the query vector as a literal.
-    rows = psycopg.ClientCursor(conn).execute("EXPLAIN " + store.NEAREST_SQL, params).fetchall()
-    return "\n".join(r[0] for r in rows)
-
-
-def test_planner_uses_hnsw_for_a_broad_scope(clean_db, rng):
-    with clean_db.connection() as conn:
-        bulk_noise(conn, rng, TRIP_A, 3000)
-        conn.execute("ANALYZE faces")
-        conn.commit()
-        with conn.transaction():
-            store.set_scan_options(conn, Settings())
-            assert "faces_embedding_hnsw_idx" in plan_for(conn, 40)
-
-
-def test_iterative_scan_keeps_filtered_hnsw_results_complete(clean_db, rng):
-    """The two gotchas on the HNSW path: without iterative scan, the index stops after ef_search candidates, and
-    the trip filter then removes the other trip's lookalikes, so most matches vanish silently."""
+def test_trip_filter_finds_the_match_among_other_trips_and_noise(clean_db, rng):
+    """The trip filter runs inside the ANN scan, not after it: the one match in trip A is found even though trip B
+    holds many closer lookalikes (global nearest neighbours a post-filter would drop) and both trips hold thousands
+    of strangers. Nothing from trip B ever comes back."""
     me = unit(rng.normal(size=512))
-    for i in range(120):
-        add(clean_db, f"a{i:03}.jpg", TRIP_A, [fake_face(near(me, rng))])
-    for i in range(200):  # the same person in another trip: global nearest neighbours that the filter drops
-        add(clean_db, f"b{i:03}.jpg", TRIP_B, [fake_face(near(me, rng))])
-    with clean_db.connection() as conn:
-        bulk_noise(conn, rng, TRIP_A, 1500)
-        bulk_noise(conn, rng, TRIP_B, 1500)
-        conn.execute("ANALYZE faces")
-        conn.commit()
-        with conn.transaction():
-            # Force the HNSW path (Postgres would pick the exact trip_id btree here); DDL rolls back at the end.
-            conn.execute("DROP INDEX faces_trip_idx")
-            conn.execute("SET LOCAL enable_seqscan = off")
-            store.set_scan_options(conn, Settings())
-            assert "faces_embedding_hnsw_idx" in plan_for(conn, 40)
+    add(clean_db, "a.jpg", TRIP_A, [fake_face(near(me, rng, 0.03))])
+    for i in range(200):
+        add(clean_db, f"b{i:03}.jpg", TRIP_B, [fake_face(near(me, rng, 0.002))])
+    bulk_noise(clean_db, rng, TRIP_A, 1500)
+    bulk_noise(clean_db, rng, TRIP_B, 1500)
+    small_k = Settings(search_initial_k=40)
+    matches, truncated = run(clean_db, [me], TRIP_A, small_k)
+    assert [m.object_name for m in matches] == ["a.jpg"] and truncated is False
+    hits = store.nearest_faces(clean_db, me, TRIP_A, 40, small_k)
+    assert len(hits) == 40 and hits[0].object_name == "a.jpg"
+    assert {h.object_name for h in hits} <= {"a.jpg", f"noise-{TRIP_A}.jpg"}
 
-            naive = Settings(hnsw_iterative_scan="off", hnsw_ef_search=40, search_initial_k=40)
-            matches, truncated = store.search(conn, [me], TRIP_A, naive)
-            assert len(matches) < 120 and truncated is False  # silently incomplete
 
-            matches, truncated = store.search(conn, [me], TRIP_A, Settings(search_initial_k=40))
-            assert len(matches) == 120 and truncated is False
-            raise psycopg.Rollback()  # undo DROP INDEX
+def test_database_failure_is_unavailable():
+    dead = MongoClient("mongodb://127.0.0.1:1/?directConnection=true", serverSelectionTimeoutMS=500, connect=False)
+    try:
+        client = create_app(Settings(), None, dead["none"]).test_client()
+        response = client.post("/search", json={"trip_id": TRIP_A, "embeddings": [[1.0] * 512]})
+        assert response.status_code == 503 and response.get_json()["error"]["code"] == "SEARCH_UNAVAILABLE"
+    finally:
+        dead.close()

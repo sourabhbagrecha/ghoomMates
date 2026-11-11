@@ -1,31 +1,30 @@
-// A small key → JSON cache in Postgres (impact_cache), for answers that never change: what Gemini made of an expense
-// description, how a swap was phrased, how far Google Routes says two points are apart.
+// A small key → JSON cache in MongoDB (impact_cache, _id = key), for answers that never change: what Gemini made of
+// an expense description, how a swap was phrased, how far Google Routes says two points are apart.
+import type { Database } from '../db.ts';
 
-/** Only the pool's query is used, so tests can pass a fake `{ pool: { query } }`. */
-export type ImpactDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: unknown[] }> };
-};
+/** Only the Db handle is used */
+export type ImpactDb = Pick<Database, 'db'>;
 
 export type ImpactCache = {
   get(keys: string[]): Promise<Map<string, unknown>>;
   put(entries: [string, unknown][]): Promise<void>;
 };
 
-export function dbCache(db: ImpactDb): ImpactCache {
+export function dbCache({ db }: ImpactDb): ImpactCache {
+  const cache = db.collection<{ _id: string; value: unknown; created_at: Date }>('impact_cache');
   return {
     async get(keys) {
       if (!keys.length) return new Map();
-      const { rows } = await db.pool.query('SELECT key, value FROM impact_cache WHERE key = ANY($1::text[])', [keys]);
-      return new Map((rows as { key: string; value: unknown }[]).map(r => [r.key, r.value]));
+      const docs = await cache.find({ _id: { $in: keys } }).toArray();
+      return new Map(docs.map(d => [d._id, d.value]));
     },
     async put(entries) {
       if (!entries.length) return;
-      await db.pool.query(
-        `INSERT INTO impact_cache (key, value)
-         SELECT k, v::jsonb FROM unnest($1::text[], $2::text[]) AS t (k, v)
-         ON CONFLICT (key) DO NOTHING`,
-        [entries.map(([key]) => key), entries.map(([, value]) => JSON.stringify(value))],
-      );
+      const created_at = new Date();
+      // First answer wins; the JSON round trip stores exactly what jsonb did (no undefined fields)
+      await cache.bulkWrite(entries.map(([key, value]) => ({
+        updateOne: { filter: { _id: key }, update: { $setOnInsert: { value: JSON.parse(JSON.stringify(value)), created_at } }, upsert: true },
+      })), { ordered: false });
     },
   };
 }

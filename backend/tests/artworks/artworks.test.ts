@@ -7,13 +7,14 @@ import { createServer } from '../../src/app.ts';
 import { createArtworksApp } from '../../src/artworks/app.ts';
 import { describeCast, parseCast } from '../../src/artworks/cast.ts';
 import { sniffImageType } from '../../src/artworks/images.ts';
-import type { ArtworkOptions, ArtworksDb } from '../../src/artworks/service.ts';
+import type { ArtworkOptions } from '../../src/artworks/service.ts';
 import { ARTWORK_STYLES, ARTWORK_STYLE_IDS, artworkPrompt, artworkStyle } from '../../src/artworks/styles.ts';
 import type { User } from '../../src/auth/types.ts';
 import { GeminiError, type Gemini, type ImageRequest } from '../../src/gemini.ts';
 import { ApiError } from '../../src/http.ts';
 import { createMediaStorage, type MediaStorage } from '../../src/storage.ts';
 import { mount, serve } from '../helpers.ts';
+import { testDatabase } from '../mongo.ts';
 
 const TRIP = '11111111-1111-4111-8111-111111111111';
 const OTHER_TRIP = '22222222-2222-4222-8222-222222222222';
@@ -140,55 +141,25 @@ describe('storage read', () => {
   });
 });
 
-/* Routes, with a fake database, fake storage and fake Gemini */
+/* Routes, with a real test database, fake storage and fake Gemini */
 
-type Row = { id: string; trip_id: string; photo_id: string | null; created_by: string; style: string; object_key: string; content_type: string; size_bytes: number; model: string; created_at: Date };
+type Row = { _id: string; trip_id: string; photo_id: string | null; created_by: string; style: string; object_key: string; content_type: string; size_bytes: number; model: string; created_at: Date };
 
-// Stands in for the handful of queries the module runs. Asha and Ravi are in TRIP; nobody is in OTHER_TRIP.
-function fakeDb(options: { now?: () => number; rows?: Row[] } = {}) {
-  const rows: Row[] = options.rows ?? [];
-  const names: Record<string, string> = { usr_1: 'Asha', usr_2: 'Ravi' };
-  let tick = 0;
-  const photos = new Map([
-    [PHOTO, { id: PHOTO, trip_id: TRIP, object_key: `trips/${TRIP}/photos/squad.jpg`, size_bytes: JPEG.length }],
-    [GIF_PHOTO, { id: GIF_PHOTO, trip_id: TRIP, object_key: `trips/${TRIP}/photos/animated.gif`, size_bytes: GIF.length }],
-    [MISSING_PHOTO, { id: MISSING_PHOTO, trip_id: TRIP, object_key: `trips/${TRIP}/photos/gone.jpg`, size_bytes: null }],
-    [OTHER_PHOTO, { id: OTHER_PHOTO, trip_id: OTHER_TRIP, object_key: `trips/${OTHER_TRIP}/photos/other.jpg`, size_bytes: JPEG.length }],
+// Asha and Ravi are in TRIP; nobody is in OTHER_TRIP. `rows` reads back the saved paintings.
+async function fakeDb(seed: Row[] = []) {
+  const database = await testDatabase();
+  const { db } = database;
+  await db.collection<any>('users').insertMany([asha, ravi, mira].map(({ id, ...u }) => ({ _id: id, google_id: `g-${id}`, ...u })));
+  await db.collection('trip_members').insertMany([asha, ravi].map((u) => ({ trip_id: TRIP, user_id: u.id, ledger_member_id: `ledger-${u.id}`, role: 'mate' })));
+  await db.collection<any>('trip_photos').insertMany([
+    { _id: PHOTO, trip_id: TRIP, object_key: `trips/${TRIP}/photos/squad.jpg`, size_bytes: JPEG.length },
+    { _id: GIF_PHOTO, trip_id: TRIP, object_key: `trips/${TRIP}/photos/animated.gif`, size_bytes: GIF.length },
+    { _id: MISSING_PHOTO, trip_id: TRIP, object_key: `trips/${TRIP}/photos/gone.jpg`, size_bytes: null },
+    { _id: OTHER_PHOTO, trip_id: OTHER_TRIP, object_key: `trips/${OTHER_TRIP}/photos/other.jpg`, size_bytes: JPEG.length },
   ]);
-  const queries: string[] = [];
-  const db: ArtworksDb = {
-    pool: {
-      query: async (sql, values = []) => {
-        queries.push(sql.replace(/\s+/g, ' ').trim());
-        if (sql.includes('FROM trip_members')) {
-          const member = values[0] === TRIP && (values[1] === asha.id || values[1] === ravi.id);
-          return { rowCount: member ? 1 : 0, rows: member ? [{}] : [] };
-        }
-        if (sql.includes('FROM trip_photos')) {
-          const photo = photos.get(values[0] as string);
-          const found = photo && photo.trip_id === values[1] ? [photo] : [];
-          return { rowCount: found.length, rows: found };
-        }
-        if (sql.includes('count(*)')) {
-          const since = (options.now?.() ?? Date.now()) - 24 * 60 * 60 * 1000;
-          const n = rows.filter((r) => r.trip_id === values[0] && r.created_at.getTime() > since).length;
-          return { rowCount: 1, rows: [{ n: String(n) }] };
-        }
-        if (sql.includes('INSERT INTO trip_artworks')) {
-          const [id, trip_id, photo_id, created_by, style, object_key, content_type, size_bytes, model] = values as [string, string, string, string, string, string, string, number, string];
-          const row = { id, trip_id, photo_id, created_by, style, object_key, content_type, size_bytes, model, created_at: new Date((options.now?.() ?? Date.now()) + ++tick * 1000) };
-          rows.push(row);
-          return { rowCount: 1, rows: [{ created_at: row.created_at }] };
-        }
-        if (sql.includes('FROM trip_artworks a')) {
-          const mine = rows.filter((r) => r.trip_id === values[0]).sort((a, b) => b.created_at.getTime() - a.created_at.getTime()).slice(0, values[1] as number);
-          return { rowCount: mine.length, rows: mine.map((r) => ({ ...r, creator: names[r.created_by] ?? null })) };
-        }
-        throw new Error(`Unexpected query: ${sql}`);
-      },
-    },
-  };
-  return { db, rows, queries };
+  if (seed.length) await db.collection<any>('trip_artworks').insertMany(seed);
+  const rows = () => db.collection<Row>('trip_artworks').find().sort({ created_at: 1 }).toArray();
+  return { db: database, rows };
 }
 
 function fakeStorage() {
@@ -241,8 +212,8 @@ function fakeGemini(overrides: Partial<Gemini> = {}, requests: ImageRequest[] = 
 
 type Harness = Awaited<ReturnType<typeof harness>>;
 
-async function harness(setup: { gemini?: Partial<Gemini>; options?: ArtworkOptions; env?: Record<string, string | undefined>; now?: () => number; rows?: Row[] } = {}) {
-  const database = fakeDb({ now: setup.now, rows: setup.rows });
+async function harness(setup: { gemini?: Partial<Gemini>; options?: ArtworkOptions; env?: Record<string, string | undefined>; rows?: Row[] } = {}) {
+  const database = await fakeDb(setup.rows);
   const { storage, objects, reads } = fakeStorage();
   const requests: ImageRequest[] = [];
   const gemini = fakeGemini(setup.gemini, requests);
@@ -331,10 +302,11 @@ describe('painting a photo', () => {
       expect(artwork.url.startsWith(`https://media.test/${key}`)).toBe(true);
       expect(h.objects.get(key)?.data.equals(PNG)).toBe(true);
       expect(h.objects.get(key)?.contentType).toBe('image/png');
-      expect(h.rows).toHaveLength(1);
-      expect(h.rows[0].object_key).toBe(key);
-      expect(h.rows[0].created_by).toBe('usr_1');
-      expect(h.rows[0].model).toBe('fake-image');
+      const rows = await h.rows();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].object_key).toBe(key);
+      expect(rows[0].created_by).toBe('usr_1');
+      expect(rows[0].model).toBe('fake-image');
     });
   });
 
@@ -471,7 +443,7 @@ describe('painting a photo', () => {
       const gone = await h.paint(asha, { photoId: MISSING_PHOTO, style: 'mewar-miniature' });
       expect(gone.status).toBe(404);
       expect(h.requests).toHaveLength(0);
-      expect(h.rows).toHaveLength(0);
+      expect(await h.rows()).toHaveLength(0);
     });
   });
 
@@ -520,7 +492,7 @@ describe('daily limit', () => {
 
   test('paintings older than a day no longer count', async () => {
     const now = Date.now();
-    const old = (n: number): Row => ({ id: `old-${n}`, trip_id: TRIP, photo_id: PHOTO, created_by: 'usr_1', style: 'mewar-miniature', object_key: `trips/${TRIP}/artworks/old-${n}.png`, content_type: 'image/png', size_bytes: 1, model: 'x', created_at: new Date(now - 25 * 60 * 60 * 1000 - n) });
+    const old = (n: number): Row => ({ _id: `old-${n}`, trip_id: TRIP, photo_id: PHOTO, created_by: 'usr_1', style: 'mewar-miniature', object_key: `trips/${TRIP}/artworks/old-${n}.png`, content_type: 'image/png', size_bytes: 1, model: 'x', created_at: new Date(now - 25 * 60 * 60 * 1000 - n) });
     await withHarness({ options: { dailyLimit: 2 }, rows: [old(1), old(2), old(3)] }, async (h) => {
       expect((await h.paint(asha)).status).toBe(201);
       expect((await h.paint(asha)).status).toBe(201);
@@ -541,7 +513,7 @@ describe('daily limit', () => {
       release();
       const statuses = [(await first).status, (await second).status].sort();
       expect(statuses).toEqual([201, 429]);
-      expect(h.rows).toHaveLength(1);
+      expect(await h.rows()).toHaveLength(1);
     });
   });
 });
@@ -553,8 +525,8 @@ describe('when painting is unavailable the app can fall back to a framed photo',
       expect(res.status).toBe(503);
       expect(await errorCode(res)).toBe('ARTWORK_UNAVAILABLE');
       expect(h.requests).toHaveLength(0);
-      expect(h.rows).toHaveLength(0);
-      expect(h.queries.some((q) => q.includes('FROM trip_photos'))).toBe(false);
+      expect(await h.rows()).toHaveLength(0);
+      expect(h.reads).toHaveLength(0);
       // The gallery still opens
       expect((await h.call(asha, 'GET', `/trips/${TRIP}`)).status).toBe(200);
     });
@@ -569,7 +541,7 @@ describe('when painting is unavailable the app can fall back to a framed photo',
       const res = await h.paint(asha);
       expect(res.status).toBe(502);
       expect(await errorCode(res)).toBe('ARTWORK_FAILED');
-      expect(h.rows).toHaveLength(0);
+      expect(await h.rows()).toHaveLength(0);
       expect([...h.objects.keys()].some((key) => key.includes('/artworks/'))).toBe(false);
       fail = false;
       expect((await h.paint(asha)).status).toBe(201);
@@ -598,7 +570,7 @@ describe('when painting is unavailable the app can fall back to a framed photo',
       expect(res.status).toBe(503);
       expect(await errorCode(res)).toBe('ARTWORK_UNAVAILABLE');
       expect(calls).toBe(2);
-      expect(h.rows).toHaveLength(0);
+      expect(await h.rows()).toHaveLength(0);
     });
   });
 
@@ -638,7 +610,7 @@ describe('when painting is unavailable the app can fall back to a framed photo',
       expect(res.status).toBe(504);
       expect(await errorCode(res)).toBe('ARTWORK_TIMEOUT');
       expect(Date.now() - started < 2_000).toBe(true);
-      expect(h.rows).toHaveLength(0);
+      expect(await h.rows()).toHaveLength(0);
     });
   });
 
@@ -653,7 +625,7 @@ describe('when painting is unavailable the app can fall back to a framed photo',
       const res = await h.paint(asha);
       expect(res.status).toBe(502);
       expect(await errorCode(res)).toBe('ARTWORK_FAILED');
-      expect(h.rows).toHaveLength(0);
+      expect(await h.rows()).toHaveLength(0);
     });
   });
 });

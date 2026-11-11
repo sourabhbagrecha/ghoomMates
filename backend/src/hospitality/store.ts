@@ -1,6 +1,7 @@
-// Where reservations and logged leftovers live: Postgres in the app, memory when there is no database
+// Where reservations and logged leftovers live: MongoDB in the app, memory when there is no database
 // (so the host dashboard still works) and in tests.
 import { randomUUID } from 'node:crypto';
+import type { Database, Db } from '../db.ts';
 import { normaliseMix, type Booking } from './plan.ts';
 import { emptyMix, type Diet, type DietMix, type Meal } from './types.ts';
 
@@ -54,14 +55,11 @@ export function squadFrom(preferences: unknown[]): Squad {
   return { members: preferences.length, diets };
 }
 
-/* Postgres */
+/* MongoDB */
 
-/** Only the pool's query is used, so tests can pass a fake `{ pool: { query } }` */
-export type HospitalityDb = {
-  pool: { query(text: string, values?: unknown[]): Promise<{ rowCount: number | null; rows: any[] }> };
-};
+export type HospitalityDb = Pick<Database, 'db'>;
 
-/** A `date` column as YYYY-MM-DD: the app's pool already returns strings, a plain pg client returns local-midnight Dates */
+/** A `date` field as YYYY-MM-DD (stored as a string; a Date from older data is read as its local day) */
 export function dateString(value: unknown): string {
   if (value instanceof Date) {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -70,106 +68,96 @@ export function dateString(value: unknown): string {
   return String(value).slice(0, 10);
 }
 
-const BOOKING_COLUMNS = 'id, host_id, trip_id, group_name, user_id, meal_date, meal, meal_time, headcount, dietary, note, stop_id, day_number, created_at';
-
-function toBooking(row: any): StoredBooking {
+function toBooking(doc: any): StoredBooking {
   return {
-    id: row.id, hostId: row.host_id, tripId: row.trip_id, group: row.group_name, userId: row.user_id,
-    date: dateString(row.meal_date), meal: row.meal, time: row.meal_time, headcount: Number(row.headcount),
-    dietary: normaliseMix(row.dietary, Number(row.headcount)), note: row.note, stopId: row.stop_id ?? null,
-    dayNumber: row.day_number === null || row.day_number === undefined ? null : Number(row.day_number),
-    createdAt: new Date(row.created_at).toISOString(),
+    id: doc._id, hostId: doc.host_id, tripId: doc.trip_id, group: doc.group_name, userId: doc.user_id,
+    date: dateString(doc.meal_date), meal: doc.meal, time: doc.meal_time, headcount: Number(doc.headcount),
+    dietary: normaliseMix(doc.dietary, Number(doc.headcount)), note: doc.note, stopId: doc.stop_id ?? null,
+    dayNumber: doc.day_number === null || doc.day_number === undefined ? null : Number(doc.day_number),
+    createdAt: new Date(doc.created_at).toISOString(),
   };
 }
 
-const toWaste = (row: any): WasteLog => ({
-  hostId: row.host_id, date: dateString(row.log_date), leftoverKg: Number(row.leftover_kg), covers: Number(row.covers), note: row.note,
+const toWaste = (doc: any): WasteLog => ({
+  hostId: doc.host_id, date: dateString(doc.log_date), leftoverKg: Number(doc.leftover_kg), covers: Number(doc.covers), note: doc.note,
 });
 
-export class PgStore implements HospitalityStore {
-  readonly persistent = true;
-  private db: HospitalityDb;
+// numeric(7, 2) in the old schema: keep kilos to two decimals
+const kilos = (kg: number) => Math.round(kg * 100) / 100;
 
-  constructor(db: HospitalityDb) {
-    this.db = db;
+export class MongoStore implements HospitalityStore {
+  readonly persistent = true;
+  private db: Db;
+
+  constructor(database: HospitalityDb) {
+    this.db = database.db;
+  }
+
+  private get reservations() {
+    return this.db.collection<any>('hospitality_reservations');
   }
 
   async bookingsForHost(hostId: string, from: string, to: string) {
-    const { rows } = await this.db.pool.query(
-      `SELECT ${BOOKING_COLUMNS} FROM hospitality_reservations WHERE host_id = $1 AND meal_date BETWEEN $2 AND $3 ORDER BY meal_date, meal, created_at`,
-      [hostId, from, to],
-    );
-    return rows.map(toBooking);
+    const docs = await this.reservations.find({ host_id: hostId, meal_date: { $gte: from, $lte: to } }).sort({ meal_date: 1, meal: 1, created_at: 1 }).toArray();
+    return docs.map(toBooking);
   }
 
   async bookingsForTrip(tripId: string) {
-    const { rows } = await this.db.pool.query(
-      `SELECT ${BOOKING_COLUMNS} FROM hospitality_reservations WHERE trip_id = $1 ORDER BY meal_date, meal`,
-      [tripId],
-    );
-    return rows.map(toBooking);
+    const docs = await this.reservations.find({ trip_id: tripId }).sort({ meal_date: 1, meal: 1 }).toArray();
+    return docs.map(toBooking);
   }
 
   async findBooking(id: string) {
-    const { rows } = await this.db.pool.query(`SELECT ${BOOKING_COLUMNS} FROM hospitality_reservations WHERE id = $1`, [id]);
-    return rows[0] ? toBooking(rows[0]) : null;
+    const doc = await this.reservations.findOne({ _id: id });
+    return doc ? toBooking(doc) : null;
   }
 
   async findSlot(tripId: string, hostId: string, date: string, meal: Meal) {
-    const { rows } = await this.db.pool.query(
-      `SELECT ${BOOKING_COLUMNS} FROM hospitality_reservations WHERE trip_id = $1 AND host_id = $2 AND meal_date = $3 AND meal = $4`,
-      [tripId, hostId, date, meal],
-    );
-    return rows[0] ? toBooking(rows[0]) : null;
+    const doc = await this.reservations.findOne({ trip_id: tripId, host_id: hostId, meal_date: date, meal });
+    return doc ? toBooking(doc) : null;
   }
 
   async saveBooking(b: NewBooking) {
-    const { rows } = await this.db.pool.query(
-      `INSERT INTO hospitality_reservations (id, host_id, trip_id, group_name, user_id, meal_date, meal, meal_time, headcount, dietary, note)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       ON CONFLICT (trip_id, host_id, meal_date, meal) DO UPDATE SET
-         group_name = excluded.group_name, user_id = excluded.user_id, meal_time = excluded.meal_time, headcount = excluded.headcount,
-         dietary = excluded.dietary, note = excluded.note, updated_at = now()
-       RETURNING ${BOOKING_COLUMNS}`,
-      [randomUUID(), b.hostId, b.tripId, b.group, b.userId, b.date, b.meal, b.time, b.headcount, JSON.stringify(b.dietary), b.note],
+    const now = new Date();
+    const doc = await this.reservations.findOneAndUpdate(
+      { trip_id: b.tripId, host_id: b.hostId, meal_date: b.date, meal: b.meal },
+      {
+        $set: { group_name: b.group, user_id: b.userId, meal_time: b.time, headcount: b.headcount, dietary: b.dietary, note: b.note, updated_at: now },
+        $setOnInsert: { _id: randomUUID(), stop_id: null, day_number: null, created_at: now },
+      },
+      { upsert: true, returnDocument: 'after' },
     );
-    return toBooking(rows[0]);
+    return toBooking(doc);
   }
 
   async setStop(id: string, stopId: string | null, dayNumber: number | null) {
-    await this.db.pool.query('UPDATE hospitality_reservations SET stop_id = $2, day_number = $3 WHERE id = $1', [id, stopId, dayNumber]);
+    await this.reservations.updateOne({ _id: id }, { $set: { stop_id: stopId, day_number: dayNumber } });
   }
 
   async deleteBooking(id: string) {
-    await this.db.pool.query('DELETE FROM hospitality_reservations WHERE id = $1', [id]);
+    await this.reservations.deleteOne({ _id: id });
   }
 
   async squad(tripId: string) {
-    const { rows } = await this.db.pool.query(
-      'SELECT u.preferences FROM trip_members m JOIN users u ON u.id = m.user_id WHERE m.trip_id = $1',
-      [tripId],
-    );
-    return rows.length ? squadFrom(rows.map(r => r.preferences)) : null;
+    const members = await this.db.collection('trip_members').find({ trip_id: tripId }, { projection: { user_id: 1 } }).toArray();
+    if (!members.length) return null;
+    const users = await this.db.collection<any>('users').find({ _id: { $in: members.map(m => m.user_id) } }, { projection: { preferences: 1 } }).toArray();
+    return users.length ? squadFrom(users.map(u => u.preferences)) : null;
   }
 
   async wasteLogs(hostId: string, from: string, to: string) {
-    const { rows } = await this.db.pool.query(
-      `SELECT host_id, log_date, leftover_kg::float8 AS leftover_kg, covers, note FROM hospitality_waste_logs
-       WHERE host_id = $1 AND log_date BETWEEN $2 AND $3 ORDER BY log_date`,
-      [hostId, from, to],
-    );
-    return rows.map(toWaste);
+    const docs = await this.db.collection('hospitality_waste_logs').find({ host_id: hostId, log_date: { $gte: from, $lte: to } }).sort({ log_date: 1 }).toArray();
+    return docs.map(toWaste);
   }
 
   async saveWaste(log: WasteLog, userId: string | null) {
-    const { rows } = await this.db.pool.query(
-      `INSERT INTO hospitality_waste_logs (host_id, log_date, leftover_kg, covers, note, logged_by) VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (host_id, log_date) DO UPDATE SET
-         leftover_kg = excluded.leftover_kg, covers = excluded.covers, note = excluded.note, logged_by = excluded.logged_by, updated_at = now()
-       RETURNING host_id, log_date, leftover_kg::float8 AS leftover_kg, covers, note`,
-      [log.hostId, log.date, log.leftoverKg, log.covers, log.note, userId],
+    const now = new Date();
+    const doc = await this.db.collection('hospitality_waste_logs').findOneAndUpdate(
+      { host_id: log.hostId, log_date: log.date },
+      { $set: { leftover_kg: kilos(log.leftoverKg), covers: log.covers, note: log.note, logged_by: userId, updated_at: now }, $setOnInsert: { created_at: now } },
+      { upsert: true, returnDocument: 'after' },
     );
-    return toWaste(rows[0]);
+    return toWaste(doc);
   }
 }
 

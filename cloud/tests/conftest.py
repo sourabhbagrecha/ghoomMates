@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import io
 import os
+import time
 import uuid
 from typing import Any
 
 import numpy as np
-import psycopg
 import pytest
 from PIL import Image
 
 from faces.config import Settings
-from faces.db import normalize_dsn
 from faces.pipeline import Box, Face
 
 TRIP_A = "6f1c7f9e-0000-4000-8000-00000000000a"
@@ -48,40 +47,54 @@ def cosine_distance(a: np.ndarray, b: np.ndarray) -> float:
     return float(1 - np.dot(unit(a), unit(b)))
 
 
-# --- Database fixtures: a throwaway database per test session, with the migrations applied ---
+# --- Database fixtures: a throwaway database per test session, with the indexes created ---
 
 
 @pytest.fixture(scope="session")
-def database_url() -> Any:
-    admin_url = os.environ.get("TEST_DATABASE_URL")
-    if not admin_url:
-        pytest.skip("TEST_DATABASE_URL is not set (run the db tests with docker compose, see README)")
-    from urllib.parse import urlsplit, urlunsplit
-
+def db() -> Any:
+    url = os.environ.get("TEST_MONGODB_CONNECTION_STRING")
+    if not url:
+        pytest.skip("TEST_MONGODB_CONNECTION_STRING is not set (run the db tests with docker compose, see README)")
+    from faces.db import open_db
     from faces.migrate import migrate
 
-    name = f"faces_test_{uuid.uuid4().hex[:10]}"
-    with psycopg.connect(normalize_dsn(admin_url), autocommit=True) as conn:
-        conn.execute(f'CREATE DATABASE "{name}"')
-    parts = urlsplit(admin_url)
-    url = urlunsplit(parts._replace(path=f"/{name}"))
-    migrate(url)
-    yield url
-    with psycopg.connect(normalize_dsn(admin_url), autocommit=True) as conn:
-        conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
-
-
-@pytest.fixture(scope="session")
-def pool(database_url: str) -> Any:
-    from psycopg_pool import ConnectionPool
-
-    p = ConnectionPool(normalize_dsn(database_url), min_size=1, max_size=2, open=True)
-    yield p
-    p.close()
+    settings = Settings(mongodb_connection_string=url, mongodb_db=f"faces_test_{uuid.uuid4().hex[:10]}")
+    database = open_db(settings)
+    migrate(database, settings)
+    yield database
+    database.client.drop_database(database.name)
+    database.client.close()
 
 
 @pytest.fixture
-def clean_db(pool: Any) -> Any:
-    with pool.connection() as conn:
-        conn.execute("TRUNCATE face_photos, faces RESTART IDENTITY")
-    return pool
+def clean_db(db: Any) -> Any:
+    db.face_photos.delete_many({})
+    db.faces.delete_many({})
+    return db
+
+
+def wait_searchable(db: Any, timeout: float = 60) -> None:
+    """$vectorSearch is eventually consistent (mongot tails the oplog): wait until an exact search returns
+    exactly the faces in the collection, per (trip, model, detector), and nothing that was deleted."""
+    from faces.store import VECTOR_INDEX
+
+    groups: dict[tuple, set] = {}
+    for f in db.faces.find({}, {"trip_id": 1, "model_name": 1, "detector": 1}):
+        groups.setdefault((f["trip_id"], f["model_name"], f["detector"]), set()).add(f["_id"])
+    deadline = time.monotonic() + timeout
+    for (trip_id, model, detector), ids in groups.items():
+        while True:
+            found = {d["_id"] for d in db.faces.aggregate([
+                {"$vectorSearch": {
+                    "index": VECTOR_INDEX, "path": "embedding", "queryVector": [1.0] * 512, "exact": True,
+                    "limit": len(ids) + 1,
+                    "filter": {"$and": [{"trip_id": {"$eq": trip_id}}, {"model_name": {"$eq": model}},
+                                        {"detector": {"$eq": detector}}]},
+                }},
+                {"$project": {"_id": 1}},
+            ])}
+            if found == ids:
+                break
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"vector index still has {len(found)} of {len(ids)} faces for trip {trip_id}")
+            time.sleep(0.2)
