@@ -7,6 +7,8 @@ import { logger } from './logger.ts';
 // Serves the built web app (frontend/dist) from the same server as the API, so one Cloud Run URL is the whole product.
 // Mounted after every API route, so it never shadows one: API-looking paths (/api, /auth, /health) and anything that
 // names a file stay a JSON 404 instead of turning into index.html.
+// ghoommates.sourabh.org serves the app from the Cloudflare Worker instead (deploy/worker), with the same paths and
+// caching rules; this copy serves the run.app address and local production runs. Keep the two in step.
 
 const API_PATH = /^\/(?:api|auth|health)(?:\/|$)/;
 const HIDDEN_PATH = /(?:^|\/)\./;
