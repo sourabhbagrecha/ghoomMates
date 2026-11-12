@@ -7,6 +7,7 @@ import { logger } from '../logger.ts';
 import { createBackendClient } from './backendClient.ts';
 import { firstName } from './members.ts';
 import { createHistoryRecorder, HISTORY_LOAD, historySection, type HistoryItem } from './history.ts';
+import { hangUpWhenAway, idleHangupSeconds } from './idle.ts';
 import { memoryFrom } from './memory.ts';
 import { ACTION_RPC_METHOD, AGENT_NAME, agentNameFrom, type DispatchMetadata, type UiAction } from './protocol.ts';
 import { SKILLS, type SessionState, type Skill, type SkillContext, type Tool, type TripDetail } from './skills/index.ts';
@@ -80,7 +81,11 @@ function parseMetadata(raw: string): DispatchMetadata {
   return { tripId: meta.tripId, userId: meta.userId ?? '', userName: meta.userName ?? '', authToken: meta.authToken };
 }
 
-const newSession = () => new voice.AgentSession({ llm: new inference.RealtimeModel({ model: MODEL, voice: VOICE }) });
+const IDLE_HANGUP_S = idleHangupSeconds();
+const GOODBYE_TIMEOUT_MS = 8000;
+
+const newSession = () =>
+  new voice.AgentSession({ llm: new inference.RealtimeModel({ model: MODEL, voice: VOICE }), userAwayTimeout: IDLE_HANGUP_S });
 
 /** What the agent says before the trip has loaded: enough to greet by name and keep the chat going */
 const STARTER_INSTRUCTIONS = `You are GhoomMate, a cheerful octopus travel buddy inside GhoomMates, a group-trip app for friends in India. You are speaking out loud: reply in 1-2 short, casual, warm sentences, no lists or markdown. Your full trip details are still loading, so don't answer questions about the trip or take actions yet.`;
@@ -114,6 +119,17 @@ export default defineAgent({
     ctx.addShutdownCallback(() => recorder.flush());
     const agent = new voice.Agent({ instructions: STARTER_INSTRUCTIONS });
     const [participant] = await Promise.all([participantJoin, session.start({ agent, room: ctx.room })]);
+    const ui = createUiPusher(ctx.room, participant.identity);
+
+    // Quiet for IDLE_HANGUP_S: say bye, tell the app why the call ends, and delete the room. The user leaves, the
+    // server lets go of the held session request (so the instance's CPU goes idle) and this job ends.
+    hangUpWhenAway(session, async () => {
+      logger.info('Voice', `Hanging up ${ctx.room.name}: nothing said or done for ${IDLE_HANGUP_S} s`);
+      const bye = session.generateReply({ instructions: 'It has gone quiet, so say a quick goodbye in one short sentence: you are hanging up for now and they can tap you anytime.' });
+      await Promise.race([bye.waitForPlayout(), new Promise(resolve => setTimeout(resolve, GOODBYE_TIMEOUT_MS))]).catch(() => {});
+      await ui({ type: 'call.ended', reason: 'idle' });
+      await ctx.deleteRoom().catch((err: Error) => logger.warn('Voice', `Couldn't delete ${ctx.room.name}: ${err.message}`));
+    });
 
     // The greeting only needs their name, which came with the job, so it doesn't wait for the trip
     const greetName = firstName(meta.userName || 'mate');
@@ -134,7 +150,7 @@ export default defineAgent({
     const meMember = members.find(m => m.memberId === trip.memberId);
     const me = { memberId: trip.memberId, name: meMember?.name ?? meta.userName ?? 'you' };
     const state: SessionState = { pendingDraft: null, lastAdded: null };
-    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, history, api, ui: createUiPusher(ctx.room, participant.identity), state };
+    const skillCtx: SkillContext = { tripId: trip.id, trip, me, members, memory, history, api, ui, state };
 
     const config = buildAgentConfig(skillCtx);
     await agent.updateInstructions(config.instructions);

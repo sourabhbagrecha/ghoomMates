@@ -1,31 +1,30 @@
 #!/usr/bin/env bash
 # Deploys GhoomMates to Google Cloud Run: builds the image with Cloud Build (CI builds it on the GitHub runner instead)
-# and deploys two services from it, both scaling to zero when idle: the web service (the API and the web app, billed
-# per request) and the GhoomMate voice worker (woken by the web server when a chat starts). Safe to run again: each
-# step creates what is missing and updates the rest, and every run deploys a new revision of the current code.
+# and deploys one service from it that scales to zero when idle and is billed per request: the API, the web app and
+# the GhoomMate voice worker (a voice call holds a request open for as long as it lasts; backend/src/voice/inline.ts).
+# Safe to run again: each step creates what is missing and updates the rest, and every run deploys a new revision of
+# the current code.
 #
 #   deploy/secrets.sh              first, and whenever a secret changes: backend/.env -> Secret Manager
-#   deploy/cloudrun.sh all         set up, build, deploy the voice agent and the web service, make the web public
-#   deploy/cloudrun.sh             the same, but only the web service
-#   deploy/cloudrun.sh agent       only the voice agent service (and the web service's permission to wake it)
+#   deploy/cloudrun.sh all         set up, build, deploy the service, make it public
+#   deploy/cloudrun.sh             the same
 #   deploy/cloudrun.sh setup       only the APIs, service accounts and permissions
 #   deploy/cloudrun.sh build       only build and push the image
-#   deploy/cloudrun.sh release     build, then roll the image out to both services with their settings unchanged (CI)
+#   deploy/cloudrun.sh release     build, then roll the image out with the service's settings unchanged (CI)
 #   deploy/cloudrun.sh image       print the image a build would push, then its :latest tag (CI pushes these itself)
 #   deploy/cloudrun.sh status      URLs, revisions and a health check
-#   deploy/cloudrun.sh pause       set both services' minimum instances to zero (they are by default)
+#   deploy/cloudrun.sh pause       set the minimum instances to zero (it is by default)
 #   deploy/cloudrun.sh resume      back to the usual minimum instances
 #
 # Look before you leap, nothing is created, changed or deployed:   DRY_RUN=1 deploy/cloudrun.sh all
 #
 # Settings are environment variables; the defaults are in deploy/common.sh. The ones you may want:
-#   PROJECT_ID, REGION, WEB_SERVICE, AGENT_SERVICE, ENV_FILE (default backend/.env)
+#   PROJECT_ID, REGION, WEB_SERVICE, ENV_FILE (default backend/.env)
 #   PUBLIC_URL=https://app.example.com   the address people use (default ghoommates.sourabh.org; empty for run.app)
 #   PUBLIC_ACCESS=allusers|no-invoker-check|none   who may open the web service (default allusers)
 #   ALLOW_DEV_LOGIN=true                 turn on the mock sign-in (read "Sign-in" in backend/docs/deploy.md first)
-#   AGENT_NAME=ghoomate-prod             the voice agent's name on LiveKit, for the web service and the worker
-#   WEB_MIN_INSTANCES (0), WEB_MAX_INSTANCES (4), VOICE_IN_WEB (0), AGENT_CPU (1), AGENT_MIN_INSTANCES (0) ...
-#   VOICE_IN_WEB=1   the old single service: the web service runs the voice worker too (CPU always allocated)
+#   AGENT_NAME=ghoomate-prod             the voice agent's name on LiveKit (each instance adds its own suffix)
+#   WEB_MIN_INSTANCES (0), WEB_MAX_INSTANCES (4), WEB_MEMORY (2Gi) ...
 #   SKIP_SETUP=1  skip the APIs/accounts/permissions step on re-deploys
 #   SKIP_BUILD=1  deploy IMAGE (default: the :latest image) instead of building one; release too (CI built and pushed it)
 #   EXTRA_ENV_KEYS="FOO BAR" / EXTRA_SECRET_KEYS="BAZ"   settings added by other modules, copied like the built-in ones
@@ -41,7 +40,6 @@ cleanup() {
 trap cleanup EXIT
 
 web_sa() { printf '%s@%s.iam.gserviceaccount.com' "$WEB_SA_NAME" "$PROJECT_ID"; }
-agent_sa() { printf '%s@%s.iam.gserviceaccount.com' "$AGENT_SA_NAME" "$PROJECT_ID"; }
 
 IMAGE_BASE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME"
 IMAGE_LATEST="$IMAGE_BASE:latest"
@@ -76,7 +74,6 @@ choose_image() {
 }
 
 # The service URL is known before the first deploy: https://<service>-<project number>.<region>.run.app
-# Resolved once per run: `all` calls it for the agent and again for the web service.
 resolve_public_url() {
   if [[ -n "${PUBLIC_URL_GIVEN:-}" ]]; then return 0; fi
   PUBLIC_URL_GIVEN=0
@@ -109,16 +106,6 @@ env_or() { # KEY DEFAULT: the setting from the environment or ENV_FILE, else the
   local value
   value="$(env_value "$1")"
   if is_placeholder "$value"; then printf '%s' "$2"; else printf '%s' "$value"; fi
-}
-
-# The voice agent service's URL, which the web server calls to wake it: the one Cloud Run reports, else the address it
-# will get (https://<service>-<project number>.<region>.run.app; Cloud Run accepts ID tokens for either).
-agent_url() {
-  local url number
-  url="$(gcloud run services describe "$AGENT_SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)' 2>/dev/null || true)"
-  if [[ -n "$url" ]]; then printf '%s' "$url"; return 0; fi
-  number="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)' 2>/dev/null || true)"
-  printf 'https://%s-%s.%s.run.app' "$AGENT_SERVICE" "${number:-<project-number>}" "$REGION"
 }
 
 # collect_secrets KEY:required|optional ...  ->  SECRET_PAIRS (for --set-secrets), SECRET_NAMES, SECRET_FOUND (keys)
@@ -202,14 +189,13 @@ setup() {
 
   step "Service accounts"
   ensure_service_account "$WEB_SA_NAME" "GhoomMates web (Cloud Run runtime)"
-  ensure_service_account "$AGENT_SA_NAME" "GhoomMates voice agent (Cloud Run runtime)"
 
   step "What the web service may do ($(web_sa))"
   grant_project_role "$(web_sa)" roles/aiplatform.user        # Vertex AI: images, and Gemini without an API key
   retry 5 6 quietly gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
     --member="serviceAccount:$(web_sa)" --role=roles/storage.objectAdmin
   ok "roles/storage.objectAdmin on gs://$BUCKET"
-  # Secret access is granted per secret, when the service is deployed. The voice agent worker needs no project roles.
+  # Secret access is granted per secret, when the service is deployed.
 }
 
 # --- Build ------------------------------------------------------------------------------------------------------
@@ -332,92 +318,33 @@ deploy_web() {
     value="$(env_value "$key")"
     if ! is_placeholder "$value"; then env_add "$key" "$value"; fi
   done
-  # Everything the web service does happens inside a request, so CPU is allocated (and billed) only during requests.
-  # VOICE_IN_WEB=1: the voice worker inside it keeps a LiveKit connection open between requests, so it needs CPU
-  # outside them (billed while an instance is up, ~15 minutes after the last request) and gen2 for WebRTC.
-  local voice_flags=(--cpu-throttling)
-  if [[ "$VOICE_IN_WEB" != 1 ]]; then
-    env_add VOICE_AGENT_URL "$(agent_url)"
-    if [[ "$DRY_RUN" != 1 ]] && ! gcloud run services describe "$AGENT_SERVICE" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
-      warn "The voice agent service $AGENT_SERVICE is not deployed, so voice chats will not start. Run: deploy/cloudrun.sh agent"
-    fi
-  else
-    env_add VOICE_WORKER inline
-    env_add GHOOMATE_MODEL "$(env_value GHOOMATE_MODEL)"
-    env_add GHOOMATE_VOICE "$(env_value GHOOMATE_VOICE)"
-    env_add GHOOMATE_IDLE_PROCESSES "$(env_value GHOOMATE_IDLE_PROCESSES)"
-    voice_flags=(--no-cpu-throttling --execution-environment=gen2)
-  fi
+  # The server runs the voice worker too (backend/src/voice/inline.ts)
+  env_add VOICE_WORKER inline
+  env_add GHOOMATE_MODEL "$(env_value GHOOMATE_MODEL)"
+  env_add GHOOMATE_VOICE "$(env_value GHOOMATE_VOICE)"
+  env_add GHOOMATE_IDLE_PROCESSES "$(env_value GHOOMATE_IDLE_PROCESSES)"
+  env_add GHOOMATE_IDLE_HANGUP_S "$(env_value GHOOMATE_IDLE_HANGUP_S)"
   say "  environment: $(cut -d: -f1 "$ENV_TMP" | tr '\n' ' ')"
   say "  secrets:     $(printf '%s' "$SECRET_PAIRS" | tr ',' '\n' | cut -d= -f1 | tr '\n' ' ')"
 
+  # Request-based billing: CPU is allocated (and billed) only while a request is open; an idle instance costs nothing.
+  # A voice call holds its session request open for as long as it lasts, which keeps the CPU on for the worker; the
+  # 60-minute timeout is the longest a call can last. gen2 for the worker's native WebRTC libraries.
   # The service is made public afterwards (make_public), not with a flag, so a re-deploy never flips access off and on.
   run gcloud run deploy "$WEB_SERVICE" \
     --project="$PROJECT_ID" --region="$REGION" \
     --image="$IMAGE" \
     --service-account="$(web_sa)" \
     --port=8080 \
-    --cpu="$WEB_CPU" --memory="$WEB_MEMORY" --concurrency="$WEB_CONCURRENCY" --timeout=300 \
+    --cpu="$WEB_CPU" --memory="$WEB_MEMORY" --concurrency="$WEB_CONCURRENCY" --timeout=3600 \
     --min-instances="$WEB_MIN_INSTANCES" --max-instances="$WEB_MAX_INSTANCES" \
-    --cpu-boost "${voice_flags[@]}" \
+    --cpu-boost --cpu-throttling --execution-environment=gen2 \
     --env-vars-file="$ENV_TMP" \
     --set-secrets="$SECRET_PAIRS"
 
   confirm_url
   make_public
   verify_web
-}
-
-# --- Voice agent worker -----------------------------------------------------------------------------------------
-deploy_agent() {
-  step "Voice agent worker $AGENT_SERVICE"
-  resolve_public_url
-  collect_secrets LIVEKIT_API_KEY:required LIVEKIT_API_SECRET:required
-  local livekit_url
-  livekit_url="$(env_value LIVEKIT_URL)"
-  if is_placeholder "$livekit_url"; then die "LIVEKIT_URL is not set (in $ENV_FILE or the environment)"; fi
-  if [[ "$DRY_RUN" != 1 ]] && ! gcloud run services describe "$WEB_SERVICE" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
-    warn "The web service $WEB_SERVICE is not deployed yet; the worker calls it at $PUBLIC_URL (run deploy/cloudrun.sh first)."
-  fi
-  # shellcheck disable=SC2086
-  grant_secret_access "$(agent_sa)" $SECRET_NAMES
-
-  env_open
-  env_add LIVEKIT_URL "$livekit_url"
-  env_add BACKEND_URL "$PUBLIC_URL"
-  env_add GHOOMATE_AGENT_NAME "$AGENT_NAME"
-  env_add GHOOMATE_MODEL "$(env_value GHOOMATE_MODEL)"
-  env_add GHOOMATE_VOICE "$(env_value GHOOMATE_VOICE)"
-  env_add GHOOMATE_IDLE_PROCESSES "$(env_value GHOOMATE_IDLE_PROCESSES)"
-  say "  environment: $(cut -d: -f1 "$ENV_TMP" | tr '\n' ' ')"
-
-  # The worker dials out to LiveKit; the only requests it gets are the web server's GETs to its LiveKit health server
-  # (port 8081), which wake it when a chat starts (200 once registered with LiveKit) and keep it up during a call.
-  # With no minimum instances it scales to zero ~15 minutes after the last one. Always-on CPU while an instance is up
-  # keeps the LiveKit connection and the call running between those requests; gen2 for the native WebRTC libraries.
-  # Private: only callers with roles/run.invoker (the web service's account, below) get through. Internal ingress
-  # would also need the web service to send its traffic through a VPC, so ingress stays "all".
-  run gcloud run deploy "$AGENT_SERVICE" \
-    --project="$PROJECT_ID" --region="$REGION" \
-    --image="$IMAGE" \
-    --service-account="$(agent_sa)" \
-    --command=node --args=backend/src/voice/agent.ts,start \
-    --port=8081 \
-    --no-cpu-throttling --execution-environment=gen2 --cpu-boost \
-    --cpu="$AGENT_CPU" --memory="$AGENT_MEMORY" \
-    --min-instances="$AGENT_MIN_INSTANCES" --max-instances="$AGENT_MAX_INSTANCES" \
-    --no-allow-unauthenticated --ingress=all \
-    --env-vars-file="$ENV_TMP" \
-    --set-secrets="$SECRET_PAIRS"
-
-  step "Who may wake it"
-  retry 5 6 quietly gcloud run services add-iam-policy-binding "$AGENT_SERVICE" --project="$PROJECT_ID" --region="$REGION" \
-    --member="serviceAccount:$(web_sa)" --role=roles/run.invoker --format=none
-  ok "the web service ($(web_sa)) may call it"
-
-  step "Voice agent check"
-  say "  The first chat wakes it; the worker then logs \"registered worker\" within a few seconds:"
-  say "  gcloud run services logs read $AGENT_SERVICE --region=$REGION --project=$PROJECT_ID --limit=30"
 }
 
 # CI: a new revision from the new image. Environment, secrets and service account stay as the last full deploy left
@@ -427,20 +354,6 @@ release_web() {
   run gcloud run services update "$WEB_SERVICE" --project="$PROJECT_ID" --region="$REGION" --image="$IMAGE"
   verify_web
   if [[ "$VERIFY_FAILED" == 1 ]]; then die "the new revision does not look healthy (see above)"; fi
-  ok "released $IMAGE"
-}
-
-# CI: the voice agent runs the same image, so it gets the new revision too (once it exists; settings unchanged).
-# The deployer needs roles/iam.serviceAccountUser on the agent's runtime account (deploy/github-ci.sh grants it).
-release_agent() {
-  if [[ "$VOICE_IN_WEB" == 1 ]]; then return 0; fi
-  step "Release to $AGENT_SERVICE"
-  if [[ "$DRY_RUN" != 1 ]] && ! gcloud run services describe "$AGENT_SERVICE" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
-    warn "$AGENT_SERVICE is not deployed (deploy/cloudrun.sh agent); skipping"
-    return 0
-  fi
-  run gcloud run services update "$AGENT_SERVICE" --project="$PROJECT_ID" --region="$REGION" --image="$IMAGE" ||
-    die "could not update $AGENT_SERVICE. If CI may not act as $(agent_sa), run deploy/github-ci.sh once."
   ok "released $IMAGE"
 }
 
@@ -498,7 +411,7 @@ main() {
   VERIFY_FAILED=0
   case "$command" in
     -h|--help|help) usage; return 0 ;;
-    web|deploy|agent|all|setup|build|release|status|pause|resume) ;;
+    web|deploy|all|setup|build|release|status|pause|resume) ;;
     image) choose_image; printf '%s\n%s\n' "$IMAGE" "$IMAGE_LATEST"; return 0 ;;  # no gcloud needed
     *) usage >&2; die "Unknown command: $command" ;;
   esac
@@ -512,36 +425,20 @@ main() {
     release)
       choose_image
       if [[ "${SKIP_BUILD:-0}" != 1 ]]; then build; fi
-      release_web
-      release_agent ;;
+      release_web ;;
     status)
       cmd_status ;;
     pause)
       step "Scale to zero"
       set_min_instances "$WEB_SERVICE" 0
-      set_min_instances "$AGENT_SERVICE" 0
       say "  Cloud Run is idle now. MongoDB Atlas is billed separately: see backend/docs/deploy.md." ;;
     resume)
       step "Back to the usual minimum instances"
-      set_min_instances "$WEB_SERVICE" "$WEB_MIN_INSTANCES"
-      set_min_instances "$AGENT_SERVICE" "$AGENT_MIN_INSTANCES" ;;
-    web|deploy)
+      set_min_instances "$WEB_SERVICE" "$WEB_MIN_INSTANCES" ;;
+    web|deploy|all)
       if [[ "${SKIP_SETUP:-0}" != 1 ]]; then setup; fi
       choose_image
       if [[ "${SKIP_BUILD:-0}" != 1 ]]; then build; fi
-      deploy_web
-      summary ;;
-    agent)
-      if [[ "${SKIP_SETUP:-0}" != 1 ]]; then setup; fi
-      choose_image
-      if [[ "${SKIP_BUILD:-0}" != 1 ]]; then build; fi
-      deploy_agent ;;
-    all)
-      if [[ "${SKIP_SETUP:-0}" != 1 ]]; then setup; fi
-      choose_image
-      if [[ "${SKIP_BUILD:-0}" != 1 ]]; then build; fi
-      # The agent first: it must be up (and the web service allowed to wake it) before the web service relies on it
-      if [[ "$VOICE_IN_WEB" == 1 ]]; then say "  VOICE_IN_WEB=1: the web service runs the voice worker; no agent service"; else deploy_agent; fi
       deploy_web
       summary ;;
   esac

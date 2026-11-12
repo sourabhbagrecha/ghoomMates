@@ -76,6 +76,8 @@ export type UiEvent =
   | { type: 'day.plan.cancelled'; planId: string }
   | { type: 'working'; label: string | null }
   | { type: 'notice'; message: string }
+  /** GhoomMate hung up (the call sat idle); the app closes the call instead of showing it as dropped */
+  | { type: 'call.ended'; reason: 'idle' }
   | { type: 'memory.updated'; change: 'added' | 'removed'; note: string };
 
 export type UiAction =

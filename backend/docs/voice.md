@@ -9,12 +9,23 @@ Frontend overlay ──POST /api/voice/session {tripId} (user JWT)──▶ back
    ◀── {serverUrl, participantToken, roomName, participantIdentity}
    │   token dispatches agent "ghoomate" with metadata {tripId, userId, userName, authToken}
    ▼
-LiveKit Cloud room ◀──────▶ agent worker (src/voice/agent.ts, separate process)
+LiveKit Cloud room ◀──────▶ agent worker (src/voice/agent.ts, its own process)
    mic / agent audio            │ tools call our HTTP API as the user (Bearer authToken)
    transcripts (built-in)       │ → GET /api/trips/:id, POST /api/trips/:id/expenses, /summary …
    RPC "ghoomate.ui"  ◀─────────┘ agent → frontend: draft card, added, balances, navigate
    RPC "ghoomate.action" ──────▶  frontend → agent: tapped Confirm / Cancel
 ```
+
+## On Cloud Run: one service, a held request per call
+
+The deployed web service runs the worker as a child process (`VOICE_WORKER=inline`, `src/voice/inline.ts`) and keeps request-based billing: CPU only while a request is open, and an idle instance costs nothing. The worker needs CPU for the whole call (it relays audio between the room and the model), so:
+
+- **The call holds its session request open.** The app sends `POST /api/voice/session` with `Accept: application/x-ndjson`. The token is the first line, then a newline every 15 s. Cloud Run keeps the instance's CPU on while it is open. Without that header the endpoint answers plain JSON, as before.
+- **The server decides when the call is over.** Cloud Run's front end doesn't pass a client's disconnect on to the server, so the app aborting its request isn't enough. Every 10 s the server asks LiveKit whether the user is still in the room, and ends the response once they've left, or if they haven't joined within 60 s. A call lasts at most 55 minutes (the service's timeout is 60). If LiveKit can't be reached it keeps holding, until that limit.
+- **Each instance has its own agent name** (`<GHOOMATE_AGENT_NAME>-<random>`), and the session token dispatches to the name of the instance that answered. So the job runs on the instance whose CPU the held request keeps on, even with several instances.
+- **The worker may be disconnected when a call starts.** Between calls it's throttled, and it may not even have registered yet after a cold start. The session endpoint waits up to 25 s for its health server (`127.0.0.1:8081`) to report it's registered with LiveKit, which drops a dispatch that finds no worker. If it doesn't register in time, the endpoint returns 503 `VOICE_AGENT_WAKING`.
+- **GhoomMate hangs up on a quiet call.** After 30 s with nothing said or done (`GHOOMATE_IDLE_HANGUP_S`), it says a quick goodbye, sends `call.ended` so the overlay closes with a notice instead of showing an error, and deletes the room. The user leaves, the server lets go of the held request, and the instance's CPU goes idle, so an open sheet nobody uses costs nothing. Speech, a typed message, a card tap and a running tool all reset the timer: it is the SDK's user-away timer (`userAwayTimeout`), which only runs while both the user and the agent are listening (`src/voice/idle.ts`). This also keeps a muted call away from the model's own inactivity close (about 2 minutes with no audio), after which the agent stops answering.
+- **If the server lets go mid-call**, the overlay shows the call as dropped, since the agent stops getting CPU.
 
 The worker is a pure API client of our backend. Auth, membership, validation, splitting and idempotency all stay in `TripService`. The agent gets its own 2-hour API JWT (minted by `agentToken` in `src/index.ts`) through dispatch metadata, so the user's 7-day session token never leaves the browser. Dispatch metadata is embedded in the user's LiveKit token, so never put anything there the user must not see.
 
@@ -45,17 +56,20 @@ The worker is a pure API client of our backend. Auth, membership, validation, sp
 | `GHOOMATE_MODEL` | `google/gemini-3.8-live` | Any LiveKit Inference realtime model |
 | `GHOOMATE_VOICE` | `Puck` | Voice name |
 | `GHOOMATE_AGENT_NAME` | `ghoomate` | Worker name that sessions dispatch to. LiveKit shares a project's sessions across every worker with the same name, so in dev set your own (e.g. `ghoomate-animesh`). The API and the worker both read it, so your app only reaches your worker. The deployed app keeps the default. |
+| `GHOOMATE_IDLE_HANGUP_S` | `30` | Seconds of quiet (nothing said, typed, tapped or running) before GhoomMate says bye and ends the call. `0` never hangs up. |
 | `GHOOMATE_IDLE_PROCESSES` | `1` | Job processes kept started and loaded, so a chat starts without spawning Node and importing the agent (about 1–2 s). `0` turns it off, which you may want while editing the agent: the warm process runs the code from when it started, so an edit applies from the chat after next. |
 | `BACKEND_URL` | `http://127.0.0.1:$PORT` | Where the worker calls the API |
-| `VOICE_AGENT_URL` | — | Cloud Run only (`deploy/cloudrun.sh` sets it): the worker's own scale-to-zero service. `POST /api/voice/session` wakes it and waits up to 25 s for the worker to register with LiveKit (else 503 `VOICE_AGENT_WAKING`), because LiveKit drops a dispatch that finds no worker. During a call the overlay calls `POST /api/voice/keepalive` every minute so Cloud Run keeps that instance up. Unset in dev: no waking. See `backend/docs/deploy.md`. |
+| `VOICE_WORKER` | — | `inline`: the API server starts the worker itself under its own agent name and holds each call's session request open (see "On Cloud Run" above). `deploy/cloudrun.sh` sets it. Unset in dev, where `npm run dev` runs the worker. |
 
 ## Files
 
 | File | Role |
 | --- | --- |
+| `inline.ts` | `VOICE_WORKER=inline`: starts the worker as a child process under this instance's agent name, restarts it if it crashes, and waits for it to register |
 | `protocol.ts` | Shared contract: agent name, RPC methods, `UiEvent` / `UiAction`, `DispatchMetadata`. The frontend mirrors it in `frontend/src/components/voice/protocol.ts`. |
 | `agent.ts` | Worker entry: loads the trip, builds the persona and the skills, starts the session, handles `ghoomate.action`, greets the user |
 | `backendClient.ts` | `fetch` wrapper: Bearer token, JSON, `Idempotency-Key`, and turns `{error:{code,message}}` into a thrown `BackendError` |
+| `idle.ts` | Idle hang-up: `idleHangupSeconds()` reads `GHOOMATE_IDLE_HANGUP_S`; `hangUpWhenAway(session, hangUp)` calls `hangUp` the first time the user turns away |
 | `ui.ts` | `createUiPusher(room, identity)`: ordered, fire-and-forget `ghoomate.ui` RPCs. Failures are only logged. |
 | `members.ts` | Pure helpers: spoken names → member ids, rupees → paise, equal-split preview (tested in `tests/voice/members.test.ts`) |
 | `history.ts` | Chat history: the background recorder that saves each turn, and the latest turns as context for the next chat (tested in `tests/voice/history.test.ts`) |
@@ -81,6 +95,7 @@ Agent → frontend, RPC `ghoomate.ui`, payload JSON `UiEvent`:
 | `day.plan.cancelled` | `planId` | Card dismissed |
 | `working` | `label` or `null` | Shown as GhoomMate's status (sheet and pill) while a tool runs; sent automatically for tools listed in their skill's `working` map |
 | `notice` | `message` | The notice pill, e.g. "I'll remember: vegetarian" |
+| `call.ended` | `reason: 'idle'` | Closes the call (no "dropped" error) and shows a notice; sent just before the agent deletes the room |
 
 Frontend → agent, RPC `ghoomate.action`, payload JSON `UiAction`: `{type:'confirm'|'cancel', draftId}` for expense drafts, `{type:'plan.add'|'plan.cancel', planId}` for day plans, `{type:'experience.join', experienceId}` after a tapped Join. The agent answers `{ok:true}` or `{ok:false,error}` and then speaks a short follow-up. A tap and a spoken "yes" share `commitDraft` / `cancelDraft` in `skills/expenses.ts`. The draft's idempotency key makes a repeated confirm a no-op.
 

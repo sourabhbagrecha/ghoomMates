@@ -1,6 +1,6 @@
 # Every push to main builds the image on the GitHub runner (no Cloud Build, so no build bill), pushes it to Artifact
-# Registry and rolls it out to the Cloud Run web service (the API behind https://ghoommates.sourabh.org) and the voice
-# agent service with `SKIP_BUILD=1 deploy/cloudrun.sh release`. Settings and secrets stay as the last full
+# Registry and rolls it out to the Cloud Run web service (the API and voice worker behind https://ghoommates.sourabh.org)
+# with `SKIP_BUILD=1 deploy/cloudrun.sh release`. Settings and secrets stay as the last full
 # `deploy/cloudrun.sh` left them. Then it deploys the Cloudflare Worker, which serves the web app at the edge, when
 # CLOUDFLARE_API_TOKEN is set.
 # GitHub signs in to Google with Workload Identity Federation, so no key is stored here; deploy/github-ci.sh sets that

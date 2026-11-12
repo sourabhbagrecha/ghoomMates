@@ -23,9 +23,9 @@ import { createApp as createTripsApp } from './trips/app.ts';
 import { ItineraryService } from './trips/itinerary.ts';
 import { TripService } from './trips/service.ts';
 import { createVoiceApp } from './voice/app.ts';
-import { startInlineVoiceWorker } from './voice/inline.ts';
+import { instanceAgentName, startInlineVoiceWorker } from './voice/inline.ts';
+import { agentNameFrom } from './voice/protocol.ts';
 import { liveKitConfig } from './voice/session.ts';
-import { createVoiceAgent } from './voice/wake.ts';
 
 loadEnv();
 
@@ -84,6 +84,12 @@ const authenticate = async (token: string) => (await authService.verifySessionTo
 // One Gemini client for every AI feature; each feature falls back to hand-written content when it is off.
 const gemini = createGemini();
 
+// VOICE_WORKER=inline (Cloud Run): this server runs the voice worker under its own agent name (voice/inline.ts).
+// Locally `npm run dev` runs the worker as its own process instead.
+const voiceWorker = process.env.VOICE_WORKER === 'inline' && db && liveKitConfig()
+  ? startInlineVoiceWorker(instanceAgentName(agentNameFrom()))
+  : undefined;
+
 let trips: ReturnType<typeof createTripsApp> | undefined;
 let voice: ReturnType<typeof createVoiceApp> | undefined;
 let reels: ReturnType<typeof createReelsApp> | undefined;
@@ -102,8 +108,7 @@ if (db) {
     // A separate 2-hour token for the agent, so the user's 7-day session JWT never leaves the browser.
     agentToken: (user) => signJwt({ userId: user.id, email: user.email, name: user.name }, jwtSecret, 2 * 60 * 60),
     env: process.env,
-    // Cloud Run: the worker's own service scales to zero, so each session wakes it first (backend/docs/deploy.md)
-    agent: process.env.VOICE_AGENT_URL?.trim() ? createVoiceAgent({ url: process.env.VOICE_AGENT_URL.trim() }) : undefined,
+    worker: voiceWorker,
   });
   impact = createImpactApp({ db, authenticate, gemini, env: process.env });
 } else {
@@ -172,16 +177,12 @@ const server = app.listen(port, hostname, (err?: Error) => {
   logger.info('Server', `Listening at http://${hostname}:${port}`);
 });
 
-// VOICE_WORKER=inline: the voice worker runs in this process's container (no separate agent service, but the
-// container then needs CPU outside requests). Cloud Run uses the separate agent service (VOICE_AGENT_URL) instead.
-const stopVoiceWorker = process.env.VOICE_WORKER === 'inline' && voice && liveKitConfig() ? startInlineVoiceWorker() : undefined;
-
 let stopping = false;
 async function shutdown() {
   if (stopping) return;
   stopping = true;
   logger.info('Server', 'Gracefully shutting down GhoomMates backend...');
-  stopVoiceWorker?.();
+  voiceWorker?.stop();
   await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
   await authDb.terminate();
   await db?.close();

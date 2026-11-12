@@ -16,12 +16,10 @@ BUCKET="${BUCKET:-ghoomates}"
 
 # --- What gets deployed -------------------------------------------------------------------------------------------
 WEB_SERVICE="${WEB_SERVICE:-ghoommates}"              # the URL is https://<service>-<project number>.<region>.run.app
-AGENT_SERVICE="${AGENT_SERVICE:-ghoommates-agent}"
 PUBLIC_URL="${PUBLIC_URL-https://ghoommates.sourabh.org}"  # served by the Cloudflare Worker in deploy/worker; PUBLIC_URL= deploys for the run.app address
 WEB_SA_NAME="${WEB_SA_NAME:-ghoommates-web}"
-AGENT_SA_NAME="${AGENT_SA_NAME:-ghoommates-agent}"
-# A dedicated voice-agent name for the deployed pair, so a teammate's laptop worker (default name "ghoomate") never
-# receives a jury member's session.
+# A dedicated voice-agent name for the deployed app, so a teammate's laptop worker (default name "ghoomate") never
+# receives a jury member's session. Each web instance registers its worker as <AGENT_NAME>-<random suffix>.
 AGENT_NAME="${AGENT_NAME:-ghoomate-prod}"
 ENV_FILE="${ENV_FILE:-$ROOT/backend/.env}"
 # "allusers": anyone with the link (needed for the jury); "no-invoker-check": same, for organisations that forbid
@@ -30,19 +28,10 @@ PUBLIC_ACCESS="${PUBLIC_ACCESS:-allusers}"
 
 # --- Sizing (small on purpose; see "Cost" in backend/docs/deploy.md) --------------------------------------------
 WEB_CPU="${WEB_CPU:-1}"
-WEB_MEMORY="${WEB_MEMORY:-1Gi}"                      # the API; with VOICE_IN_WEB=1 also the voice worker (~670 MB peak in a call)
+WEB_MEMORY="${WEB_MEMORY:-2Gi}"                      # the API and the voice worker (~670 MB peak in a call); billed only during requests
 WEB_CONCURRENCY="${WEB_CONCURRENCY:-40}"
 WEB_MIN_INSTANCES="${WEB_MIN_INSTANCES:-0}"          # 0 = costs nothing when idle; 1 = no cold start during a demo
 WEB_MAX_INSTANCES="${WEB_MAX_INSTANCES:-4}"
-# 0 (default): the voice worker is its own service ($AGENT_SERVICE) that scales to zero; the web server wakes it when a
-# chat starts (VOICE_AGENT_URL), so the web service bills per request (CPU only during requests).
-# 1: the web service also runs the voice worker (VOICE_WORKER=inline). That needs CPU outside requests, so every
-# instance bills for as long as it is up, ~15 minutes after each stray request; no agent service.
-VOICE_IN_WEB="${VOICE_IN_WEB:-0}"
-AGENT_CPU="${AGENT_CPU:-1}"
-AGENT_MEMORY="${AGENT_MEMORY:-1Gi}"                  # ~670 MB peak in a call
-AGENT_MIN_INSTANCES="${AGENT_MIN_INSTANCES:-0}"      # 0 = woken on demand (first chat waits ~5 to 15 s); 1 = always connected
-AGENT_MAX_INSTANCES="${AGENT_MAX_INSTANCES:-1}"      # one worker takes every session; a second would only cost more
 
 DRY_RUN="${DRY_RUN:-0}"                              # 1 = print the changes instead of making them
 
