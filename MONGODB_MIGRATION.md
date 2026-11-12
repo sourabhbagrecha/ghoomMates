@@ -143,6 +143,4 @@ The general steps are in [backend/docs/deploy.md](backend/docs/deploy.md). CI's 
 
 The Atlas connection string is also stored as the GitHub Actions secret `MONGODB_CONNECTION_STRING`. No workflow reads it yet.
 
-**Rollback (until the Cloud SQL trial ends on ~2026-11-30):** the old Cloud SQL settings are still on the web service, so `gcloud run services update-traffic ghoommates --to-revisions=ghoommates-00019-49p=100 --region=asia-south1` returns to Postgres. Anything written to Atlas after the cutover would not be in Postgres.
-
-**Later:** remove `CLOUD_SQL_INSTANCE`, `DB_USER`, `DB_NAME` and the `DB_PASSWORD` secret from the web service. A full `deploy/cloudrun.sh` does this. Then delete the Cloud SQL instance and the `ghoommates-db-password` secret.
+**Cleanup (2026-11-12):** the Cloud SQL settings were removed from the web service, and the Cloud SQL instance `ghoomates` and the `ghoommates-db-password` secret were deleted. There is no rollback to Postgres; Atlas is the only copy of the data.
