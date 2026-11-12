@@ -43,10 +43,6 @@
   fill: var(--color-ink);
 }
 
-.members__qr-paper {
-  fill: var(--color-surface);
-}
-
 .members__qr-title {
   font-weight: 800;
   font-size: 14px;
@@ -111,11 +107,6 @@
   font-size: 11px;
   line-height: 17px;
   color: var(--color-muted);
-}
-
-.member__pending {
-  font-weight: 700;
-  color: var(--color-sky);
 }
 
 .member__balance {

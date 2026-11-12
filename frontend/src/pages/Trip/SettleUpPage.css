@@ -55,10 +55,6 @@
   white-space: nowrap;
 }
 
-.settle__due-amount--incoming {
-  color: var(--color-success);
-}
-
 /* Net payment: the sunshine treatment from the Expenses CTA, as a static panel */
 .settle__net {
   display: flex;

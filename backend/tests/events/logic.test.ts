@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import { EVENT_BY_ID } from '../../src/events/calendar.ts';
 import { addDays, daysBetween, datesBetween, isIsoDate, todayInIndia, weekdayOf } from '../../src/events/dates.ts';
-import { crowdFor, defaultRange, listEvents, runsOn, windowLabel, type EventInstance } from '../../src/events/logic.ts';
+import { crowdFor, listEvents, runsOn, windowLabel, type EventInstance } from '../../src/events/logic.ts';
 import { BUSY_FROM } from '../../src/heritage/crowd.ts';
 
 const week = (today: string, to = addDays(today, 6)) => listEvents({ from: today, to, today });
@@ -76,9 +76,6 @@ describe('what is on in a window', () => {
     expect(status('2026-11-08')).toBe('ongoing');
     expect(listEvents({ from: '2026-11-01', to: '2026-11-12', today: '2026-11-09' }).items[0].status).toBe('past');
     expect(item(week('2026-11-07', '2026-11-09'), 'diwali').daysAway).toBe(-1);
-  });
-  test('the default window is today and the next four months', () => {
-    expect(defaultRange('2026-11-01')).toEqual({ from: '2026-11-01', to: '2027-03-01' });
   });
 });
 

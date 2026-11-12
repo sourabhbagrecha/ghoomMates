@@ -20,8 +20,6 @@ export const PEOPLE: Record<PersonId, Person> = {
   dev: { id: 'dev', name: 'Dev', initial: 'D', color: 'var(--color-person-dev)' },
 }
 
-export const SQUAD: PersonId[] = ['you', 'riya', 'kabir', 'meera', 'dev']
-
 const PALETTE = [
   'var(--color-person-riya)',
   'var(--color-person-kabir)',

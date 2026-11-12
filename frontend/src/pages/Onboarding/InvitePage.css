@@ -83,36 +83,6 @@
   color: var(--color-muted);
 }
 
-.invite__divider {
-  height: 1px;
-  border: 0;
-  background: var(--color-divider);
-}
-
-.invite__vibe {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.invite__vibe-name {
-  font-weight: 800;
-  font-size: 14px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-.invite__match {
-  padding: 5px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-yellow);
-  font-weight: 800;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-primary);
-  white-space: nowrap;
-}
-
 .invite__error {
   padding: 12px 14px;
   border-radius: var(--radius-tile);

@@ -198,5 +198,3 @@ export function resolve(dish: Dish, diet: Diet): Resolved {
   if (!serving.every(s => suits(s.ingredient))) return { ok: false };
   return { ok: true, serving, note: swap.note };
 }
-
-export const servingKg = (serving: Portion[]) => serving.reduce((sum, s) => sum + s.grams, 0) / 1000;

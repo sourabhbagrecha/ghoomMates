@@ -107,10 +107,6 @@
   white-space: nowrap;
 }
 
-.settle-done__value--incoming {
-  color: var(--color-success);
-}
-
 .settle-done__actions {
   position: relative;
   flex: none;

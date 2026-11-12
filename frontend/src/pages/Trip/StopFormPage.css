@@ -14,12 +14,6 @@
   gap: 8px;
 }
 
-.stop-form__label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 /* Same as the TextField label */
 .stop-form__label {
   font-weight: 700;
@@ -32,15 +26,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.stop-form__people {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-radius: var(--radius-list-card);
-  background: var(--color-surface);
-  filter: var(--shadow-list-card);
 }
 
 /* Multi-line twin of TextField */

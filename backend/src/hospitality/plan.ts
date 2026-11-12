@@ -253,9 +253,6 @@ export function typicalPlan(host: Host, month: number): Procurement {
   return buildProcurement(host, [{ month, total: splitMix(100, WALK_IN_SHARES), booked: emptyMix() }]);
 }
 
-/** Share of a month's food that comes from the host's partner farms on a typical day, for the Green Host score */
-export const typicalLocalShare = (host: Host, month: number): number => typicalPlan(host, month).localShare;
-
 /* Food miles */
 
 export type FoodMiles = {
@@ -334,8 +331,3 @@ export function orderMessage(host: Host, order: FarmOrder, range: { from: string
 }
 
 export const whatsappLink = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
-
-/** Diets as a dish might care about them, for the menu's notes */
-export function dietsPresent(mix: DietMix): Diet[] {
-  return DIETS.filter(d => d !== 'veg' && mix[d] > 0);
-}

@@ -25,11 +25,6 @@ export type SignUpDetails = {
   googleId?: string
 }
 
-export const COUNTRY_CODE = '+91'
-export const PHONE_LENGTH = 10
-export const OTP_LENGTH = 6
-export const RESEND_SECONDS = 30
-
 export const COLOURS = [
   { id: 'sunshine', label: 'Sunshine', value: 'var(--color-amber)' },
   { id: 'sky', label: 'Sky', value: 'var(--color-sky)' },
@@ -47,10 +42,6 @@ export const PERMISSIONS: { id: PermissionId; title: string; description: string
   { id: 'photos', title: 'Photos', description: 'Find and share your trip pics', icon: iconImage },
   { id: 'location', title: 'Location', description: 'Live trip map and spots nearby', icon: iconMapPin },
 ]
-
-/** "9876543210" → "98765 43210" */
-export const formatPhone = (digits: string) =>
-  digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits
 
 /* Intro carousel on Welcome: what GhoomMates does and how it works */
 

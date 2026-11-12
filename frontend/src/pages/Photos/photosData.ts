@@ -1,9 +1,3 @@
-import grid1 from '../../assets/figma/photo-grid-1.svg'
-import grid2 from '../../assets/figma/photo-grid-2.svg'
-import grid3 from '../../assets/figma/photo-grid-3.svg'
-import grid4 from '../../assets/figma/photo-grid-4.svg'
-import grid5 from '../../assets/figma/photo-grid-5.svg'
-import grid6 from '../../assets/figma/photo-grid-6.svg'
 
 export type PipelineStep = {
   label: string
@@ -28,5 +22,3 @@ export const REEL = {
     { label: 'Retro film', prompt: 'A nostalgic retro film-photo reel of the trip, start to finish' },
   ],
 }
-
-export const PHOTOS = [grid1, grid2, grid3, grid4, grid5, grid6]

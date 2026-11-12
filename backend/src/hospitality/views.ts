@@ -74,8 +74,6 @@ export function hostCard(host: Host, month: number, logs: WasteLog[] = []) {
   };
 }
 
-export type HostCard = ReturnType<typeof hostCard>;
-
 function farmView(host: Host, farm: Farm, month: number) {
   return {
     id: farm.id, name: farm.name, village: farm.village, km: roadKm(host, farm), organic: farm.organic, practice: farm.practice, story: farm.story, image: farm.image,

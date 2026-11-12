@@ -4,8 +4,6 @@ import { request } from './tripsService'
 
 export type Mode = 'walk' | 'erickshaw' | 'auto' | 'cab' | 'boat'
 
-export const MODES: Mode[] = ['walk', 'erickshaw', 'auto', 'cab', 'boat']
-
 export type LegOption = { allowed: boolean; km: number; minutes: number; vehicles: number; kg: number }
 
 export type LegEnd = { title: string; name: string; lat: number; lng: number }

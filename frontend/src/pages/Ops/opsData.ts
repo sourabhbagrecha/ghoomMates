@@ -107,7 +107,6 @@ export function timeOptions(from: number, to: number, step = 30) {
 
 /* Numbers */
 
-export const countText = (value: Shown) => String(value)
 export const peopleText = (people: number | null) => (people === null ? '' : `about ${people.toLocaleString('en-IN')} people`)
 export const numberText = (value: number) => value.toLocaleString('en-IN')
 

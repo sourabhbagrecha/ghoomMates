@@ -1,8 +1,3 @@
-.stop-detail__done {
-  background: var(--color-success-tint);
-  color: var(--color-success);
-}
-
 .stop-detail__summary {
   gap: 4px;
 }

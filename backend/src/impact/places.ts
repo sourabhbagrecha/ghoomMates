@@ -97,6 +97,3 @@ export function locate(
 
 /** Whether a ride between two places is a crossing of Lake Pichola (a boat beats the long way round) */
 export const isLakeCrossing = (a: Place, b: Place) => a.shore !== null && b.shore !== null && a.shore !== b.shore;
-
-/** A keyless Google Maps link to a place, for the leg cards */
-export const mapsLink = (place: Pick<Place, 'lat' | 'lng'>) => `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;

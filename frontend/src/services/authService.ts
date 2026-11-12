@@ -163,21 +163,6 @@ export async function fetchGoogleAuthUrl(): Promise<string> {
   return data.url;
 }
 
-export async function loginWithGoogleCredential(credential: string): Promise<AuthResponse> {
-  const res = await fetch('/auth/google/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ credential }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: { message: 'Google verification failed' } }));
-    throw new Error(err.error?.message || 'Google verification failed');
-  }
-  const data = (await res.json()) as AuthResponse;
-  saveAuthSession(data.token, data.user);
-  return data;
-}
-
 export async function loginWithGoogleCode(code: string, redirectUri?: string): Promise<AuthResponse> {
   const res = await fetch('/auth/google/callback', {
     method: 'POST',

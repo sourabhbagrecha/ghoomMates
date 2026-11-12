@@ -9,8 +9,6 @@ import { logger } from '../logger.ts';
 export const CARTO_STYLES = ['voyager', 'light_all', 'dark_all'] as const;
 export type CartoStyle = (typeof CARTO_STYLES)[number];
 
-export const CARTO_CREDIT = '© OpenStreetMap contributors © CARTO';
-
 const ORIGIN = 'https://basemaps.cartocdn.com/rastertiles';
 const MAX_ZOOM = 18;
 const TIMEOUT_MS = 10_000;

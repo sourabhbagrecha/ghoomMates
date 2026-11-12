@@ -230,9 +230,7 @@ export function useMyTrips(enabled: boolean) {
 
 /* Display helpers. The date maths lives in tripDates.ts: days are counted in India time, whatever zone the device is set to. */
 
-export const rupees = (paise: number) => paise / 100
-
-export { daysUntil, tripDay, tripDayLabel, tripPhase, type TripPhase } from './tripDates'
+export { daysUntil, tripDay, tripDayLabel, tripPhase } from './tripDates'
 
 /** "Sat 12 – Wed 16 Dec", or "Dates TBD" */
 export const formatTripDates = (trip: { startDate: string | null; endDate: string | null }) =>

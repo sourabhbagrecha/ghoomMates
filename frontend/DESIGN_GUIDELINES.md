@@ -252,7 +252,6 @@ Used by the sign-up flow in [`src/pages/Onboarding/`](src/pages/Onboarding/) (Fi
 | [`OnboardingLayout`](src/components/OnboardingLayout.tsx) | Blue header with a back button, eyebrow, title, optional subtitle and a 4-step progress bar; a scrolling body; actions pinned to the bottom |
 | [`Button` / `LinkButton`](src/components/Button.tsx) | Full-width 52 px button: `highlight` (yellow, on blue), `primary` (blue, on light), `glass` (on blue), `outline` (on light). `LinkButton` is the 13 px sky text action under it ("Skip for now") |
 | [`TextField`](src/components/TextField.tsx) | Labelled 54 px input with a 2 px primary border on focus; `leading` slot for the country-code picker |
-| [`OtpInput`](src/components/OtpInput.tsx) | Six 48 × 58 boxes backed by one input, so paste and SMS autofill work |
 | [`PermissionRow`](src/components/PermissionRow.tsx) | Icon tile, title, reason, and an "Allow" pill that becomes a green "Allowed" |
 | [`GhoomMateAvatar` / `GhoomMateTip`](src/components/GhoomMate.tsx) | The mascot in its ringed circle at any size; a white tip card with a 36 px mascot |
 

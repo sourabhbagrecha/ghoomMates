@@ -136,6 +136,3 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   members: 'trip/members',
   reel: 'trip/photos/reel',
 };
-
-/** Frontend hash route of one guide experience */
-export const experienceRoute = (experienceId: string) => `trip/explore/guide/${encodeURIComponent(experienceId)}`;

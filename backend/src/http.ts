@@ -25,17 +25,6 @@ export const jsonBody: RequestHandler = (req, res, next) => {
   parseJson(req, res, next);
 };
 
-// Same as jsonBody with a larger limit, for routes that carry images (e.g. face-match selfies).
-export function largeJsonBody(limit: string): RequestHandler {
-  const parse = express.json({ limit, type: () => true });
-  return (req, res, next) => {
-    if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
-      throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Use Content-Type: application/json');
-    }
-    parse(req, res, next);
-  };
-}
-
 // Best-effort JSON parsing: a missing, oversized, or malformed body leaves req.body as {}.
 export const optionalJsonBody: RequestHandler = (req, res, next) => {
   parseOptionalJson(req, res, (err?: unknown) => {

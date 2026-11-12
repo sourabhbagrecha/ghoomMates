@@ -4,7 +4,7 @@
 import { BUSY_FROM, formatTime, labelFor, levelAt, type CrowdLabel } from '../heritage/crowd.ts';
 import { HERITAGE_CITIES, SITE_BY_ID, SITES, type HeritageSite } from '../heritage/sites.ts';
 import { EVENTS, type EventKind, type MewarEvent, type Occurrence } from './calendar.ts';
-import { addDays, datesBetween, daysBetween } from './dates.ts';
+import { datesBetween, daysBetween } from './dates.ts';
 import { impactsOn } from './lift.ts';
 
 /** How often a window is sampled when looking for its peak */
@@ -351,7 +351,3 @@ export function runsOn(event: MewarEvent, date: string) {
 
 export const DEFAULT_SPAN_DAYS = 120;
 export const MAX_SPAN_DAYS = 800;
-
-export function defaultRange(today: string) {
-  return { from: today, to: addDays(today, DEFAULT_SPAN_DAYS) };
-}

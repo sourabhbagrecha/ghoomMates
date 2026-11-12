@@ -1,7 +1,6 @@
 // Mirror of backend/src/voice/protocol.ts: the contract between the GhoomMate
 // agent worker and this overlay. Keep both files in sync.
 
-export const AGENT_NAME = 'ghoomate';
 export const UI_RPC_METHOD = 'ghoomate.ui';
 export const ACTION_RPC_METHOD = 'ghoomate.action';
 

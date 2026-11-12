@@ -29,8 +29,6 @@ export const RSVP_OPTIONS = [
   { id: 'skip', label: 'Skip' },
 ] as const
 
-export type Rsvp = (typeof RSVP_OPTIONS)[number]['id']
-
 export const EXPENSE_CATEGORIES = [
   { id: 'food', label: 'Food' },
   { id: 'stays', label: 'Stays' },

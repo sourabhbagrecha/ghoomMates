@@ -60,9 +60,6 @@ export function formatDay(date: IsoDate) {
   return `${WEEKDAYS[weekdayOf(date)]}, ${day} ${MONTHS[month]}`
 }
 
-/** "Sat 12" (compact, for day pills) */
-export const formatDayShort = (date: IsoDate) => `${WEEKDAYS[weekdayOf(date)]} ${partsOf(date).day}`
-
 /** "Sat 12 – Wed 16 Dec", "Sat 12 Dec" for one day, or "Dates TBD" */
 export function formatDateRange(start: IsoDate | null, end: IsoDate | null) {
   if (!start) return 'Dates TBD'

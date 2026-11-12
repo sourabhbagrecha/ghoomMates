@@ -9,4 +9,4 @@ import type { Skill } from './types.ts';
 
 export const SKILLS: Skill[] = [expenses, experiences, crowds, events, memory, navigation];
 
-export type { Skill, SkillContext, SessionState, TripDetail, TripMember, Tool } from './types.ts';
+export type { Skill, SkillContext, SessionState, TripDetail, Tool } from './types.ts';

@@ -22,17 +22,6 @@
   color: var(--color-ink);
 }
 
-.create-mates__count {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-muted);
-  white-space: nowrap;
-}
-
 .create-mates__list {
   display: flex;
   flex-direction: column;
@@ -71,67 +60,9 @@
   color: var(--color-muted);
 }
 
-.create-mate__pill {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 4px;
-  padding: 5px 12px;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  font-weight: 700;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--color-primary);
-  white-space: nowrap;
-}
-
-.create-mate__pill--added {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: #fff;
-}
-
 /* Invite link */
 .create-invite {
   gap: 10px;
-}
-
-.create-invite__link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 6px 6px 8px;
-  border-radius: var(--radius-tile);
-  background: var(--color-tint);
-}
-
-.create-invite__link-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--color-surface);
-}
-
-.create-invite__url {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 700;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--color-ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.create-invite__copy {
-  min-height: 34px;
 }
 
 .create-invite__options {
