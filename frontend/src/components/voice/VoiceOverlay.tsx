@@ -33,7 +33,7 @@ import { ErrorBoundary } from '../states/ErrorBoundary'
 import { ChatHistory } from './ChatHistory'
 import { GhoomMateCard } from './GhoomMateCard'
 import { useGhoomMateUi } from './useGhoomMateUi'
-import type { VoiceConnection, VoiceErrorKind, VoicePrompt } from './VoiceProvider'
+import type { VoiceConnection, VoiceErrorKind, VoicePrompt } from './VoiceCall'
 import '../Chip.css'
 import './VoiceOverlay.css'
 

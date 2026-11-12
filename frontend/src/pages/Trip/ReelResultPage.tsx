@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { Player } from '@remotion/player'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import headerBg from '../../assets/figma/explore-header-bg.svg'
 import iconDownload from '../../assets/figma/icon-download-white.svg'
 import iconFilm from '../../assets/figma/icon-film.svg'
@@ -14,11 +13,13 @@ import { useToast } from '../../hooks/useToast'
 import { ApiRequestError } from '../../services/tripsService'
 import { reelsApi, type Reel } from '../../services/reelsService'
 import { PastReels } from '../Reel/PastReels'
-import { ReelComposition } from '../Reel/ReelComposition'
-import { REEL_FPS, REEL_HEIGHT, REEL_WIDTH, reelDurationInFrames } from '../Reel/reelTiming'
+import { REEL_FPS, reelDurationInFrames } from '../Reel/reelTiming'
 import { useTripReels } from '../Reel/useTripReels'
 import { SHARE_TARGETS } from './tripDetailData'
 import './ReelResultPage.css'
+
+// Remotion and the reel fonts load with the first reel shown, not with the app; the preview box holds the space meanwhile
+const ReelPlayer = lazy(() => import('../Reel/ReelPlayer'))
 
 const reelIdFromHash = () => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('id')
 
@@ -141,22 +142,9 @@ export function ReelResultPage() {
         ) : (
           <>
             <div ref={preview} className={`reel__preview${busyLabel ? ' reel__preview--busy' : ''}`}>
-              <Player
-                key={reel.id}
-                component={ReelComposition}
-                inputProps={{ plan: reel.plan, tripName, mapTiles }}
-                durationInFrames={reelDurationInFrames(reel.plan)}
-                compositionWidth={REEL_WIDTH}
-                compositionHeight={REEL_HEIGHT}
-                fps={REEL_FPS}
-                style={{ width: '100%', height: '100%' }}
-                controls
-                loop
-                autoPlay
-                initiallyMuted
-                clickToPlay
-                acknowledgeRemotionLicense
-              />
+              <Suspense fallback={null}>
+                <ReelPlayer key={reel.id} reel={reel} tripName={tripName} mapTiles={mapTiles} />
+              </Suspense>
               {busyLabel && <span className="reel__busy" role="status">{busyLabel}</span>}
             </div>
 
