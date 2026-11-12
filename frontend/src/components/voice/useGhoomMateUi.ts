@@ -35,12 +35,12 @@ function actionFailure(reply: string): string | null {
 export function useGhoomMateUi(
   room: Room,
   agentIdentity: string | undefined,
-  /** The sheet moves out of the way for a screen the agent opens, and comes back for a new card */
-  sheet: { minimize: () => void; expand: () => void },
+  /** The sheet moves out of the way for a screen the agent opens, and comes back for a new card; `end` closes the call */
+  sheet: { minimize: () => void; expand: () => void; end: () => void },
 ) {
   const navigate = useNavigate()
   const { notify } = useVoice()
-  const { minimize, expand } = sheet
+  const { minimize, expand, end } = sheet
   const [card, setCard] = useState<UiCard | null>(null)
   const [working, setWorking] = useState<string | null>(null)
   const [memoryUpdate, setMemoryUpdate] = useState<MemoryUpdate | null>(null)
@@ -59,6 +59,10 @@ export function useGhoomMateUi(
       setWorking,
       setMemoryUpdate,
       notify,
+      endCall: (message) => {
+        end()
+        notify({ message })
+      },
       navigate: (route) => {
         navigate(route)
         minimize()
@@ -66,7 +70,7 @@ export function useGhoomMateUi(
       refreshMoney: () => void activeTrip.refreshMoney(),
       refreshItinerary: () => void activeTrip.loadItinerary(),
     }
-  }, [navigate, notify, expand, minimize])
+  }, [navigate, notify, expand, minimize, end])
 
   // Only the GhoomMate agent may drive the sheet
   const agent = useRef(agentIdentity)

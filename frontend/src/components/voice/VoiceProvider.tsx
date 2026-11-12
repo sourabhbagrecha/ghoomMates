@@ -16,7 +16,7 @@ export type VoiceConnection =
   | { status: 'idle' }
   /** Opened outside a trip: GhoomMate needs a trip to work on */
   | { status: 'no-trip' }
-  /** Asking the backend for a session token; `slow` once it's been a while (it's waking the agent service) */
+  /** Asking the backend for a session token; `slow` once it's been a while (the server's worker is still starting) */
   | { status: 'starting'; slow?: boolean }
   /** Joining the LiveKit room */
   | { status: 'connecting' }
@@ -30,9 +30,8 @@ type Session = { id: number; room: Room; tripId: string | null }
 
 // The agent worker normally joins in 1–3s; past this it’s almost certainly not running
 const AGENT_TIMEOUT_MS = 12_000
-// A call sends the agent service no requests, and Cloud Run may stop an idle instance (and the call on it)
-const KEEPALIVE_MS = 60_000
-// Past this the session request is waiting on a cold agent service (up to ~25 s), so the overlay says so
+// Past this the session request is waiting on a cold server whose voice worker is still starting (up to ~25 s), so the
+// overlay says so
 const SLOW_START_MS = 3000
 
 /** The open trip, but only while you’re inside it (#/trip/…); Home and planning screens have none */
@@ -123,6 +122,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     // Open the mic while the token and connection are set up, rather than after (it can take a moment)
     const mic = createLocalAudioTrack().catch(() => null)
     const dropMic = () => void mic.then((track) => track?.stop())
+    // The session request stays open for the whole call (see voiceApi.startSession); this ends it
+    const hold = new AbortController()
     void (async () => {
       setConn({ status: 'starting' })
       const slow = window.setTimeout(() => {
@@ -130,7 +131,12 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       }, SLOW_START_MS)
       let token
       try {
-        token = await voiceApi.createSession(tripId)
+        const held = await voiceApi.startSession(tripId, hold.signal)
+        token = held.session
+        // The server let go mid-call: the agent stops getting CPU, so the call is over
+        void held.released.then(() => {
+          if (!cancelled) setConn((c) => (c.status === 'error' ? c : { status: 'error', error: { kind: 'dropped' } }))
+        })
       } catch (err) {
         dropMic()
         if (!cancelled) setConn({ status: 'error', error: sessionError(err) })
@@ -168,6 +174,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     })()
     return () => {
       cancelled = true
+      hold.abort()
       void room.disconnect()
     }
   }, [session])
@@ -189,13 +196,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       room.off(RoomEvent.ParticipantConnected, onJoined)
     }
   }, [conn.status, session])
-
-  // Keep the agent service up while the call lasts
-  useEffect(() => {
-    if (conn.status !== 'live') return
-    const timer = window.setInterval(() => void voiceApi.keepalive().catch(() => {}), KEEPALIVE_MS)
-    return () => window.clearInterval(timer)
-  }, [conn.status])
 
   // The call dropped by itself (network, token expiry, server ended the room)
   useEffect(() => {

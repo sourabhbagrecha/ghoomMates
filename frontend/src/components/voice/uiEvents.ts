@@ -43,6 +43,8 @@ export type UiEffects = {
   /** GhoomMate saved or dropped a memory */
   setMemoryUpdate: (update: MemoryUpdate) => void
   notify: (notice: Notice) => void
+  /** Closes the call (GhoomMate hung up), leaving `message` in the notice pill */
+  endCall: (message: string) => void
   navigate: (route: string) => void
   refreshMoney: () => void
   refreshItinerary: () => void
@@ -116,6 +118,8 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
   working: ({ label }, fx) => fx.setWorking(label),
 
   notice: ({ message }, fx) => fx.notify({ message }),
+
+  'call.ended': (_event, fx) => fx.endCall('GhoomMate hung up after it went quiet. Tap to talk again.'),
 
   'memory.updated': ({ change, note }, fx) => fx.setMemoryUpdate({ change, note, at: Date.now() }),
 }

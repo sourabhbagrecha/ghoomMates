@@ -4,8 +4,7 @@ import { ApiError, jsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { User } from '../auth/types.ts';
 import type { Database } from '../db.ts';
-import { createVoiceSession, liveKitConfig } from './session.ts';
-import type { VoiceAgent } from './wake.ts';
+import { createVoiceSession, liveKitConfig, liveKitPresence, type InRoom } from './session.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
@@ -20,10 +19,28 @@ export type VoiceAppOptions = {
   tripDetail?: (tripId: string, userId: string) => Promise<unknown>;
   /** Source of LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET. Defaults to process.env. */
   env?: Record<string, string | undefined>;
-  /** The worker's own Cloud Run service (VOICE_AGENT_URL), woken before each session. Unset: the worker is always
-   *  connected (a laptop, or VOICE_WORKER=inline), so sessions start straight away. */
-  agent?: VoiceAgent;
+  /** The worker this server runs (VOICE_WORKER=inline): sessions dispatch to its agent name once it has registered
+   *  with LiveKit. Unset (local dev, where `npm run dev` runs the worker), sessions dispatch to GHOOMATE_AGENT_NAME. */
+  worker?: { agentName: string; ready(): Promise<boolean> };
+  /** Whether the user is in the call's room (default: asks LiveKit). Ends a held session once they've left. */
+  inRoom?: InRoom;
+  /** How long a held session request may stay open, how often it sends a heartbeat line, how often it checks the
+   *  room, and how long the user has to join it */
+  holdMs?: number;
+  heartbeatMs?: number;
+  watchMs?: number;
+  joinMs?: number;
 };
+
+// Cloud Run allows a request 60 minutes (the web service's --timeout); a call ends a little before that.
+const HOLD_MS = 55 * 60_000;
+// Keeps proxies (Cloudflare, Google's front end) from closing a quiet response, and finds a client that has gone.
+const HEARTBEAT_MS = 15_000;
+// Cloud Run's front end doesn't pass a client's disconnect on to the server, so the server can't tell from the
+// connection that the app has let go. It asks LiveKit instead and releases the request once the user has left the
+// room (or never joined it).
+const WATCH_MS = 10_000;
+const JOIN_MS = 60_000;
 
 function bearer(req: Request) {
   const [type, token] = (req.headers.authorization ?? '').split(' ');
@@ -33,8 +50,13 @@ function bearer(req: Request) {
 // GhoomMate: voice sessions (a LiveKit token whose room dispatches the agent) and chat history. Mount under /api/voice.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function createVoiceApp({ db: { db }, authenticate, agentToken, tripDetail, env = process.env, agent }: VoiceAppOptions) {
-  const config = liveKitConfig(env);
+export function createVoiceApp({
+  db: { db }, authenticate, agentToken, tripDetail, env = process.env, worker, inRoom,
+  holdMs = HOLD_MS, heartbeatMs = HEARTBEAT_MS, watchMs = WATCH_MS, joinMs = JOIN_MS,
+}: VoiceAppOptions) {
+  const base = liveKitConfig(env);
+  const config = base && worker ? { ...base, agentName: worker.agentName } : base;
+  const present = inRoom ?? (config ? liveKitPresence(config) : null);
   if (!config) logger.warn('Voice', 'GhoomMate voice is disabled: set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET');
   const router = Router();
 
@@ -62,8 +84,8 @@ export function createVoiceApp({ db: { db }, authenticate, agentToken, tripDetai
     const user = res.locals.user as User;
     const tripId = await memberTrip((req.body as { tripId?: unknown })?.tripId, user);
     // LiveKit dispatches the agent when the user joins the room and drops the job if no worker is registered then,
-    // so the token waits until the (scaled-to-zero) agent service is up and registered.
-    if (agent && !(await agent.ready())) {
+    // so the token waits until this instance's worker is (re)connected.
+    if (worker && !(await worker.ready())) {
       throw new ApiError(503, 'VOICE_AGENT_WAKING', 'GhoomMate is still waking up. Try again in a few seconds.');
     }
 
@@ -74,13 +96,49 @@ export function createVoiceApp({ db: { db }, authenticate, agentToken, tripDetai
       authToken: agentToken(user),
     });
     logger.info('Voice', `${user.email} started a GhoomMate session in ${session.roomName} (agent "${config.agentName}")`);
-    res.json(session);
-  });
+    if (!(req.headers.accept ?? '').includes('application/x-ndjson')) {
+      res.json(session);
+      return;
+    }
 
-  // Pinged every minute during a call: the call itself sends the agent service no requests, and Cloud Run stops an
-  // instance that gets none. Without a separate agent service this request alone keeps the web instance up.
-  router.post('/keepalive', async (_req, res) => {
-    res.json({ ok: agent ? await agent.ping() : true });
+    // Held session: the token is the first line, then the response stays open (a newline every heartbeatMs) for as
+    // long as the call lasts. While it is open Cloud Run keeps this instance's CPU on, which the worker running the
+    // call needs; once it ends the instance is idle and, with request-based billing, free. It ends when the user has
+    // left the room (or not joined it within joinMs), the client disconnects (where a proxy passes that on), or
+    // after holdMs.
+    res.status(200).set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.write(`${JSON.stringify(session)}\n`);
+    const started = Date.now();
+    let reason = 'the app disconnected';
+    const release = (why: string) => {
+      if (res.writableEnded) return;
+      reason = why;
+      res.end();
+    };
+    const beat = setInterval(() => res.write('\n'), heartbeatMs);
+    const limit = setTimeout(() => release('time is up'), holdMs);
+    let joined = false;
+    let checking = false;
+    const watch = setInterval(async () => {
+      if (checking || !present) return;
+      checking = true;
+      try {
+        if (await present(session.roomName, session.participantIdentity)) joined = true;
+        else if (joined) release('the user left the room');
+        else if (Date.now() - started > joinMs) release('the user never joined the room');
+      } catch (err) {
+        // LiveKit unreachable: keep holding; the time limit still ends it
+        logger.warn('Voice', `Couldn't check room ${session.roomName}: ${(err as Error).message}`);
+      } finally {
+        checking = false;
+      }
+    }, watchMs);
+    res.on('close', () => {
+      clearInterval(beat);
+      clearInterval(watch);
+      clearTimeout(limit);
+      logger.info('Voice', `GhoomMate session ${session.roomName} released after ${Math.round((Date.now() - started) / 1000)} s: ${reason}`);
+    });
   });
 
   async function recentHistory(tripId: string, userId: string, limit: number) {

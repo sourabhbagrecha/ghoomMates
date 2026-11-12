@@ -112,7 +112,7 @@ export function VoiceOverlay({
   const { microphoneTrack, localParticipant } = useLocalParticipant()
   const transcriptions = useTranscriptions()
   const { canPlayAudio, startAudio } = useAudioPlayback(room)
-  const ui = useGhoomMateUi(room, agent?.identity, { minimize: onMinimize, expand: onExpand })
+  const ui = useGhoomMateUi(room, agent?.identity, { minimize: onMinimize, expand: onExpand, end: onClose })
 
   const micTrack = microphoneTrack?.track instanceof LocalAudioTrack ? microphoneTrack.track : undefined
   const agentLevels = useMultibandTrackVolume(audioTrack, { bands: WAVE_BARS, updateInterval: 60 })

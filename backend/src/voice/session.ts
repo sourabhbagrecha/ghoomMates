@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { AccessToken, RoomAgentDispatch, RoomConfiguration } from 'livekit-server-sdk';
+import { AccessToken, RoomAgentDispatch, RoomConfiguration, RoomServiceClient } from 'livekit-server-sdk';
 import { agentNameFrom, type DispatchMetadata, type VoiceSession } from './protocol.ts';
 
 export type LiveKitConfig = {
@@ -39,4 +39,20 @@ export async function createVoiceSession(config: LiveKitConfig, req: SessionRequ
   });
 
   return { serverUrl: config.url, participantToken: await at.toJwt(), roomName, participantIdentity };
+}
+
+/** Whether a participant is in a room right now; a room that's gone (or never started) counts as no */
+export type InRoom = (roomName: string, identity: string) => Promise<boolean>;
+
+export function liveKitPresence(config: LiveKitConfig): InRoom {
+  const rooms = new RoomServiceClient(config.url.replace(/^ws/, 'http'), config.apiKey, config.apiSecret);
+  return async (roomName, identity) => {
+    try {
+      return (await rooms.listParticipants(roomName)).some(p => p.identity === identity);
+    } catch (err) {
+      const { status, code } = err as { status?: number; code?: string };
+      if (status === 404 || code === 'not_found') return false;
+      throw err;
+    }
+  };
 }
