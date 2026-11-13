@@ -114,6 +114,12 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
     res.json({ ...await service.photos(access(res), limit, offset), limit, offset });
   });
 
+  // How far the face-indexer has got with your profile selfie: none | processing | ready | no_face | error.
+  // The app polls it while the selfie is read and unlocks Find me on ready.
+  router.get('/:tripId/photos/find-me/status', async (_req, res) => {
+    res.json(await service.selfieStatus(user(res).id));
+  });
+
   // Searches with the signed-in user's profile selfie; there is no request body.
   router.post('/:tripId/photos/find-me', async (_req, res) => {
     const started = Date.now();

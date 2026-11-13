@@ -449,24 +449,40 @@ export class TripService {
     };
   }
 
-  // Selfie search over the trip's indexed faces, with the user's profile selfie (users.selfie_key). The selfie is
-  // embedded once, when it is uploaded: the face-indexer writes its vector to selfie_faces, and find-me runs only the
-  // vector search with it. Until that vector exists (the upload event is still in flight) find-me answers
-  // 409 SELFIE_PROCESSING and the app retries.
-  async findMe(access: TripAccess, userId: string, faceSearch: FaceSearch) {
+  // The user's profile selfie (users.selfie_key) and how far the face-indexer has got with it. The selfie is embedded
+  // once, when it is uploaded: the indexer writes its vector to selfie_faces. Until that document exists the upload
+  // event is still in flight (a cold indexer takes ~40 s to load its models), so the status is 'processing'.
+  private async selfieFace(userId: string) {
     const user = await this.db.collection('users').findOne({ _id: userId as any }, { projection: { selfie_key: 1 } });
     const key = typeof user?.selfie_key === 'string' ? user.selfie_key : null;
-    if (!key) throw new ApiError(409, 'NO_SELFIE', 'Add a selfie to your profile to find yourself in photos');
+    if (!key) return { status: 'none' as const };
     const stored = await this.db.collection('selfie_faces').findOne(
       { object_name: key },
       { projection: { status: 1, embedding: 1, model_name: 1, detector: 1 } },
     );
-    if (stored?.status === 'no_face') throw new ApiError(422, 'NO_FACE', 'No face found in your selfie');
-    if (stored?.status === 'error') throw new ApiError(422, 'INVALID_IMAGE', 'We couldn’t read your selfie; add another in your profile');
+    if (stored?.status === 'no_face') return { status: 'no_face' as const };
+    if (stored?.status === 'error') return { status: 'error' as const };
     const embedding = Array.isArray(stored?.embedding) ? (stored.embedding as unknown[]).map(Number) : null;
     if (stored?.status !== 'indexed' || !embedding || embedding.length !== EMBEDDING_DIM || !embedding.every(Number.isFinite)) {
-      throw new ApiError(409, 'SELFIE_PROCESSING', 'Your selfie is still being read. Try again in a few seconds');
+      return { status: 'processing' as const };
     }
+    return { status: 'ready' as const, embedding, stored };
+  }
+
+  // Polled by the app while the selfie is read, so Find me only unlocks once a search can run.
+  async selfieStatus(userId: string) {
+    return { status: (await this.selfieFace(userId)).status };
+  }
+
+  // Selfie search over the trip's indexed faces with the stored selfie vector; find-me runs only the vector search.
+  // Before the vector exists find-me answers 409 SELFIE_PROCESSING (the app waits on selfieStatus first).
+  async findMe(access: TripAccess, userId: string, faceSearch: FaceSearch) {
+    const face = await this.selfieFace(userId);
+    if (face.status === 'none') throw new ApiError(409, 'NO_SELFIE', 'Add a selfie to your profile to find yourself in photos');
+    if (face.status === 'no_face') throw new ApiError(422, 'NO_FACE', 'No face found in your selfie');
+    if (face.status === 'error') throw new ApiError(422, 'INVALID_IMAGE', 'We couldn’t read your selfie; add another in your profile');
+    if (face.status === 'processing') throw new ApiError(409, 'SELFIE_PROCESSING', 'Your selfie is still being read. Try again in a few seconds');
+    const { embedding, stored } = face;
     const space = {
       modelName: typeof stored.model_name === 'string' && stored.model_name ? stored.model_name : DEFAULT_SPACE.modelName,
       detector: typeof stored.detector === 'string' && stored.detector ? stored.detector : DEFAULT_SPACE.detector,

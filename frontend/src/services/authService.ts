@@ -272,11 +272,18 @@ export async function updateUserProfile(patch: { picture?: string; name?: string
   return sendProfile(token, body);
 }
 
+/** When each selfie URL was saved from this tab, so the face-match progress ring starts from the upload */
+const selfieSavedTimes = new Map<string, number>();
+export const selfieSavedAt = (url: string) => selfieSavedTimes.get(url);
+
 /** Uploads the face-match selfie; it also becomes the profile photo. The cloud embeds it as soon as it lands. */
 export async function saveSelfie(src: string): Promise<AuthUser | null> {
   const token = getToken();
   if (!token) return null;
-  return sendProfile(token, { selfieKey: await uploadPicture('selfie', src) });
+  const started = Date.now();
+  const user = await sendProfile(token, { selfieKey: await uploadPicture('selfie', src) });
+  if (user.selfie) selfieSavedTimes.set(user.selfie, started);
+  return user;
 }
 
 export async function deleteSelfie(): Promise<AuthUser | null> {
