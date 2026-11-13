@@ -25,7 +25,8 @@ import { useTripReels } from '../Reel/useTripReels'
 import { useTripStore } from '../Trip/tripStore'
 import { useProfileStore } from '../Profile/profileStore'
 import { faceSummaryOf, hasMatched, markMatched, setMatchedIds, useFacePolling, useMatchedIds } from './faceSearch'
-import { PIPELINE, REEL, type PipelineStep } from './photosData'
+import { PIPELINE, REEL, SELFIE_READ, type PipelineStep } from './photosData'
+import { useSelfieRead } from './selfieRead'
 import './PhotosPage.css'
 
 // Reel studio only shows once the album has enough photos to cut a reel from
@@ -142,8 +143,8 @@ const SEARCH_ERRORS: Record<string, string> = {
   FACE_SEARCH_UNAVAILABLE: 'Face search is busy right now, try again in a minute',
 }
 
-// A just-uploaded selfie is embedded by the face indexer within seconds (up to a minute on a cold start); until then
-// the server answers SELFIE_PROCESSING, so find-me quietly retries for a while.
+// Find me normally waits for useSelfieRead to say the selfie is ready. If that status couldn't be fetched, a search
+// that lands before the face indexer is done answers SELFIE_PROCESSING, so find-me quietly retries for a while.
 const PROCESSING_RETRY_MS = 3000
 const PROCESSING_MAX_MS = 60_000
 
@@ -166,6 +167,8 @@ function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatch
   // The server searches with your own saved selfie, so only you can be matched
   const selfie = profile.selfie
   const active = matchCount !== null
+  // A new selfie is read by the cloud face indexer first; Find me unlocks once it is
+  const read = useSelfieRead(tripId, selfie)
 
   const findMe = async () => {
     if (searching) return
@@ -188,32 +191,69 @@ function FaceFilter({ tripId, total, matchCount, searching, onSearching, onMatch
   }
 
   const photosLabel = `${total} ${total === 1 ? 'photo' : 'photos'}`
-  const [title, text, action] = searching
-    ? ['Finding you…', `Checking every face in ${photosLabel}`, 'Searching…']
-    : active
-      ? [matchCount ? `You’re in ${matchCount} of ${photosLabel}` : 'Couldn’t spot you yet', 'Showing only photos with you', 'Show all']
-      : selfie
-        ? ['Find photos of you', total ? `We’ll match your selfie to every face in ${photosLabel}` : 'Works once the squad adds photos', 'Find me']
-        : ['Find photos of you', 'Add a selfie and we’ll spot you in the album', 'Add selfie']
+  const hasSelfie = !!selfie && read.status !== 'none'
+  const reading = read.status === 'processing'
+  const editSelfie = () => navigate('profile/edit')
+
+  // Card copy and its one button. `toggle` marks the Find me / Show all filter button (aria-pressed).
+  type View = { title: string; text: string; action: string; onClick: () => void; disabled?: boolean; toggle?: boolean }
+  const view = ((): View => {
+    const find = { action: 'Find me', onClick: () => void findMe(), toggle: true }
+    if (searching) return { ...find, title: 'Finding you…', text: `Checking every face in ${photosLabel}`, action: 'Searching…', disabled: true }
+    if (active) return { ...find, title: matchCount ? `You’re in ${matchCount} of ${photosLabel}` : 'Couldn’t spot you yet', text: 'Showing only photos with you', action: 'Show all' }
+    if (!hasSelfie) return { title: 'Find photos of you', text: 'Add a selfie and we’ll spot you in the album', action: 'Add selfie', onClick: editSelfie }
+    if (reading) {
+      const stage = SELFIE_READ.stages.findLast((s) => read.elapsedMs >= s.afterMs) ?? SELFIE_READ.stages[0]
+      return { ...find, title: stage.title, text: stage.hint, disabled: true }
+    }
+    if (read.status === 'checking') return { ...find, title: 'Find photos of you', text: SELFIE_READ.checking, disabled: true }
+    if (read.status === 'slow') return { ...SELFIE_READ.slow, text: SELFIE_READ.slow.hint, onClick: read.retry }
+    if (read.status === 'no_face' || read.status === 'error') {
+      const copy = read.status === 'no_face' ? SELFIE_READ.noFace : SELFIE_READ.error
+      return { ...copy, text: copy.hint, onClick: editSelfie }
+    }
+    if (!total) return { ...find, title: 'Find photos of you', text: 'Works once the squad adds photos', disabled: true }
+    if (read.justReady) return { ...find, title: SELFIE_READ.ready.title, text: SELFIE_READ.ready.hint(photosLabel) }
+    return { ...find, title: 'Find photos of you', text: `We’ll match your selfie to every face in ${photosLabel}` }
+  })()
+
+  // The ring fills while the selfie is read and stays full once it's ready, until you search
+  const ring = !active && !searching && (reading || read.justReady) ? Math.round(read.progress * 100) : null
 
   return (
-    <section className={`face-filter${active ? ' face-filter--active' : ''}`} aria-busy={searching}>
+    <section className={`face-filter${active ? ' face-filter--active' : ''}`} aria-busy={searching || reading}>
       {/* Your face-match selfie lives in Edit profile */}
-      <span className="face-filter__face">
-        {selfie ? <img className="face-filter__selfie" src={selfie} alt="Your selfie" width={44} height={44} /> : <img src={iconScanFace} alt="" width={20} height={20} />}
+      <span className={`face-filter__face${reading ? ' face-filter__face--reading' : ''}`}>
+        <span className="face-filter__photo">
+          {selfie ? <img className="face-filter__selfie" src={selfie} alt="Your selfie" width={44} height={44} /> : <img src={iconScanFace} alt="" width={20} height={20} />}
+        </span>
+        {ring !== null && (
+          <svg
+            className="face-filter__ring"
+            viewBox="0 0 56 56"
+            role="progressbar"
+            aria-label="Reading your selfie"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={ring}
+          >
+            <circle className="face-filter__ring-track" cx="28" cy="28" r="26" />
+            <circle className="face-filter__ring-fill" cx="28" cy="28" r="26" pathLength={100} strokeDasharray={100} strokeDashoffset={100 - ring} />
+          </svg>
+        )}
       </span>
       <div className="face-filter__text" role="status">
-        <h2 className="face-filter__title">{title}</h2>
-        <p className="face-filter__hint">{text}</p>
+        <h2 className="face-filter__title">{view.title}</h2>
+        <p className="face-filter__hint">{view.text}</p>
       </div>
       <button
         type="button"
         className="face-filter__action"
-        aria-pressed={selfie ? active : undefined}
-        disabled={searching || (!!selfie && !active && !total)}
-        onClick={() => (selfie ? void findMe() : navigate('profile/edit'))}
+        aria-pressed={view.toggle ? active : undefined}
+        disabled={view.disabled}
+        onClick={view.onClick}
       >
-        {action}
+        {view.action}
       </button>
     </section>
   )

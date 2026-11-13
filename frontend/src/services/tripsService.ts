@@ -126,6 +126,9 @@ export type FindMeMatch = {
   faces: { x: number; y: number; w: number; h: number; distance: number }[]
 }
 
+/** How far the face-indexer has got with your profile selfie */
+export type SelfieStatus = 'none' | 'processing' | 'ready' | 'no_face' | 'error'
+
 export type Rsvp = 'going' | 'maybe' | 'skip'
 
 export type ItineraryStop = {
@@ -243,6 +246,8 @@ export const tripsApi = {
     request<Settlement>(`${trip(id)}/settlements`, { body: transfer, idempotencyKey }),
   photos: (id: string) => request<TripPhotos>(`${trip(id)}/photos?limit=500`),
   /** Searches with your profile selfie, which the server already embedded when it was uploaded */
+  /** Polled while the face-indexer reads a new selfie; Find me unlocks on ready */
+  selfieStatus: (id: string) => request<{ status: SelfieStatus }>(`${trip(id)}/photos/find-me/status`).then((r) => r.status),
   findMe: (id: string) =>
     request<{ matches: FindMeMatch[]; threshold: number; truncated: boolean }>(`${trip(id)}/photos/find-me`, { method: 'POST' }),
   addPhotos: (id: string, photos: { key: string; width?: number; height?: number }[]) =>

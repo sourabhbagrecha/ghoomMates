@@ -159,8 +159,10 @@ test('find-me searches with the selfie embedding the face-indexer stored', async
   const asha = await createUser('Asha');
   const trip = (await call(asha.token, '/api/trips', { name: 'Goa', groupName: 'Goa Gang' })).data;
   const findMe = () => call(asha.token, `/api/trips/${trip.id}/photos/find-me`, undefined, 'POST');
+  const status = async () => (await call(asha.token, `/api/trips/${trip.id}/photos/find-me/status`)).data.status;
 
   expect((await findMe()).data.error.code).toBe('NO_SELFIE');
+  expect(await status()).toBe('none');
 
   // Uploaded, but the face-indexer hasn't embedded it yet: the app is told to retry, nothing is searched
   const key = await upload(asha.token, 'selfie');
@@ -168,12 +170,14 @@ test('find-me searches with the selfie embedding the face-indexer stored', async
   searches.length = 0;
   const processing = await findMe();
   expect([processing.status, processing.data.error.code]).toEqual([409, 'SELFIE_PROCESSING']);
+  expect(await status()).toBe('processing');
   expect(searches).toEqual([]);
 
   // The indexer has embedded it: only the vector search runs, in the selfie's own embedding space
   await db.db.collection('selfie_faces').insertOne({
     object_name: key, user_id: asha.id, generation: 7, status: 'indexed', embedding: VECTOR, model_name: 'ArcFace', detector: 'mtcnn',
   });
+  expect(await status()).toBe('ready');
   expect((await findMe()).status).toBe(200);
   expect(searches).toEqual([{ embedding: VECTOR, space: { modelName: 'ArcFace', detector: 'mtcnn' } }]);
 
@@ -186,7 +190,12 @@ test('find-me searches with the selfie embedding the face-indexer stored', async
   await db.db.collection('selfie_faces').updateOne({ object_name: key }, { $set: { status: 'no_face', embedding: null } });
   const noFace = await findMe();
   expect([noFace.status, noFace.data.error.code]).toEqual([422, 'NO_FACE']);
+  expect(await status()).toBe('no_face');
   await db.db.collection('selfie_faces').updateOne({ object_name: key }, { $set: { status: 'error' } });
   const unreadable = await findMe();
   expect([unreadable.status, unreadable.data.error.code]).toEqual([422, 'INVALID_IMAGE']);
+  expect(await status()).toBe('error');
+  // Only members of the trip can ask
+  const ben = await createUser('Ben');
+  expect((await call(ben.token, `/api/trips/${trip.id}/photos/find-me/status`)).status).toBe(404);
 });

@@ -13,12 +13,19 @@
 }
 
 .face-filter__face {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   flex-shrink: 0;
   width: 44px;
   height: 44px;
+}
+
+.face-filter__photo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   border: 2px solid var(--color-surface);
   border-radius: 50%;
@@ -31,8 +38,68 @@
   object-fit: cover;
 }
 
-.face-filter--active .face-filter__face {
+.face-filter--active .face-filter__photo {
   border-color: var(--color-yellow);
+}
+
+/* While the face indexer reads a new selfie: a scan line sweeps the photo and a ring fills around it */
+.face-filter__face--reading .face-filter__photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--color-yellow) 55%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 100% 40%;
+  background-repeat: no-repeat;
+  animation: face-filter-scan 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes face-filter-scan {
+  from {
+    background-position: 0 -40%;
+  }
+  to {
+    background-position: 0 140%;
+  }
+}
+
+.face-filter__ring {
+  position: absolute;
+  inset: -6px;
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.face-filter__ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.face-filter__ring-track {
+  stroke: var(--color-glass-strong);
+}
+
+.face-filter__ring-fill {
+  stroke: var(--color-yellow);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 400ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face-filter__face--reading .face-filter__photo::after {
+    animation: none;
+    background-position: 0 50%;
+  }
+
+  .face-filter__ring-fill {
+    transition: none;
+  }
 }
 
 .face-filter__text {
