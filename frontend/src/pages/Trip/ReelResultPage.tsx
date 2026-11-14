@@ -39,7 +39,7 @@ export function ReelResultPage() {
   const [toast, showToast] = useToast()
   const tripId = trip?.id ?? null
   const tripName = trip?.name ?? ''
-  const { reels, failed, retry, add, mapTiles } = useTripReels(tripId)
+  const { reels, failed, retry, add } = useTripReels(tripId)
   // The reel in the link (or the one just cut here); the squad's newest when there is none
   const [selectedId, setSelectedId] = useState(reelIdFromHash)
   const reel = (selectedId && (reels?.find((r) => r.id === selectedId) ?? reelsApi.cached(selectedId))) || reels?.[0] || null
@@ -94,7 +94,7 @@ export function ReelResultPage() {
     try {
       // The MP4 encoder is big, so it only loads when someone saves or shares
       const { renderReel } = await import('../Reel/exportReel')
-      const file = await renderReel(current, tripName, mapTiles, setRendering, controller.signal)
+      const file = await renderReel(current, tripName, setRendering, controller.signal)
       video.current = { reelId: current.id, file }
       return file
     } finally {
@@ -143,7 +143,7 @@ export function ReelResultPage() {
           <>
             <div ref={preview} className={`reel__preview${busyLabel ? ' reel__preview--busy' : ''}`}>
               <Suspense fallback={null}>
-                <ReelPlayer key={reel.id} reel={reel} tripName={tripName} mapTiles={mapTiles} />
+                <ReelPlayer key={reel.id} reel={reel} tripName={tripName} />
               </Suspense>
               {busyLabel && <span className="reel__busy" role="status">{busyLabel}</span>}
             </div>

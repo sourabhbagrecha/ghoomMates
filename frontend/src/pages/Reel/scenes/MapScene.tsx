@@ -3,10 +3,10 @@ import { evolvePath, getLength, getPointAtLength, getTangentAtLength } from '@re
 import { Circle } from '@remotion/shapes'
 import type { ReelScene } from '../../../services/reelsService'
 import { INK, type Look } from '../looks'
-import { LAYER_FADE, MAP_CREDIT, mapFilter, mapLayers, mapView, project, type MapTiles } from '../mapMath'
+import { LAYER_FADE, MAP_CREDIT, mapLayers, mapView, project } from '../mapMath'
 import { EffectLayer, Stickers, Watermark } from './Overlays'
 
-type Props = { scene: ReelScene; look: Look; mapTiles: MapTiles }
+type Props = { scene: ReelScene; look: Look }
 
 // The camera flies in over this share of the scene, then pins drop and the route draws
 const FLIGHT = 0.5
@@ -18,7 +18,7 @@ const LABEL_ROW = 48
  * An animated map: the camera flies from region level down to the trip's places over real map tiles, pins drop in route
  * order, the route draws itself with a plane flying along it, and each place gets its label.
  */
-export function MapScene({ scene, look, mapTiles }: Props) {
+export function MapScene({ scene, look }: Props) {
   const frame = useCurrentFrame()
   const { fps, width, height, durationInFrames } = useVideoConfig()
   const places = scene.places ?? []
@@ -62,11 +62,11 @@ export function MapScene({ scene, look, mapTiles }: Props) {
 
   return (
     <AbsoluteFill style={{ background: '#a9c8e8', overflow: 'hidden' }}>
-      {mapLayers(look.map, mapTiles, places, width, height).map(({ z, tiles }, i) => {
+      {mapLayers(look.map, places, width, height).map(({ z, tiles }, i) => {
         const scale = 2 ** (camera - z)
         const opacity = i === 0 ? 1 : interpolate(camera, [z - LAYER_FADE, z], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
         return (
-          <AbsoluteFill key={z} style={{ opacity, transform: `scale(${scale})`, transformOrigin: `${width / 2}px ${height / 2}px`, filter: mapFilter(look.map, mapTiles) }}>
+          <AbsoluteFill key={z} style={{ opacity, transform: `scale(${scale})`, transformOrigin: `${width / 2}px ${height / 2}px`, filter: look.map.filter }}>
             {tiles.map((t) => (
               <Img
                 key={t.key}
@@ -124,7 +124,7 @@ export function MapScene({ scene, look, mapTiles }: Props) {
       <Stickers emoji={scene.stickers} spots="corners" />
       <Watermark />
       <span style={{ position: 'absolute', right: 16, bottom: 12, padding: '2px 8px', borderRadius: 6, background: 'rgba(255, 255, 255, 0.75)', color: '#333', fontSize: 14, lineHeight: '20px' }}>
-        {MAP_CREDIT[mapTiles]}
+        {MAP_CREDIT}
       </span>
     </AbsoluteFill>
   )

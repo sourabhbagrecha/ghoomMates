@@ -97,7 +97,7 @@ let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
   trips = createTripsApp(db, storage, authenticate, clientOrigin);
   // Claude writes the reel plan when Gemini fails (ANTHROPIC_API_KEY)
-  reels = createReelsApp({ db, storage, gemini, claude: createClaude(), cartoApiKey: process.env.CARTO_API_KEY, authenticate });
+  reels = createReelsApp({ db, storage, gemini, claude: createClaude(), authenticate });
   voice = createVoiceApp({
     db,
     authenticate,

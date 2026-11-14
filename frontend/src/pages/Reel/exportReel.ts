@@ -2,7 +2,7 @@ import { prefetch } from 'remotion'
 import { canRenderMediaOnWeb, renderMediaOnWeb } from '@remotion/web-renderer'
 import type { Reel } from '../../services/reelsService'
 import { lookOf } from './looks'
-import { mapLayers, type MapTiles } from './mapMath'
+import { mapLayers } from './mapMath'
 import { ReelComposition } from './ReelComposition'
 import { REEL_FPS, REEL_HEIGHT, REEL_WIDTH, reelDurationInFrames, type ReelProps } from './reelTiming'
 
@@ -13,11 +13,11 @@ const PREFETCH_AT_ONCE = 6
 const PREFETCH_TRIES = 2
 
 /** Every photo and map tile the reel shows. */
-function assetUrls(reel: Reel, mapTiles: MapTiles) {
+function assetUrls(reel: Reel) {
   const look = lookOf(reel.plan.style).map
   const urls = reel.plan.scenes.flatMap((scene) => [
     ...scene.photos.map((p) => p.url),
-    ...(scene.kind === 'map' && scene.places?.length ? mapLayers(look, mapTiles, scene.places, REEL_WIDTH, REEL_HEIGHT).flatMap((l) => l.tiles.map((t) => t.url)) : []),
+    ...(scene.kind === 'map' && scene.places?.length ? mapLayers(look, scene.places, REEL_WIDTH, REEL_HEIGHT).flatMap((l) => l.tiles.map((t) => t.url)) : []),
   ])
   return [...new Set(urls)]
 }
@@ -48,12 +48,12 @@ async function prefetchAll(urls: string[], signal?: AbortSignal) {
 }
 
 /** Renders the reel to an MP4 on this device (WebCodecs), reporting progress from 0 to 1. */
-export async function renderReel(reel: Reel, tripName: string, mapTiles: MapTiles, onProgress: (progress: number) => void, signal?: AbortSignal) {
+export async function renderReel(reel: Reel, tripName: string, onProgress: (progress: number) => void, signal?: AbortSignal) {
   // Reels have no soundtrack yet, so the video is muted
   const check = await canRenderMediaOnWeb({ width: REEL_WIDTH, height: REEL_HEIGHT, container: 'mp4', muted: true })
   if (!check.canRender) throw new Error(check.issues.filter((i) => i.severity === 'error').map((i) => i.message).join(' ') || 'This browser can’t make videos')
-  const inputProps: ReelProps = { plan: reel.plan, tripName, forExport: true, mapTiles }
-  const release = await prefetchAll(assetUrls(reel, mapTiles), signal)
+  const inputProps: ReelProps = { plan: reel.plan, tripName, forExport: true }
+  const release = await prefetchAll(assetUrls(reel), signal)
   try {
     const { getBlob } = await renderMediaOnWeb({
       composition: {

@@ -7,7 +7,6 @@ import { ApiError, jsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
 import type { MediaStorage } from '../storage.ts';
 import { ReelService, type ReelOptions, type ReelsDb } from './service.ts';
-import { createCartoTileProxy } from './tiles.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
@@ -17,10 +16,6 @@ export type ReelsAppOptions = ReelOptions & {
   gemini: Gemini;
   // Writes the plan when Gemini fails (ANTHROPIC_API_KEY)
   claude?: Claude;
-  // CARTO basemaps for the map scene (CARTO_API_KEY); without it the app uses Esri tiles
-  cartoApiKey?: string;
-  // For the CARTO tile proxy, so tests can stand in for CARTO
-  fetchImpl?: typeof fetch;
   authenticate: Authenticate;
 };
 
@@ -30,7 +25,7 @@ function bearer(req: Request) {
 }
 
 // Reel studio: Gemini (or Claude when Gemini fails) cuts a reel plan from the trip's photos and a prompt; the app plays it with Remotion. Mount under /api/reels.
-export function createReelsApp({ db, storage, gemini, claude, cartoApiKey, fetchImpl, authenticate, ...options }: ReelsAppOptions) {
+export function createReelsApp({ db, storage, gemini, claude, authenticate, ...options }: ReelsAppOptions) {
   const service = new ReelService(db, storage, gemini, claude, options);
   if (!gemini.enabled && !claude?.enabled) logger.warn('Reels', 'Gemini and Claude are off (set GEMINI_API_KEY or ANTHROPIC_API_KEY): reels use the template cut.');
   const router = Router();
@@ -43,11 +38,6 @@ export function createReelsApp({ db, storage, gemini, claude, cartoApiKey, fetch
     next();
   };
 
-  // Map tiles are loaded by <img>, which can't send the sign-in token, so they come before it. They are public basemap
-  // tiles; the route only proxies CARTO's own styles and tile numbers.
-  const mapTiles = cartoApiKey?.trim() ? 'carto' : 'esri';
-  if (mapTiles === 'carto') router.get('/tiles/carto/:style/:z/:x/:y', createCartoTileProxy({ apiKey: cartoApiKey!.trim(), fetchImpl }));
-
   router.use(requireUser);
 
   // Only trip members can see or cut a trip's reels.
@@ -56,9 +46,9 @@ export function createReelsApp({ db, storage, gemini, claude, cartoApiKey, fetch
     next();
   });
 
-  // The squad's reels, newest first, and which map tiles the app should draw: { items, mapTiles: 'carto' | 'esri' }.
+  // The squad's reels, newest first: { items }.
   router.get('/trips/:tripId', async (req, res) => {
-    res.json({ ...(await service.list(req.params.tripId as string)), mapTiles });
+    res.json(await service.list(req.params.tripId as string));
   });
 
   // Cuts a reel: { prompt, photoIds? } -> { id, prompt, plan, seconds, source, … }. Takes 5 to 20 seconds with Gemini, longer when Claude steps in.

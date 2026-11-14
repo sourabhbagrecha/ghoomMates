@@ -1,5 +1,4 @@
 import type { ReelPlan } from '../../services/reelsService'
-import type { MapTiles } from './mapMath'
 
 // Size and timing of the reel video, shared by the composition, the Player and the MP4 export
 
@@ -16,8 +15,6 @@ export type ReelProps = {
   tripName: string
   /** Load photos with CORS so the web renderer can read their pixels; the Player doesn't need it */
   forExport?: boolean
-  /** Map tile source the backend reports; Esri when unknown */
-  mapTiles?: MapTiles
 }
 
 export const sceneFrames = (seconds: number) => Math.max(REEL_FPS, Math.round(seconds * REEL_FPS))

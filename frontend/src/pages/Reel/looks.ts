@@ -37,7 +37,7 @@ export type Look = {
   /** The look's highlight colour and the ink that sits on it */
   accent: string
   onAccent: string
-  /** Basemap style and tile filter, for CARTO (with a key) and for Esri (without) */
+  /** Basemap style and tile filter */
   map: MapLook
   /** Text cards and stats use upper case */
   shout: boolean
@@ -55,7 +55,7 @@ export const LOOKS: Record<ReelStyle, Look> = {
     background: 'linear-gradient(180deg, #0b1747 0%, #050a24 100%)',
     accent: '#e9c46a',
     onAccent: '#0b1747',
-    map: { carto: 'dark_all', cartoFilter: 'none', esri: 'satellite', esriFilter: 'brightness(0.8) saturate(0.85) contrast(1.1)' },
+    map: { style: 'satellite', filter: 'brightness(0.8) saturate(0.85) contrast(1.1)' },
     shout: false,
   },
   energetic: {
@@ -69,7 +69,7 @@ export const LOOKS: Record<ReelStyle, Look> = {
     background: 'linear-gradient(152deg, #072ac8 8%, #1557e6 92%)',
     accent: '#fcf300',
     onAccent: '#072ac8',
-    map: { carto: 'voyager', cartoFilter: 'saturate(1.3)', esri: 'satellite', esriFilter: 'saturate(1.3) contrast(1.08)' },
+    map: { style: 'satellite', filter: 'saturate(1.3) contrast(1.08)' },
     shout: true,
   },
   dreamy: {
@@ -83,7 +83,7 @@ export const LOOKS: Record<ReelStyle, Look> = {
     background: 'linear-gradient(180deg, #ffb38a 0%, #ff7aa8 45%, #7b61ff 100%)',
     accent: '#fff4d6',
     onAccent: '#7b3f61',
-    map: { carto: 'voyager', cartoFilter: 'sepia(0.2) saturate(1.1)', esri: 'satellite', esriFilter: 'brightness(1.08) saturate(0.95) sepia(0.2)' },
+    map: { style: 'satellite', filter: 'brightness(1.08) saturate(0.95) sepia(0.2)' },
     shout: false,
   },
   retro: {
@@ -96,7 +96,7 @@ export const LOOKS: Record<ReelStyle, Look> = {
     background: 'linear-gradient(180deg, #3b2f22 0%, #2b2118 100%)',
     accent: '#f4ecdc',
     onAccent: '#3b2f22',
-    map: { carto: 'light_all', cartoFilter: 'sepia(0.6) contrast(0.95)', esri: 'streets', esriFilter: 'sepia(0.6) contrast(0.95)' },
+    map: { style: 'streets', filter: 'sepia(0.6) contrast(0.95)' },
     shout: false,
   },
   playful: {
@@ -110,7 +110,7 @@ export const LOOKS: Record<ReelStyle, Look> = {
     background: 'linear-gradient(160deg, #22c39a 0%, #1e96fc 55%, #7b61ff 100%)',
     accent: '#ffc600',
     onAccent: '#0b1747',
-    map: { carto: 'voyager', cartoFilter: 'saturate(1.4)', esri: 'streets', esriFilter: 'saturate(1.4)' },
+    map: { style: 'streets', filter: 'saturate(1.4)' },
     shout: false,
   },
 }

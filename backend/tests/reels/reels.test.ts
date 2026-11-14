@@ -160,7 +160,7 @@ describe('reel plans', () => {
 
 /* Routes, with a real test database and fake storage and Gemini */
 
-async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6, claude?: Claude, carto?: { apiKey: string; fetchImpl: typeof fetch }) {
+async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6, claude?: Claude) {
   const database = await testDatabase();
   const { db } = database;
   await db.collection<any>('users').insertMany([asha, ravi].map(({ id, ...u }) => ({ _id: id, google_id: `g-${id}`, ...u })));
@@ -179,7 +179,7 @@ async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount 
     throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');
   };
   const fullGemini = { models: { lite: 'lite', smart: 'smart', image: 'image', tts: 'tts' }, imageEnabled: false, ...gemini } as Gemini;
-  return { app: mount('/api/reels', createReelsApp({ db: database, storage, gemini: fullGemini, claude, cartoApiKey: carto?.apiKey, fetchImpl: carto?.fetchImpl, authenticate })), reels };
+  return { app: mount('/api/reels', createReelsApp({ db: database, storage, gemini: fullGemini, claude, authenticate })), reels };
 }
 
 const post = (body: unknown, token = 'asha') => ({
@@ -292,82 +292,6 @@ describe('reel routes', () => {
       expect((await few.json()).error.code).toBe('NOT_ENOUGH_PHOTOS');
       expect((await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'our trip' }, 'ravi'))).status).toBe(404);
       expect((await server.request(`/api/reels/trips/${TRIP}`, { method: 'GET' })).status).toBe(401);
-    } finally {
-      await server.close();
-    }
-  });
-});
-
-describe('map tiles', () => {
-  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
-
-  function fakeCarto(delayMs = 0) {
-    const calls: string[] = [];
-    const fetchImpl = (async (url: string | URL | Request) => {
-      calls.push(String(url));
-      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
-      return new Response(PNG, { status: 200, headers: { 'content-type': 'image/png' } });
-    }) as typeof fetch;
-    return { calls, fetchImpl };
-  }
-
-  test('without a key the app is told to use Esri and there is no tile route', async () => {
-    const { app } = await fakes({ enabled: false });
-    const server = await serve(app);
-    try {
-      const list = await (await server.request(`/api/reels/trips/${TRIP}`, { headers: { Authorization: 'Bearer asha' } })).json();
-      expect(list.mapTiles).toBe('esri');
-      expect((await server.request('/api/reels/tiles/carto/voyager/3/1/2.png')).status).toBe(401);
-    } finally {
-      await server.close();
-    }
-  });
-
-  test('with a key, retina CARTO tiles come through this server with the key added, cached, and without signing in', async () => {
-    const carto = fakeCarto(30);
-    const { app } = await fakes({ enabled: false }, 6, undefined, { apiKey: 'secret key', fetchImpl: carto.fetchImpl });
-    const server = await serve(app);
-    try {
-      const list = await (await server.request(`/api/reels/trips/${TRIP}`, { headers: { Authorization: 'Bearer asha' } })).json();
-      expect(list.mapTiles).toBe('carto');
-      // Two at once and one after: one call to CARTO
-      const [a, b] = await Promise.all([server.request('/api/reels/tiles/carto/voyager/14/11545/7056.png'), server.request('/api/reels/tiles/carto/voyager/14/11545/7056.png')]);
-      const c = await server.request('/api/reels/tiles/carto/voyager/14/11545/7056.png');
-      for (const res of [a, b, c]) {
-        expect(res.status).toBe(200);
-        expect(res.headers.get('content-type')).toBe('image/png');
-        expect(res.headers.get('cache-control')?.includes('max-age=604800')).toBe(true);
-        expect(Buffer.from(await res.arrayBuffer()).equals(PNG)).toBe(true);
-      }
-      expect(carto.calls).toEqual(['https://basemaps.cartocdn.com/rastertiles/voyager/14/11545/7056@2x.png?key=secret%20key']);
-    } finally {
-      await server.close();
-    }
-  });
-
-  test('only CARTO styles and real tile numbers are proxied', async () => {
-    const carto = fakeCarto();
-    const { app } = await fakes({ enabled: false }, 6, undefined, { apiKey: 'k', fetchImpl: carto.fetchImpl });
-    const server = await serve(app);
-    try {
-      for (const path of ['evil/3/1/1.png', 'voyager/19/1/1.png', 'voyager/3/8/1.png', 'voyager/3/1/8.png', 'voyager/3/-1/1.png', 'voyager/x/1/1.png']) {
-        expect((await server.request(`/api/reels/tiles/carto/${path}`)).status).toBe(404);
-      }
-      expect(carto.calls.length).toBe(0);
-    } finally {
-      await server.close();
-    }
-  });
-
-  test('a CARTO failure is a 502, not a broken image cached for later', async () => {
-    let fail = true;
-    const fetchImpl = (async () => (fail ? new Response('nope', { status: 403 }) : new Response(PNG, { status: 200 }))) as typeof fetch;
-    const { app } = await fakes({ enabled: false }, 6, undefined, { apiKey: 'k', fetchImpl });
-    const server = await serve(app);
-    try {
-      expect((await server.request('/api/reels/tiles/carto/dark_all/2/1/1.png')).status).toBe(502);
-      fail = false;
-      expect((await server.request('/api/reels/tiles/carto/dark_all/2/1/1.png')).status).toBe(200);
     } finally {
       await server.close();
     }
