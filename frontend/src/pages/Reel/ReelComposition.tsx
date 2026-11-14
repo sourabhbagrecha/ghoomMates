@@ -12,7 +12,6 @@ import { fitTextOnNLines } from '@remotion/layout-utils'
 import { evolvePath } from '@remotion/paths'
 import type { ReelPlan, ReelScene, ReelStyle, ReelTransition } from '../../services/reelsService'
 import { INK, lookOf, type Look } from './looks'
-import type { MapTiles } from './mapMath'
 import { END_FRAMES, REEL_FPS, REEL_HEIGHT, REEL_WIDTH, TITLE_FRAMES, TRANSITION_FRAMES, sceneFrames, type ReelProps } from './reelTiming'
 import { CollageScene } from './scenes/CollageScene'
 import { MapScene } from './scenes/MapScene'
@@ -51,14 +50,14 @@ function transitionInto(transition: Exclude<ReelTransition, 'cut'>, index: numbe
   }
 }
 
-type SceneProps = { scene: ReelScene; plan: ReelPlan; look: Look; backdrop?: string; forExport?: boolean; mapTiles: MapTiles }
+type SceneProps = { scene: ReelScene; plan: ReelPlan; look: Look; backdrop?: string; forExport?: boolean }
 
-function Scene({ scene, plan, look, backdrop, forExport, mapTiles }: SceneProps) {
+function Scene({ scene, plan, look, backdrop, forExport }: SceneProps) {
   switch (scene.kind) {
     case 'collage':
       return <CollageScene scene={scene} style={plan.style} look={look} forExport={forExport} />
     case 'map':
-      return <MapScene scene={scene} look={look} mapTiles={mapTiles} />
+      return <MapScene scene={scene} look={look} />
     case 'stats':
       return <StatsScene scene={scene} facts={plan.facts ?? []} look={look} />
     case 'text':
@@ -68,7 +67,7 @@ function Scene({ scene, plan, look, backdrop, forExport, mapTiles }: SceneProps)
   }
 }
 
-export function ReelComposition({ plan, tripName, forExport, mapTiles = 'esri' }: ReelProps) {
+export function ReelComposition({ plan, tripName, forExport }: ReelProps) {
   const look = lookOf(plan.style)
   const cover = plan.scenes.find((s) => s.photos.length)?.photos[0].url
   // Text cards sit over a blurred copy of the nearest photo before them
@@ -84,7 +83,7 @@ export function ReelComposition({ plan, tripName, forExport, mapTiles = 'esri' }
           <Fragment key={`${scene.kind}-${i}`}>
             {i === 0 ? transitionInto('fade', i) : scene.transition !== 'cut' && transitionInto(scene.transition, i)}
             <TransitionSeries.Sequence durationInFrames={sceneFrames(scene.seconds)} premountFor={REEL_FPS}>
-              <Scene scene={scene} plan={plan} look={look} backdrop={backdrops[i]} forExport={forExport} mapTiles={mapTiles} />
+              <Scene scene={scene} plan={plan} look={look} backdrop={backdrops[i]} forExport={forExport} />
             </TransitionSeries.Sequence>
           </Fragment>
         ))}

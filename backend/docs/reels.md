@@ -9,8 +9,7 @@ Mounted at `/api/reels`, signed-in trip members only (non-members get 404, like 
 | Route | Does |
 | --- | --- |
 | `POST /api/reels/trips/:tripId` `{ prompt, photoIds? }` | Cuts a reel. `photoIds` narrows it to photos picked with "Add to reel" in the viewer. Returns 201 with the reel. 5 to 20 seconds with Gemini. |
-| `GET /api/reels/trips/:tripId` | The squad's last 20 reels, newest first, and where map tiles come from: `{ items, mapTiles: 'carto' \| 'esri' }`. |
-| `GET /api/reels/tiles/carto/:style/:z/:x/:y.png` | A retina CARTO basemap tile (`voyager`, `light_all`, `dark_all`), fetched with `CARTO_API_KEY`. Only mounted when the key is set. No sign-in, since `<img>` can't send the token. |
+| `GET /api/reels/trips/:tripId` | The squad's last 20 reels, newest first: `{ items }`. |
 
 A reel is `{ id, prompt, plan, seconds, source, createdAt, createdBy }`, where `plan` is `{ title, tagline, style, scenes, facts? }` and `source` is `gemini`, `claude` or `template`. Each scene is `{ kind, photos: [{ id, url }], caption, seconds, motion, transition, stickers, effect, layout?, places? }` (see Scenes below). Photo `url`s are fresh signed read links; a photo deleted since the reel was cut drops out of it, and a photo scene left with none is skipped. Reels saved before scene kinds existed (one `photoId` per scene) are upgraded when read (`upgradeScene()`).
 
@@ -51,7 +50,7 @@ Every scene can carry `stickers` (emoji that pop in with a motion-blur trail and
 
 ## Outside services in the video
 
-- **Map tiles**: with `CARTO_API_KEY`, CARTO basemaps (Dark Matter for cinematic, Positron with a sepia grade for retro, Voyager for the rest) through the backend's tile proxy (`src/reels/tiles.ts`). The proxy adds the key server-side so it never reaches the browser, and serves tiles from the app's own origin so the MP4 export can read them. It accepts only CARTO's styles and real tile numbers, makes one upstream call per tile even when several arrive at once, keeps the last 600 in memory and lets browsers cache them for a week. A failed fetch is a 502 and is not cached. The route is public, so anyone who finds it could spend the key's quota (5M requests a month non-commercial, 1M commercial); fine for a demo. Without a key: Esri World Imagery and World Street Map (`server.arcgisonline.com`), straight from the browser (no key, cross-origin reads allowed). Every map shows its source's credit: "© OpenStreetMap contributors © CARTO" or Esri's.
+- **Map tiles**: Esri World Imagery and World Street Map (`server.arcgisonline.com`), straight from the browser. They need no key and allow cross-origin reads, so the MP4 export can read their pixels. Each look picks satellite or streets plus a CSS filter (`frontend/src/pages/Reel/looks.ts`), and every map shows Esri's credit.
 - **Fonts**: Google Fonts, loaded by `@remotion/google-fonts`.
 - Pin coordinates come from the model's own knowledge of the places, checked only for being near each other.
 
@@ -69,8 +68,7 @@ Remotion is free for individuals and companies of up to 3 people; larger teams n
 | `GEMINI_SMART_MODEL` | `gemini-3.5-flash` | Gemini model |
 | `ANTHROPIC_API_KEY` | none | Claude, the fallback writer |
 | `CLAUDE_MODEL` | `claude-opus-5-5` | Claude model |
-| `CARTO_API_KEY` | none | CARTO basemaps for map scenes; Esri tiles without it |
 
 ## Tests
 
-`tests/reels/reels.test.ts`: plan clean-up (scene kinds, map pins, stickers, effects, the shared schema, upgrading old reels, trip facts), the template cut, and the routes with a fake database, storage, Gemini and Claude (Gemini's cut, Claude's cut when Gemini fails or is off, the template when both fail, picks, validation and membership). `tests/claude.test.ts`: the Claude client's request (images, structured output, refusal fallback) against a fake fetch, and its refusal, cut-off and bad-JSON errors. The CARTO tile proxy is tested in `reels.test.ts` too: the key and retina path, caching and one upstream call for simultaneous requests, rejected styles and tile numbers, failures not cached, and Esri when there is no key.
+`tests/reels/reels.test.ts`: plan clean-up (scene kinds, map pins, stickers, effects, the shared schema, upgrading old reels, trip facts), the template cut, and the routes with a fake database, storage, Gemini and Claude (Gemini's cut, Claude's cut when Gemini fails or is off, the template when both fail, picks, validation and membership). `tests/claude.test.ts`: the Claude client's request (images, structured output, refusal fallback) against a fake fetch, and its refusal, cut-off and bad-JSON errors.

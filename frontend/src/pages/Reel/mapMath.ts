@@ -41,40 +41,28 @@ export function fitZoom(places: ReelPlace[], width: number, height: number) {
 
 export type Tile = { key: string; url: string; left: number; top: number }
 
-/**
- * Where tiles come from. CARTO basemaps come through the backend, which adds CARTO_API_KEY (served from this origin, so
- * the MP4 export can read them); without a key, Esri's keyless tiles, which allow cross-origin reads.
- */
-export type MapTiles = 'carto' | 'esri'
-export type CartoStyle = 'voyager' | 'light_all' | 'dark_all'
+/** Esri's keyless basemaps. They allow cross-origin reads, so the MP4 export can read their pixels. */
 export type EsriStyle = 'satellite' | 'streets'
 
-/** A look's basemap and tile filter for each source */
-export type MapLook = { carto: CartoStyle; cartoFilter: string; esri: EsriStyle; esriFilter: string }
+/** A look's basemap and tile filter */
+export type MapLook = { style: EsriStyle; filter: string }
 
 const ESRI_SERVICES: Record<EsriStyle, string> = {
   satellite: 'World_Imagery',
   streets: 'World_Street_Map',
 }
 
-export const MAP_CREDIT: Record<MapTiles, string> = {
-  carto: '© OpenStreetMap contributors © CARTO',
-  esri: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics, GIS User Community',
-}
+export const MAP_CREDIT = 'Tiles © Esri — Esri, Maxar, Earthstar Geographics, GIS User Community'
 
-export const mapFilter = (look: MapLook, tiles: MapTiles) => (tiles === 'carto' ? look.cartoFilter : look.esriFilter)
-
-function tileUrl(look: MapLook, tiles: MapTiles, z: number, x: number, y: number) {
-  return tiles === 'carto'
-    ? `/api/reels/tiles/carto/${look.carto}/${z}/${x}/${y}.png`
-    : `https://server.arcgisonline.com/ArcGIS/rest/services/${ESRI_SERVICES[look.esri]}/MapServer/tile/${z}/${y}/${x}`
+function tileUrl(look: MapLook, z: number, x: number, y: number) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/${ESRI_SERVICES[look.style]}/MapServer/tile/${z}/${y}/${x}`
 }
 
 /**
  * The tiles of zoom `z` that cover a frame of `width` × `height` centred on `centre`, positioned in frame pixels at
  * scale 1, for a camera that never shows the layer smaller than `minScale`.
  */
-export function tilesFor(look: MapLook, tiles: MapTiles, centre: Point, z: number, width: number, height: number, minScale: number): Tile[] {
+export function tilesFor(look: MapLook, centre: Point, z: number, width: number, height: number, minScale: number): Tile[] {
   const halfW = width / 2 / minScale
   const halfH = height / 2 / minScale
   const count = 2 ** z
@@ -85,7 +73,7 @@ export function tilesFor(look: MapLook, tiles: MapTiles, centre: Point, z: numbe
       const x = ((tx % count) + count) % count
       found.push({
         key: `${z}/${tx}/${ty}`,
-        url: tileUrl(look, tiles, z, x, ty),
+        url: tileUrl(look, z, x, ty),
         left: width / 2 + tx * TILE - centre.x,
         top: height / 2 + ty * TILE - centre.y,
       })
@@ -108,8 +96,8 @@ export function mapView(places: ReelPlace[], width: number, height: number) {
 }
 
 /** Every tile a map scene can show, layer by layer. */
-export function mapLayers(look: MapLook, tiles: MapTiles, places: ReelPlace[], width: number, height: number) {
+export function mapLayers(look: MapLook, places: ReelPlace[], width: number, height: number) {
   const { centre, levels } = mapView(places, width, height)
-  return levels.map((z, i) => ({ z, tiles: tilesFor(look, tiles, project(centre.lat, centre.lng, z), z, width, height, i === 0 ? 1 : 2 ** -LAYER_FADE) }))
+  return levels.map((z, i) => ({ z, tiles: tilesFor(look, project(centre.lat, centre.lng, z), z, width, height, i === 0 ? 1 : 2 ** -LAYER_FADE) }))
 }
 

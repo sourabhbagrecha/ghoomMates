@@ -62,8 +62,7 @@ const reels = (tripId: string) => `/api/reels/trips/${encodeURIComponent(tripId)
 
 export const reelsApi = {
   /** The squad's reels, newest first */
-  /** `mapTiles` says where map scenes get their tiles: CARTO through the backend (with a key) or Esri */
-  list: (tripId: string) => request<{ items: Reel[]; mapTiles?: 'carto' | 'esri' }>(reels(tripId)),
+  list: (tripId: string) => request<{ items: Reel[] }>(reels(tripId)),
 
   /** A reel this device just cut, if it still has it */
   cached: (id: string) => cut.get(id) ?? null,
