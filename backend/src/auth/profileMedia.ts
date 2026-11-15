@@ -25,7 +25,7 @@ export async function createProfileUpload(storage: MediaStorage | undefined, use
     throw new ApiError(413, 'PICTURE_TOO_LARGE', 'Pictures can be at most 6 MiB');
   }
   const key = `users/${userId}/${FOLDERS[body.kind]}/${randomUUID()}.${ext}`;
-  return { key, upload: await requireStorage(storage).createUpload(key, contentType) };
+  return { key, upload: await requireStorage(storage).createUpload(key, contentType, MAX_PROFILE_UPLOAD_BYTES) };
 }
 
 // A key from createProfileUpload for this user, in one of the allowed folders, whose upload has finished.

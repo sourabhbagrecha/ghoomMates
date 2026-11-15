@@ -98,6 +98,10 @@ export const INDEXES: Record<string, IndexDescription[]> = {
     { key: { object_name: 1 }, unique },
     { key: { user_id: 1 } },
   ],
+  // Daily budgets shared by every instance (limits.ts): _id '<policy>:<caller>:<YYYY-MM-DD>', { count, expires_at }
+  usage_counters: [
+    { key: { expires_at: 1 }, expireAfterSeconds: 0 },
+  ],
 };
 
 export async function ensureIndexes(db: Db) {

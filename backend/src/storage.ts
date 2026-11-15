@@ -14,7 +14,8 @@ export type UploadTarget = { url: string; method: 'PUT'; headers: Record<string,
 export interface MediaStorage {
   readonly kind: 'gcs' | 'local';
   readonly description: string;
-  createUpload(key: string, contentType: string): Promise<UploadTarget>;
+  // A signed PUT for one object of at most maxBytes (default MAX_UPLOAD_BYTES); the browser must send headers as given.
+  createUpload(key: string, contentType: string, maxBytes?: number): Promise<UploadTarget>;
   readUrl(key: string): Promise<string>;
   // Size in bytes, or null when the object does not exist.
   size(key: string): Promise<number | null>;
@@ -71,10 +72,13 @@ class GcsStorage implements MediaStorage {
     this.description = `GCS (gs://${bucketName})`;
   }
 
-  async createUpload(key: string, contentType: string): Promise<UploadTarget> {
+  async createUpload(key: string, contentType: string, maxBytes = MAX_UPLOAD_BYTES): Promise<UploadTarget> {
     assertKey(key);
-    const [url] = await this.bucket.file(key).getSignedUrl({ version: 'v4', action: 'write', expires: Date.now() + UPLOAD_TTL_MS, contentType });
-    return { url, method: 'PUT', headers: { 'Content-Type': contentType } };
+    // Signed into the URL, so GCS itself refuses a bigger body (400 EntityTooLarge): the size a client claims when it
+    // asks for the URL is only a hint. The bucket's CORS config must allow this header (backend/docs/limits.md).
+    const extensionHeaders = { 'x-goog-content-length-range': `0,${maxBytes}` };
+    const [url] = await this.bucket.file(key).getSignedUrl({ version: 'v4', action: 'write', expires: Date.now() + UPLOAD_TTL_MS, contentType, extensionHeaders });
+    return { url, method: 'PUT', headers: { 'Content-Type': contentType, ...extensionHeaders } };
   }
 
   async readUrl(key: string) {

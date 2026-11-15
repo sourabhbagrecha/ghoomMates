@@ -108,11 +108,13 @@ secret_exists() {
 # Settings that become secrets. JWT_SECRET and MONGODB_CONNECTION_STRING (the Atlas URI, with its password) are required;
 # the others switch a feature off when missing.
 # EXTRA_SECRET_KEYS="FOO BAR" adds more (a key another module needs).
-SECRET_KEYS="JWT_SECRET MONGODB_CONNECTION_STRING GOOGLE_CLIENT_SECRET GCS_CREDENTIALS_BASE64 GEMINI_API_KEY LIVEKIT_API_KEY LIVEKIT_API_SECRET GOOGLE_MAPS_API_KEY ${EXTRA_SECRET_KEYS:-}"
+SECRET_KEYS="JWT_SECRET MONGODB_CONNECTION_STRING GOOGLE_CLIENT_SECRET GCS_CREDENTIALS_BASE64 GEMINI_API_KEY LIVEKIT_API_KEY LIVEKIT_API_SECRET GOOGLE_MAPS_API_KEY EDGE_SECRET ${EXTRA_SECRET_KEYS:-}"
 
 # Plain (non-secret) settings copied into the web service's environment when set in the environment or in ENV_FILE.
 # EXTRA_ENV_KEYS="FOO BAR" adds more.
-PLAIN_KEYS="GOOGLE_CLIENT_ID LIVEKIT_URL GEMINI_MODEL GEMINI_SMART_MODEL MONGODB_DB DB_POOL_SIZE ${EXTRA_ENV_KEYS:-}"
+# The limits in backend/src/limits.ts (defaults there; backend/docs/limits.md).
+LIMIT_KEYS="GEMINI_CALLS_PER_DAY VOICE_SESSIONS_PER_DAY VOICE_SESSIONS_PER_USER_PER_DAY REELS_PER_USER_PER_DAY AI_PER_USER_PER_DAY UPLOADS_PER_USER_PER_DAY RATE_LIMIT_PER_MINUTE RATE_LIMIT_IP_PER_MINUTE"
+PLAIN_KEYS="GOOGLE_CLIENT_ID LIVEKIT_URL GEMINI_MODEL GEMINI_SMART_MODEL MONGODB_DB DB_POOL_SIZE $LIMIT_KEYS ${EXTRA_ENV_KEYS:-}"
 
 # env_value KEY: the value from the process environment, else the first non-empty assignment in ENV_FILE.
 # The file is parsed, never sourced (values may contain $ or quotes). Quotes around the value are removed, as the

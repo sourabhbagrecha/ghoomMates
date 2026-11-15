@@ -24,7 +24,7 @@ This module holds a **verified calendar** from November 2026 to December 2027, m
 | Method | Route | What it does |
 | --- | --- | --- |
 | GET | `/api/events?city=Udaipur&from=YYYY-MM-DD&to=YYYY-MM-DD` | Public, needs no database. Defaults to today and the next 120 days (at most 800). Returns `items` (one per run of days that touches the window, soonest first), `recurring` (the nightly shows) and `undated` (events whose dates aren’t announced yet). |
-| POST | `/api/events/:id/ask` | Public. `{ question }` (at most 300 characters) → `{ answer, source: gemini \| faq, matched }`. 20 questions a minute per client, then `429`. |
+| POST | `/api/events/:id/ask` | Public. `{ question }` (at most 300 characters) → `{ answer, source: gemini \| faq, matched }`. 12 questions a minute and 200 a day per visitor, then `429` (see [limits.md](limits.md)). |
 | POST | `/api/events/:id/stops` | Signed-in trip member: `{ tripId, date, time?, dayNumber? }` adds the event’s stop to that day of the plan. `201` with the stop and what the crowd model says about it. |
 
 Each item carries: dates and the `basis` that verifies them, `status` (`today`, `tomorrow`, `ongoing`, `upcoming`), places with map points, hours, significance, `join` (etiquette, dress, photography), tips, price, sources, a `tripTip` template for the itinerary, and `crowd`:

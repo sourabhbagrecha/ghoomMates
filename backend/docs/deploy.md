@@ -111,7 +111,7 @@ GitHub signs in to Google with Workload Identity Federation as `ghoommates-deplo
 
 Then the same job deploys the Cloudflare Worker in `deploy/worker` (`npm ci` and `npx cf deploy`, which builds `frontend/` and uploads it with the Worker), because the domain serves the web app from the Worker, not from the image. It runs only when the repository secret `CLOUDFLARE_API_TOKEN` exists; without it the job warns and the domain keeps serving the previous web app until someone runs `npm install && cf deploy` in `deploy/worker`. **One-time setup (TODO):** in the Cloudflare dashboard, create an API token from the "Edit Cloudflare Workers" template, limited to the account and the `sourabh.org` zone (the Worker is attached to `ghoommates.sourabh.org` as a custom domain), and add it with `gh secret set CLOUDFLARE_API_TOKEN`. If the token reaches more than one account, also `gh variable set CLOUDFLARE_ACCOUNT_ID`.
 
-The release check (`/health` and `/` on the domain) sees the Worker's copy of the app, which CI deploys after it; `curl https://ghoommates-449943395156.asia-south1.run.app/` checks the image's copy.
+The release check (`/health` and `/` on the domain) sees the Worker's copy of the app, which CI deploys after it; `curl https://ghoommates-449943395156.asia-south1.run.app/` checks the image's copy, until `EDGE_SECRET` is set: from then on the `run.app` address answers only `/health` ([limits.md](limits.md)).
 
 ## Sign-in for the jury
 
@@ -132,10 +132,10 @@ Fixed in code (`backend/tests/deploy/production.test.ts` covers each):
 - **Cookies.** None exist (sessions are bearer tokens), so there are no cookie flags to set. Cloud Run only serves HTTPS.
 - **`/api/media` signing.** The local-disk fallback signs upload and read URLs with HMAC over method, key and expiry (15 minutes to upload, 12 hours to read), keyed by `JWT_SECRET`, so the fix above covers it. It is inert when GCS is configured. Without `GCS_CREDENTIALS_BASE64` uploads would go to the container's temporary disk and vanish, so `deploy/cloudrun.sh` warns.
 - **Built output.** Hidden files and unknown API paths never fall back to `index.html`; the static handler cannot leave the app directory.
+- **Rate limits and spending caps.** Per-user and per-IP rate limits, daily budgets for Gemini, voice calls, reels and uploads, signed upload size limits, and an edge lock so the `run.app` address can't be used to go around Cloudflare. See [limits.md](limits.md), including the rollout order (`EDGE_SECRET`, bucket CORS). Tested in `backend/tests/limits.test.ts`.
 
 Not fixed (decide after the demo):
 
-- **No rate limits** on any route, including the Gemini and Vertex backed ones (itinerary drafts, images, speech). Every one needs a signed-in user, but with the consent screen public anyone can sign in. The caps that exist are `--max-instances` (web 4) and your quotas: lower the Vertex AI "generate content requests per minute" quota, restrict and cap the Gemini API key, and add a budget alert (`gcloud billing budgets create`). The proper fix is a per-user token bucket on those routes.
 - **Google sign-in `state` is not checked**, so a login CSRF is possible (a victim could be signed in as the attacker). Google still enforces the registered redirect URIs.
 - **Sessions** are 7-day tokens in `localStorage` with no server-side revocation; `/auth/logout` only clears the client. After Google sign-in the token travels in the URL fragment (`/#/auth/callback?token=`).
 - **No CSP, `frame-ancestors` or HSTS headers.** Only `nosniff` is set.

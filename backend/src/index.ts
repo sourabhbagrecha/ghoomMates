@@ -8,11 +8,12 @@ import { OAuthService } from './auth/service.ts';
 import { createEventsApp, createMongoEvents } from './events/app.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
-import { createGemini } from './gemini.ts';
+import { createGemini, limitGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { createMakersApp, createMongoMakers } from './makers/app.ts';
 import { createImpactApp } from './impact/app.ts';
 import { createHospitalityApp } from './hospitality/app.ts';
+import { edgeGuard, memoryCounters, mongoCounters, rateLimits } from './limits.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
 import { createReelsApp } from './reels/app.ts';
@@ -83,6 +84,21 @@ const authenticate = async (token: string) => (await authService.verifySessionTo
 // One Gemini client for every AI feature; each feature falls back to hand-written content when it is off.
 const gemini = createGemini();
 
+// Daily budgets shared by every instance (limits.ts). Past GEMINI_CALLS_PER_DAY, AI features answer with their fallbacks.
+const counters = db ? mongoCounters(db.db) : memoryCounters();
+const geminiPerDay = Number(process.env.GEMINI_CALLS_PER_DAY) || 2000;
+limitGemini(async (label) => {
+  const allowed = await counters.take('gemini:all', geminiPerDay);
+  if (!allowed) logger.warn('Limits', `${label}: today's Gemini budget (${geminiPerDay} calls) is used up; using the fallback`);
+  return allowed;
+});
+// Only requests that came through the Cloudflare Worker reach the routes once EDGE_SECRET is set (deploy/worker).
+const edgeSecret = process.env.EDGE_SECRET?.trim() || undefined;
+if (edgeSecret && edgeSecret.length < 32) throw new Error('EDGE_SECRET must be at least 32 characters');
+if (!edgeSecret && process.env.NODE_ENV === 'production') {
+  logger.warn('Server', 'EDGE_SECRET is not set: the run.app address skips Cloudflare, and rate limits see Cloudflare’s addresses instead of visitors’');
+}
+
 // VOICE_WORKER=inline (Cloud Run): this server runs the voice worker under its own agent name (voice/inline.ts).
 // Locally `npm run dev` runs the worker as its own process instead.
 const voiceWorker = process.env.VOICE_WORKER === 'inline' && db && liveKitConfig()
@@ -118,6 +134,7 @@ if (db) {
 const stories = createStoriesApp({ db, storage, authenticate });
 
 const app = createServer({
+  guards: [edgeGuard(edgeSecret), rateLimits({ jwtSecret, counters })],
   // Production: also serve the built web app from this server (SERVE_FRONTEND_DIR, set in the Docker image)
   frontend: createFrontendRouter(process.env.SERVE_FRONTEND_DIR),
   auth: createAuthApp(authDb, {

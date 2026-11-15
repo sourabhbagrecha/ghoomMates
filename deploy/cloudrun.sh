@@ -259,7 +259,7 @@ confirm_url() {
 verify_web() {
   step "Check $PUBLIC_URL"
   if [[ "$DRY_RUN" == 1 ]]; then say "  (skipped in a dry run)"; return 0; fi
-  local attempt body="" page=""
+  local attempt body="" page="" api=""
   for attempt in 1 2 3 4 5 6; do
     body="$(curl_url "$PUBLIC_URL/health" 2>/dev/null || true)"
     if [[ -n "$body" ]]; then break; fi
@@ -275,6 +275,13 @@ verify_web() {
   case "$page" in
     *'id="root"'*) ok "the web app is served at /" ;;
     *) VERIFY_FAILED=1; warn "$PUBLIC_URL/ did not return the web app" ;;
+  esac
+  # /health skips the edge check (backend/src/limits.ts), so ask an API route too: it fails if EDGE_SECRET differs
+  # between the Cloudflare Worker and this service
+  api="$(curl_url "$PUBLIC_URL/auth/config" 2>/dev/null || true)"
+  case "$api" in
+    *'"isConfigured"'*) ok "API routes answer at $PUBLIC_URL" ;;
+    *) VERIFY_FAILED=1; warn "$PUBLIC_URL/auth/config did not answer. Does the Cloudflare Worker send the same EDGE_SECRET as this service? (backend/docs/limits.md)" ;;
   esac
 }
 

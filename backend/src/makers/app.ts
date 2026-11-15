@@ -37,24 +37,11 @@ function bearer(req: Request) {
 
 const oneOf = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
-/** At most `limit` calls per client per minute, for the one route that costs a Gemini call */
-function rateLimiter(limit: number, now: () => number = Date.now) {
-  const calls = new Map<string, number[]>();
-  return (client: string) => {
-    const cutoff = now() - 60_000;
-    const recent = (calls.get(client) ?? []).filter(t => t > cutoff);
-    if (recent.length >= limit) return false;
-    calls.set(client, [...recent, now()]);
-    return true;
-  };
-}
-
 // Makers of Udaipur: curated crafts and sample makers, a fair-price checker and squad workshop bookings. Mount under
 // /api/makers. Browsing needs no sign-in and no database; booking needs both.
 export function createMakersApp({ gemini, authenticate, store, trips, now = () => new Date() }: MakersAppOptions = {}) {
   const router = Router();
   const service = store && trips ? new MakersService(store, trips, now) : null;
-  const allowAsk = rateLimiter(20);
 
   const requireUser: RequestHandler = async (req, res, next) => {
     if (!service || !authenticate) {
@@ -137,7 +124,6 @@ export function createMakersApp({ gemini, authenticate, store, trips, now = () =
   router.post('/:id/ask', jsonBody, async (req, res) => {
     const maker = makerOf(req);
     const question = text(object(req.body).question, 'question', MAX_QUESTION);
-    if (!allowAsk(req.ip ?? 'unknown')) throw new ApiError(429, 'RATE_LIMITED', 'That’s a lot of questions at once. Give it a minute.');
     res.json(await answerQuestion(maker, question, gemini));
   });
 

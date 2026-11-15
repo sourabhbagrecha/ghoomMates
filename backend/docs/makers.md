@@ -26,7 +26,7 @@ Browsing, the price checker, slots and the ask box need **no sign-in and no data
 | GET | `/api/makers/:id` | One maker: story, workshop with its weekly slots, the craft explainers (`craftDetails`), suggested questions, closed dates. `?near=<siteId>` adds `fromSite` |
 | GET | `/api/makers/:id/slots?date=YYYY-MM-DD` | Sessions that day, places left, and why one can't be booked (`past`, `full`) |
 | POST | `/api/makers/price-check` | `{ craftId, size: small \| medium \| large, quoted, antique? }` → verdict, fair range, counter-offer |
-| POST | `/api/makers/:id/ask` | `{ question }` (≤ 300 characters) → `{ answer, source: gemini \| faq, matched }`. 20 questions a minute per client, then `429` |
+| POST | `/api/makers/:id/ask` | `{ question }` (≤ 300 characters) → `{ answer, source: gemini \| faq, matched }`. 12 questions a minute and 200 a day per visitor, then `429` (see [limits.md](limits.md)) |
 | POST | `/api/makers/:id/bookings` | Signed-in trip member: `{ tripId, date, slot, people, note? }` → saves the booking and adds an itinerary stop. `201` |
 | GET | `/api/makers/bookings?tripId=` | Your squad's confirmed workshops for the trip, soonest first |
 
