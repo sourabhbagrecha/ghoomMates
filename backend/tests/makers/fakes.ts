@@ -81,18 +81,11 @@ export const authenticate = async (token: string) => {
 export function fakeGemini(json: (request: { prompt: unknown }) => unknown, enabled = true): Gemini & { calls: number } {
   const gemini = {
     enabled,
-    imageEnabled: false,
     calls: 0,
-    models: { lite: 'fake-lite', smart: 'fake-smart', image: 'fake-image', tts: 'fake-tts' },
+    models: { lite: 'fake-lite', smart: 'fake-smart' },
     async json(request: { prompt: unknown }) {
       gemini.calls++;
       return json(request);
-    },
-    async image() {
-      throw new Error('not used');
-    },
-    async speech() {
-      throw new Error('not used');
     },
   };
   return gemini as unknown as Gemini & { calls: number };

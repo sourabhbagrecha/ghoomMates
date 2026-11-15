@@ -1,61 +1,87 @@
 # Stories module (Kaavad Tales + Heritage Passport)
 
-A Kaavad is a painted wooden shrine from Bassi, near Chittorgarh. Its doors fold open panel by panel while the Kavadiya Bhat, the storyteller, tells the tale. Kaavad Tales borrows that for Udaipur's heritage sites: a squad opens a story at the place, the panels unfold, a storyteller's voice narrates in English or Hindi, and a three-question quiz earns a stamp in everyone's **Heritage Passport**.
+A Kaavad is a painted wooden shrine from Bassi, near Chittorgarh. Its doors fold open panel by panel while the Kavadiya Bhat, the storyteller, tells the tale. Kaavad Tales borrows that for a city's heritage sites: a squad opens a story at the place, the panels unfold, a storyteller's voice narrates in English or Hindi, and a quiz earns a stamp in everyone's **Heritage Passport**.
 
-Everything works with Gemini, the database or GCS unavailable: the key sites have hand-written stories, painted panels and recorded narration shipped with the app.
+**Nothing is generated on request.** Every story, painting and recording is prepared ahead of time: by the city batch (outside this repo), which writes tales into MongoDB and their art and audio into the media bucket, or bundled with the app for the key Udaipur sites. The app only reads them. Stories keep working with the database or GCS unavailable, from the bundled ones.
 
 ## Pieces
 
 | File | Role |
 | --- | --- |
-| `src/stories/curated/*.ts` | Hand-written stories for 7 key sites (City Palace, Jagdish Temple, Lake Pichola and Jag Mandir, Saheliyon ki Bari, Bagore ki Haveli, Sajjangarh, Fateh Sagar), each in English and Hindi: 4 panels, a three-question quiz and a care note. |
-| `src/stories/curated/narration.ts` | Written by `scripts/stories/narration.ts`: length, panel start times and a hash for each shipped recording. |
-| `src/stories/generate.ts` | The Gemini retelling for an audience: strict system prompt, JSON schema, and checks on the answer (shape, length, language, no year that the facts lack). |
-| `src/stories/basic.ts` | A story for the 12 sites with no hand-written telling, built from `heritage/sites.ts` (history line, quiet time, care tip). |
-| `src/stories/audience.ts` | The audiences and the squad vibe bucket. |
-| `src/stories/speech.ts`, `wav.ts`, `narration.ts` | What the narrator says (years and numerals spelled out), joining per-panel recordings into one track with panel start times, and recording through Gemini speech. |
+| `src/stories/tales.ts` | The `heritage_tales` document shape, `readTale()` (checks a document from the batch) and `signTale()` (signed links for its art and audio). |
+| `src/stories/curated/*.ts` | Bundled stories for 7 key Udaipur sites (City Palace, Jagdish Temple, Lake Pichola and Jag Mandir, Saheliyon ki Bari, Bagore ki Haveli, Sajjangarh, Fateh Sagar), each in English and Hindi: 4 panels, a three-question quiz and a care note. |
+| `src/stories/curated/narration.ts` | Length and panel start times of each bundled recording, and `staticNarration()`. |
+| `src/stories/basic.ts` | A story for sites with nothing prepared or bundled, built from `heritage/sites.ts` (history line, quiet time, care tip). |
 | `src/stories/quiz.ts` | Server-side scoring, grades, deterministic option shuffling. |
-| `src/stories/service.ts`, `app.ts` | Orchestration and the routes. |
-| `src/schema.ts` | Indexes for the `story_cache`, `story_narrations` and `heritage_stamps` collections. |
-| `scripts/stories/art.ts`, `narration.ts` | One-off generators for the committed art and narration. |
+| `src/stories/service.ts`, `app.ts` | Choosing the story, the passport, and the routes. |
+| `src/schema.ts` | Indexes for `heritage_tales` and `heritage_stamps`. |
 
 ## Endpoints (mounted at `/api/stories`)
 
 | Route | Auth | What |
 | --- | --- | --- |
-| `GET /` | none | Every heritage site with its story: title, painted cover, whether narration is shipped. Hand-written first. |
-| `GET /:siteId?lang=en\|hi&audience=classic\|family\|friends\|couple\|history&tripId=` | optional | `{ siteId, siteName, title, lang, audience, panels: [{ heading, text, lookFor, art? }], quiz: [{ question, options[3], answerIndex, fact }], careNote, generated, vibe, narration }`. `lang` and `audience` are what the story actually is, which can differ from what was asked (see below). |
-| `POST /:siteId/narration` `{ lang, audience, tripId? }` | user | `{ url, durationSec, marks[], source, cached }`: a playable URL and the second each panel starts. Pass the story's own `lang` and `audience`. |
+| `GET /` | none | Every heritage site with its story: city, title, painted cover, whether narration exists. Sites with a full telling first. |
+| `GET /:siteId?lang=en\|hi&audience=classic\|family\|friends\|couple\|history` | none | `{ siteId, siteName, title, lang, audience, source, panels: [{ heading, text, lookFor, art? }], quiz: [{ question, options[], answerIndex, fact }], careNote, narration }`. `lang` and `audience` are what the story actually is, which can differ from what was asked. `source` is `prepared`, `bundled` or `basic`. `narration` is `{ url, durationSec, marks[], source }` (`marks` is the second each panel starts) or `null`. |
 | `POST /:siteId/stamp` `{ lang, audience, answers[], tripId?, withUserIds? }` | user | Scores on the server and stamps the passport. |
 | `GET /passport` | user | `{ totalSites, stamped, stamps[], sites[] }`: your stamps and every site, stamped or not yet. |
 | `GET /passport/trip/:tripId` | trip member | `{ members[], leaderboard[], bySite }`: who holds which stamp. Non-members get 404. |
 
 ### Which story you get
 
-- **Classic** (the default) is the hand-written telling for a key site: instant, no AI, no database.
-- Another audience is retold by Gemini (the smart model) and cached in `story_cache` by site, language, audience and **vibe bucket**. With a `tripId` and a signed-in member, the bucket is the two strongest tastes in the squad's quiz scores (`culture+food`), averaged over every member; otherwise it is empty. The next open is instant, for the whole squad.
-- If Gemini is off, over quota, slower than 18 s or its answer fails the checks, the reader gets the classic telling (`generated: false`, `audience: "classic"`). A slow retelling carries on in the background and is cached for the next open. After a failure Gemini is skipped for 45 s.
-- When the API key is out of quota the retelling is tried once on Vertex AI.
-- A site without a hand-written story is retold when Gemini is on, and otherwise opens with the `basic.ts` story (English even if Hindi was asked; `lang` says so).
-- Retellings reuse the painted art of the site.
+For `lang` and `audience`, the first of these that exists:
+
+1. The prepared tale for that site, language and audience.
+2. The prepared classic tale in that language.
+3. The bundled telling in that language (key sites only).
+4. The prepared classic tale in English.
+5. A story built from the site's notes, in English (`source: "basic"`, no narration).
+
+Prepared tales are looked up with a 3-second limit, so a slow or unreachable database falls through to the bundled story instead of making the reader wait. A malformed document is skipped and logged with the reason.
 
 ### Narration
 
-`POST /:siteId/narration` resolves the same story the reader sees (without asking Gemini for a new one), then:
-
-1. A classic telling with a matching shipped recording returns `/stories/<siteId>/<lang>.m4a` (source `static`). The hash in `curated/narration.ts` must match the current words and voice, so an edited story stops using a stale recording.
-2. Otherwise `story_narrations` is checked (keyed by site, language, audience, vibe and a hash of the spoken text) and the stored recording's signed URL is returned.
-3. Otherwise every panel is recorded with Gemini speech in parallel (voice **Algenib**, steered by "director's notes" in the prompt; a plain "narrate like a storyteller" instruction is read out loud by the model, so the notes use the `TRANSCRIPT` layout), joined with a pause between panels (so the start of each panel is exact), stored with `MediaStorage.put()` as WAV and returned through `readUrl()`. Simultaneous requests share one recording.
-
-Speech goes through **Vertex AI** when `VERTEX_PROJECT` is set. The Gemini API key's free tier allows only **10 speech requests a day** per model, and a story takes one request per panel. Without Vertex a story still works, but only about two new narrations a day.
+The story carries its own narration: the prepared tale's audio as a signed bucket link (`source: "prepared"`), or for a bundled telling the recording shipped at `/stories/<siteId>/<lang>.m4a` (`source: "static"`). There is no recording endpoint. With no narration the app reads the panels with the phone's own voice.
 
 The local media route (`/api/media`, used when GCS isn't configured) serves audio with its type and byte ranges, which iPhones need to play and seek.
 
+## Prepared tales: what the city batch writes
+
+One document per site, language and audience in `heritage_tales` (unique on `site_id`, `lang`, `audience`; indexed on `city`). Write with an upsert on those three fields. Field names are snake_case like the rest of the database.
+
+```js
+{
+  city: 'Udaipur',                  // HERITAGE_CITIES in src/heritage/sites.ts
+  site_id: 'city-palace',           // a site id from src/heritage/sites.ts; others are never shown
+  lang: 'en',                       // 'en' | 'hi'
+  audience: 'classic',              // 'classic' | 'family' | 'friends' | 'couple' | 'history'; write classic for every site
+  title: 'The Palace Four Centuries in the Making',
+  panels: [                         // 1 to 8; 4 reads best. Keep each text under about 70 words, written to be heard
+    { heading: 'The hermit’s hill', text: '…', look_for: 'One thing to spot from where you stand', art_key: 'tales/udaipur/city-palace/1.jpg' },
+  ],
+  quiz: [                           // 1 to 5 questions (3 is the norm), 2 to 6 options each
+    { question: '…?', options: ['…', '…', '…'], answer_index: 1, fact: 'One line that confirms the answer' },
+  ],
+  care_note: 'How to visit lightly', // optional; the bundled note or the site's care tip is used when empty
+  narration: {                      // optional; null or missing means the phone's voice reads it
+    audio_key: 'tales/udaipur/city-palace/en-classic.m4a',
+    duration_sec: 98.8,
+    marks: [0, 29.2, 52.5, 78.3],   // second each panel starts: one per panel, rising, the first 0
+  },
+  updated_at: ISODate('2026-11-14T00:00:00Z'),
+}
+```
+
+- `art_key` and `audio_key` are object keys in the app's media bucket (`GCS_BUCKET`); the app signs a read link for each request. Suggested layout: `tales/<city>/<siteId>/<n>.jpg` (640 px wide, 16:10, under 80 KB) and `tales/<city>/<siteId>/<lang>-<audience>.m4a` (AAC, mono, about 24 kbps).
+- A panel without `art_key` borrows the bundled painting of that panel when the site has one.
+- Narration whose `marks` don't line up with the panels is ignored (the story still shows). A document that fails the checks in `readTale()` is skipped entirely.
+- A prepared classic tale replaces the bundled one for that language, including its narration.
+
 ### Heritage Passport
 
-`POST /:siteId/stamp` scores `answers` against the quiz of the story the reader took (the cached retelling or the classic one), saves a stamp per person per site and keeps the best score. Finishing earns the stamp; the grade (gold, silver, bronze) is the seal's finish. With a `tripId` the caller is on, `withUserIds` stamps squad mates who listened along, since one phone often reads the story to the whole group; ids that aren't on the trip are ignored. The reply includes the squad's progress at that site.
+`POST /:siteId/stamp` scores `answers` against the quiz of the story the reader took (resolved the same way as `GET /:siteId`), saves a stamp per person per site and keeps the best score. Finishing earns the stamp; the grade (gold, silver, bronze) is the seal's finish. With a `tripId` the caller is on, `withUserIds` stamps squad mates who listened along, since one phone often reads the story to the whole group; ids that aren't on the trip are ignored. The reply includes the squad's progress at that site.
 
 If the database is unreachable the passport routes answer `503 PASSPORT_UNAVAILABLE` and the app keeps the stamp on the phone.
+
 
 ## Frontend
 
@@ -66,11 +92,11 @@ If the database is unreachable the passport routes answer `503 PASSPORT_UNAVAILA
 
 Entry points: **Hear the story** on a stop that matches a heritage site (Stop detail), a link under the selected site in Explore's Crowd pulse, and the **Stories of Mewar** carousel on Explore. Everything is in `frontend/src/pages/Stories/`, with the API in `frontend/src/services/storiesService.ts`.
 
-If the recording can't be loaded the phone's own voice reads the panels. If the passport desk can't be reached, the stamp is kept on the phone (`localStorage`) and shows in the passport.
+When a telling has no recording, or it can't be loaded, the phone's own voice reads the panels. If the passport desk can't be reached, the stamp is kept on the phone (`localStorage`) and shows in the passport.
 
 ## Content and sources
 
-The hand-written stories stay with facts a historian would stand behind and mark the rest as tradition ("legend says", "it is said"). Where sources differ the story says so by being vague ("in the 1550s", "more than a hundred rooms").
+The bundled stories stay with facts a historian would stand behind and mark the rest as tradition ("legend says", "it is said"). Where sources differ the story says so by being vague ("in the 1550s", "more than a hundred rooms").
 
 - City Palace: [Wikipedia](https://en.wikipedia.org/wiki/City_Palace,_Udaipur) (22 generations over nearly 400 years; Mor Chowk peacocks of about 5,000 glass pieces in Sajjan Singh's time; Tripolia gate of 1725 and the gold-weighing tradition; the hermit is legend).
 - Jagdish Temple: [Wikipedia](https://en.wikipedia.org/wiki/Jagdish_Temple,_Udaipur) (completed 1651 by Jagat Singh I, 32 marble steps, black stone image, brass Garuda, spire of about 79 ft).
@@ -81,23 +107,12 @@ The hand-written stories stay with facts a historian would stand behind and mark
 - Fateh Sagar: [Wikipedia](https://en.wikipedia.org/wiki/Fateh_Sagar_Lake) and [Udaipur Solar Observatory](https://en.wikipedia.org/wiki/Udaipur_Solar_Observatory) (built in the late 1600s, the dam rebuilt in 1889, an observatory on an island since 1976); Moti Magri and Neemach Mata come from `heritage/sites.ts`.
 - The Kaavad itself: a hinged painted shrine of Bassi, Chittorgarh, opened panel by panel by the Kavadiya Bhat ([Nina Sabnani's research on the Kaavad](https://www.taylorfrancis.com/chapters/edit/10.4324/9781003150367-22/enchanted-kaavad-nina-sabnani) and the [Queensland Art Gallery's Kaavad makers](https://collection.qagoma.qld.gov.au/page/kaavad-makers)).
 
-The panel art is generated in the style of the Mewar school of miniature painting and is illustrative, not documentary.
+The bundled panel art is painted in the style of the Mewar school of miniature painting and is illustrative, not documentary.
 
-## Assets
+## Bundled assets
 
-Committed under `frontend/public/stories/` (about 4 MB: 1.6 MB of art, 2.4 MB of audio): 28 JPEGs (640 px wide, under 70 KB each) and 8 m4a recordings at 24 kbps (English for all seven sites, Hindi for Bagore ki Haveli, the demo story).
-
-```bash
-cd backend
-# paint missing panels into $ART_DIR as PNG, then crop and compress them into frontend/public/stories
-ART_DIR=/tmp/story-art node scripts/stories/art.ts generate [siteId[:panel] ...]
-ART_DIR=/tmp/story-art node scripts/stories/art.ts convert
-# record the narration and update src/stories/curated/narration.ts (needs macOS afconvert)
-node scripts/stories/narration.ts [--force] [siteId[:lang] ...]
-```
-
-Both use Vertex AI through `gcloud auth application-default login`; set `ENV_FILE` if `backend/.env` is elsewhere. Image quota on Vertex is shared and bursty, so the art script retries patiently.
+Committed under `frontend/public/stories/` (about 4 MB): 28 JPEGs (640 px wide, under 70 KB each) and 8 m4a recordings at 24 kbps (English for all seven sites, Hindi for Bagore ki Haveli). They are the fallback until the batch has prepared those sites.
 
 ## Env
 
-No new variables. `GEMINI_API_KEY` retells stories; `VERTEX_PROJECT` (already used for images) records narration and gives retellings a second chance; `GCS_*` stores recordings (local disk otherwise).
+None of its own. `MONGODB_CONNECTION_STRING` for prepared tales and the passport; `GCS_*` for the bucket holding prepared art and audio (local disk otherwise).

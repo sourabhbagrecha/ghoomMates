@@ -1,6 +1,6 @@
 # Reels module (Reel studio)
 
-A squad member types what reel they want ("30s of our beach day, chill vibe", "Kabir's funniest moments with a fast beat") and gets a vertical reel cut from the trip's photos. Gemini does the editing (Claude when Gemini fails): it looks at the photos, picks and orders the ones that fit, and writes captions, timing, camera moves and transitions. The app plays that plan with [Remotion](https://www.remotion.dev/) (`@remotion/player`) and renders the MP4 on the device (`@remotion/web-renderer`), so the backend never touches video.
+A squad member types what reel they want ("30s of our beach day, chill vibe", "Kabir's funniest moments with a fast beat") and gets a vertical reel cut from the trip's photos. Gemini does the editing: it looks at the photos, picks and orders the ones that fit, and writes captions, timing, camera moves and transitions. The app plays that plan with [Remotion](https://www.remotion.dev/) (`@remotion/player`) and renders the MP4 on the device (`@remotion/web-renderer`), so the backend never touches video.
 
 ## Endpoints
 
@@ -11,24 +11,23 @@ Mounted at `/api/reels`, signed-in trip members only (non-members get 404, like 
 | `POST /api/reels/trips/:tripId` `{ prompt, photoIds? }` | Cuts a reel. `photoIds` narrows it to photos picked with "Add to reel" in the viewer. Returns 201 with the reel. 5 to 20 seconds with Gemini. |
 | `GET /api/reels/trips/:tripId` | The squad's last 20 reels, newest first: `{ items }`. |
 
-A reel is `{ id, prompt, plan, seconds, source, createdAt, createdBy }`, where `plan` is `{ title, tagline, style, scenes, facts? }` and `source` is `gemini`, `claude` or `template`. Each scene is `{ kind, photos: [{ id, url }], caption, seconds, motion, transition, stickers, effect, layout?, places? }` (see Scenes below). Photo `url`s are fresh signed read links; a photo deleted since the reel was cut drops out of it, and a photo scene left with none is skipped. Reels saved before scene kinds existed (one `photoId` per scene) are upgraded when read (`upgradeScene()`).
+A reel is `{ id, prompt, plan, seconds, source, createdAt, createdBy }`, where `plan` is `{ title, tagline, style, scenes, facts? }` and `source` is `gemini` or `template`. Each scene is `{ kind, photos: [{ id, url }], caption, seconds, motion, transition, stickers, effect, layout?, places? }` (see Scenes below). Photo `url`s are fresh signed read links; a photo deleted since the reel was cut drops out of it, and a photo scene left with none is skipped. Reels saved before scene kinds existed (one `photoId` per scene) are upgraded when read (`upgradeScene()`).
 
 | Status | Code | When |
 | --- | --- | --- |
 | 400 | `VALIDATION_ERROR` | Prompt not 3 to 300 characters, or malformed photo ids |
 | 422 | `NOT_ENOUGH_PHOTOS` | Fewer than 2 photos (in the trip, or among the picks) |
 
-Writer failures never fail the request: Claude steps in for Gemini, the template cut for both, and `source` says which wrote it.
+Writer failures never fail the request: the template cut steps in for Gemini, and `source` says which wrote it.
 
 ## Flow
 
 1. Load the trip's photos (or the picked ones), oldest first, and spread up to 24 evenly over the trip.
 2. Read their bytes with `storage.read()` (uploads are 2048px JPEGs, a few hundred KB) under a 14 MB total budget, skipping anything over 4 MB or not an image.
-3. One `gemini.json()` call on `GEMINI_SMART_MODEL` with the prompt, the trip name and destination, the trip's facts (`tripFacts()`: mates, days and photos, from the database), and each photo after a label ("Photo 3 (added by Riya on 4 Nov):"). The plan schema is written once as JSON Schema (`CLAUDE_REEL_SCHEMA`) and converted to Gemini's dialect (`toGeminiSchema()`); it refers to photos by number.
+3. One `gemini.json()` call on `GEMINI_SMART_MODEL` with the prompt, the trip name and destination, the trip's facts (`tripFacts()`: mates, days and photos, from the database), and each photo after a label ("Photo 3 (added by Riya on 4 Nov):"). The plan schema is written as JSON Schema (`REEL_JSON_SCHEMA`) and converted to Gemini's dialect (`toGeminiSchema()`); it refers to photos by number.
 4. `normalizePlan()` keeps only shown photos (each once in photo scenes; collages may reuse them), at most one map and one stats scene (only when there are facts), at most two text cards (only with words), map pins with real coordinates within 2° of the first, and emoji-only stickers (up to 3). It clamps scenes to 1 to 5 seconds (2.5 minimum for maps and stats) and 55 seconds in all, and replaces unknown kinds, styles, moves, transitions, effects and layouts. Fewer than 3 usable scenes, or fewer than 2 with photos, counts as a failure.
-5. **Claude fallback** (`src/claude.ts`): if Gemini is off, errors, times out or gives too few usable scenes, the same prompt, labels and photos go to Claude (`CLAUDE_MODEL`, default `claude-opus-5-5`, effort `medium`) with the plan as a JSON Schema structured output (`CLAUDE_REEL_SCHEMA`), checked by the same `normalizePlan()`. HEIC photos are left out for Claude, which doesn't read them. Gemini gets up to 50 seconds and Claude whatever is left of 105 seconds (at least 20). Requests opt into Anthropic's server-side refusal fallback (`fallbacks: "default"`), so a policy decline is retried on another Claude model rather than failing.
-6. Without either, or when both fail: `templatePlan()` takes up to 10 (14 for fast edits) photos spread over the trip, with a look read from the prompt's words, adds a collage in the middle when there are 6 or more photos and a stats scene at the end when there are facts.
-7. Store the plan in `trip_reels` (indexes in `src/schema.ts`) and return it with photo links.
+5. Gemini gets up to 50 seconds. When it is off, errors, times out or gives too few usable scenes: `templatePlan()` takes up to 10 (14 for fast edits) photos spread over the trip, with a look read from the prompt's words, adds a collage in the middle when there are 6 or more photos and a stats scene at the end when there are facts.
+6. Store the plan in `trip_reels` (indexes in `src/schema.ts`) and return it with photo links.
 
 ## Scenes
 
@@ -64,11 +63,9 @@ Remotion is free for individuals and companies of up to 3 people; larger teams n
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `GEMINI_API_KEY` / `VERTEX_PROJECT` | none | Gemini, the first writer |
+| `GEMINI_API_KEY` / `VERTEX_PROJECT` | none | Gemini, the writer |
 | `GEMINI_SMART_MODEL` | `gemini-3.5-flash` | Gemini model |
-| `ANTHROPIC_API_KEY` | none | Claude, the fallback writer |
-| `CLAUDE_MODEL` | `claude-opus-5-5` | Claude model |
 
 ## Tests
 
-`tests/reels/reels.test.ts`: plan clean-up (scene kinds, map pins, stickers, effects, the shared schema, upgrading old reels, trip facts), the template cut, and the routes with a fake database, storage, Gemini and Claude (Gemini's cut, Claude's cut when Gemini fails or is off, the template when both fail, picks, validation and membership). `tests/claude.test.ts`: the Claude client's request (images, structured output, refusal fallback) against a fake fetch, and its refusal, cut-off and bad-JSON errors.
+`tests/reels/reels.test.ts`: plan clean-up (scene kinds, map pins, stickers, effects, the shared schema, upgrading old reels, trip facts), the template cut, and the routes with a fake database, storage and Gemini (Gemini's cut, the template when it fails, picks, validation and membership).

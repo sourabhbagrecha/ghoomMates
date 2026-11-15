@@ -26,7 +26,7 @@ import {
 import { KaavadStage } from './KaavadStage'
 import { QuizBoard } from './QuizBoard'
 import { StampResult } from './StampResult'
-import { AUDIENCES, COPY, LANGUAGES, audienceLabel, clock, saveLang, savedLang, vibeWords } from './storiesData'
+import { AUDIENCES, COPY, LANGUAGES, audienceLabel, clock, saveLang, savedLang } from './storiesData'
 import { myStamps, storiesStore, useStories } from './storiesStore'
 import { useNarration } from './useNarration'
 import './StoryPage.css'
@@ -51,11 +51,9 @@ function useLeave() {
 export function StoryPage({ siteId }: { siteId: string }) {
   const navigate = useNavigate()
   const leave = useLeave()
-  const { trip, tripId: openTripId, error: tripError } = useActiveTrip()
+  const { trip } = useActiveTrip()
   const { catalogue } = useStories({ passport: false })
   const tripId = trip?.id ?? null
-  // The squad's vibe tunes the retelling, so the story waits a moment for the trip to load
-  const waitingForTrip = !!openTripId && !trip && !tripError
   const [toast, showToast] = useToast(3600)
   const scroll = useRef<HTMLDivElement>(null)
 
@@ -77,7 +75,7 @@ export function StoryPage({ siteId }: { siteId: string }) {
   const siteName = story?.siteName ?? catalogue.find((c) => c.siteId === siteId)?.name ?? 'Heritage story'
 
   /* Loading the story (again, when the language or audience changes) */
-  const requestKey = `${siteId}|${lang}|${audience}|${tripId ?? ''}|${attempt}`
+  const requestKey = `${siteId}|${lang}|${audience}|${attempt}`
   const busy = settled !== requestKey
   const ticket = useRef(0)
   const shown = useRef<Story | null>(null)
@@ -86,17 +84,16 @@ export function StoryPage({ siteId }: { siteId: string }) {
   }, [story])
 
   useEffect(() => {
-    if (waitingForTrip) return
     const mine = ++ticket.current
     storiesApi
-      .story(siteId, { lang, audience, tripId })
+      .story(siteId, { lang, audience })
       .then((next) => {
         if (mine !== ticket.current) return
         setStory(next)
         setFailed(false)
         setPanel((p) => Math.min(p, next.panels.length - 1))
         if (next.lang !== lang) showToast(lang === 'hi' ? 'This place has no Hindi telling yet, so here it is in English.' : 'Showing the story in another language.')
-        else if (audience !== 'classic' && next.audience === 'classic') showToast('The retelling isn’t ready yet, so here is the classic telling. Tap the chip again in a moment.')
+        else if (audience !== 'classic' && next.audience === 'classic') showToast('There’s no telling for this audience here yet, so here is the classic one.')
       })
       .catch(() => {
         if (mine !== ticket.current) return
@@ -106,7 +103,7 @@ export function StoryPage({ siteId }: { siteId: string }) {
       .finally(() => {
         if (mine === ticket.current) setSettled(requestKey)
       })
-  }, [siteId, lang, audience, tripId, requestKey, showToast, waitingForTrip])
+  }, [siteId, lang, audience, requestKey, showToast])
 
   /* The painted doors swing open by themselves once the story is here */
   useEffect(() => {
@@ -116,7 +113,7 @@ export function StoryPage({ siteId }: { siteId: string }) {
   }, [story, open])
 
   /* The storyteller */
-  const narration = useNarration({ story, tripId, panel, onPanel: setPanel, onNotice: showToast })
+  const narration = useNarration({ story, panel, onPanel: setPanel, onNotice: showToast })
   const { stop: stopNarration, seekToPanel } = narration
 
   const last = (story?.panels.length ?? 1) - 1
@@ -182,12 +179,12 @@ export function StoryPage({ siteId }: { siteId: string }) {
   const note = !story
     ? null
     : story.audience !== 'classic'
-      ? `Retold by Gemini for ${audienceLabel(story.audience)}${story.vibe ? ` · your squad leans ${vibeWords(story.vibe)}` : ''}`
+      ? `Told for ${audienceLabel(story.audience)}`
       : audience !== 'classic'
-        ? 'Classic telling · the retelling for your audience wasn’t ready'
-        : story.narration
-          ? null
-          : 'A short telling from the heritage guide'
+        ? 'Classic telling · none for your audience here yet'
+        : story.source === 'basic'
+          ? 'A short telling from the heritage guide'
+          : null
 
   const playing = narration.status === 'playing'
   const loading = narration.status === 'loading'
@@ -198,10 +195,8 @@ export function StoryPage({ siteId }: { siteId: string }) {
       ? 'Warming up the storyteller…'
       : narration.mode === 'voice'
         ? 'Reading aloud with your phone’s voice'
-        : narration.mode === 'audio' && narration.source
-          ? narration.source === 'static'
-            ? 'Recorded with Gemini speech'
-            : 'Narrated with Gemini speech'
+        : narration.mode === 'audio'
+          ? 'Recorded storyteller'
           : copy.play
 
   return (

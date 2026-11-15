@@ -1,6 +1,6 @@
 // What a reel is: an ordered list of scenes (photos, collages, an animated map, trip stats, kinetic text) with captions,
-// stickers, effects, camera moves and transitions, in one of a few looks. Gemini writes it (see reelPrompt), Claude when
-// Gemini fails, and templatePlan() is the hand-written cut when both do. The app plays the plan with Remotion
+// stickers, effects, camera moves and transitions, in one of a few looks. Gemini writes it (see reelPrompt), and
+// templatePlan() is the hand-written cut when it can't. The app plays the plan with Remotion
 // (frontend/src/pages/Reel/ReelComposition.tsx), so these names are shared with it.
 
 export const REEL_STYLES = ['cinematic', 'energetic', 'dreamy', 'retro', 'playful'] as const;
@@ -76,9 +76,9 @@ const line = (value: unknown, max: number) =>
   (typeof value === 'string' ? value : '').replace(/\s+/g, ' ').trim().replace(/^["“]|["”]$/g, '').slice(0, max).trim();
 const EMOJI = /^\p{Extended_Pictographic}/u;
 
-// The plan as JSON Schema (Claude's structured outputs). Photos are referred to by their number in the prompt, not by id.
-// Every property is required so both models fill every field; unused ones are empty.
-export const CLAUDE_REEL_SCHEMA = {
+// The plan as JSON Schema; REEL_SCHEMA is the same in Gemini's dialect. Photos are referred to by their number in the
+// prompt, not by id. Every property is required so the model fills every field; unused ones are empty.
+export const REEL_JSON_SCHEMA = {
   type: 'object',
   properties: {
     title: { type: 'string', description: 'Reel title, at most 6 words' },
@@ -127,7 +127,7 @@ export function toGeminiSchema(schema: unknown): unknown {
     .map(([key, value]) => [key, key === 'type' && typeof value === 'string' ? value.toUpperCase() : toGeminiSchema(value)]));
 }
 
-export const REEL_SCHEMA = toGeminiSchema(CLAUDE_REEL_SCHEMA) as object;
+export const REEL_SCHEMA = toGeminiSchema(REEL_JSON_SCHEMA) as object;
 
 export const REEL_SYSTEM = `You are GhoomMate, the video editor of a group-travel app. A squad of friends shares their trip photos and asks for a short vertical reel (Instagram/WhatsApp style).
 You see the photos, numbered. Write the edit as JSON: an ordered list of scenes that fits what the user asked for.

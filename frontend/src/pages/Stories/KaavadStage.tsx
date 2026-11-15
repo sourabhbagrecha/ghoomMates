@@ -12,7 +12,7 @@ type KaavadStageProps = {
   index: number
   /** The painted doors have swung open */
   open: boolean
-  /** A retelling is on its way: the panels stay, dimmed */
+  /** Another telling (language or audience) is loading: the panels stay, dimmed */
   busy?: boolean
   /** The words around the story, in its language */
   copy: Copy

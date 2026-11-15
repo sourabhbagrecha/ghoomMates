@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import type { Request, RequestHandler } from 'express';
 import type { User } from '../auth/types.ts';
-import type { Claude } from '../claude.ts';
 import type { Gemini } from '../gemini.ts';
 import { ApiError, jsonBody } from '../http.ts';
 import { logger } from '../logger.ts';
@@ -14,8 +13,6 @@ export type ReelsAppOptions = ReelOptions & {
   db: ReelsDb;
   storage: MediaStorage;
   gemini: Gemini;
-  // Writes the plan when Gemini fails (ANTHROPIC_API_KEY)
-  claude?: Claude;
   authenticate: Authenticate;
 };
 
@@ -24,10 +21,10 @@ function bearer(req: Request) {
   return type?.toLowerCase() === 'bearer' && token ? token.trim() : null;
 }
 
-// Reel studio: Gemini (or Claude when Gemini fails) cuts a reel plan from the trip's photos and a prompt; the app plays it with Remotion. Mount under /api/reels.
-export function createReelsApp({ db, storage, gemini, claude, authenticate, ...options }: ReelsAppOptions) {
-  const service = new ReelService(db, storage, gemini, claude, options);
-  if (!gemini.enabled && !claude?.enabled) logger.warn('Reels', 'Gemini and Claude are off (set GEMINI_API_KEY or ANTHROPIC_API_KEY): reels use the template cut.');
+// Reel studio: Gemini cuts a reel plan from the trip's photos and a prompt; the app plays it with Remotion. Mount under /api/reels.
+export function createReelsApp({ db, storage, gemini, authenticate, ...options }: ReelsAppOptions) {
+  const service = new ReelService(db, storage, gemini, options);
+  if (!gemini.enabled) logger.warn('Reels', 'Gemini is off (set GEMINI_API_KEY or VERTEX_PROJECT): reels use the template cut.');
   const router = Router();
   const user = (res: { locals: Record<string, any> }) => res.locals.user as User;
 
@@ -51,7 +48,7 @@ export function createReelsApp({ db, storage, gemini, claude, authenticate, ...o
     res.json(await service.list(req.params.tripId as string));
   });
 
-  // Cuts a reel: { prompt, photoIds? } -> { id, prompt, plan, seconds, source, … }. Takes 5 to 20 seconds with Gemini, longer when Claude steps in.
+  // Cuts a reel: { prompt, photoIds? } -> { id, prompt, plan, seconds, source, … }. Takes 5 to 20 seconds with Gemini.
   router.post('/trips/:tripId', jsonBody, async (req, res) => {
     res.status(201).json(await service.create(user(res), req.params.tripId as string, req.body));
   });

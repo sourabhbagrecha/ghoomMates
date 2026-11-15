@@ -59,11 +59,10 @@ export const INDEXES: Record<string, IndexDescription[]> = {
   ],
   // One counter per maker workshop slot: { _id: `${maker_id}:${workshop_date}:${slot}`, people }
   maker_slots: [],
-  story_cache: [
-    { key: { site_id: 1, lang: 1, audience: 1, vibe_bucket: 1 }, unique },
-  ],
-  story_narrations: [
-    { key: { site_id: 1, lang: 1, audience: 1, vibe_bucket: 1, text_hash: 1 }, unique },
+  // Prepared Kaavad Tales, written by the city batch (docs/stories.md): one per site, language and audience
+  heritage_tales: [
+    { key: { site_id: 1, lang: 1, audience: 1 }, unique },
+    { key: { city: 1 } },
   ],
   heritage_stamps: [
     { key: { user_id: 1, site_id: 1 }, unique },

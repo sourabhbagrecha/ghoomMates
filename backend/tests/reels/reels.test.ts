@@ -1,10 +1,9 @@
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
 import type { User } from '../../src/auth/types.ts';
-import { ClaudeError, type Claude, type ClaudeJsonRequest } from '../../src/claude.ts';
 import { GeminiError, type Gemini, type JsonRequest } from '../../src/gemini.ts';
 import { ApiError } from '../../src/http.ts';
-import { CLAUDE_REEL_SCHEMA, REEL_SCHEMA, normalizePlan, spread, styleFromPrompt, templatePlan, upgradeScene, type ReelCandidate } from '../../src/reels/plan.ts';
+import { REEL_JSON_SCHEMA, REEL_SCHEMA, normalizePlan, spread, styleFromPrompt, templatePlan, upgradeScene, type ReelCandidate } from '../../src/reels/plan.ts';
 import { tripFacts } from '../../src/reels/service.ts';
 import { createReelsApp } from '../../src/reels/app.ts';
 import { sniffImageType } from '../../src/reels/images.ts';
@@ -116,12 +115,12 @@ describe('reel plans', () => {
     expect(normalizePlan(raw, candidates(4), 'x')!.scenes.some((s) => s.kind === 'stats')).toBe(false);
   });
 
-  test('both models get the same schema, in each one’s dialect', () => {
+  test('the plan schema converts to Gemini’s dialect and requires every field', () => {
     const gemini = REEL_SCHEMA as any;
     expect(gemini.type).toBe('OBJECT');
     expect(gemini.properties.scenes.items.properties.places.items.properties.lat.type).toBe('NUMBER');
     expect(JSON.stringify(gemini).includes('additionalProperties')).toBe(false);
-    expect(CLAUDE_REEL_SCHEMA.properties.scenes.items.required.length).toBe(Object.keys(CLAUDE_REEL_SCHEMA.properties.scenes.items.properties).length);
+    expect(REEL_JSON_SCHEMA.properties.scenes.items.required.length).toBe(Object.keys(REEL_JSON_SCHEMA.properties.scenes.items.properties).length);
   });
 
   test('reels saved before scene kinds still play, and trip facts count only what is there', () => {
@@ -160,7 +159,7 @@ describe('reel plans', () => {
 
 /* Routes, with a real test database and fake storage and Gemini */
 
-async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6, claude?: Claude) {
+async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount = 6) {
   const database = await testDatabase();
   const { db } = database;
   await db.collection<any>('users').insertMany([asha, ravi].map(({ id, ...u }) => ({ _id: id, google_id: `g-${id}`, ...u })));
@@ -178,8 +177,8 @@ async function fakes(gemini: Partial<Gemini> & { enabled: boolean }, photoCount 
     if (token === 'ravi') return ravi;
     throw new ApiError(401, 'UNAUTHORIZED', 'Bad token');
   };
-  const fullGemini = { models: { lite: 'lite', smart: 'smart', image: 'image', tts: 'tts' }, imageEnabled: false, ...gemini } as Gemini;
-  return { app: mount('/api/reels', createReelsApp({ db: database, storage, gemini: fullGemini, claude, authenticate })), reels };
+  const fullGemini = { models: { lite: 'lite', smart: 'smart' }, ...gemini } as Gemini;
+  return { app: mount('/api/reels', createReelsApp({ db: database, storage, gemini: fullGemini, authenticate })), reels };
 }
 
 const post = (body: unknown, token = 'asha') => ({
@@ -234,50 +233,6 @@ describe('reel routes', () => {
       expect(reel.plan.scenes.map((s: { photos: { id: string }[] }) => s.photos[0].id)).toEqual([photoId(1), photoId(3), photoId(5)]);
     } finally {
       await server.close();
-    }
-  });
-
-  test('Claude writes the cut from the same photos when Gemini fails', async () => {
-    let request: ClaudeJsonRequest | undefined;
-    const claude: Claude = {
-      enabled: true,
-      model: 'claude-opus-5-5',
-      async json<T>(req: ClaudeJsonRequest) {
-        request = req;
-        return { title: 'Lake nights', tagline: 'Soon', style: 'cinematic', scenes: [5, 1, 3].map((photo) => ({ photo, caption: 'x', seconds: 2, motion: 'pan-up', transition: 'wipe' })) } as T;
-      },
-    };
-    const { app, reels } = await fakes({ enabled: true, json: async () => { throw new GeminiError('Gemini 503: overloaded', 503); } }, 6, claude);
-    const server = await serve(app);
-    try {
-      const res = await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'A moody reel of the lake' }));
-      expect(res.status).toBe(201);
-      const reel = await res.json();
-      expect(reel.source).toBe('claude');
-      expect(reel.plan.title).toBe('Lake nights');
-      expect(reel.plan.scenes.map((s: { photos: { id: string }[] }) => s.photos[0].id)).toEqual([photoId(5), photoId(1), photoId(3)]);
-      expect((await reels())[0].model).toBe('claude-opus-5-5');
-      const parts = request!.prompt as { text?: string; inlineData?: unknown }[];
-      expect(parts.filter((p) => p.inlineData).length).toBe(6);
-      expect(parts[0].text?.includes('A moody reel of the lake')).toBe(true);
-      expect((request!.schema as { additionalProperties?: boolean }).additionalProperties).toBe(false);
-    } finally {
-      await server.close();
-    }
-  });
-
-  test('Claude alone is enough when Gemini is off, and the template cut follows when Claude fails too', async () => {
-    const answers: Claude = { enabled: true, model: 'claude-opus-5-5', json: async <T,>() => ({ title: 'Ok', tagline: 'Ok', style: 'retro', scenes: [1, 2, 3].map((photo) => ({ photo, caption: '', seconds: 2, motion: 'zoom-in', transition: 'fade' })) }) as T };
-    const declines: Claude = { enabled: true, model: 'claude-opus-5-5', json: async () => { throw new ClaudeError('Claude declined (cyber)'); } };
-    for (const [claude, source] of [[answers, 'claude'], [declines, 'template']] as const) {
-      const { app } = await fakes({ enabled: false }, 6, claude);
-      const server = await serve(app);
-      try {
-        const reel = await (await server.request(`/api/reels/trips/${TRIP}`, post({ prompt: 'our trip' }))).json();
-        expect(reel.source).toBe(source);
-      } finally {
-        await server.close();
-      }
     }
   });
 

@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { ApiError, object, requireThat } from '../expenses/domain.ts';
 import { sniffImageType } from './images.ts';
-import { claudeReadsImage, type Claude } from '../claude.ts';
 import type { Database } from '../db.ts';
 import type { Gemini, GeminiPart } from '../gemini.ts';
 import { logger } from '../logger.ts';
 import type { MediaStorage } from '../storage.ts';
 import {
-  CLAUDE_REEL_SCHEMA,
   MAX_PROMPT_LENGTH,
   REEL_SCHEMA,
   REEL_SYSTEM,
@@ -33,10 +31,8 @@ export type ReelOptions = {
   maxCandidates?: number;
   // Total photo bytes sent to Gemini for one reel (uploads are 2048px JPEGs, a few hundred KB each)
   maxPhotoBytes?: number;
-  // Gemini's share of the deadline; Claude gets whatever is left of planBudgetMs
+  // How long Gemini may take to write the plan
   timeoutMs?: number;
-  // Everything the writers may take for one reel, Gemini and the Claude fallback together
-  planBudgetMs?: number;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,16 +41,13 @@ const MAX_PHOTO_BYTES = 14 * 1024 * 1024;
 // One photo larger than this is skipped rather than eating the whole budget
 const MAX_ONE_PHOTO_BYTES = 4 * 1024 * 1024;
 const PLAN_TIMEOUT_MS = 50_000;
-const PLAN_BUDGET_MS = 105_000;
-// Claude isn't started with less than this left
-const MIN_CLAUDE_MS = 20_000;
 const LIST_SIZE = 20;
 
 type PhotoRow = { id: string; object_key: string; size_bytes: number | string | null; caption: string | null; uploader: string | null; created_at: Date };
 type ReelRow = { id: string; prompt: string; plan: ReelPlan; source: string; created_by: string; creator: string | null; created_at: Date };
 
-// Who wrote the cut: Gemini, Claude when Gemini failed, or the hand-written template when both did
-export type ReelSource = 'gemini' | 'claude' | 'template';
+// Who wrote the cut: Gemini, or the hand-written template when it couldn't
+export type ReelSource = 'gemini' | 'template';
 
 // A scene with fresh read URLs for its photos, in place of their ids
 export type PresentedScene = Omit<ReelScene, 'photoIds'> & { photos: { id: string; url: string }[] };
@@ -74,21 +67,17 @@ export class ReelService {
   private db: ReelsDb;
   private storage: MediaStorage;
   private gemini: Gemini;
-  private claude: Claude | undefined;
   private maxCandidates: number;
   private maxPhotoBytes: number;
   private timeoutMs: number;
-  private planBudgetMs: number;
 
-  constructor(db: ReelsDb, storage: MediaStorage, gemini: Gemini, claude?: Claude, options: ReelOptions = {}) {
+  constructor(db: ReelsDb, storage: MediaStorage, gemini: Gemini, options: ReelOptions = {}) {
     this.db = db;
     this.storage = storage;
     this.gemini = gemini;
-    this.claude = claude?.enabled ? claude : undefined;
     this.maxCandidates = options.maxCandidates ?? MAX_CANDIDATES;
     this.maxPhotoBytes = options.maxPhotoBytes ?? MAX_PHOTO_BYTES;
     this.timeoutMs = options.timeoutMs ?? PLAN_TIMEOUT_MS;
-    this.planBudgetMs = options.planBudgetMs ?? PLAN_BUDGET_MS;
   }
 
   // Non-members get 404 so trip ids don't leak.
@@ -143,69 +132,45 @@ export class ReelService {
     const createdAt = new Date();
     await db.collection<Doc>('trip_reels').insertOne({
       _id: id, trip_id: tripId, created_by: user.id, prompt, plan, source,
-      model: { gemini: this.gemini.models.smart, claude: this.claude?.model ?? '', template: '' }[source], created_at: createdAt,
+      model: source === 'gemini' ? this.gemini.models.smart : '', created_at: createdAt,
     });
     logger.info('Reels', `${user.name} cut a ${plan.scenes.length}-scene ${plan.style} reel for trip ${tripId} in ${Date.now() - started} ms (${source})`);
     return this.present(tripId, { id, prompt, plan, source, created_by: user.id, creator: user.name, created_at: createdAt });
   }
 
-  // Gemini's cut when it can see the photos and answers sensibly, then Claude's from the same photos and prompt, and the
-  // template cut when neither can, so a reel always comes out.
+  // Gemini's cut when it can see the photos and answers sensibly, and the template cut when it can't, so a reel always
+  // comes out.
   private async writePlan(prompt: string, trip: { name: string; destination: string }, photos: PhotoRow[], facts: ReelFact[] = []): Promise<{ plan: ReelPlan; source: ReelSource }> {
     const all = photos.map(toCandidate);
     const template = () => ({ plan: templatePlan(prompt, all, trip.name, facts), source: 'template' as const });
-    if (!this.gemini.enabled && !this.claude) return template();
-    const deadline = Date.now() + this.planBudgetMs;
+    if (!this.gemini.enabled) return template();
     const fallbackTitle = trip.name ? `${trip.name} reel` : 'Our trip reel';
     const loaded = await this.loadPhotos(spread(photos, this.maxCandidates));
 
-    if (this.gemini.enabled) {
-      try {
-        const { candidates, parts } = photoParts(loaded);
-        if (candidates.length < 2) throw new Error('Could not read enough photos');
-        const raw = await this.gemini.json<unknown>({
-          system: REEL_SYSTEM,
-          prompt: [{ text: reelPrompt(prompt, trip, candidates, facts) }, ...parts],
-          schema: REEL_SCHEMA,
-          model: this.gemini.models.smart,
-          temperature: 0.9,
-          timeoutMs: Math.min(this.timeoutMs, deadline - Date.now()),
-          label: 'Reels',
-        });
-        const plan = normalizePlan(raw, candidates, fallbackTitle, facts);
-        if (plan) return { plan, source: 'gemini' };
-        logger.warn('Reels', 'Gemini’s plan had too few usable scenes');
-      } catch (err) {
-        logger.warn('Reels', `Gemini could not plan the reel: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    const left = deadline - Date.now();
-    if (this.claude && left >= MIN_CLAUDE_MS) {
-      try {
-        // Claude reads JPEG, PNG, WebP and GIF; a HEIC photo is simply left out
-        const { candidates, parts } = photoParts(loaded.filter((item) => claudeReadsImage(item.mimeType)));
-        if (candidates.length < 2) throw new Error('Could not read enough photos');
-        const raw = await this.claude.json<unknown>({
-          system: REEL_SYSTEM,
-          prompt: [{ text: reelPrompt(prompt, trip, candidates, facts) }, ...parts],
-          schema: CLAUDE_REEL_SCHEMA,
-          timeoutMs: left,
-          label: 'Reels',
-        });
-        const plan = normalizePlan(raw, candidates, fallbackTitle, facts);
-        if (plan) return { plan, source: 'claude' };
-        logger.warn('Reels', 'Claude’s plan had too few usable scenes');
-      } catch (err) {
-        logger.warn('Reels', `Claude could not plan the reel: ${err instanceof Error ? err.message : String(err)}`);
-      }
+    try {
+      const { candidates, parts } = photoParts(loaded);
+      if (candidates.length < 2) throw new Error('Could not read enough photos');
+      const raw = await this.gemini.json<unknown>({
+        system: REEL_SYSTEM,
+        prompt: [{ text: reelPrompt(prompt, trip, candidates, facts) }, ...parts],
+        schema: REEL_SCHEMA,
+        model: this.gemini.models.smart,
+        temperature: 0.9,
+        timeoutMs: this.timeoutMs,
+        label: 'Reels',
+      });
+      const plan = normalizePlan(raw, candidates, fallbackTitle, facts);
+      if (plan) return { plan, source: 'gemini' };
+      logger.warn('Reels', 'Gemini’s plan had too few usable scenes');
+    } catch (err) {
+      logger.warn('Reels', `Gemini could not plan the reel: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     logger.warn('Reels', 'Using the template cut');
     return template();
   }
 
-  // The photos the writers may see, in order. Ones that are missing, too big or not images are skipped, and the rest
+  // The photos Gemini may see, in order. Ones that are missing, too big or not images are skipped, and the rest
   // stop at the byte budget.
   private async loadPhotos(photos: PhotoRow[]): Promise<LoadedPhoto[]> {
     const loaded = await Promise.all(photos.map(async (photo) => {
@@ -251,7 +216,7 @@ export class ReelService {
       prompt: row.prompt,
       plan,
       seconds: Math.round(planSeconds(plan)),
-      source: row.source === 'gemini' || row.source === 'claude' ? row.source : 'template',
+      source: row.source === 'gemini' ? 'gemini' : 'template',
       createdAt: new Date(row.created_at).toISOString(),
       createdBy: { userId: row.created_by, name: row.creator ?? 'A mate' },
     };

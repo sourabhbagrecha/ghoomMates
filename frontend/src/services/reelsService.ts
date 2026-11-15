@@ -46,14 +46,14 @@ export type Reel = {
   plan: ReelPlan
   /** Photo time, without the title and end cards */
   seconds: number
-  /** 'claude' when Gemini failed and Claude wrote it; 'template' when both did and the quick cut was used */
-  source: 'gemini' | 'claude' | 'template'
+  /** 'template' when Gemini failed and the quick cut was used */
+  source: 'gemini' | 'template'
   createdAt: string
   createdBy: { userId: string; name: string }
 }
 
-/** Gemini usually answers in 5–20 s; with the Claude fallback the server gives up at 105 s, so the app waits a little longer. */
-const CUT_TIMEOUT_MS = 115_000
+/** Gemini usually answers in 5–20 s and the server gives up on it at 50 s, so the app waits a little longer. */
+const CUT_TIMEOUT_MS = 70_000
 
 // Reels cut on this device, so the reel screen can show one straight away
 const cut = new Map<string, Reel>()

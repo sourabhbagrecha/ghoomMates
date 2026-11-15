@@ -51,7 +51,7 @@ Every feature works for a squad (one action moves 4–10 people). Every feature 
   - "Hear the story" on stops
   - Explore → Stories of Mewar
   - A link from Crowd pulse
-- **Backend:** `backend/src/stories/`, `/api/stories` (catalogue, story, narration, stamp, passport, squad passport), migration `021_stories.sql`, doc `backend/docs/stories.md`.
+- **Backend:** `backend/src/stories/`, `/api/stories` (catalogue, story with its prepared narration, stamp, passport, squad passport), migration `021_stories.sql`, doc `backend/docs/stories.md`.
 - **Assets and storage:**
   - 28 images and 8 narration recordings, about 4 MB, under `frontend/public/stories/`.
   - `storage.ts` now serves audio with byte ranges, which iPhones need.
@@ -148,29 +148,28 @@ It has already been run once against the shared dev database for the quick sign-
 - AI-generated photos of fictional people.
 
 ## Google tech used
-- **Gemini 3.5 Flash / Flash-Lite** (structured output): story retellings, advisories, menus, maker Q&A, festival Q&A, expense sorting, swap wording.
-- **Gemini TTS:** story narration, through Vertex AI.
+- **Gemini 3.5 Flash / Flash-Lite** (structured output): advisories, menus, maker Q&A, festival Q&A, expense sorting, swap wording.
+- **Kaavad Tales content** (text, art, narration) is prepared ahead of time per city and read from MongoDB and Cloud Storage; nothing is generated on request.
 - **Gemini 2.5 Flash Image on Vertex AI:** craft covers, story panels, illustrations.
 - **Gemini Live** (GhoomMate): the new `whats_on` festival skill.
 - **Cloud SQL for PostgreSQL:** 5 new migrations.
-- **Cloud Storage:** narration, ranged audio.
+- **Cloud Storage:** prepared tale art and narration, ranged audio.
 - **Cloud Run:** deploy kit.
 - **Google Maps:** keyless links, plus the optional Routes API.
 
 ## Migrations and env vars
 - **Migrations:** `020_makers`, `021_stories`, `022_impact`, `023_heritage_ops`, `024_hospitality`. They apply automatically when the backend starts and are already applied to the shared dev database.
 - **New optional env vars**, all documented in `backend/.env.example`:
-  - Gemini and Vertex: `GEMINI_SMART_MODEL`, `GEMINI_IMAGE_MODEL`, `GEMINI_TTS_MODEL`, `VERTEX_PROJECT`, `VERTEX_LOCATION`
+  - Gemini and Vertex: `GEMINI_SMART_MODEL`, `VERTEX_PROJECT`, `VERTEX_LOCATION`
   - Feature settings: `GOOGLE_MAPS_API_KEY`, `OPS_SAMPLE_SQUADS`
   - Deployment: `SERVE_FRONTEND_DIR`, `ALLOW_DEV_LOGIN`, `DEV_LOGIN_EMAILS`
-- **For the Cloud Run deploy:** image generation and narration need `VERTEX_PROJECT` / `VERTEX_LOCATION`, and the web service's account needs the Vertex AI User role (`deploy/cloudrun.sh` grants it). Without them, those features fall back.
+- **For the Cloud Run deploy:** `VERTEX_PROJECT` / `VERTEX_LOCATION` let Gemini run through Vertex AI when there is no API key; the web service's account needs the Vertex AI User role (`deploy/cloudrun.sh` grants it).
 
 ## Known gaps to check before the demo
 - `crypto.randomUUID` breaks Add expense and Settle up on plain-HTTP origins other than localhost. Serve the demo over HTTPS.
 - Some tap targets are under 36 px, and sky-blue text has 3.1:1 contrast. There is no 404 screen.
-- **Speech quota:** the Gemini API key allows only 10 speech requests a day, so narration goes through Vertex AI.
-  - The shipped recordings need neither.
-  - Hindi narration is recorded only for Bagore ki Haveli.
+- **Narration:** only prepared recordings play; a telling without one is read by the phone's voice.
+  - Hindi narration ships only for Bagore ki Haveli until the city batch adds more.
 - **Partner tools:** the Ops console and Host kitchen are open to any signed-in user, as a demo stub. Maker bookings are simulated, with no payment or cancel.
 - **WhatsApp links:** the order link has no phone number, so it opens WhatsApp's contact picker.
 - **Maps key:**

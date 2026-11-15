@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { storiesApi, type Narration, type Story } from '../../services/storiesService'
+import type { Narration, Story } from '../../services/storiesService'
 
 /**
- * The storyteller's voice. Plays the recording that matches the story (shipped with the app, or recorded by Gemini speech
- * and kept in the bucket) and tells the Kaavad when to unfold the next panel. If no recording can be had, the phone's own
- * voice reads the panels instead, so the story is never silent.
+ * The storyteller's voice. Plays the recording prepared for the story (shipped with the app, or made by the city batch and
+ * kept in the bucket) and tells the Kaavad when to unfold the next panel. When the story has no recording, or it can't be
+ * played, the phone's own voice reads the panels instead, so the story is never silent.
  */
 
 export type NarrationStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'ended'
@@ -29,7 +29,6 @@ export type NarrationControls = {
 
 type Options = {
   story: Story | null
-  tripId: string | null
   /** The panel on screen */
   panel: number
   /** The voice moved on to this panel */
@@ -64,13 +63,12 @@ export function panelAt(marks: number[], seconds: number) {
 
 const hasVoice = () => typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined'
 
-export function useNarration({ story, tripId, panel, onPanel, onNotice }: Options): NarrationControls {
-  const storyKey = story ? `${story.siteId}|${story.lang}|${story.audience}|${story.vibe ?? ''}` : ''
+export function useNarration({ story, panel, onPanel, onNotice }: Options): NarrationControls {
+  const storyKey = story ? `${story.siteId}|${story.lang}|${story.audience}|${story.source}` : ''
   const [state, setState] = useState<View>({ key: '', ...IDLE })
   const view: View = state.key === storyKey ? state : { key: storyKey, ...IDLE }
 
   const audio = useRef<HTMLAudioElement | null>(null)
-  const loaded = useRef<{ key: string; narration: Narration } | null>(null)
   const voicePanel = useRef(0)
   const latest = useRef({ story, panel, onPanel, onNotice, marks: [] as number[], key: storyKey, status: 'idle' as NarrationStatus })
   useEffect(() => {
@@ -89,7 +87,6 @@ export function useNarration({ story, tripId, panel, onPanel, onNotice }: Option
 
   // A different story (language, audience) needs its own recording, and the old one stops
   useEffect(() => {
-    loaded.current = null
     latest.current.marks = []
     voicePanel.current = 0
     silence()
@@ -168,24 +165,21 @@ export function useNarration({ story, tripId, panel, onPanel, onNotice }: Option
     return element
   }, [update])
 
-  /** Gets the recording for this story: shipped with the app, or recorded now (which can take a little while) */
-  const resolve = useCallback(async (): Promise<Narration> => {
-    const current = latest.current.story!
-    const key = latest.current.key
-    if (loaded.current?.key === key) return loaded.current.narration
-    const narration = current.narration ?? (await storiesApi.narration(current.siteId, { lang: current.lang, audience: current.audience, tripId }))
-    loaded.current = { key, narration }
-    return narration
-  }, [tripId])
-
   const play = useCallback(
     async (fromPanel: number) => {
       const current = latest.current.story
       if (!current) return
+      // No recording was prepared for this telling: the phone's voice reads it
+      if (!current.narration) {
+        if (!speak(fromPanel)) {
+          update({ status: 'idle' })
+          latest.current.onNotice('This story has no recording yet. Read on, the panels tell it too.')
+        }
+        return
+      }
       update({ status: 'loading' })
-      if (!current.narration && !loaded.current) latest.current.onNotice('The storyteller is clearing their throat…')
       try {
-        const narration = await resolve()
+        const narration = current.narration
         const element = ensureAudio()
         if (!element.src.endsWith(narration.url) && element.src !== narration.url) {
           element.src = narration.url
@@ -202,8 +196,7 @@ export function useNarration({ story, tripId, panel, onPanel, onNotice }: Option
         await element.play()
         update({ status: 'playing' })
       } catch {
-        // No recording (offline, Gemini out of reach, blocked): the phone's own voice carries on
-        loaded.current = null
+        // The recording can't be played (offline, blocked): the phone's own voice carries on
         audio.current?.pause()
         if (!speak(fromPanel)) {
           update({ status: 'idle' })
@@ -213,7 +206,7 @@ export function useNarration({ story, tripId, panel, onPanel, onNotice }: Option
         }
       }
     },
-    [ensureAudio, resolve, speak, update],
+    [ensureAudio, speak, update],
   )
 
   const { status, mode } = view

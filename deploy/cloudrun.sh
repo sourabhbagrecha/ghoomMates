@@ -191,7 +191,7 @@ setup() {
   ensure_service_account "$WEB_SA_NAME" "GhoomMates web (Cloud Run runtime)"
 
   step "What the web service may do ($(web_sa))"
-  grant_project_role "$(web_sa)" roles/aiplatform.user        # Vertex AI: images, and Gemini without an API key
+  grant_project_role "$(web_sa)" roles/aiplatform.user        # Vertex AI: Gemini without an API key
   retry 5 6 quietly gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
     --member="serviceAccount:$(web_sa)" --role=roles/storage.objectAdmin
   ok "roles/storage.objectAdmin on gs://$BUCKET"
