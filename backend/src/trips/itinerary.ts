@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ApiError, integer, object, requireThat, text } from '../expenses/domain.ts';
 import { transaction, type ClientSession, type Database, type Db } from '../db.ts';
 import { logger } from '../logger.ts';
+import { spendGemini } from '../gemini.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { TripAccess } from './service.ts';
 import { allocateSpotlights, rebalance, squadBrief, squadProfile, VIBE_AXES, type Fairness, type SquadProfile, type Vibe } from './vibe.ts';
@@ -309,6 +310,7 @@ export class ItineraryService {
       required: ['days', 'tip'],
     };
 
+    await spendGemini('Itinerary');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 40_000);
     const started = Date.now();

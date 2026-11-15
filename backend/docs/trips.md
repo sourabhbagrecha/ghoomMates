@@ -78,7 +78,7 @@ Check the configured storage end to end with `npm run test:media` (writes one ob
 gcloud iam service-accounts create ghoomates-storage
 gcloud storage buckets add-iam-policy-binding gs://ghoomates \
   --member=serviceAccount:ghoomates-storage@<project>.iam.gserviceaccount.com --role=roles/storage.objectAdmin
-gcloud storage buckets update gs://ghoomates --cors-file=cors.json   # GET/PUT/HEAD from the app origin
+gcloud storage buckets update gs://ghoomates --cors-file=cors.json   # GET/PUT/HEAD from the app origin; responseHeader must include x-goog-content-length-range (limits.md)
 gcloud iam service-accounts keys create key.json --iam-account=ghoomates-storage@<project>.iam.gserviceaccount.com
 base64 < key.json | tr -d '\n'   # → GCS_CREDENTIALS_BASE64 in backend/.env; then delete key.json
 ```

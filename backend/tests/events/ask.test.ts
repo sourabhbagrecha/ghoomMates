@@ -109,17 +109,14 @@ describe('POST /api/events/:id/ask', () => {
       expect(data.matched).toBe('How much does it cost?');
     });
   });
-  test('checks the question and the event, and how often you ask', async () => {
+  // How often you may ask is limits.ts's job (tests/limits.test.ts)
+  test('checks the question and the event', async () => {
     await withApi(undefined, async (ask) => {
       expect((await ask('diwali', { question: '' })).status).toBe(400);
       expect((await ask('diwali', { question: 'x'.repeat(MAX_QUESTION + 1) })).status).toBe(400);
       expect((await ask('diwali', {})).status).toBe(400);
       expect((await ask('nope', { question: 'hello' })).status).toBe(404);
-      // 20 questions a minute, then a polite stop (the failed requests above never counted)
-      for (let i = 0; i < 20; i++) expect((await ask('diwali', { question: 'What should we wear?' })).status).toBe(200);
-      const tooMany = await ask('diwali', { question: 'What should we wear?' });
-      expect(tooMany.status).toBe(429);
-      expect(tooMany.data.error.code).toBe('RATE_LIMITED');
+      expect((await ask('diwali', { question: 'What should we wear?' })).status).toBe(200);
     });
   });
 });

@@ -54,6 +54,19 @@ export function geminiModels(env: NodeJS.ProcessEnv = process.env): GeminiModels
   };
 }
 
+// Every Gemini request in the app asks here first: this client's, and the itinerary draft's own call (trips/itinerary.ts).
+// index.ts points it at the daily budget (GEMINI_CALLS_PER_DAY, limits.ts). A refused call throws a GeminiError, so the
+// feature answers with its hand-written fallback instead.
+let allowGemini: (label: string) => Promise<boolean> = async () => true;
+
+export function limitGemini(allow: (label: string) => Promise<boolean>) {
+  allowGemini = allow;
+}
+
+export async function spendGemini(label: string) {
+  if (!(await allowGemini(label))) throw new GeminiError('Today’s Gemini budget is used up', 429);
+}
+
 type Candidate = { content?: { parts?: { text?: string; inlineData?: InlineData }[] }; finishReason?: string };
 
 export function createGemini(env: NodeJS.ProcessEnv = process.env, fetchImpl: typeof fetch = fetch): Gemini {
@@ -72,6 +85,7 @@ export function createGemini(env: NodeJS.ProcessEnv = process.env, fetchImpl: ty
 
   async function call(model: string, body: object, timeoutMs: number, label: string): Promise<Candidate> {
     if (!key && !vertexProject) throw new GeminiError('Neither GEMINI_API_KEY nor VERTEX_PROJECT is set');
+    await spendGemini(label);
     const vertex = !key;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);

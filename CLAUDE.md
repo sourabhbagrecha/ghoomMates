@@ -36,6 +36,7 @@ npm run lint && npm run build   # frontend
 - New backend feature = new `src/<module>/` folder + its collections/indexes in `src/schema.ts` + route prefix in `src/app.ts` + short doc in `backend/docs/`.
 - Multi-document writes go through `transaction()` in `src/db.ts`; there are no foreign keys, so deletes cascade in code. Tests use a real in-process MongoDB via `tests/mongo.ts`.
 - Uploads go client → GCS → cloud function → DB. The backend never does heavy media processing inline.
+- A route that costs money per call (Gemini, Maps, voice, uploads) gets a rate-limit policy in `src/limits.ts`; Gemini calls go through `spendGemini` (the daily budget). See `backend/docs/limits.md`.
 - Secrets live only in `.env` files (gitignored); add new keys to `backend/.env.example`.
 - gcloud cli is already authenticated
 - Cloudflare (DNS for sourabh.org, the `deploy/worker` proxy): use the `cf` CLI, already authenticated. Not wrangler.

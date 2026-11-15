@@ -34,24 +34,11 @@ function bearer(req: Request) {
 
 const oneOf = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
-/** At most `limit` calls per client per minute, for the one route that costs a Gemini call */
-function rateLimiter(limit: number, now: () => number = Date.now) {
-  const calls = new Map<string, number[]>();
-  return (client: string) => {
-    const cutoff = now() - 60_000;
-    const recent = (calls.get(client) ?? []).filter(t => t > cutoff);
-    if (recent.length >= limit) return false;
-    calls.set(client, [...recent, now()]);
-    return true;
-  };
-}
-
 // Mewar Utsav: Udaipur's festivals, fairs and nightly shows with the crowd each brings, plus a way to put one in a squad's
 // plan. Mount under /api/events. Browsing is public and needs no database; adding to a plan needs a signed-in trip member.
 export function createEventsApp({ gemini, authenticate, trips, now = () => new Date() }: EventsAppOptions = {}) {
   const router = Router();
   const service = trips ? new EventsService(trips) : null;
-  const allowAsk = rateLimiter(20);
 
   const requireUser: RequestHandler = async (req, res, next) => {
     if (!service || !authenticate) {
@@ -80,12 +67,11 @@ export function createEventsApp({ gemini, authenticate, trips, now = () => new D
   });
 
   // A visitor's question about an event ({ question }, at most 300 characters), answered from its facts only: by Gemini when it
-  // is on and sure, else by the best matching curated note. 20 questions a minute per client. Public.
+  // is on and sure, else by the best matching curated note. Public; rate limited in limits.ts (the "ai" policy).
   router.post('/:id/ask', jsonBody, async (req, res) => {
     const event = EVENT_BY_ID.get(String(req.params.id));
     if (!event) throw new ApiError(404, 'NOT_FOUND', 'We don’t know that event');
     const question = text(object(req.body).question, 'question', MAX_QUESTION);
-    if (!allowAsk(req.ip ?? 'unknown')) throw new ApiError(429, 'RATE_LIMITED', 'That’s a lot of questions at once. Give it a minute.');
     res.json(await answerQuestion(event, question, gemini));
   });
 

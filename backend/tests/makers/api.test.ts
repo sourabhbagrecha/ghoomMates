@@ -168,16 +168,13 @@ describe('asking a maker', () => {
     });
   });
 
-  test('checks the question, the maker and how often you ask', async () => {
+  // How often you may ask is limits.ts's job (tests/limits.test.ts)
+  test('checks the question and the maker', async () => {
     await withApi({}, async (api) => {
       expect((await ask(api, '')).status).toBe(400);
       expect((await ask(api, 'x'.repeat(301))).status).toBe(400);
       expect((await ask(api, 'hello', 'nobody')).status).toBe(404);
-      // 20 questions a minute, then a polite stop (the failed requests above never counted)
-      for (let i = 0; i < 20; i++) expect((await ask(api, 'How long is it?')).status).toBe(200);
-      const tooMany = await ask(api, 'How long is it?');
-      expect(tooMany.status).toBe(429);
-      expect(tooMany.data.error.code).toBe('RATE_LIMITED');
+      expect((await ask(api, 'How long is it?')).status).toBe(200);
     });
   });
 });

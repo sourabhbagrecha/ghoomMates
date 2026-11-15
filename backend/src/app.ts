@@ -1,9 +1,11 @@
 import express from 'express';
-import type { Router } from 'express';
+import type { RequestHandler, Router } from 'express';
 import { ApiError, errorHandler, notFound } from './http.ts';
 import { requestLogger } from './logger.ts';
 
 export interface ServerModules {
+  // Abuse protection run before every route: the Cloudflare edge check, then rate limits and daily budgets (limits.ts).
+  guards?: RequestHandler[];
   // Google OAuth and user profile routes, mounted under /auth.
   auth: Router;
   // Internal expense ledger routes, mounted under /api. Omitted when the database or API_KEY is not configured.
@@ -34,7 +36,7 @@ export interface ServerModules {
   events?: Router;
 }
 
-export function createServer({ auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events }: ServerModules) {
+export function createServer({ guards = [], auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -45,6 +47,8 @@ export function createServer({ auth, expenses, trips, voice, heritage, media, fr
     res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     next();
   });
+
+  for (const guard of guards) app.use(guard);
 
   // With the web app served from here, "/" is the app; /health stays the JSON status.
   if (frontend) app.get('/', frontend);

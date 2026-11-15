@@ -80,9 +80,16 @@ export default {
     if (MEDIA_PATH.test(url.pathname) && !BACKEND_PATH.test(url.pathname)) return serveMedia(request, env);
     if (!BACKEND_PATH.test(url.pathname)) return serveApp(request, env, url);
     url.hostname = ORIGIN; // Cloud Run routes on the Host header, so it must be the run.app name
+    // EDGE_SECRET (a Worker secret, the same value as the backend's) proves the request came through here, so the backend
+    // can refuse anything sent straight to run.app and trust X-Client-IP as the visitor's address for its rate limits.
+    // Whatever a client sent in either header is replaced.
+    const headers = new Headers(request.headers);
+    headers.delete('X-Edge-Secret');
+    headers.set('X-Client-IP', request.headers.get('CF-Connecting-IP') ?? '');
+    if (env.EDGE_SECRET) headers.set('X-Edge-Secret', env.EDGE_SECRET);
     return fetch(url, {
       method: request.method,
-      headers: request.headers,
+      headers,
       body: request.body,
       redirect: 'manual', // pass our own redirects (e.g. after Google sign-in) back to the browser
     });
