@@ -326,7 +326,7 @@ The backfill runs the same indexer code locally against Atlas. Photos that are a
 ### Sizing and cost
 
 - **Connections.** Each instance has one `MongoClient` with at most 4 pooled connections (plus pymongo's monitoring connections). With 10 indexers that stays well under an Atlas cluster's connection limit.
-- **Bulk uploads.** In local Docker a photo takes about 5 to 7 seconds, almost all of it RetinaFace plus Facenet512 (`timings_ms.analyze`). A bulk upload of 500 photos queues in Eventarc and drains about 10 at a time, so roughly 4 to 6 minutes. Raise `MAX_INDEXER_INSTANCES` if you want it faster; the database has plenty of headroom.
+- **Bulk uploads.** In local Docker a photo takes about 5 to 7 seconds, almost all of it RetinaFace plus Facenet512 (`timings_ms.analyze`). A bulk upload of 500 photos queues in Eventarc and drains 2 at a time (`MAX_INDEXER_INSTANCES`, kept low to cap what an upload flood can cost), so roughly 20 to 30 minutes; 100 photos take about 5. Raise it if you want it faster; the database has plenty of headroom.
 - **Cold start.** The models are in the image (`DEEPFACE_HOME=/opt/deepface`), so a cold start only loads TensorFlow and about 215 MB of weights from local disk, plus one warm-up inference. Expect roughly 10 to 25 seconds; measure it after deploying in the `models loaded` log line.
 - **Scale to zero.** The indexer stays at `min-instances=0` because nobody waits on it.
 

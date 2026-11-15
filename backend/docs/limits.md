@@ -48,7 +48,7 @@ Without `EDGE_SECRET` the code still works, but the rate limits see Cloudflare's
 
 Spending caps the code cannot set:
 
-- **Cloud Run** `--max-instances` (web 4, face-indexer 10) is the hard ceiling for compute.
+- **Cloud Run** `--max-instances` (web 4, face-indexer 2) is the hard ceiling for compute.
 - **Gemini API key** (`GEMINI_API_KEY`, billed outside this project's billing account): restrict the key to the Generative Language API, lower its requests-per-day quota, and set a budget alert on the account that pays for it.
 - **Billing budget alert** for this project: `gcloud billing budgets create`. It alerts and does not cap.
 - **Cloudflare rate limiting rule** on `ghoommates.sourabh.org/api/*` and `/auth/*` per IP. It runs before the Worker, so a flood also doesn't use up the Worker's daily request allowance.

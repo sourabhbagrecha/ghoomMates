@@ -31,7 +31,9 @@ IMAGE="${IMAGE:-${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/faces:${TAG}}"
 INDEXER_SA="face-indexer@${PROJECT_ID}.iam.gserviceaccount.com"
 TRIGGER_SA="face-trigger@${PROJECT_ID}.iam.gserviceaccount.com"
 
-MAX_INDEXER_INSTANCES="${MAX_INDEXER_INSTANCES:-10}"
+# Two at most: each instance is 2 vCPU / 4 GiB and every upload wakes one, so this caps what an upload flood can cost
+# (backend/docs/limits.md). Bulk uploads just take longer to index.
+MAX_INDEXER_INSTANCES="${MAX_INDEXER_INSTANCES:-2}"
 
 load_mongodb_settings() {
   if [[ -z "${MONGODB_CONNECTION_STRING:-}" && -f .env ]]; then
