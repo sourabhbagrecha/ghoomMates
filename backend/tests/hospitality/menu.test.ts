@@ -14,15 +14,12 @@ function fakeGemini(answer: (call: JsonRequest, n: number) => unknown, enabled =
   const calls: JsonRequest[] = [];
   return {
     enabled,
-    imageEnabled: false,
-    models: { lite: 'lite-model', smart: 'smart-model', image: 'image-model', tts: 'tts-model' },
+    models: { lite: 'lite-model', smart: 'smart-model' },
     calls,
     async json<T>(call: JsonRequest) {
       calls.push(call);
       return await answer(call, calls.length) as T;
     },
-    async image() { throw new Error('not used'); },
-    async speech() { throw new Error('not used'); },
   };
 }
 

@@ -13,11 +13,9 @@ const facts: DraftFacts = {
 
 function fakeGemini(json: Gemini['json'], enabled = true): Gemini {
   return {
-    enabled, imageEnabled: false,
-    models: { lite: 'lite', smart: 'smart', image: 'image', tts: 'tts' },
+    enabled,
+    models: { lite: 'lite', smart: 'smart' },
     json,
-    image: async () => { throw new Error('not used'); },
-    speech: async () => { throw new Error('not used'); },
   };
 }
 

@@ -8,7 +8,6 @@ import { OAuthService } from './auth/service.ts';
 import { createEventsApp, createMongoEvents } from './events/app.ts';
 import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
-import { createClaude } from './claude.ts';
 import { createGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
 import { createMakersApp, createMongoMakers } from './makers/app.ts';
@@ -96,8 +95,7 @@ let reels: ReturnType<typeof createReelsApp> | undefined;
 let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
   trips = createTripsApp(db, storage, authenticate, clientOrigin);
-  // Claude writes the reel plan when Gemini fails (ANTHROPIC_API_KEY)
-  reels = createReelsApp({ db, storage, gemini, claude: createClaude(), authenticate });
+  reels = createReelsApp({ db, storage, gemini, authenticate });
   voice = createVoiceApp({
     db,
     authenticate,
@@ -115,15 +113,9 @@ if (db) {
   logger.warn('Server', 'Trips API (/api/trips/*) and voice (/api/voice/*) are disabled: requires a database');
 }
 
-// Kaavad Tales: hand-written stories and shipped narration need no database, stamps and the passport do. Speech goes through
-// Vertex AI when it is set up, since the API key's free tier allows only 10 speech requests a day.
-const stories = createStoriesApp({
-  db,
-  storage,
-  gemini,
-  vertex: process.env.VERTEX_PROJECT ? createGemini({ ...process.env, GEMINI_API_KEY: '' }) : undefined,
-  authenticate,
-});
+// Kaavad Tales: prepared tales come from heritage_tales and the bucket; the bundled stories cover the key sites without a
+// database. Stamps and the passport need one.
+const stories = createStoriesApp({ db, storage, authenticate });
 
 const app = createServer({
   // Production: also serve the built web app from this server (SERVE_FRONTEND_DIR, set in the Docker image)

@@ -4,7 +4,7 @@ import { shuffleQuiz } from './quiz.ts';
 import type { StoryBody } from './types.ts';
 
 // The story for a site that has no hand-written telling, built from what the heritage module knows: its one-line history,
-// when it is quietest and how to visit lightly. Used when Gemini is off, slow or not trusted, so every site still opens.
+// when it is quietest and how to visit lightly. Used when no tale has been prepared for the site, so every site still opens.
 
 const KIND_LABEL: Record<SiteKind, string> = {
   Palace: 'a palace', Temple: 'a temple', Haveli: 'one of the grand old mansions of Mewar’s nobles', Ghat: 'one of the old stone stairways down to the water', Garden: 'a garden',

@@ -1,15 +1,15 @@
 import type { CatalogueItem, Grade, StoryAudience, StoryLang } from '../../services/storiesService'
 
-/** Who is listening: the chips under the title. Everything but Classic is retold by Gemini. */
-export const AUDIENCES: { id: StoryAudience; label: string; retold: string }[] = [
-  { id: 'classic', label: 'Classic', retold: 'the classic telling' },
-  { id: 'family', label: 'Family', retold: 'a family with kids' },
-  { id: 'friends', label: 'Friends', retold: 'a squad of friends' },
-  { id: 'couple', label: 'Couple', retold: 'a couple' },
-  { id: 'history', label: 'History buffs', retold: 'history buffs' },
+/** Who is listening: the chips under the title. Each is its own prepared telling; Classic is there for every story. */
+export const AUDIENCES: { id: StoryAudience; label: string; listener: string }[] = [
+  { id: 'classic', label: 'Classic', listener: 'everyone' },
+  { id: 'family', label: 'Family', listener: 'a family with kids' },
+  { id: 'friends', label: 'Friends', listener: 'a squad of friends' },
+  { id: 'couple', label: 'Couple', listener: 'a couple' },
+  { id: 'history', label: 'History buffs', listener: 'history buffs' },
 ]
 
-export const audienceLabel = (id: StoryAudience) => AUDIENCES.find((a) => a.id === id)?.retold ?? 'the squad'
+export const audienceLabel = (id: StoryAudience) => AUDIENCES.find((a) => a.id === id)?.listener ?? 'the squad'
 
 export const LANGUAGES: { id: StoryLang; short: string; name: string }[] = [
   { id: 'en', short: 'EN', name: 'English' },
@@ -34,9 +34,6 @@ export function saveLang(lang: StoryLang) {
     // Blocked storage: the choice lasts until the page reloads
   }
 }
-
-/** "culture+food" → "culture and food" */
-export const vibeWords = (vibe: string) => (vibe === 'balanced' ? 'a bit of everything' : vibe.split('+').join(' and '))
 
 /** m:ss */
 export function clock(seconds: number) {

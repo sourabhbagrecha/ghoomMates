@@ -11,14 +11,14 @@ export type StoryPanel = {
   text: string
   /** One thing to spot while standing right there */
   lookFor: string
-  /** Painted panel art; sites without a painted story have none */
+  /** Painted panel art (a bucket link or a bundled path); sites without a painted story have none */
   art?: string
 }
 
 export type QuizQuestion = { question: string; options: string[]; answerIndex: number; fact: string }
 
-/** Narration for the story as shown: where to play it and the second each panel starts */
-export type Narration = { url: string; durationSec: number; marks: number[]; source: 'static' | 'gemini' }
+/** Narration recorded ahead of time for the story as shown: where to play it and the second each panel starts */
+export type Narration = { url: string; durationSec: number; marks: number[]; source: 'static' | 'prepared' }
 
 export type Story = {
   siteId: string
@@ -26,16 +26,14 @@ export type Story = {
   title: string
   /** The language the story is actually in (a site without a Hindi telling opens in English) */
   lang: StoryLang
-  /** The audience it is actually tuned for: the classic telling when the retelling wasn't ready */
+  /** The audience it is actually told for: the classic telling when nothing is prepared for the one asked */
   audience: StoryAudience
   panels: StoryPanel[]
   quiz: QuizQuestion[]
   careNote: string
-  /** Retold by Gemini for this audience, rather than the hand-written telling */
-  generated: boolean
-  /** The squad vibe mix it was tuned for, e.g. "culture+food" */
-  vibe: string | null
-  /** Ready-made narration that matches this exact text, when there is one */
+  /** A prepared tale, the telling bundled with the app, or a short one built from the site's notes */
+  source: 'prepared' | 'bundled' | 'basic'
+  /** The recording for this exact telling, when one was prepared */
   narration: Narration | null
 }
 
@@ -45,10 +43,11 @@ export type Stamp = { siteId: string; score: number; total: number; grade: Grade
 
 export type CatalogueItem = {
   siteId: string
+  city?: string
   name: string
   kind: string
   gem: boolean
-  /** Has a hand-written story with painted panels */
+  /** Has a full telling (prepared or bundled), usually with painted panels */
   curated: boolean
   title: string
   titleHi: string | null
@@ -98,14 +97,8 @@ const site = (id: string) => `/api/stories/${encodeURIComponent(id)}`
 
 export const storiesApi = {
   catalogue: () => request<{ items: CatalogueItem[] }>('/api/stories').then((r) => r.items),
-  story: (siteId: string, options: { lang: StoryLang; audience: StoryAudience; tripId?: string | null }) => {
-    const params = new URLSearchParams({ lang: options.lang, audience: options.audience })
-    if (options.tripId) params.set('tripId', options.tripId)
-    return request<Story>(`${site(siteId)}?${params}`)
-  },
-  /** The storyteller's voice for the story as shown (pass the story's own lang and audience) */
-  narration: (siteId: string, body: { lang: StoryLang; audience: StoryAudience; tripId?: string | null }) =>
-    request<Narration & { cached: boolean }>(`${site(siteId)}/narration`, { body }),
+  story: (siteId: string, options: { lang: StoryLang; audience: StoryAudience }) =>
+    request<Story>(`${site(siteId)}?${new URLSearchParams({ lang: options.lang, audience: options.audience })}`),
   stamp: (siteId: string, body: { lang: StoryLang; audience: StoryAudience; answers: (number | null)[]; tripId?: string | null; withUserIds?: string[] }) =>
     request<StampResult>(`${site(siteId)}/stamp`, { body }),
   passport: () => request<Passport>('/api/stories/passport'),

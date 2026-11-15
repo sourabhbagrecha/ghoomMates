@@ -95,7 +95,7 @@ The fair-price bands, workshop prices, workshop durations and drive times are **
 
 ## Cover art
 
-`frontend/public/makers/<craftId>.jpg` (900 px wide, under 150 KB each) was generated once with `gemini.image()` (Vertex AI, `gemini-2.5-flash-image`, 4:3) from one prompt per craft: a warm documentary photograph of hands at work, with no text and no faces. Where the model put a stray face at the edge of the frame, the picture was cropped. The prompts live in `scripts/makers-covers.ts` (`node scripts/makers-covers.ts <outDir> [craftId ...]`, then crop and compress with `sips`).
+`frontend/public/makers/<craftId>.jpg` (900 px wide, under 150 KB each) was generated once, offline, with Gemini's image model on Vertex AI (`gemini-2.5-flash-image`, 4:3) from one prompt per craft: a warm documentary photograph of hands at work, with no text and no faces. Where the model put a stray face at the edge of the frame, the picture was cropped. They are committed static files; the app never generates images.
 
 ## Frontend
 

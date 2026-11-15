@@ -4,7 +4,7 @@
 export const LANGS = ['en', 'hi'] as const;
 export type Lang = (typeof LANGS)[number];
 
-/** `classic` is the hand-written telling; the others are retold for the squad by Gemini */
+/** `classic` is the default telling; each other audience is its own prepared telling, when the batch has written one */
 export const AUDIENCES = ['classic', 'family', 'friends', 'couple', 'history'] as const;
 export type Audience = (typeof AUDIENCES)[number];
 
@@ -17,7 +17,7 @@ export type Panel = {
   text: string;
   /** One thing to spot while standing right there */
   lookFor: string;
-  /** Painted art for this panel (a path under the frontend's public folder), when the site has some */
+  /** Painted art for this panel (a signed bucket link, or a path under the frontend's public folder), when the site has some */
   art?: string;
 };
 
@@ -37,24 +37,24 @@ export type StoryBody = {
   careNote: string;
 };
 
-/** Narration recorded ahead of time and shipped with the app, so the demo plays with no AI and no network to Google */
+/** Narration recorded ahead of time: shipped with the app (`static`) or prepared by the city batch and kept in the bucket */
 export type NarrationInfo = {
   url: string;
   durationSec: number;
   /** Second at which each panel starts, so the Kaavad can unfold in step with the voice */
   marks: number[];
-  source: 'static' | 'gemini';
+  source: 'static' | 'prepared';
 };
+
+export type StorySource = 'prepared' | 'bundled' | 'basic';
 
 export type Story = StoryBody & {
   siteId: string;
   siteName: string;
   lang: Lang;
   audience: Audience;
-  /** Written by Gemini for this audience (and squad), rather than the hand-written telling */
-  generated: boolean;
-  /** The squad vibe mix the story was tuned for, e.g. "culture+food"; null when it wasn't */
-  vibe: string | null;
+  /** Where it came from: a prepared tale (heritage_tales), the stories bundled with the app, or the site's own notes */
+  source: StorySource;
   /** Ready-made narration that matches this exact text, when there is one */
   narration: NarrationInfo | null;
 };

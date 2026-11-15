@@ -112,7 +112,7 @@ SECRET_KEYS="JWT_SECRET MONGODB_CONNECTION_STRING GOOGLE_CLIENT_SECRET GCS_CREDE
 
 # Plain (non-secret) settings copied into the web service's environment when set in the environment or in ENV_FILE.
 # EXTRA_ENV_KEYS="FOO BAR" adds more.
-PLAIN_KEYS="GOOGLE_CLIENT_ID LIVEKIT_URL GEMINI_MODEL GEMINI_SMART_MODEL GEMINI_IMAGE_MODEL GEMINI_TTS_MODEL MONGODB_DB DB_POOL_SIZE ${EXTRA_ENV_KEYS:-}"
+PLAIN_KEYS="GOOGLE_CLIENT_ID LIVEKIT_URL GEMINI_MODEL GEMINI_SMART_MODEL MONGODB_DB DB_POOL_SIZE ${EXTRA_ENV_KEYS:-}"
 
 # env_value KEY: the value from the process environment, else the first non-empty assignment in ENV_FILE.
 # The file is parsed, never sourced (values may contain $ or quotes). Quotes around the value are removed, as the

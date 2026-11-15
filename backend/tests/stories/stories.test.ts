@@ -2,28 +2,16 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, test } from 'node:test';
 import { expect } from '../expect.ts';
-import { wavFromPcm } from '../../src/gemini.ts';
 import { SITES, SITE_BY_ID } from '../../src/heritage/sites.ts';
-import { vibeBucket, vibeNote } from '../../src/stories/audience.ts';
 import { basicStory } from '../../src/stories/basic.ts';
 import { CURATED } from '../../src/stories/curated/index.ts';
-import { STATIC_NARRATION } from '../../src/stories/curated/narration.ts';
-import { StoryRejected, buildPrompt, cleanStory, limitWords, wordCount } from '../../src/stories/generate.ts';
-import { NARRATOR_VOICE, staticNarration } from '../../src/stories/narration.ts';
+import { STATIC_NARRATION, staticNarration } from '../../src/stories/curated/narration.ts';
 import { gradeFor, scoreQuiz, shuffleQuiz } from '../../src/stories/quiz.ts';
-import { directorNotes, englishYear, hindiYear, narrationHash, spokenText } from '../../src/stories/speech.ts';
+import { readTale } from '../../src/stories/tales.ts';
 import { MAX_PANEL_WORDS, QUIZ_SIZE } from '../../src/stories/types.ts';
-import { joinRecordings, readWav, trimSilence, wavSeconds } from '../../src/stories/wav.ts';
 
 const PUBLIC = resolve(import.meta.dirname, '../../../frontend/public');
-const RATE = 24_000;
-
-/** A mono 16-bit tone, with optional silence either side */
-function tone(seconds: number, { lead = 0, tail = 0 } = {}) {
-  const pcm = Buffer.alloc(Math.round((lead + seconds + tail) * RATE) * 2);
-  for (let i = Math.round(lead * RATE); i < Math.round((lead + seconds) * RATE); i++) pcm.writeInt16LE(Math.round(8000 * Math.sin(i / 12)), i * 2);
-  return wavFromPcm(pcm, RATE);
-}
+const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
 describe('curated stories', () => {
   test('there are at least six, each with both languages, four panels and a three-question quiz', () => {
@@ -79,14 +67,13 @@ describe('curated stories', () => {
     }
   });
 
-  test('shipped narration matches the current words and exists on disk', () => {
+  test('shipped narration has a start for every panel and exists on disk', () => {
     expect(Object.keys(STATIC_NARRATION).length >= 6).toBe(true);
     for (const [siteId, langs] of Object.entries(STATIC_NARRATION)) {
       for (const lang of ['en', 'hi'] as const) {
         const entry = langs[lang];
         if (!entry) continue;
         const panels = CURATED.get(siteId)![lang].panels;
-        expect(entry.hash).toBe(narrationHash(panels, lang, NARRATOR_VOICE));
         expect(entry.marks).toHaveLength(panels.length);
         expect(entry.marks[0]).toBe(0);
         expect(entry.marks.every((m, i) => i === 0 || m > entry.marks[i - 1])).toBe(true);
@@ -99,9 +86,8 @@ describe('curated stories', () => {
     expect(!!STATIC_NARRATION['bagore-ki-haveli']?.hi).toBe(true);
   });
 
-  test('an edited story stops using its old recording', () => {
-    const panels = CURATED.get('bagore-ki-haveli')!.hi.panels.map(p => ({ ...p }));
-    panels[0].text += ' और एक वाक्य।';
+  test('a story with a different number of panels does not use the recording', () => {
+    const panels = CURATED.get('bagore-ki-haveli')!.hi.panels.slice(0, 3);
     expect(staticNarration('bagore-ki-haveli', 'hi', panels)).toBe(null);
   });
 });
@@ -120,59 +106,6 @@ describe('stories built from site notes', () => {
       // The first question is about the kind of place, and its answer is right
       expect(story.quiz[0].options[story.quiz[0].answerIndex].toLowerCase().includes(site.kind.toLowerCase())).toBe(true);
     }
-  });
-});
-
-describe('narration text', () => {
-  test('years and royal numerals are spelled out for the voice', () => {
-    expect(englishYear(1651)).toBe('sixteen fifty-one');
-    expect(englishYear(1905)).toBe('nineteen oh five');
-    expect(englishYear(1600)).toBe('sixteen hundred');
-    expect(spokenText('In the 1550s Maharana Udai Singh II built it in 1559.', 'en')).toBe('In the fifteen-fifties Maharana Udai Singh the Second built it in fifteen fifty-nine.');
-    expect(spokenText('the 1600s', 'en')).toBe('the sixteen-hundreds');
-    expect(hindiYear(1651)).toBe('सोलह सौ इक्यावन');
-    expect(hindiYear(1710)).toBe('सत्रह सौ दस');
-    expect(spokenText('सन् 1889 में', 'hi')).toBe('सन् अठारह सौ नवासी में');
-  });
-
-  test('the director’s notes steer the voice without being read out', () => {
-    const notes = directorNotes('City Palace', 'en');
-    expect(notes.includes('#### TRANSCRIPT')).toBe(true);
-    expect(/narrate like/i.test(notes)).toBe(false);
-    expect(directorNotes('Bagore ki Haveli', 'hi').includes('Hindi')).toBe(true);
-  });
-
-  test('the hash changes with the words, the language and the voice', () => {
-    const panels = CURATED.get('city-palace')!.en.panels;
-    const base = narrationHash(panels, 'en', 'Algenib');
-    expect(narrationHash(panels, 'en', 'Algenib')).toBe(base);
-    expect(narrationHash(panels, 'en', 'Charon') === base).toBe(false);
-    expect(narrationHash([{ ...panels[0], text: `${panels[0].text}!` }, ...panels.slice(1)], 'en', 'Algenib') === base).toBe(false);
-  });
-});
-
-describe('joining recordings', () => {
-  test('trims the silence either side of a recording', () => {
-    const { pcm } = readWav(tone(1, { lead: 0.8, tail: 0.9 }));
-    const trimmed = trimSilence(pcm, RATE);
-    // 1 s of tone plus the 120 ms of breath kept on each side
-    expect(Math.abs(trimmed.length / 2 / RATE - 1.24) < 0.03).toBe(true);
-    expect(trimSilence(Buffer.alloc(RATE), RATE).length).toBe(0);
-  });
-
-  test('marks where each panel starts, with a pause between', () => {
-    const joined = joinRecordings([tone(2, { lead: 0.5 }), tone(3, { tail: 0.5 }), tone(1)], { gapMs: 600 });
-    // 2.12 s (a 0.12 s breath before the tone) + 0.6 s gap, then 3.12 s + 0.6 s gap, then 1 s
-    expect(joined.marks).toEqual([0, 2.7, 6.4]);
-    expect(joined.durationSec).toBe(7.4);
-    expect(Math.abs(wavSeconds(joined.wav) - joined.durationSec) < 0.06).toBe(true);
-    expect(joinRecordings([tone(1)]).marks).toEqual([0]);
-  });
-
-  test('refuses a silent recording and mixed sample rates', () => {
-    expect(() => joinRecordings([tone(1), wavFromPcm(Buffer.alloc(RATE * 2), RATE)])).toThrow();
-    expect(() => joinRecordings([tone(1), wavFromPcm(Buffer.alloc(16_000 * 2), 16_000)])).toThrow();
-    expect(() => readWav(Buffer.from('not a wav file at all, not even close, really not a wav file'))).toThrow();
   });
 });
 
@@ -207,107 +140,46 @@ describe('quiz scoring', () => {
   });
 });
 
-describe('the squad’s vibe', () => {
-  const vibe = (scores: Record<string, number>) => ({ adventure: 0.4, food: 0.4, nightlife: 0.4, culture: 0.4, chill: 0.4, shops: 0.4, ...scores });
+describe('prepared tales from the batch', () => {
+  const good = {
+    city: 'Udaipur', site_id: 'gangaur-ghat', lang: 'hi', audience: 'family', title: ' गणगौर घाट ',
+    panels: [{ heading: 'एक', text: 'पहला भाग', look_for: 'सीढ़ियाँ', art_key: 'tales/udaipur/gangaur-ghat/1.jpg' }, { heading: 'दो', text: 'दूसरा भाग', art_key: '' }],
+    quiz: [{ question: 'कौन?', options: ['क', 'ख'], answer_index: 1, fact: 'ख' }],
+    care_note: 'धीरे चलें',
+    narration: { audio_key: 'tales/udaipur/gangaur-ghat/hi-family.m4a', duration_sec: 40, marks: [0, 18.5] },
+  };
 
-  test('is the two strongest tastes, in a stable order', () => {
-    expect(vibeBucket([vibe({ food: 0.9, culture: 0.8 }), vibe({ food: 0.7, culture: 0.9, chill: 0.6 })])).toBe('culture+food');
-    expect(vibeBucket([vibe({ chill: 0.9 })])).toBe('chill');
+  test('a good document becomes a story, with its bucket keys kept for signing', () => {
+    const read = readTale(good);
+    if (!('tale' in read)) throw new Error(read.problem);
+    expect(read.tale.siteId).toBe('gangaur-ghat');
+    expect(read.tale.audience).toBe('family');
+    expect(read.tale.body.title).toBe('गणगौर घाट');
+    expect(read.tale.body.panels[1]).toEqual({ heading: 'दो', text: 'दूसरा भाग', lookFor: '' });
+    expect(read.tale.body.quiz[0].answerIndex).toBe(1);
+    expect(read.tale.artKeys).toEqual(['tales/udaipur/gangaur-ghat/1.jpg', null]);
+    expect(read.tale.narration).toEqual({ audioKey: 'tales/udaipur/gangaur-ghat/hi-family.m4a', durationSec: 40, marks: [0, 18.5] });
   });
 
-  test('is balanced when nothing stands out, and empty when nobody took the quiz', () => {
-    expect(vibeBucket([vibe({})])).toBe('balanced');
-    expect(vibeBucket([])).toBe('');
-    expect(vibeBucket([null, {}, { food: 1 }])).toBe('');
+  test('narration that does not line up with the panels is dropped, the story is kept', () => {
+    for (const narration of [{ ...good.narration, marks: [0] }, { ...good.narration, marks: [10, 5] }, { ...good.narration, duration_sec: 0 }, { ...good.narration, audio_key: '' }, null]) {
+      const read = readTale({ ...good, narration });
+      expect('tale' in read && read.tale.narration).toBe(null);
+    }
   });
 
-  test('turns into a sentence for the prompt', () => {
-    expect(vibeNote('culture+food').includes('culture and food')).toBe(true);
-    expect(vibeNote('balanced').includes('balanced')).toBe(true);
-    expect(vibeNote('')).toBe('');
-  });
-});
-
-/** Whether the retelling was refused as untrustworthy (rather than failing some other way) */
-function rejected(run: () => unknown) {
-  try {
-    run();
-  } catch (err) {
-    return err instanceof StoryRejected;
-  }
-  return false;
-}
-
-describe('Gemini retellings', () => {
-  const site = SITE_BY_ID.get('jagdish-temple')!;
-  const classic = CURATED.get('jagdish-temple')!.en;
-  const retold = () => ({
-    title: 'Steps to Jagannath',
-    panels: classic.panels.map(p => ({ heading: p.heading, text: p.text.replace('Khamma ghani!', 'Namaste!'), lookFor: p.lookFor })),
-    quiz: classic.quiz.map(q => ({ question: q.question, options: [...q.options], answerIndex: q.answerIndex, fact: q.fact })),
-    careNote: 'Cover your shoulders and leave your shoes at the steps.',
-  });
-  const clean = (raw: unknown, lang: 'en' | 'hi' = 'en') => cleanStory(raw, { site, lang, classic, fallbackCare: site.care, seed: 'test' });
-
-  test('a good answer is kept, with its quiz answers still right', () => {
-    const story = clean(retold());
-    expect(story.panels).toHaveLength(4);
-    expect(story.quiz).toHaveLength(QUIZ_SIZE);
-    story.quiz.forEach((q, i) => expect(q.options[q.answerIndex]).toBe(classic.quiz[i].options[classic.quiz[i].answerIndex]));
-    expect(story.careNote).toBe('Cover your shoulders and leave your shoes at the steps.');
-  });
-
-  test('a year the facts do not contain is rejected', () => {
-    const raw = retold();
-    raw.panels[1].text += ' It was restored in 1887 after a fire.';
-    expect(rejected(() => clean(raw))).toBe(true);
-  });
-
-  test('a wrong answer may carry any year, a right one may not', () => {
-    const distractor = retold();
-    distractor.quiz[0] = { question: 'When did Maharana Jagat Singh I finish the temple?', options: ['1751', '1651', '1551'], answerIndex: 1, fact: 'He finished it in 1651.' };
-    expect(clean(distractor).quiz[0].options.includes('1751')).toBe(true);
-    const wrong = retold();
-    wrong.quiz[0] = { question: 'When did Maharana Jagat Singh I finish the temple?', options: ['1751', '1651', '1551'], answerIndex: 0, fact: 'He finished it in 1751.' };
-    expect(rejected(() => clean(wrong))).toBe(true);
-  });
-
-  test('Hindi that comes back in English is rejected', () => {
-    expect(rejected(() => clean(retold(), 'hi'))).toBe(true);
-  });
-
-  test('too few panels or quiz questions is rejected', () => {
-    const fewPanels = retold();
-    fewPanels.panels = fewPanels.panels.slice(0, 2);
-    expect(rejected(() => clean(fewPanels))).toBe(true);
-    const fewQuestions = retold();
-    fewQuestions.quiz = fewQuestions.quiz.slice(0, 2);
-    expect(rejected(() => clean(fewQuestions))).toBe(true);
-    const badQuestion = retold();
-    badQuestion.quiz[0].answerIndex = 5;
-    expect(rejected(() => clean(badQuestion))).toBe(true);
-    expect(rejected(() => clean(null))).toBe(true);
-  });
-
-  test('a long panel is cut back to whole sentences', () => {
-    const raw = retold();
-    raw.panels[0].text = `${raw.panels[0].text} ${'Another sentence with a handful of words in it. '.repeat(8)}`;
-    const story = clean(raw);
-    expect(wordCount(story.panels[0].text) <= MAX_PANEL_WORDS).toBe(true);
-    expect(story.panels[0].text.endsWith('.')).toBe(true);
-    expect(limitWords('One very short sentence.', 70)).toBe('One very short sentence.');
-    expect(limitWords(`${'word '.repeat(80)}.`, 70)).toBe(null);
-  });
-
-  test('the prompt carries only the facts we hold, the audience and the squad', () => {
-    const prompt = buildPrompt({ site, lang: 'hi', audience: 'family', bucket: 'culture+food', classic });
-    expect(prompt.includes(site.story)).toBe(true);
-    expect(prompt.includes('Devanagari')).toBe(true);
-    expect(prompt.includes('children')).toBe(true);
-    expect(prompt.includes('culture and food')).toBe(true);
-    expect(prompt.includes(classic.panels[0].text)).toBe(true);
-    // The only years it may write are the ones in the facts
-    expect(prompt.includes('YEARS YOU MAY WRITE (no others): 1651')).toBe(true);
-    expect(buildPrompt({ site: SITE_BY_ID.get('gangaur-ghat')!, lang: 'en', audience: 'couple', bucket: '' }).includes('Do not write any year')).toBe(true);
+  test('documents the app cannot show are refused with the reason', () => {
+    const broken = [
+      { ...good, lang: 'fr' },
+      { ...good, audience: 'aliens' },
+      { ...good, title: '' },
+      { ...good, panels: [] },
+      { ...good, panels: [{ heading: 'x' }] },
+      { ...good, quiz: [] },
+      { ...good, quiz: [{ question: 'q', options: ['a', 'b'], answer_index: 2 }] },
+      { ...good, quiz: [{ question: 'q', options: ['a'], answer_index: 0 }] },
+      null,
+    ];
+    for (const doc of broken) expect('problem' in readTale(doc)).toBe(true);
   });
 });

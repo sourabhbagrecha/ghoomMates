@@ -2,10 +2,10 @@ import { GoogleAuth } from 'google-auth-library';
 import { logger } from './logger.ts';
 import { decodeCredentials } from './storage.ts';
 
-// Shared Gemini client: structured JSON, images and speech.
-// Text and speech go to the Gemini Developer API (GEMINI_API_KEY). Images go to Vertex AI when VERTEX_PROJECT is
-// set (the GCS_CREDENTIALS_BASE64 service account when present, else Application Default Credentials), since API-key image quota is often zero. Without a key, text and speech fall back to Vertex too.
-// Every feature keeps a hand-written fallback, so callers check `enabled` / `imageEnabled` and catch GeminiError.
+// Shared Gemini client for structured JSON. Calls go to the Gemini Developer API (GEMINI_API_KEY), or to Vertex AI when
+// there is no key and VERTEX_PROJECT is set (the GCS_CREDENTIALS_BASE64 service account when present, else Application
+// Default Credentials). Images and narration are never generated here: they are prepared ahead of time.
+// Every feature keeps a hand-written fallback, so callers check `enabled` and catch GeminiError.
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -27,10 +27,6 @@ export type GeminiModels = {
   lite: string;
   // Vision, storytelling and anything where quality matters more than a second of latency
   smart: string;
-  // Image generation and editing ("Nano Banana")
-  image: string;
-  // Speech synthesis
-  tts: string;
 };
 
 export type JsonRequest = {
@@ -45,48 +41,16 @@ export type JsonRequest = {
   label?: string;
 };
 
-export type ImageRequest = {
-  prompt: string;
-  // Reference images to edit or restyle
-  images?: InlineData[];
-  model?: string;
-  // '1:1', '3:4', '4:3', '4:5', '9:16', '16:9' …
-  aspectRatio?: string;
-  timeoutMs?: number;
-  label?: string;
-};
-
-export type SpeechRequest = {
-  // What to say. Style directions can lead the text ("Read like a village storyteller: …").
-  text: string;
-  // Prebuilt voice for a single narrator (e.g. 'Charon', 'Kore', 'Puck', 'Sulafat')
-  voice?: string;
-  // Two named speakers for a dialogue; the text must prefix lines with "<name>: "
-  speakers?: { name: string; voice: string }[];
-  model?: string;
-  timeoutMs?: number;
-  label?: string;
-};
-
 export type Gemini = {
-  // Text and speech are available
   readonly enabled: boolean;
-  // Image generation is available
-  readonly imageEnabled: boolean;
   readonly models: GeminiModels;
   json<T>(request: JsonRequest): Promise<T>;
-  image(request: ImageRequest): Promise<{ mimeType: string; data: Buffer; text: string }>;
-  // A ready-to-play WAV (16-bit mono PCM)
-  speech(request: SpeechRequest): Promise<Buffer>;
 };
 
 export function geminiModels(env: NodeJS.ProcessEnv = process.env): GeminiModels {
   return {
     lite: env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     smart: env.GEMINI_SMART_MODEL || 'gemini-3.5-flash',
-    // On Vertex the 2.5 image model is the one generally available; the API key may list newer ones
-    image: env.GEMINI_IMAGE_MODEL || (env.VERTEX_PROJECT ? 'gemini-2.5-flash-image' : 'gemini-3.1-flash-image'),
-    tts: env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-tts',
   };
 }
 
@@ -106,8 +70,9 @@ export function createGemini(env: NodeJS.ProcessEnv = process.env, fetchImpl: ty
     return token.token;
   }
 
-  async function call(model: string, body: object, timeoutMs: number, label: string, vertex = !key): Promise<Candidate> {
+  async function call(model: string, body: object, timeoutMs: number, label: string): Promise<Candidate> {
     if (!key && !vertexProject) throw new GeminiError('Neither GEMINI_API_KEY nor VERTEX_PROJECT is set');
+    const vertex = !key;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const started = Date.now();
@@ -146,7 +111,6 @@ export function createGemini(env: NodeJS.ProcessEnv = process.env, fetchImpl: ty
 
   return {
     enabled: Boolean(key || vertexProject),
-    imageEnabled: Boolean(key || vertexProject),
     models,
 
     async json<T>({ prompt, schema, system, model = models.lite, temperature = 0.7, timeoutMs = 40_000, label = 'Gemini' }: JsonRequest) {
@@ -162,52 +126,5 @@ export function createGemini(env: NodeJS.ProcessEnv = process.env, fetchImpl: ty
         throw new GeminiError(`Gemini returned invalid JSON: ${raw.slice(0, 120)}`);
       }
     },
-
-    async image({ prompt, images = [], model = models.image, aspectRatio, timeoutMs = 90_000, label = 'Gemini' }: ImageRequest) {
-      const candidate = await call(model, {
-        contents: [{ role: 'user', parts: [{ text: prompt }, ...images.map(inlineData => ({ inlineData }))] }],
-        generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(aspectRatio ? { imageConfig: { aspectRatio } } : {}) },
-      }, timeoutMs, label, Boolean(vertexProject));
-      const found = candidate.content!.parts!.find(p => p.inlineData?.data);
-      if (!found?.inlineData) throw new GeminiError('Gemini returned no image');
-      const text = candidate.content!.parts!.map(p => p.text ?? '').join('').trim();
-      return { mimeType: found.inlineData.mimeType || 'image/png', data: Buffer.from(found.inlineData.data, 'base64'), text };
-    },
-
-    async speech({ text, voice = 'Charon', speakers, model = models.tts, timeoutMs = 90_000, label = 'Gemini' }: SpeechRequest) {
-      const speechConfig = speakers?.length
-        ? { multiSpeakerVoiceConfig: { speakerVoiceConfigs: speakers.map(s => ({ speaker: s.name, voiceConfig: { prebuiltVoiceConfig: { voiceName: s.voice } } })) } }
-        : { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } };
-      const candidate = await call(model, {
-        contents: [{ role: 'user', parts: [{ text }] }],
-        generationConfig: { responseModalities: ['AUDIO'], speechConfig },
-      }, timeoutMs, label);
-      const audio = candidate.content!.parts!.find(p => p.inlineData?.data)?.inlineData;
-      if (!audio) throw new GeminiError('Gemini returned no audio');
-      const pcm = Buffer.from(audio.data, 'base64');
-      // Raw PCM comes back as e.g. "audio/L16;codec=pcm;rate=24000"
-      const rate = Number(/rate=(\d+)/.exec(audio.mimeType)?.[1]) || 24_000;
-      return audio.mimeType.includes('wav') ? pcm : wavFromPcm(pcm, rate);
-    },
   };
-}
-
-/** Wraps 16-bit little-endian mono PCM in a WAV header so browsers can play it. */
-export function wavFromPcm(pcm: Buffer, sampleRate = 24_000, channels = 1) {
-  const header = Buffer.alloc(44);
-  const byteRate = sampleRate * channels * 2;
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + pcm.length, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(channels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(byteRate, 28);
-  header.writeUInt16LE(channels * 2, 32);
-  header.writeUInt16LE(16, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([header, pcm]);
 }

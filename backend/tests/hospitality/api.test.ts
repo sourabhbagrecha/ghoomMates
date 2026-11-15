@@ -50,15 +50,12 @@ function setup(options: { gemini?: (call: JsonRequest) => unknown; geminiOn?: bo
   };
   const gemini: Gemini = {
     enabled: options.geminiOn ?? true,
-    imageEnabled: false,
-    models: { lite: 'lite-model', smart: 'smart-model', image: 'image-model', tts: 'tts-model' },
+    models: { lite: 'lite-model', smart: 'smart-model' },
     async json<T>(call: JsonRequest) {
       geminiCalls.push(call);
       if (!options.gemini) throw new Error('no answer');
       return options.gemini(call) as T;
     },
-    async image() { throw new Error('not used'); },
-    async speech() { throw new Error('not used'); },
   };
   const authenticate = async (token: string) => {
     if (token === 'asha') return asha;
@@ -84,11 +81,8 @@ async function withServer(env: ReturnType<typeof setup>, run: (call: (method: st
 
 const offGemini: Gemini = {
   enabled: false,
-  imageEnabled: false,
-  models: { lite: 'lite-model', smart: 'smart-model', image: 'image-model', tts: 'tts-model' },
+  models: { lite: 'lite-model', smart: 'smart-model' },
   json: async () => { throw new Error('off'); },
-  image: async () => { throw new Error('off'); },
-  speech: async () => { throw new Error('off'); },
 };
 
 const reserve = (over: Record<string, unknown> = {}) => ({ tripId: TRIP, date: '2026-11-02', meal: 'dinner', ...over });

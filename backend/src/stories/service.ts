@@ -1,43 +1,32 @@
 import type { Database } from '../db.ts';
-import { GeminiError, type Gemini } from '../gemini.ts';
 import { ApiError } from '../http.ts';
 import { SITE_BY_ID, SITES, type HeritageSite } from '../heritage/sites.ts';
 import { logger } from '../logger.ts';
 import type { MediaStorage } from '../storage.ts';
-import { vibeBucket } from './audience.ts';
 import { basicStory } from './basic.ts';
 import { CURATED } from './curated/index.ts';
-import { StoryRejected, generateStory } from './generate.ts';
-import { NARRATOR_VOICE, staticNarration, synthesizeStory } from './narration.ts';
+import { staticNarration } from './curated/narration.ts';
 import { gradeFor, scoreQuiz, type Grade } from './quiz.ts';
-import { narrationHash } from './speech.ts';
-import { QUIZ_SIZE, type Audience, type Lang, type NarrationInfo, type Story, type StoryBody } from './types.ts';
+import { readTale, signTale, type Tale } from './tales.ts';
+import type { Audience, Lang, Story } from './types.ts';
 
 export type StoriesDb = Pick<Database, 'db'>;
 
 export type StoriesOptions = {
-  /** Hand-written stories and shipped narration work without one; stamps, the passport and the caches need it */
+  /** Bundled stories and their narration work without one; prepared tales, stamps and the passport need it */
   db: StoriesDb | undefined;
   storage: MediaStorage;
-  gemini: Gemini;
-  /** Vertex AI client: records the narration (the API key's free tier allows 10 speech requests a day) and gives stories a second chance when the key is out of quota */
-  vertex?: Gemini;
-  /** How long a reader waits for a retelling before the classic telling is shown; the retelling carries on and is cached */
-  slowMs?: number;
-  now?: () => number;
-  /** Narration retry waits, shortened in tests */
-  retryMs?: number;
+  /** How long a reader waits for prepared tales before the bundled story is shown (an unreachable database can take 15 s) */
+  lookupMs?: number;
 };
 
-export type StoryRequest = { siteId: string; lang: Lang; audience: Audience; viewerId?: string | null; tripId?: string | null };
+export type StoryRequest = { siteId: string; lang: Lang; audience: Audience };
 
-export type NarrationResult = NarrationInfo & { cached: boolean };
+export type StampRequest = StoryRequest & { viewerId: string; tripId?: string | null; answers: unknown[]; withUserIds?: string[] };
 
 export type StampView = { siteId: string; score: number; total: number; grade: Grade; stampedAt: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** After Gemini fails (quota, outage), retellings are skipped for this long so readers get the classic telling at once */
-const COOLDOWN_MS = 45_000;
 
 type StampRow = { site_id: string; score: number; total: number; stamped_at: Date | string };
 
@@ -49,33 +38,15 @@ const stampView = (row: StampRow): StampView => ({
   stampedAt: new Date(row.stamped_at).toISOString(),
 });
 
-function isStoryBody(value: unknown): value is StoryBody {
-  const body = value as StoryBody | null;
-  return !!body && typeof body.title === 'string' && Array.isArray(body.panels) && body.panels.length >= 3 && Array.isArray(body.quiz) && body.quiz.length === QUIZ_SIZE
-    && body.panels.every(p => typeof p?.heading === 'string' && typeof p.text === 'string' && typeof p.lookFor === 'string')
-    && body.quiz.every(q => typeof q?.question === 'string' && Array.isArray(q.options) && q.options.length === 3 && Number.isInteger(q.answerIndex) && q.answerIndex >= 0 && q.answerIndex < 3);
-}
-
 export class StoriesService {
   private db: StoriesDb | undefined;
   private storage: MediaStorage;
-  private gemini: Gemini;
-  private vertex?: Gemini;
-  private slowMs: number;
-  private now: () => number;
-  private retryMs: number;
-  private coolUntil = 0;
-  private retelling = new Map<string, Promise<StoryBody | null>>();
-  private recording = new Map<string, Promise<NarrationResult>>();
+  private lookupMs: number;
 
-  constructor({ db, storage, gemini, vertex, slowMs = 18_000, now = Date.now, retryMs = 12_000 }: StoriesOptions) {
+  constructor({ db, storage, lookupMs = 3_000 }: StoriesOptions) {
     this.db = db;
     this.storage = storage;
-    this.gemini = gemini;
-    this.vertex = vertex;
-    this.slowMs = slowMs;
-    this.now = now;
-    this.retryMs = retryMs;
+    this.lookupMs = lookupMs;
   }
 
   // Throws (and so lands in the same fallbacks as a database outage) when there is no database
@@ -90,54 +61,98 @@ export class StoriesService {
     return site;
   }
 
-  /** Every site with its story: hand-written ones first, with their painted cover */
-  catalogue() {
-    return SITES.map((site) => {
+  /** Prepared tales matching a filter; none (logged) when the database is down, slow or the documents are malformed */
+  private async tales(filter: Record<string, unknown>): Promise<Tale[]> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const lookup = this.col('heritage_tales').find(filter).toArray();
+      lookup.catch(() => undefined);
+      const docs = await Promise.race([
+        lookup,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`no answer in ${this.lookupMs}ms`)), this.lookupMs);
+        }),
+      ]);
+      return docs.flatMap((doc) => {
+        const read = readTale(doc);
+        if ('tale' in read) return [read.tale];
+        logger.warn('Stories', `Skipping prepared tale ${String(doc._id)} (${doc.site_id}/${doc.lang}/${doc.audience}): ${read.problem}`);
+        return [];
+      });
+    } catch (err) {
+      logger.warn('Stories', `Prepared tales unavailable: ${(err as Error).message}`);
+      return [];
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Every site with its story: the ones with a full telling (prepared or bundled) first, with their painted cover */
+  async catalogue() {
+    const classic = await this.tales({ audience: 'classic' });
+    const prepared = (siteId: string, lang: Lang) => classic.find((t) => t.siteId === siteId && t.lang === lang);
+    const items = await Promise.all(SITES.map(async (site) => {
       const curated = CURATED.get(site.id);
+      const en = prepared(site.id, 'en');
+      const hi = prepared(site.id, 'hi');
+      const coverKey = (en ?? hi)?.artKeys[0];
       return {
         siteId: site.id,
+        city: site.city,
         name: site.name,
         kind: site.kind,
         gem: site.gem,
-        curated: !!curated,
-        title: curated?.en.title ?? site.name,
-        titleHi: curated?.hi.title ?? null,
-        art: curated?.art[0] ?? null,
-        panels: curated?.en.panels.length ?? 3,
-        narrated: { en: !!curated && !!staticNarration(site.id, 'en', curated.en.panels), hi: !!curated && !!staticNarration(site.id, 'hi', curated.hi.panels) },
+        curated: !!(en || hi || curated),
+        title: en?.body.title ?? curated?.en.title ?? hi?.body.title ?? site.name,
+        titleHi: hi?.body.title ?? curated?.hi.title ?? null,
+        art: coverKey ? await this.storage.readUrl(coverKey) : curated?.art[0] ?? null,
+        panels: (en ?? hi)?.body.panels.length ?? curated?.en.panels.length ?? 3,
+        narrated: {
+          en: en ? !!en.narration : !!curated && !!staticNarration(site.id, 'en', curated.en.panels),
+          hi: hi ? !!hi.narration : !!curated && !!staticNarration(site.id, 'hi', curated.hi.panels),
+        },
       };
-    }).sort((a, b) => Number(b.curated) - Number(a.curated));
+    }));
+    return items.sort((a, b) => Number(b.curated) - Number(a.curated));
   }
 
   /* Stories */
 
   /**
-   * The story for a site. Always answers: hand-written when Gemini is off, slow or untrusted.
-   * With `generate: false` it only uses stories already written (for narrating or scoring one the reader has seen).
+   * The story for a site, from what is already prepared: the tale for this language and audience, else the classic one
+   * in this language, else the bundled story, else a prepared English one, else one built from the site's notes.
+   * `audience` and `lang` in the answer say what the story actually is.
    */
-  async story({ siteId, lang, audience, viewerId, tripId }: StoryRequest, { generate = true } = {}): Promise<Story> {
+  async story({ siteId, lang, audience }: StoryRequest): Promise<Story> {
     const site = this.site(siteId);
+    const tales = await this.tales({ site_id: siteId, lang: { $in: [...new Set<Lang>([lang, 'en'])] }, audience: { $in: [...new Set<Audience>([audience, 'classic'])] } });
+    const find = (l: Lang, a: Audience) => tales.find((t) => t.lang === l && t.audience === a);
     const curated = CURATED.get(siteId);
-    // The classic telling of a key site is hand-written: instant, no AI, no database
-    if (curated && audience === 'classic') return this.curatedStory(site, lang);
 
-    const bucket = await this.bucketFor(tripId, viewerId);
-    const cached = await this.readCache(siteId, lang, audience, bucket);
-    if (cached) return this.generatedStory(site, lang, audience, bucket, cached);
-
-    if (generate && this.enabled() && this.now() >= this.coolUntil) {
-      const retelling = this.retell(site, lang, audience, bucket);
-      const body = await Promise.race([retelling, new Promise<null>(resolve => setTimeout(() => resolve(null), this.slowMs).unref())]);
-      if (body) return this.generatedStory(site, lang, audience, bucket, body);
-    }
-    return this.fallbackStory(site, lang);
+    const tale = find(lang, audience) ?? find(lang, 'classic');
+    if (tale) return this.preparedStory(site, tale);
+    if (curated) return this.bundledStory(site, lang);
+    const english = find('en', 'classic');
+    if (english) return this.preparedStory(site, english);
+    return { siteId, siteName: site.name, lang: 'en', audience: 'classic', source: 'basic', narration: null, ...basicStory(site) };
   }
 
-  private enabled() {
-    return this.gemini.enabled || !!this.vertex?.enabled;
+  private async preparedStory(site: HeritageSite, tale: Tale): Promise<Story> {
+    const { panels, narration } = await signTale(this.storage, tale, CURATED.get(site.id)?.art);
+    return {
+      siteId: site.id,
+      siteName: site.name,
+      lang: tale.lang,
+      audience: tale.audience,
+      source: 'prepared',
+      narration,
+      ...tale.body,
+      careNote: tale.body.careNote || CURATED.get(site.id)?.[tale.lang].careNote || site.care,
+      panels,
+    };
   }
 
-  private curatedStory(site: HeritageSite, lang: Lang): Story {
+  private bundledStory(site: HeritageSite, lang: Lang): Story {
     const curated = CURATED.get(site.id)!;
     const body = curated[lang];
     return {
@@ -145,183 +160,13 @@ export class StoriesService {
       siteName: site.name,
       lang,
       audience: 'classic',
-      generated: false,
-      vibe: null,
+      source: 'bundled',
       narration: staticNarration(site.id, lang, body.panels),
       title: body.title,
       panels: body.panels.map((panel, i) => ({ ...panel, art: curated.art[i] })),
       quiz: body.quiz,
       careNote: body.careNote,
     };
-  }
-
-  /** What a reader gets when there is no retelling: the hand-written story, or one built from the site's own notes (English) */
-  private fallbackStory(site: HeritageSite, lang: Lang): Story {
-    if (CURATED.has(site.id)) return this.curatedStory(site, lang);
-    return {
-      siteId: site.id,
-      siteName: site.name,
-      lang: 'en',
-      audience: 'classic',
-      generated: false,
-      vibe: null,
-      narration: null,
-      ...basicStory(site),
-    };
-  }
-
-  /** A retelling dressed with the site's painted panels (retellings reuse the hand-painted art) */
-  private generatedStory(site: HeritageSite, lang: Lang, audience: Audience, bucket: string, body: StoryBody): Story {
-    const art = CURATED.get(site.id)?.art ?? [];
-    return {
-      siteId: site.id,
-      siteName: site.name,
-      lang,
-      audience,
-      generated: true,
-      vibe: bucket || null,
-      narration: null,
-      ...body,
-      panels: body.panels.map((panel, i) => (art.length ? { ...panel, art: art[Math.min(i, art.length - 1)] } : panel)),
-    };
-  }
-
-  /** Runs (or joins) the Gemini retelling for this story; resolves null when it can't be done */
-  private retell(site: HeritageSite, lang: Lang, audience: Audience, bucket: string): Promise<StoryBody | null> {
-    const key = [site.id, lang, audience, bucket].join('|');
-    let running = this.retelling.get(key);
-    if (!running) {
-      running = this.runRetelling(site, lang, audience, bucket).finally(() => this.retelling.delete(key));
-      this.retelling.set(key, running);
-    }
-    return running;
-  }
-
-  private async runRetelling(site: HeritageSite, lang: Lang, audience: Audience, bucket: string): Promise<StoryBody | null> {
-    const curated = CURATED.get(site.id);
-    const seed = [site.id, lang, audience, bucket].join(':');
-    const fallbackCare = curated?.[lang].careNote ?? site.care;
-    const started = this.now();
-    const clients = [this.gemini, this.vertex].filter((client): client is Gemini => !!client?.enabled);
-    let outage = false;
-    for (const client of clients) {
-      try {
-        const body = await generateStory(client, { site, lang, audience, bucket, classic: curated?.en }, seed, fallbackCare);
-        await this.writeCache(site.id, lang, audience, bucket, body, client.models.smart);
-        logger.info('Stories', `Retold ${site.id} (${lang}, ${audience}${bucket ? `, ${bucket}` : ''}) in ${this.now() - started}ms`);
-        return body;
-      } catch (err) {
-        if (err instanceof StoryRejected) {
-          logger.warn('Stories', `Retelling of ${site.id} (${lang}, ${audience}) was rejected: ${err.message}`);
-          return null;
-        }
-        outage = true;
-        logger.warn('Stories', `Gemini could not retell ${site.id} (${lang}, ${audience}): ${err instanceof GeminiError ? err.message.slice(0, 160) : (err as Error).message}`);
-      }
-    }
-    if (outage) this.coolUntil = this.now() + COOLDOWN_MS;
-    return null;
-  }
-
-  /** The squad's vibe bucket, when the viewer is a member of the trip */
-  private async bucketFor(tripId?: string | null, viewerId?: string | null): Promise<string> {
-    if (!tripId || !viewerId || !UUID.test(tripId)) return '';
-    try {
-      if (!await this.isMember(tripId, viewerId)) return '';
-      const members = await this.col('trip_members').find({ trip_id: tripId }, { projection: { user_id: 1 } }).toArray();
-      const users = await this.col('users').find({ _id: { $in: members.map(m => m.user_id) } }, { projection: { preferences: 1 } }).toArray();
-      return vibeBucket(users.map(user => user.preferences?.vibe));
-    } catch (err) {
-      logger.warn('Stories', `Could not read the squad's vibe: ${(err as Error).message}`);
-      return '';
-    }
-  }
-
-  private async readCache(siteId: string, lang: Lang, audience: Audience, bucket: string): Promise<StoryBody | null> {
-    try {
-      const row = await this.col('story_cache').findOne({ site_id: siteId, lang, audience, vibe_bucket: bucket });
-      return isStoryBody(row?.story) ? row.story : null;
-    } catch (err) {
-      logger.warn('Stories', `Story cache unavailable: ${(err as Error).message}`);
-      return null;
-    }
-  }
-
-  private async writeCache(siteId: string, lang: Lang, audience: Audience, bucket: string, story: StoryBody, model: string) {
-    try {
-      // The first retelling cached wins
-      await this.col('story_cache').updateOne(
-        { site_id: siteId, lang, audience, vibe_bucket: bucket },
-        { $setOnInsert: { story, model, created_at: new Date() } },
-        { upsert: true },
-      );
-    } catch (err) {
-      logger.warn('Stories', `Could not cache the story: ${(err as Error).message}`);
-    }
-  }
-
-  /* Narration */
-
-  /** A playable recording of the story as it is shown: shipped, cached, or recorded now by Gemini */
-  async narration(request: StoryRequest): Promise<NarrationResult> {
-    const story = await this.story(request, { generate: false });
-    if (story.narration) return { ...story.narration, cached: true };
-
-    const hash = narrationHash(story.panels, story.lang, NARRATOR_VOICE);
-    const bucket = story.vibe ?? '';
-    const key = [story.siteId, story.lang, story.audience, bucket, hash].join('|');
-    const existing = await this.findNarration(story, bucket, hash);
-    if (existing) return existing;
-
-    const recorder = this.vertex?.enabled ? this.vertex : this.gemini.enabled ? this.gemini : null;
-    if (!recorder) throw new ApiError(503, 'NARRATION_UNAVAILABLE', 'The storyteller’s voice is not available right now');
-
-    let running = this.recording.get(key);
-    if (!running) {
-      running = this.record(recorder, story, bucket, hash).finally(() => this.recording.delete(key));
-      this.recording.set(key, running);
-    }
-    return running;
-  }
-
-  private async findNarration(story: Story, bucket: string, hash: string): Promise<NarrationResult | null> {
-    try {
-      const row = await this.col('story_narrations').findOne({ site_id: story.siteId, lang: story.lang, audience: story.audience, vibe_bucket: bucket, text_hash: hash });
-      if (!row || !Array.isArray(row.marks)) return null;
-      return { url: await this.storage.readUrl(row.audio_key), durationSec: Number(row.duration_sec), marks: row.marks.map(Number), source: 'gemini', cached: true };
-    } catch (err) {
-      logger.warn('Stories', `Narration cache unavailable: ${(err as Error).message}`);
-      return null;
-    }
-  }
-
-  private async record(recorder: Gemini, story: Story, bucket: string, hash: string): Promise<NarrationResult> {
-    const started = this.now();
-    let joined;
-    try {
-      joined = await synthesizeStory(recorder, { panels: story.panels, siteName: story.siteName, lang: story.lang, retryMs: this.retryMs });
-    } catch (err) {
-      logger.warn('Stories', `Could not record ${story.siteId} (${story.lang}): ${(err as Error).message.slice(0, 200)}`);
-      throw new ApiError(503, 'NARRATION_UNAVAILABLE', 'The storyteller lost their voice for a moment. Try again shortly.');
-    }
-    const key = `stories/narration/${story.siteId}/${story.lang}/${story.audience}-${bucket.replace(/[^a-z]+/g, '-') || 'all'}-${hash}.wav`;
-    try {
-      await this.storage.put(key, joined.wav, 'audio/wav');
-    } catch (err) {
-      logger.warn('Stories', `Could not store the narration: ${(err as Error).message}`);
-      throw new ApiError(503, 'NARRATION_UNAVAILABLE', 'The recording could not be saved. Try again shortly.');
-    }
-    try {
-      await this.col('story_narrations').updateOne(
-        { site_id: story.siteId, lang: story.lang, audience: story.audience, vibe_bucket: bucket, text_hash: hash },
-        { $setOnInsert: { audio_key: key, duration_sec: joined.durationSec, marks: joined.marks, voice: NARRATOR_VOICE, created_at: new Date() } },
-        { upsert: true },
-      );
-    } catch (err) {
-      logger.warn('Stories', `Could not remember the narration: ${(err as Error).message}`);
-    }
-    logger.info('Stories', `Recorded ${story.siteId} (${story.lang}, ${story.audience}): ${joined.durationSec}s in ${this.now() - started}ms`);
-    return { url: await this.storage.readUrl(key), durationSec: joined.durationSec, marks: joined.marks, source: 'gemini', cached: false };
   }
 
   /* Heritage Passport */
@@ -353,12 +198,12 @@ export class StoriesService {
   }
 
   /** Scores the quiz on the server and stamps the passport of the player and anyone who listened with them (best score kept) */
-  async stamp(request: StoryRequest & { viewerId: string; answers: unknown[]; withUserIds?: string[] }) {
+  async stamp(request: StampRequest) {
     return this.withPassport(() => this.stampNow(request));
   }
 
-  private async stampNow({ siteId, lang, audience, viewerId, tripId, answers, withUserIds = [] }: StoryRequest & { viewerId: string; answers: unknown[]; withUserIds?: string[] }) {
-    const story = await this.story({ siteId, lang, audience, viewerId, tripId }, { generate: false });
+  private async stampNow({ siteId, lang, audience, viewerId, tripId, answers, withUserIds = [] }: StampRequest) {
+    const story = await this.story({ siteId, lang, audience });
     const result = scoreQuiz(story.quiz, answers);
 
     // The squad only counts when you are on that trip; otherwise this is just your own stamp
@@ -433,7 +278,7 @@ export class StoriesService {
       totalSites: SITES.length,
       stamped: stamps.length,
       stamps,
-      sites: this.catalogue().map(site => ({ ...site, stamp: bySite.get(site.siteId) ?? null })),
+      sites: (await this.catalogue()).map(site => ({ ...site, stamp: bySite.get(site.siteId) ?? null })),
     };
   }
 

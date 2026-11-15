@@ -48,8 +48,9 @@ function userIdsOf(value: unknown): string[] {
 export type StoriesAppOptions = StoriesOptions & { authenticate: Authenticate };
 
 /**
- * Kaavad Tales: Udaipur's heritage stories told panel by panel, narrated aloud, with a quiz that stamps your Heritage
- * Passport. Mount under /api/stories.
+ * Kaavad Tales: heritage stories told panel by panel, narrated aloud, with a quiz that stamps your Heritage Passport. Every
+ * story is prepared ahead of time (heritage_tales, or bundled with the app); nothing is generated on request. Mount under
+ * /api/stories.
  */
 export function createStoriesApp({ authenticate, ...options }: StoriesAppOptions) {
   const service = new StoriesService(options);
@@ -62,15 +63,9 @@ export function createStoriesApp({ authenticate, ...options }: StoriesAppOptions
     res.locals.user = await authenticate(token);
     next();
   };
-  /** Stories are public; a signed-in reader on a trip also gets them tuned to the squad */
-  const optionalUser = async (req: Request) => {
-    const token = bearer(req);
-    return token ? await authenticate(token).catch(() => null) : null;
-  };
-
   // Every site with its story, for the Explore carousel and the passport grid
-  router.get('/', (_req, res) => {
-    res.json({ items: service.catalogue() });
+  router.get('/', async (_req, res) => {
+    res.json({ items: await service.catalogue() });
   });
 
   // Your Heritage Passport: your stamps and every site, stamped or not yet. Registered before /:siteId.
@@ -83,24 +78,9 @@ export function createStoriesApp({ authenticate, ...options }: StoriesAppOptions
     res.json(await service.tripPassport(String(req.params.tripId), user(res).id));
   });
 
+  // Public: the prepared story, with its narration (a playable URL and the second each panel starts) when it has one
   router.get('/:siteId', async (req, res) => {
-    const lang = langOf(req.query.lang);
-    const audience = audienceOf(req.query.audience);
-    const viewer = await optionalUser(req);
-    res.json(await service.story({ siteId: String(req.params.siteId), lang, audience, viewerId: viewer?.id, tripId: tripOf(req.query.tripId) }));
-  });
-
-  // The storyteller's voice for the story as shown: { lang, audience, tripId? } → a playable URL and where each panel starts
-  router.post('/:siteId/narration', requireUser, jsonBody, async (req, res) => {
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    const narration = await service.narration({
-      siteId: String(req.params.siteId),
-      lang: langOf(body.lang),
-      audience: audienceOf(body.audience),
-      viewerId: user(res).id,
-      tripId: tripOf(body.tripId),
-    });
-    res.json(narration);
+    res.json(await service.story({ siteId: String(req.params.siteId), lang: langOf(req.query.lang), audience: audienceOf(req.query.audience) }));
   });
 
   // Scores the quiz on the server and stamps the passport: yours, plus anyone from the trip who listened with you

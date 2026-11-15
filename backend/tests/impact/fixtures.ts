@@ -48,14 +48,11 @@ export function fakeGemini(stub: GeminiStub, enabled = true): Gemini & { calls: 
   const calls: JsonRequest[] = [];
   return {
     enabled,
-    imageEnabled: false,
-    models: { lite: 'lite', smart: 'smart', image: 'image', tts: 'tts' },
+    models: { lite: 'lite', smart: 'smart' },
     calls,
     json: async <T>(request: JsonRequest) => {
       calls.push(request);
       return stub(request) as T;
     },
-    image: async () => { throw new Error('no images in tests'); },
-    speech: async () => { throw new Error('no speech in tests'); },
   };
 }
