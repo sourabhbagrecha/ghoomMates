@@ -1,5 +1,5 @@
 # The face-indexer Cloud Run image.
-# Python 3.12: supported by TensorFlow 2.21, tf-keras 2.21 and deepface 0.0.103 (pins in requirements.txt).
+# Python 3.12: supported by tensorflow-cpu 2.21, tf-keras 2.21 and deepface 0.0.103 (pins in requirements.txt).
 FROM python:3.12-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -16,7 +16,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# --no-deps: every dependency is pinned. Resolving them would let tf-keras pull the full GPU tensorflow wheel
+# (about 570 MB) in next to tensorflow-cpu. The warm-up below fails the build if a pin is missing.
+RUN pip install --no-cache-dir --no-deps -r requirements.txt
 
 COPY faces ./faces
 
@@ -37,7 +39,8 @@ CMD exec gunicorn --bind ":${PORT}" --workers 1 --threads 1 --timeout 0 --gracef
 FROM runtime AS test
 USER root
 COPY requirements-dev.txt .
-RUN pip install --no-cache-dir -r requirements-dev.txt
+# --no-deps for the same reason: requirements-dev.txt includes requirements.txt.
+RUN pip install --no-cache-dir --no-deps -r requirements-dev.txt
 COPY tests ./tests
 COPY scripts ./scripts
 COPY pytest.ini .

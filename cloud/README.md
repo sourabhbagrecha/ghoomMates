@@ -144,7 +144,7 @@ Detecting and embedding the selfie is the slow part, so it happens once, on uplo
 
 ## Local development
 
-You need Docker Desktop. On Apple Silicon the image builds natively for arm64; every pinned wheel exists for both arm64 and x86_64.
+You need Docker Desktop. On Apple Silicon the image builds natively for arm64. tensorflow-cpu has no Linux arm64 wheel, so arm64 installs `tensorflow` at the same version instead (an environment marker in `requirements.txt`). Every other pinned wheel exists for both arm64 and x86_64.
 
 ```bash
 cd cloud

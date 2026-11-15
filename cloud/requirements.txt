@@ -1,6 +1,8 @@
 # Runtime dependencies for both services, fully pinned (resolved for CPython 3.12 on linux x86_64).
-# Direct dependencies: deepface, retina-face, tensorflow, tf-keras, pillow, pillow-heif, flask, gunicorn,
+# Direct dependencies: deepface, retina-face, tensorflow-cpu, tf-keras, pillow, pillow-heif, flask, gunicorn,
 # pymongo, google-cloud-storage. Everything else is transitive.
+# Install with pip --no-deps: tf-keras requires "tensorflow" and would pull the full GPU wheel in next to tensorflow-cpu.
+# tensorflow-cpu has no Linux arm64 wheel, so arm64 (local Docker on Apple Silicon) gets tensorflow, same version.
 absl-py==2.5.1
 astunparse==1.6.3
 beautifulsoup4==4.15.0
@@ -63,7 +65,8 @@ rich==15.0.0
 setuptools==84.2.1
 six==1.17.0
 soupsieve==3.0.4
-tensorflow==2.21.0
+tensorflow-cpu==2.21.0; platform_machine == "x86_64"
+tensorflow==2.21.0; platform_machine == "aarch64"
 termcolor==3.3.0
 tf_keras==2.21.0
 tqdm==4.70.1
