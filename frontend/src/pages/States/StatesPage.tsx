@@ -9,6 +9,7 @@ import { OfflineBanner } from '../../components/states/OfflineBanner'
 import { Skeleton } from '../../components/states/Skeleton'
 import { UPCOMING_TRIPS } from '../../data/trips'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
+import { SwipeDemo } from './SwipeDemo'
 import './StatesPage.css'
 
 const DEMOS = [
@@ -16,6 +17,7 @@ const DEMOS = [
   { id: 'empty', label: 'Empty' },
   { id: 'error', label: 'Error' },
   { id: 'offline', label: 'Offline' },
+  { id: 'swipe', label: 'Swipe kit' },
 ] as const
 
 type DemoId = (typeof DEMOS)[number]['id']
@@ -33,7 +35,7 @@ export function StatesPage() {
     <OnboardingLayout
       eyebrow="Design system"
       title="System states"
-      subtitle="Loading, empty, error and offline, in context."
+      subtitle="Loading, empty, error and offline, in context, plus the swipe kit."
       onBack={() => navigate(backTo)}
       bodyClassName="states-page"
     >
@@ -49,6 +51,7 @@ export function StatesPage() {
       {demo === 'empty' && <EmptyDemo />}
       {demo === 'error' && <ErrorDemo />}
       {demo === 'offline' && <OfflineDemo />}
+      {demo === 'swipe' && <SwipeDemo />}
     </OnboardingLayout>
   )
 }
