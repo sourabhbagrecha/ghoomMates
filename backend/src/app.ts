@@ -36,9 +36,11 @@ export interface ServerModules {
   events?: Router;
   // Vibe Swipe preference quiz and trip decks, mounted under /api/prefs. The core deck needs no database; answers do (503 without).
   prefs?: Router;
+  // Destination guides: researched sights, experiences, gems, food and day trips for 25 places, mounted under /api/places. Needs no database.
+  places?: Router;
 }
 
-export function createServer({ guards = [], auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events, prefs }: ServerModules) {
+export function createServer({ guards = [], auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events, prefs, places }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -86,6 +88,7 @@ export function createServer({ guards = [], auth, expenses, trips, voice, herita
   if (ops) app.use('/api/ops', ops);
   if (events) app.use('/api/events', events);
   if (prefs) app.use('/api/prefs', prefs);
+  if (places) app.use('/api/places', places);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));

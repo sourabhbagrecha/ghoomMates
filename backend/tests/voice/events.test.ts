@@ -36,7 +36,7 @@ describe('the whats_on tool', () => {
   const trip = (startDate: string | null, endDate: string | null) => ({ trip: { startDate, endDate } });
 
   test('is registered with the other skills', () => {
-    expect(SKILLS.map(s => s.name)).toEqual(['expenses', 'experiences', 'crowds', 'events', 'memory', 'photos', 'navigation']);
+    expect(SKILLS.map(s => s.name)).toEqual(['expenses', 'experiences', 'places', 'crowds', 'events', 'memory', 'photos', 'navigation']);
     expect(events.instructions({} as SkillContext).includes('whats_on')).toBe(true);
   });
   test('defaults to the squad’s trip dates', async () => {

@@ -6,6 +6,8 @@ import { spendGemini } from '../gemini.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { Dealbreaker, Diet } from '../prefs/taste.ts';
 import { tripCity } from '../prefs/registry.ts';
+import { guideBrief, guideFor, monthOf, rankItems, stopTag, type CityGuide, type ItemKind, type Month, type PlaceItem } from '../places/index.ts';
+import type { Vibe } from '../voice/experiences.ts';
 import type { TripAccess } from './service.ts';
 import {
   blamesSomeone, cardWhy, clockTime, consensus, constraintsBrief, dealbreakerUnion, groupStart, groupStyle, loadSquad, profileOf, safeWhy,
@@ -317,7 +319,12 @@ export class ItineraryService {
     if (!draft && deck) {
       draft = shortlistDraft({ city: deck, days, onlyDay, shortlist: squad.shortlist, start: squad.start, slots: squad.slots, dealbreakers: squad.dealbreakers, diet: squad.diet });
     }
-    draft ??= cityOf(place) === 'Udaipur' ? udaipurDraft(onlyDay ? 1 : days, onlyDay) : templateDraft(place, onlyDay ? 1 : days);
+    const guide = guideFor(place);
+    draft ??= cityOf(place) === 'Udaipur'
+      ? udaipurDraft(onlyDay ? 1 : days, onlyDay)
+      : guide
+        ? guideDraft(guide, days, { onlyDay, vibe: squad.profile?.blended ?? null, month: monthOf(trip.start_date) })
+        : templateDraft(place, onlyDay ? 1 : days);
     const explained = explainDraft(draft, squad.shortlist, squad.names, squad.profile !== null);
     // Gemini's tip is free text too: never let it say who isn't into something
     const tip = blamesSomeone(explained.tip, squad.names) ? 'Tell me what to change and I’ll rework the plan.' : explained.tip;
@@ -329,6 +336,7 @@ export class ItineraryService {
   }): Promise<Omit<Draft, 'source'>> {
     const { place, days, startDate, budget, tweaks, squad, onlyDay } = args;
     const city = cityOf(place);
+    const guide = guideFor(place);
     const { profile, shortlist } = squad;
     // Spotlights are planned across the whole trip so a regenerated day keeps its share of the rotation
     const spotlights = profile ? allocateSpotlights(profile, days, squad.slots) : [];
@@ -348,6 +356,7 @@ export class ItineraryService {
       'why: one short line (at most 100 characters) on why the option suits the squad, such as who it is for or that everyone liked it. Never mention who dislikes or said no to anything, in why or in notes.',
       'Travel responsibly: popular heritage sites get overcrowded, so visit them in their quiet windows, not at peak. Every day include at least one lesser-known gem, and favour local family-run eateries and artisans over chains.',
       'Group nearby stops so the squad can walk or take a shared e-rickshaw between them.',
+      guide && `What we know about ${guide.name} (researched; prefer these real places, use their names as written, and you may add others you are sure of):\n${guideBrief(guide, { vibe: profile?.blended ?? null, month: monthOf(startDate) })}`,
       city && `Crowd forecast for ${city}'s heritage sites${startDate ? ' around the trip dates' : ''}:\n${crowdBrief(city, startDate)}\nSchedule each site you use inside its quiet window, and use the site names above so the app can track crowds.`,
     ].filter(Boolean).join('\n');
 
@@ -756,6 +765,87 @@ export function templateDraft(place: string, days: number): Draft {
     };
   };
   return { days: Array.from({ length: Math.max(1, days) }, (_, i) => day(i)), tip: 'Tell me what to change and I’ll rework the plan.', source: 'template' };
+}
+
+/**
+ * A plan from a destination guide, without Gemini: every stop a real, researched place, ranked for the squad's blended
+ * vibe and in season for the trip month. Each day has a morning sight, a local lunch, an afternoon experience, a sunset
+ * spot and an evening out, at least one lesser-known gem, and no place twice. Trips of 4+ days get a day trip.
+ */
+export function guideDraft(guide: CityGuide, days: number, opts: { onlyDay?: number | null; vibe?: Vibe | null; month?: Month | null } = {}): Draft {
+  const ranked = rankItems(guide, { vibe: opts.vibe, month: opts.month }).map(r => r.item);
+  const used = new Set<string>();
+  const stop = (time: string, item: PlaceItem): DraftStop => ({
+    time, title: item.name, tag: stopTag(item), place: item.area,
+    notes: `${item.tip}${item.costRupees ? ` Around ₹${item.costRupees.toLocaleString('en-IN')} a head.` : ''}`.slice(0, 500),
+  });
+  /** The best two unused items of these kinds, preferring the given times of day; marks them used */
+  const slot = (time: string, kinds: ItemKind[], prefer: PlaceItem['bestTime'][] = [], wantGem = false): DraftStop[] => {
+    const pool = ranked.filter(i => kinds.includes(i.kind) && !used.has(i.id));
+    const score = (i: PlaceItem) => (prefer.includes(i.bestTime) ? 2 : 0) + (wantGem && i.gem ? 1 : 0);
+    const picks = [...pool].sort((a, b) => score(b) - score(a)).slice(0, 2);
+    for (const p of picks) used.add(p.id);
+    return picks.map(p => stop(time, p));
+  };
+  const fill = (slots: DraftStop[][]) => slots.filter(s => s.length > 0);
+  const stay = (time: string, title: string, notes: string): DraftStop[] => [{ time, title, tag: 'Stay', place: '', notes }];
+
+  const arrive = (): DraftDay => ({
+    title: `Hello, ${guide.name}`,
+    slots: fill([
+      stay('12:00 PM', 'Check in', guide.whereToStay.slice(0, 500)),
+      slot('01:30 PM', ['food']),
+      slot('04:00 PM', ['neighbourhood', 'sight', 'shopping'], ['afternoon', 'any']),
+      slot('05:30 PM', ['nature', 'sight', 'spiritual'], ['sunset'], true),
+      slot('08:00 PM', ['food', 'nightlife'], ['evening', 'night']),
+    ]),
+  });
+  const full = (n: number): DraftDay => {
+    const day: DraftDay = {
+      title: `${guide.name}, day ${n}`,
+      slots: fill([
+        slot('07:00 AM', ['sight', 'spiritual', 'nature', 'adventure', 'wellness'], ['sunrise', 'morning']),
+        slot('01:00 PM', ['food'], ['midday', 'any']),
+        slot('03:00 PM', ['experience', 'workshop', 'shopping', 'sight', 'neighbourhood'], ['afternoon', 'any'], true),
+        slot('05:30 PM', ['nature', 'sight', 'spiritual', 'adventure'], ['sunset']),
+        slot('08:00 PM', ['food', 'nightlife', 'experience'], ['evening', 'night']),
+      ]),
+    };
+    // Every day gets a lesser-known gem: swap one in as the afternoon alternative if none made it
+    if (!day.slots.flat().some(s => guide.items.find(i => i.name === s.title)?.gem)) {
+      const gem = ranked.find(i => i.gem && !used.has(i.id) && i.kind !== 'day-trip');
+      if (gem && day.slots[2]) { used.add(gem.id); day.slots[2] = [day.slots[2][0], stop(day.slots[2][0].time, gem)]; }
+    }
+    return day;
+  };
+  const trip = (): DraftDay | null => {
+    const out = slot('07:30 AM', ['day-trip'], ['any', 'morning', 'sunrise']);
+    if (!out.length) return null;
+    return { title: `Day trip: ${out[0].title}`, slots: fill([out, slot('08:00 PM', ['food', 'nightlife'], ['evening', 'night'])]) };
+  };
+  const leave = (): DraftDay => ({
+    title: 'Last chai, then home',
+    slots: fill([
+      slot('08:30 AM', ['food', 'nature', 'wellness', 'neighbourhood'], ['sunrise', 'morning']),
+      slot('10:30 AM', ['shopping', 'workshop'], ['morning', 'any']),
+      stay('12:00 PM', 'Check out', 'Settle up in GhoomMates before you leave!'),
+      [{ time: '03:00 PM', title: 'Head home', tag: 'Travel', place: '', notes: guide.gettingThere.slice(0, 500) }],
+    ]),
+  });
+
+  const total = Math.max(1, days);
+  const planDay = (i: number): DraftDay => {
+    if (opts.onlyDay) return full(opts.onlyDay);
+    if (i === 0) return arrive();
+    if (i === total - 1 && total > 1) return leave();
+    // The second full day of a 4+ day trip goes out of town
+    return (total >= 4 && i === 2 && trip()) || full(i + 1);
+  };
+  return {
+    days: opts.onlyDay ? [planDay(0)] : Array.from({ length: total }, (_, i) => planDay(i)),
+    tip: `Built from our ${guide.name} guide: real places in season, a lesser-known gem every day. ${guide.practical[0] ?? ''}`.trim().slice(0, 300),
+    source: 'template',
+  };
 }
 
 // Udaipur without Gemini: heritage sites in their quiet windows, a lesser-known gem every day, local kitchens and makers.

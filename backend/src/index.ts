@@ -10,6 +10,7 @@ import { createApp as createExpensesApp } from './expenses/app.ts';
 import { createFrontendRouter } from './frontend.ts';
 import { createGemini, limitGemini } from './gemini.ts';
 import { createHeritageApp } from './heritage/app.ts';
+import { createPlacesApp } from './places/app.ts';
 import { createMakersApp, createMongoMakers } from './makers/app.ts';
 import { createImpactApp } from './impact/app.ts';
 import { createHospitalityApp } from './hospitality/app.ts';
@@ -149,6 +150,7 @@ const app = createServer({
   reels,
   impact,
   heritage: createHeritageApp(),
+  places: createPlacesApp(),
   makers: createMakersApp({ gemini, authenticate, ...(db ? createMongoMakers(db, storage, clientOrigin) : {}) }),
   // Hosts and the dashboard work without a database; squad tables reuse the trips module's membership check and stop insert
   hospitality: createHospitalityApp({
