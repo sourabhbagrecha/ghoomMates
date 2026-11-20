@@ -193,7 +193,7 @@ export type DraftBasis = { answered: number; total: number; pending: string[] }
 export type DraftPlan = {
   days: { title: string; slots: DraftStop[][] }[]
   tip: string
-  source: 'gemini' | 'template'
+  source: 'gemini' | 'shortlist' | 'template'
   fairness?: DraftFairness | null
   squad?: { sharedLoves: string[]; splits: string[]; vetoes: string[] } | null
   basis?: DraftBasis | null
