@@ -1,5 +1,5 @@
 // The answer area of each non-swipe card format. Each face keeps its own picks and calls onReply once.
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import iconCheck from '../../assets/figma/icon-check.svg'
 import type { Card, CardOption, Reply } from '../../data/taste'
 import { Button } from '../Button'
@@ -10,20 +10,11 @@ export type FaceProps = {
   card: Card
   /** id of the card's prompt, to label the answer group */
   promptId: string
-  onReply: (reply: Reply, exit: Exit) => void
+  /** delayMs: show the pick for a moment before the card leaves (the stack holds Undo meanwhile) */
+  onReply: (reply: Reply, exit: Exit, delayMs?: number) => void
 }
 
 const LIFT: Exit = { kind: 'lift' }
-
-/** Runs one delayed callback at a time and drops it if the card goes away first */
-function useLater() {
-  const timer = useRef<number | undefined>(undefined)
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-  return (fn: () => void, ms: number) => {
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(fn, ms)
-  }
-}
 
 /** 3 options in a row, 4 in a 2 × 2, 5–7 in rows of three (compact, without the detail line) */
 const columnsFor = (count: number) => (count === 4 || count <= 2 ? 2 : 3)
@@ -58,11 +49,10 @@ function ChoiceTile({ option, selected, multi, compact, onClick }: ChoiceTilePro
 /** Two halves: tap one (or drag the card toward it, handled by the stack) */
 export function ThisOrThatFace({ card, promptId, onReply }: FaceProps) {
   const [chosen, setChosen] = useState<string | null>(null)
-  const later = useLater()
   const choose = (option: CardOption) => {
     if (chosen) return
     setChosen(option.id)
-    later(() => onReply({ kind: 'choose', optionIds: [option.id] }, LIFT), PICKED_MS)
+    onReply({ kind: 'choose', optionIds: [option.id] }, LIFT, PICKED_MS)
   }
 
   return (
@@ -97,13 +87,12 @@ export function ThisOrThatFace({ card, promptId, onReply }: FaceProps) {
 /** Pick one of 3–5: the tile shows as picked for a moment, then the card moves on */
 export function PickFace({ card, promptId, onReply }: FaceProps) {
   const [picked, setPicked] = useState<string | null>(null)
-  const later = useLater()
   const columns = columnsFor(card.options.length)
   const compact = card.options.length > 4
   const pick = (option: CardOption) => {
     if (picked) return
     setPicked(option.id)
-    later(() => onReply({ kind: 'choose', optionIds: [option.id] }, LIFT), PICKED_MS)
+    onReply({ kind: 'choose', optionIds: [option.id] }, LIFT, PICKED_MS)
   }
 
   return (

@@ -106,6 +106,8 @@ export function QuizStack({ cards, onAnswer, onUndo, canUndo, photoFor, footer, 
   const axis = useRef<'x' | 'y'>('x')
   const reduce = useRef(false)
   const stuck = useRef<number | undefined>(undefined)
+  /** A picked option shows for a moment before its card leaves */
+  const held = useRef<number | undefined>(undefined)
   const alive = useRef(true)
 
   useEffect(() => {
@@ -113,6 +115,7 @@ export function QuizStack({ cards, onAnswer, onUndo, canUndo, photoFor, footer, 
     return () => {
       alive.current = false
       window.clearTimeout(stuck.current)
+      window.clearTimeout(held.current)
     }
   }, [])
 
@@ -152,13 +155,21 @@ export function QuizStack({ cards, onAnswer, onUndo, canUndo, photoFor, footer, 
     deck?.style.setProperty('--lift', '0')
   }
 
-  /** Animates the top card away, then hands the answer to the parent */
-  const commit = (card: Card, reply: Reply, exit: Exit) => {
+  /** Animates the top card away, then hands the answer to the parent. The deck is busy (no Undo, no other answer) from the first tap. */
+  const commit = (card: Card, reply: Reply, exit: Exit, delayMs = 0) => {
     const el = topRef.current
-    const deck = deckRef.current
     if (busy.current || !el || card.id !== topId) return
     busy.current = true
     const ms = msSince(shownAt.current)
+    if (!delayMs) return leave(el, card, reply, exit, ms)
+    window.clearTimeout(held.current)
+    held.current = window.setTimeout(() => {
+      if (alive.current && topRef.current === el) leave(el, card, reply, exit, ms)
+    }, delayMs)
+  }
+
+  const leave = (el: HTMLElement, card: Card, reply: Reply, exit: Exit, ms: number) => {
+    const deck = deckRef.current
     refocus.current = !!deck?.contains(document.activeElement)
     if (reply.kind === 'swipe') tick()
     setMessage(announce(card, reply))
@@ -335,7 +346,7 @@ export function QuizStack({ cards, onAnswer, onUndo, canUndo, photoFor, footer, 
                 photoFor={photoFor}
                 cardRef={depth === 0 ? topRef : undefined}
                 drag={depth === 0 ? drag : undefined}
-                onReply={depth === 0 ? (reply, exit) => commit(card, reply, exit) : undefined}
+                onReply={depth === 0 ? (reply, exit, delayMs) => commit(card, reply, exit, delayMs) : undefined}
               />
             ))
           : empty}

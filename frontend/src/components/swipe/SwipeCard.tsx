@@ -15,7 +15,7 @@ type SwipeCardProps = {
   /** Top card only */
   cardRef?: Ref<HTMLElement>
   drag?: ReturnType<typeof useDrag>
-  onReply?: (reply: Reply, exit: Exit) => void
+  onReply?: (reply: Reply, exit: Exit, delayMs?: number) => void
 }
 
 const ignore = () => {}

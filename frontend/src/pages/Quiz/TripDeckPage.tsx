@@ -8,7 +8,7 @@ import { QuizStack } from '../../components/swipe/QuizStack'
 import { activeTrip } from '../../data/activeTrip'
 import type { Answer, Card, Reply } from '../../data/taste'
 import type { TripDeck } from '../../services/prefsService'
-import { flushSwipes, recordAnswer, tripScope, undoAnswer, unsentAnswers } from '../../services/vibeStorage'
+import { canUndoAnswer, flushSwipes, recordAnswer, tripScope, undoAnswer, unsentAnswers } from '../../services/vibeStorage'
 import { loadTripPlay, photoFor } from './decks'
 import { DeckSkeleton, FansLine, QuizProgress, QuizScreen, SignInNeeded } from './QuizParts'
 import { useFlushOnLeave, useLoad, useSignedIn, useSwipeDraft } from './quizHooks'
@@ -185,7 +185,7 @@ function TripPlay({ deck, go, onDone }: TripPlayProps) {
             cards={remaining}
             onAnswer={onAnswer}
             onUndo={() => undoAnswer(scope)}
-            canUndo={answers.length > 0}
+            canUndo={canUndoAnswer(scope, draft)}
             photoFor={photoFor}
             footer={(card) => (card.fans?.length ? <FansLine fans={card.fans} /> : null)}
           />

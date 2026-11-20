@@ -49,6 +49,10 @@ export function applySuggestion(tripId: string, stop: ItineraryStop) {
   const nudge = stop.crowd?.suggestion
   if (!nudge) return Promise.resolve()
   const base = { dayNumber: stop.dayNumber, time: stop.time, title: stop.title, tag: stop.tag, place: stop.place, notes: stop.notes }
-  const next = nudge.type === 'shift' ? { ...base, time: nudge.time } : { ...base, title: nudge.title, place: nudge.place, tag: nudge.tag, notes: nudge.notes }
+  // A different site isn't the stop the squad swiped for: its why-line, card and fans go with it
+  const next =
+    nudge.type === 'shift'
+      ? { ...base, time: nudge.time }
+      : { ...base, title: nudge.title, place: nudge.place, tag: nudge.tag, notes: nudge.notes, why: null, cardId: null, forMembers: [] }
   return tripsApi.updateStop(tripId, stop.id, next).then(() => undefined)
 }

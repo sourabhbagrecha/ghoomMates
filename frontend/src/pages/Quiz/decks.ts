@@ -16,7 +16,7 @@ import {
 } from '../../data/taste'
 import { fetchCurrentUser, getStoredUser } from '../../services/authService'
 import { prefsApi, type CoreDeck, type SquadInsights, type TasteSummary, type TripDeck } from '../../services/prefsService'
-import { CORE_SCOPE, clearSwipeDraft, loadVibe, mergeServerAnswers, readSwipeDraft, tripScope } from '../../services/vibeStorage'
+import { CORE_SCOPE, clearSwipeDraft, loadVibe, readSwipeDraft, syncWithDeck, tripScope } from '../../services/vibeStorage'
 import { EXPERIENCES } from '../Explore/experiencesData'
 import { firstName } from './quizData'
 
@@ -78,7 +78,7 @@ export async function loadCorePlay(): Promise<CoreDeck> {
     loadCoreDeck(),
     fromServer ? prefsApi.me().then((me) => me.answers.core, () => []) : Promise.resolve([]),
   ])
-  if (answers.length) mergeServerAnswers(CORE_SCOPE, answers)
+  syncWithDeck(CORE_SCOPE, deck.cards.map((c) => c.id), answers)
   return deck
 }
 
@@ -142,7 +142,7 @@ function registerFans(cards: Card[]) {
 export async function loadTripPlay(tripId: string): Promise<TripDeck> {
   const deck = await prefsApi.tripDeck(tripId)
   registerFans(deck.cards)
-  mergeServerAnswers(tripScope(tripId), deck.answered)
+  syncWithDeck(tripScope(tripId), deck.cards.map((c) => c.id), deck.answered)
   return deck
 }
 

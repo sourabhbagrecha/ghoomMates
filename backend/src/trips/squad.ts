@@ -533,7 +533,8 @@ export function buildInsights(args: { tripId: string; city: string | null; meId:
   const tally = consensus(answers, members);
   // Only your own count: a mate's count minus the cards they're a fan of would give away their nopes
   let myTripAnswered = 0;
-  for (const a of answers) if (a.user_id === meId && a.reply && a.reply.kind !== 'skip') myTripAnswered += 1;
+  // Skips count: this is how far through the deck you are
+  for (const a of answers) if (a.user_id === meId && a.reply) myTripAnswered += 1;
 
   const squad: SquadMember[] = members.map(m => ({
     userId: m.userId,

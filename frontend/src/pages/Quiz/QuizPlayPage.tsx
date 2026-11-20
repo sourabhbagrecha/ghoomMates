@@ -5,7 +5,7 @@ import { ErrorState } from '../../components/states/ErrorState'
 import { QuizStack } from '../../components/swipe/QuizStack'
 import { scoreAnswers, vibeOf, type Card, type Reply } from '../../data/taste'
 import type { CoreDeck } from '../../services/prefsService'
-import { CORE_SCOPE, flushSwipes, recordAnswer, saveVibe, undoAnswer, unsentAnswers } from '../../services/vibeStorage'
+import { CORE_SCOPE, canUndoAnswer, flushSwipes, recordAnswer, saveVibe, undoAnswer, unsentAnswers } from '../../services/vibeStorage'
 import { cardsById, loadCorePlay, restartCore, summaryOf } from './decks'
 import { DeckSkeleton, LiveVibe, QuizProgress, QuizScreen } from './QuizParts'
 import { useFlushOnLeave, useLoad, useSignedIn, useSwipeDraft } from './quizHooks'
@@ -155,7 +155,7 @@ function CorePlay({ deck, go, skipQuiz }: CorePlayProps) {
               cards={remaining}
               onAnswer={onAnswer}
               onUndo={() => undoAnswer(CORE_SCOPE)}
-              canUndo={answers.length > 0 && !finishing}
+              canUndo={canUndoAnswer(CORE_SCOPE, draft) && !finishing}
             />
           </div>
         )}

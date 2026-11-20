@@ -254,7 +254,7 @@ async function udaipurSquad() {
 const stopsOf = (plan: { days: { stops: any[] }[] }) => plan.days.flatMap(d => d.stops);
 
 test('squad insights for members, and never who said no', async () => {
-  const { riya, trip } = await udaipurSquad();
+  const { riya, dee, trip } = await udaipurSquad();
   const outsider = await createUser('Olu');
   const res = await call(riya, `/api/trips/${trip.id}/squad`);
   expect(res.status).toBe(200);
@@ -275,6 +275,10 @@ test('squad insights for members, and never who said no', async () => {
   expect(squad.style.mornings.value).toBe(0.5);
   const { members: _members, pending: _pending, twin: _twin, ...rest } = squad;
   expect(JSON.stringify(rest).includes('Dee')).toBe(false);
+
+  // Your own count takes skips too: it's how far through the deck you are
+  const mine = (await call(dee, `/api/trips/${trip.id}/squad`)).data.members.find((m: { isMe: boolean }) => m.isMe);
+  expect(mine.tripAnswered).toBe(4);
 
   expect((await call(outsider, `/api/trips/${trip.id}/squad`)).status).toBe(404);
 });

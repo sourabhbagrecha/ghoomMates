@@ -81,7 +81,11 @@ export function useDrag({ enabled, onMove, onRelease, onStart }: DragOptions) {
     const state = stateOf(e)
     drag.current = null
     if (!d.active) return
+    // Swallow the click this release makes (mouse), but not a later one: a touch drag makes no click at all
     swallowClick.current = true
+    window.setTimeout(() => {
+      swallowClick.current = false
+    }, 0)
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
     onRelease(state, cancelled)
   }

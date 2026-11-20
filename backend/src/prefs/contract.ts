@@ -92,7 +92,7 @@ export type SquadMember = {
   confidence: number;
   /** Has swiped at least one core card (a legacy-quiz member has a vibe but no swipes yet) */
   coreDone: boolean;
-  /** Your own trip-deck answers; 0 for everyone else, so no one can work out another member's nopes */
+  /** Your own trip-deck answers, skips included; 0 for everyone else, so no one can work out another member's nopes */
   tripAnswered: number;
   isMe: boolean;
 };

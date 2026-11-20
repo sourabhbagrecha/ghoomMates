@@ -1,5 +1,6 @@
 import { fetchCurrentUser, getStoredUser, updateUserProfile, type AuthUser } from './authService'
 import { prefsApi, type AnswersResponse } from './prefsService'
+import { ApiRequestError } from './tripsService'
 import { VIBE_AXES, type VibeScores } from '../data/vibe'
 import { AXES, personaFor, type Answer, type Taste } from '../data/taste'
 
@@ -147,7 +148,19 @@ export function writeSwipeDraft(scope: SwipeScope, draft: SwipeDraft | null) {
   listeners.forEach((listener) => listener())
 }
 
-export const clearSwipeDraft = (scope: SwipeScope) => writeSwipeDraft(scope, null)
+export function clearSwipeDraft(scope: SwipeScope) {
+  answeredHere.delete(scope)
+  writeSwipeDraft(scope, null)
+}
+
+/** Cards answered in this tab, per deck, oldest first. Only these can be undone: an answer from another visit has no card on screen to bring back. */
+const answeredHere = new Map<SwipeScope, string[]>()
+
+/** The draft's last answer was made in this tab, so Undo can bring its card back */
+export function canUndoAnswer(scope: SwipeScope, draft = readSwipeDraft(scope)): boolean {
+  const last = draft?.answers.at(-1)
+  return !!last && answeredHere.get(scope)?.at(-1) === last.cardId
+}
 
 export function subscribeSwipeDrafts(listener: () => void) {
   listeners.add(listener)
@@ -174,33 +187,54 @@ const withAnswers = (draft: SwipeDraft, answers: Answer[], done: boolean): Swipe
 export function recordAnswer(scope: SwipeScope, answer: Answer, done: boolean): SwipeDraft {
   const draft = readSwipeDraft(scope) ?? emptyDraft()
   const next = withAnswers(draft, [...draft.answers.filter((a) => a.cardId !== answer.cardId), answer], done)
+  answeredHere.set(scope, [...(answeredHere.get(scope) ?? []).filter((id) => id !== answer.cardId), answer.cardId])
   writeSwipeDraft(scope, next)
   return next
 }
 
-/** Drops the last answer so its card goes back on top; returns it */
+/** Drops the last answer so its card goes back on top, if it was made in this tab; returns it */
 export function undoAnswer(scope: SwipeScope): Answer | null {
   const draft = readSwipeDraft(scope)
   const last = draft?.answers.at(-1)
-  if (!draft || !last) return null
+  if (!draft || !last || !canUndoAnswer(scope, draft)) return null
+  answeredHere.set(scope, (answeredHere.get(scope) ?? []).slice(0, -1))
   writeSwipeDraft(scope, withAnswers(draft, draft.answers.slice(0, -1), false))
   return last
 }
 
-/** Adds answers the server already has (another device, an earlier visit) under the ones on this device */
-export function mergeServerAnswers(scope: SwipeScope, server: Answer[]) {
+/**
+ * Lines this device's draft up with the deck as served: answers to cards no longer in it go (the server would refuse
+ * the whole batch), answers the server already has (another device, an earlier visit) go under the ones made here,
+ * and the draft is done when every card has an answer.
+ */
+export function syncWithDeck(scope: SwipeScope, cardIds: string[], server: Answer[] = []) {
   const draft = readSwipeDraft(scope)
-  const local = new Set(draft?.answers.map((a) => a.cardId))
-  const extra = server.filter((a) => !local.has(a.cardId))
-  if (!extra.length) return
+  const inDeck = new Set(cardIds)
+  const local = (draft?.answers ?? []).filter((a) => inDeck.has(a.cardId))
+  const here = new Set(local.map((a) => a.cardId))
+  const extra = server.filter((a) => inDeck.has(a.cardId) && !here.has(a.cardId))
+  const answers = [...extra, ...local]
+  const done = inDeck.size > 0 && new Set(answers.map((a) => a.cardId)).size >= inDeck.size
+  if (!draft && !extra.length) return
+  if (draft && !extra.length && local.length === draft.answers.length && done === draft.done) return
   const base = draft ?? emptyDraft()
+  const keys = new Set(answers.map(answerKey))
   writeSwipeDraft(scope, {
     ...base,
-    answers: [...extra, ...base.answers],
-    sent: [...base.sent, ...extra.map(answerKey)],
+    answers,
+    sent: [...new Set([...base.sent, ...extra.map(answerKey)])].filter((k) => keys.has(k)),
     userId: getStoredUser()?.id ?? base.userId,
+    done,
     updatedAt: new Date().toISOString(),
   })
+}
+
+/** Takes answers out of the draft (the server refused them), so their cards come back to be swiped again */
+function dropAnswers(scope: SwipeScope, answers: Answer[]) {
+  const draft = rawDraft(scope)
+  if (!draft) return
+  const gone = new Set(answers.map(answerKey))
+  writeSwipeDraft(scope, withAnswers(draft, draft.answers.filter((a) => !gone.has(answerKey(a))), false))
 }
 
 function markSent(scope: SwipeScope, answers: Answer[]) {
@@ -219,8 +253,15 @@ async function sendUnsent(scope: SwipeScope): Promise<AnswersResponse | null> {
   let result: AnswersResponse | null = null
   for (let i = 0; i < unsent.length; i += MAX_BATCH) {
     const answers = unsent.slice(i, i + MAX_BATCH)
-    result = await prefsApi.answer(tripId ? { scope: 'trip', tripId, answers } : { scope: 'core', answers })
-    markSent(scope, answers)
+    try {
+      result = await prefsApi.answer(tripId ? { scope: 'trip', tripId, answers } : { scope: 'core', answers })
+      markSent(scope, answers)
+    } catch (error) {
+      if (!(error instanceof ApiRequestError && error.status === 400)) throw error
+      // Retrying can't help (say a card left the deck after a release): drop the batch so later swipes still save
+      console.warn('Dropped swipes the server refused:', error.message)
+      dropAnswers(scope, answers)
+    }
   }
   return result
 }
@@ -266,7 +307,10 @@ export function syncVibeToProfile(user: AuthUser | null) {
     writeSwipeDraft(CORE_SCOPE, { ...draft, userId: user.id })
     void flushSwipes(CORE_SCOPE)
       .then(() => {
-        clearSwipeDraft(CORE_SCOPE)
+        // Swipes made while that upload was in flight stay, as this account's draft, and go up with the next flush
+        const left = rawDraft(CORE_SCOPE)
+        if (left && unsentAnswers(left).length) void flushSwipes(CORE_SCOPE).catch((error) => console.warn('Could not save swipes:', error))
+        else clearSwipeDraft(CORE_SCOPE)
         clearPendingVibe()
         // The prefs module wrote taste, vibe and persona onto the profile: refresh the cached user
         return fetchCurrentUser()
