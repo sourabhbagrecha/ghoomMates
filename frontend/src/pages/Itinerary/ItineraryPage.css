@@ -38,85 +38,6 @@
   white-space: nowrap;
 }
 
-/* Vibe card */
-.vibe-card {
-  gap: 8px;
-}
-
-.vibe-card__main {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.spiderweb {
-  flex-shrink: 0;
-  width: 176px;
-  height: 140px;
-  overflow: hidden;
-}
-
-.vibe-card__persona {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.vibe-card__overline {
-  font-weight: 700;
-}
-
-.vibe-card__persona-name {
-  font-weight: 800;
-  font-size: 17px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-.vibe-card__legend {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.vibe-card__legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 600;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-.vibe-card__swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-}
-
-.vibe-card__swatch--squad {
-  background: var(--color-sky);
-}
-
-.vibe-card__swatch--you {
-  background: var(--color-amber);
-}
-
-.vibe-card__match {
-  padding: 5px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-yellow);
-  font-weight: 800;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-primary);
-  white-space: nowrap;
-}
-
 /* Day switcher */
 .day-pills {
   display: flex;
@@ -253,35 +174,6 @@
   font-size: 12px;
   line-height: 17px;
   color: var(--color-muted);
-}
-
-/* Squad quiz progress and the generate-plan action */
-.vibe-card__status {
-  padding: 8px 10px;
-  border-radius: var(--radius-tile);
-  background: var(--color-tint);
-  font-weight: 600;
-  font-size: 11.5px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-.vibe-card__status strong {
-  font-weight: 700;
-  color: var(--color-ink);
-}
-
-.vibe-card__generate {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.vibe-card__error {
-  font-weight: 600;
-  font-size: 11.5px;
-  line-height: 17px;
-  color: var(--color-primary);
 }
 
 /* Crowd meter on stops. The rail stretches with the stop, which grows when it carries a nudge. */
@@ -432,4 +324,89 @@
   font-size: 11.5px;
   line-height: 17px;
   color: var(--color-ink);
+}
+
+/* Mates changed their swipes after the plan was made */
+.stale-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.stale-banner__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}
+
+.stale-banner__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stale-banner__title {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+.stale-banner__error {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-primary);
+}
+
+.stale-banner__action {
+  flex-shrink: 0;
+}
+
+/* Split slot: the squad goes separate ways for a bit, options stacked with an "or" between them */
+.split-slot {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.split-slot__option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.split-slot__or {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 15px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.split-slot__or::before,
+.split-slot__or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-sky-light);
+}
+
+/* Long place names wrap instead of pushing the tag off a 360px screen */
+.stop-card__title {
+  overflow-wrap: anywhere;
 }

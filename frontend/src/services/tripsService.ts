@@ -1,5 +1,7 @@
+import { AXES, type Axis } from '../data/taste'
 import { getToken } from './authService'
 import type { StopCrowd } from './heritageService'
+import type { StopWhy } from './prefsService'
 
 /* Types mirror backend/src/trips/service.ts. Money is integer paise. */
 
@@ -167,15 +169,25 @@ export type ItineraryStop = {
   myRsvp: Rsvp
   /** Crowd forecast when the stop is a known heritage site */
   crowd?: StopCrowd | null
-}
+} & Required<StopWhy>
 
 export type ItineraryDay = { number: number; title: string; stops: ItineraryStop[] }
 
-/** forMembers: who GhoomMate planned it for (empty = whole squad). split: the slot's options run in parallel for different mates */
-export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string; forMembers?: string[]; axis?: string; split?: boolean }
+/**
+ * GET /itinerary. stale: a mate changed their swipes after the plan was generated.
+ * pending: first names of mates with no answers yet.
+ */
+export type ItineraryState = { days: ItineraryDay[]; stale: boolean; pending: string[] }
 
-/** How well the plan suits each mate (0–1), from their vibe quiz */
+/** forMembers: who GhoomMate planned it for (empty = whole squad). split: the slot's options run in parallel for different mates.
+ * why: one line on why it's in the plan. cardId: the trip card it came from. */
+export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string } & StopWhy
+
+/** How well the plan suits each mate (0–1), from their swipes */
 export type DraftFairness = { members: { name: string; score: number; spotlights: number }[]; min: number; mean: number }
+
+/** Whose swipes the plan was built from */
+export type DraftBasis = { answered: number; total: number; pending: string[] }
 
 /** A suggested plan: each slot lists the pick first, then alternatives to swap to (or, when split, one option per camp) */
 export type DraftPlan = {
@@ -184,16 +196,48 @@ export type DraftPlan = {
   source: 'gemini' | 'template'
   fairness?: DraftFairness | null
   squad?: { sharedLoves: string[]; splits: string[]; vetoes: string[] } | null
+  basis?: DraftBasis | null
 }
 
-/** A split slot saves every option as its own stop at the same time, noting who each one is for */
-export const splitSlotStops = (options: DraftStop[]): DraftStop[] =>
-  options.map((o) => ({
-    ...o,
-    notes: [o.forMembers?.length ? `Split plan for ${o.forMembers.join(', ')}.` : 'Split plan.', o.notes].filter(Boolean).join(' '),
-  }))
+/** A split slot saves every option as its own stop at the same time; `split` and `forMembers` say who each one is for */
+export const splitSlotStops = (options: DraftStop[]): DraftStop[] => options.map((o) => ({ ...o, split: true }))
 
-export type StopInput = { dayNumber: number; time: string; title: string; tag: string; place?: string; notes?: string }
+export type StopInput = { dayNumber: number; time: string; title: string; tag: string; place?: string; notes?: string } & StopWhy
+
+const isAxis = (value: unknown): value is Axis | 'group' => value === 'group' || AXES.includes(value as Axis)
+const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null)
+const names = (value: unknown) => (Array.isArray(value) ? value.filter((n): n is string => typeof n === 'string' && !!n.trim()) : [])
+
+/** The why fields of a stop, with the gaps an older server leaves filled in */
+export const stopWhyOf = (raw: StopWhy): Required<StopWhy> => ({
+  axis: isAxis(raw.axis) ? raw.axis : null,
+  forMembers: names(raw.forMembers),
+  split: raw.split === true,
+  why: text(raw.why),
+  cardId: text(raw.cardId),
+})
+
+type RawDay = Omit<ItineraryDay, 'stops'> & { stops: (Omit<ItineraryStop, keyof StopWhy> & StopWhy)[] }
+
+const normaliseDays = (days: RawDay[] | undefined): ItineraryDay[] =>
+  (days ?? []).map((d) => ({ ...d, stops: d.stops.map((s) => ({ ...s, ...stopWhyOf(s) })) }))
+
+/** What PUT /itinerary stores for a stop: the stop and its why fields, nothing else */
+const stopBody = (s: DraftStop): DraftStop => {
+  const why = stopWhyOf(s)
+  return {
+    time: s.time,
+    title: s.title,
+    tag: s.tag,
+    place: s.place,
+    notes: s.notes,
+    ...(why.axis ? { axis: why.axis } : {}),
+    ...(why.forMembers.length ? { forMembers: why.forMembers } : {}),
+    ...(why.split ? { split: true } : {}),
+    ...(why.why ? { why: why.why } : {}),
+    ...(why.cardId ? { cardId: why.cardId } : {}),
+  }
+}
 
 export type NewTrip = {
   name: string
@@ -252,6 +296,12 @@ export async function request<T>(path: string, init: { method?: string; body?: u
 
 const trip = (id: string) => `/api/trips/${encodeURIComponent(id)}`
 
+/** GET /itinerary: the days, whether mates changed their swipes since the plan was made, and who hasn't swiped yet */
+const itineraryState = (id: string) =>
+  request<Partial<ItineraryState> & { days: RawDay[] }>(`${trip(id)}/itinerary`).then(
+    (r): ItineraryState => ({ days: normaliseDays(r.days), stale: r.stale === true, pending: names(r.pending) }),
+  )
+
 export const tripsApi = {
   list: () => request<{ items: TripListItem[] }>('/api/trips').then((r) => r.items),
   create: (input: NewTrip) => request<TripDetail>('/api/trips', { body: input }),
@@ -278,9 +328,15 @@ export const tripsApi = {
   searchPhotos: (id: string, query: string) => request<PhotoSearchResult>(`${trip(id)}/photos/search`, { body: { query } }),
   addPhotos: (id: string, photos: { key: string; width?: number; height?: number }[]) =>
     request<{ added: number }>(`${trip(id)}/photos`, { body: { photos } }),
-  itinerary: (id: string) => request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`).then((r) => r.days),
+  /** The plan's days. Use itineraryState for whether it's stale and who hasn't swiped yet. */
+  itinerary: (id: string) => itineraryState(id).then((r) => r.days),
+  itineraryState,
+  /** Replaces the plan; each stop keeps its why fields (axis, forMembers, split, why, cardId) */
   saveItinerary: (id: string, days: { title: string; stops: DraftStop[] }[]) =>
-    request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`, { method: 'PUT', body: { days } }).then((r) => r.days),
+    request<{ days: RawDay[] }>(`${trip(id)}/itinerary`, {
+      method: 'PUT',
+      body: { days: days.map((d) => ({ title: d.title, stops: d.stops.map(stopBody) })) },
+    }).then((r) => normaliseDays(r.days)),
   /** Asks GhoomMate (Gemini) for a plan, or a fresh take on one day */
   draft: (id: string, options: { day?: number; tweaks?: string[] } = {}) => request<DraftPlan>(`${trip(id)}/itinerary/draft`, { body: options }),
   addStop: (id: string, stop: StopInput) => request<{ id: string }>(`${trip(id)}/stops`, { body: stop }),

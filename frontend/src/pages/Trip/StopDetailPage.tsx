@@ -21,6 +21,8 @@ import { HearTheStory } from '../Stories/HearTheStory'
 import { useToast } from '../../hooks/useToast'
 import { SiteAdvisory } from '../Ops/TravelerAdvisory'
 import { MakersNearby } from '../Makers/MakersNearby'
+import { forLabel } from '../Itinerary/itineraryData'
+import { ForChip, SplitTag, WhyLine } from '../Itinerary/StopWhy'
 import './StopDetailPage.css'
 
 export function StopDetailPage({ stopId }: { stopId: string }) {
@@ -43,6 +45,7 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
   const myRsvp = pending ?? stop.myRsvp
   const going = stop.going
   const squadSize = trip.members.length
+  const planFor = forLabel(stop.forMembers, trip.members.find((m) => m.memberId === trip.memberId)?.name)
 
   const setRsvp = async (rsvp: Rsvp) => {
     setPending(rsvp)
@@ -90,6 +93,17 @@ export function StopDetailPage({ stopId }: { stopId: string }) {
               <img src={iconMapPinSky} alt="" width={14} height={14} />
               {stop.place}
             </p>
+          )}
+          {(planFor || stop.split) && (
+            <p className="stop-detail__plan-for">
+              <ForChip label={planFor} />
+              {stop.split && <SplitTag />}
+            </p>
+          )}
+          {stop.why && (
+            <div className="stop-detail__why">
+              <WhyLine why={stop.why} />
+            </div>
           )}
         </section>
 
