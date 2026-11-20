@@ -29,7 +29,7 @@ function taste(v: Partial<Vibe>, opts: { style?: Partial<Record<StyleKey, number
 
 let ids = 0;
 function mate(name: string, t: Taste | null, prefs: Record<string, unknown> = {}): Mate {
-  return mateFrom({ _id: `usr_${name.toLowerCase()}_${ids++}`, name, preferences: { ...prefs, ...(t ? { taste: { ...t, updatedAt: '2026-11-19T10:00:00.000Z' } } : {}) } }, name);
+  return mateFrom({ _id: `usr_${name.toLowerCase()}_${ids++}`, name, preferences: { ...prefs, ...(t ? { taste: { ...t, updatedAt: '2026-11-19T10:00:00.000Z' } } : {}) } }, name, t !== null);
 }
 
 type Snapshot = PrefAnswerDoc['card'];
@@ -208,7 +208,8 @@ describe('consensus', () => {
     const { members, answers, riya } = squadWithAnswers();
     const insights = buildInsights({ tripId: 'trip-1', city: 'Udaipur', meId: riya.userId, members, answers });
     expect(insights.pending).toEqual(['Pat']);
-    expect(insights.members.map(m => m.tripAnswered)).toEqual([3, 2, 2, 2, 0]);
+    // Only your own count: a mate's count minus the cards they're a fan of would give away their nopes
+    expect(insights.members.map(m => m.tripAnswered)).toEqual([3, 0, 0, 0, 0]);
     expect(insights.members[0].isMe).toBe(true);
     expect(insights.members[4].confidence).toBe(0);
     expect(insights.consensus[0]).toEqual({ cardId: 'exp:boat', title: 'Lake Pichola sunset boat', likes: 3, answered: 3, fans: ['Riya', 'Kabir', 'Meera'] });
@@ -255,6 +256,12 @@ describe('why-lines', () => {
     expect(stopWhy({ forMembers: ['Riya'], axis: 'food' })).toBe('Picked for Riya · food');
     expect(stopWhy({ forMembers: [], axis: 'group', tag: 'Stay' })).toBe(null);
     expect(safeWhy('Kabir hates crowds, so we go early', ['Kabir'])).toBe(null);
+    expect(safeWhy('Kabir isn’t big on adventure, so a slow morning', ['Kabir'])).toBe(null);
+    expect(safeWhy('Gentle walk since Kabir is scared of heights', ['Kabir'])).toBe(null);
+    // De-duplicated names ("Riya K.", "Riya S.") still match the bare first name
+    expect(safeWhy('Riya hates water, so no boat', ['Riya K.', 'Riya S.'])).toBe(null);
+    // A name inside another word is not a match
+    assert.notEqual(safeWhy('Avoid the Kabirganj crowds', ['Kabir']), null);
     expect(safeWhy('  Golden-hour views for the photographers  ', ['Kabir'])).toBe('Golden-hour views for the photographers');
     expect(safeWhy('x'.repeat(200), [])!.length).toBe(120);
   });

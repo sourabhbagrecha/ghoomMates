@@ -264,7 +264,10 @@ test('squad insights for members, and never who said no', async () => {
   expect(squad.pending).toEqual(['Pat']);
   expect(squad.members[0].isMe).toBe(true);
   expect(squad.members[0].coreDone).toBe(true);
-  expect(squad.members.map((m: { tripAnswered: number }) => m.tripAnswered)).toEqual([4, 4, 1, 0]);
+  // Only your own count: anyone else's would give away how many cards they said no to
+  expect(squad.members.map((m: { tripAnswered: number }) => m.tripAnswered)).toEqual([4, 0, 0, 0]);
+  // Kabir and Dee have a taste but no core swipes: not pending, not core-done
+  expect(squad.members.map((m: { coreDone: boolean }) => m.coreDone)).toEqual([true, false, false, false]);
   expect(squad.mustDos).toEqual([{ cardId: 'exp:boat', title: 'Lake Pichola sunset boat ride', fans: ['Riya'] }]);
   expect(squad.consensus).toHaveLength(3);
   expect(squad.contested).toEqual([{ cardId: 'exp:painting', title: 'Mewar miniature painting workshop', fans: ['Riya', 'Kabir'] }]);

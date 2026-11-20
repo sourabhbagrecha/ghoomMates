@@ -9,6 +9,7 @@ import {
   AXES, DEALBREAKERS, DIETS, STYLE_KEYS, confidenceOf, overallConfidence, round2, styleConfidence, styleValue, tasteFromVibe, vibeOf,
   type Axis, type CardPlace, type Dealbreaker, type Diet, type StyleKey, type Taste, type Vibe,
 } from '../prefs/taste.ts';
+import { tripCity } from '../prefs/registry.ts';
 import type { TripAccess } from './service.ts';
 import { squadProfile, type SquadProfile } from './vibe.ts';
 
@@ -28,6 +29,8 @@ export type Mate = {
   confidence: Vibe | null;
   /** The taste came from swiping (users.preferences.taste), not from a legacy six-number vibe */
   swiped: boolean;
+  /** Swiped at least one core-deck card (not counting skips) */
+  coreDone: boolean;
   /** users.preferences.taste.updatedAt, for the itinerary's regenerate nudge */
   tasteUpdatedAt: string | null;
   /** Hard noes: the taste's, plus 'early-starts' when they told GhoomMate they're not a morning person */
@@ -101,7 +104,7 @@ export function firstNames(fullNames: string[]): string[] {
 type UserDoc = { _id: unknown; name?: unknown; picture?: unknown; preferences?: Record<string, any> | null };
 
 /** One member's data from their users document (name already made unique) */
-export function mateFrom(user: UserDoc, name: string): Mate {
+export function mateFrom(user: UserDoc, name: string, coreDone = false): Mate {
   const prefs = user.preferences && typeof user.preferences === 'object' ? user.preferences : {};
   const stored = readTaste(prefs.taste);
   const legacy = stored ? null : readVibe(prefs.vibe);
@@ -118,26 +121,34 @@ export function mateFrom(user: UserDoc, name: string): Mate {
     vibe: stored ? vibeOf(stored.taste) : legacy,
     confidence: taste ? confidenceOf(taste) : null,
     swiped: Boolean(stored),
+    coreDone,
     tasteUpdatedAt: stored?.updatedAt ?? null,
     dealbreakers: DEALBREAKERS.filter(d => taste?.dealbreakers.includes(d) || (d === 'early-starts' && noEarlyStarts)),
     diet: taste?.diet ?? (DIETS.includes(prefs.diet) ? prefs.diet as Diet : null),
   };
 }
 
-/** Every member of the trip (in joining order) with their taste, and the answers to this trip's cards */
-export async function loadSquad(db: Db, tripId: string, options: { answers?: boolean } = {}): Promise<SquadData> {
+/**
+ * Every member of the trip (in joining order) with their taste, and the answers to this trip's cards. Pass the trip's
+ * current deck city to keep only answers to that deck (a trip moved from Udaipur to Goa drops its Udaipur cards).
+ */
+export async function loadSquad(db: Db, tripId: string, options: { answers?: boolean; city?: string | null } = {}): Promise<SquadData> {
   const rows = await db.collection('trip_members').find({ trip_id: tripId }, { projection: { user_id: 1, joined_at: 1 } }).sort({ joined_at: 1 }).toArray();
   const ids = rows.map(r => r.user_id as string);
-  const [users, answers] = await Promise.all([
+  const [users, answers, core] = await Promise.all([
     db.collection('users').find({ _id: { $in: ids } as any }, { projection: { name: 1, picture: 1, preferences: 1 } }).toArray(),
     options.answers === false
       ? Promise.resolve([])
       : db.collection('pref_answers').find({ user_id: { $in: ids }, scope: tripId }).toArray(),
+    db.collection('pref_answers').distinct('user_id', { user_id: { $in: ids }, scope: 'core', 'reply.kind': { $ne: 'skip' } }),
   ]);
+  const coreDone = new Set(core.map(String));
   const byId = new Map(users.map(u => [String(u._id), u as UserDoc]));
   const present = ids.flatMap(id => (byId.has(id) ? [byId.get(id)!] : []));
   const names = firstNames(present.map(u => String(u.name ?? '')));
-  return { members: present.map((u, i) => mateFrom(u, names[i])), answers: answers as unknown as PrefAnswerDoc[] };
+  const city = options.city;
+  const current = city === undefined ? answers : answers.filter(a => ((a as { card?: { city?: string } }).card?.city ?? null) === city);
+  return { members: present.map((u, i) => mateFrom(u, names[i], coreDone.has(String(u._id)))), answers: current as unknown as PrefAnswerDoc[] };
 }
 
 /**
@@ -149,13 +160,8 @@ export async function deleteTripAnswers(db: Db, tripId: string, userId?: string,
   return (await db.collection('pref_answers').deleteMany(filter, { session })).deletedCount;
 }
 
-/** The Explore catalogue city of a trip, from its destination or name */
-export function deckCity(place: string | null | undefined): 'Udaipur' | 'Goa' | null {
-  const text = place ?? '';
-  if (/udaipur/i.test(text)) return 'Udaipur';
-  if (/\bgoa\b/i.test(text)) return 'Goa';
-  return null;
-}
+/** The Explore catalogue city of a place name; trips use tripCity (destination, then name), same as the prefs deck */
+export const deckCity = (place: string | null | undefined): 'Udaipur' | 'Goa' | null => tripCity({ destination: place ?? '' });
 
 /* Group rules */
 
@@ -425,15 +431,23 @@ export function stopWhy(stop: { forMembers?: string[]; axis?: string | null; tag
   return axis ? `For the whole squad · ${axis}` : null;
 }
 
-const NEGATIVE = /\b(dislikes?|hates?|nope[sd]?|said no|not into|isn[’']?t into|aren[’']?t into|can[’']?t stand|doesn[’']?t (?:like|want)|don[’']?t (?:like|want)|won[’']?t|avoids?|skips?|veto(?:es|ed)?|refuses?)\b/i;
+const NEGATIVE = /\b(dislik\w*|hat(?:e|es|ed|ing)|nope[sd]?|said no|says no|not (?:into|big on|keen|a fan|fond|comfortable)|(?:is|are|was|were|does|do)n[’']?t (?:into|big on|keen|a fan|fond|like|want|enjoy|comfortable)|can[’']?t (?:stand|do|handle)|won[’']?t|avoid\w*|skip\w*|veto\w*|refus\w*|scared|afraid|fear\w*|dread\w*|uncomfortable|no fan|allergic)\b/i;
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** True when a text names a member (by name or first name, e.g. "Riya" for "Riya S.") next to a no */
+export function blamesSomeone(text: unknown, names: string[]): boolean {
+  if (typeof text !== 'string' || !NEGATIVE.test(text)) return false;
+  const tokens = new Set(names.flatMap(n => [n.trim(), n.trim().split(/\s+/)[0].replace(/[^\p{L}'’-]/gu, '')]).filter(t => t.length > 1));
+  return [...tokens].some(t => new RegExp(`(^|[^\\p{L}])${escape(t)}($|[^\\p{L}])`, 'iu').test(text));
+}
 
 /** Gemini's why, trimmed to 120 characters; dropped if it names a member next to a no */
 export function safeWhy(text: unknown, names: string[]): string | null {
   if (typeof text !== 'string') return null;
   const why = text.replace(/\s+/g, ' ').trim().slice(0, 120).trim();
   if (!why) return null;
-  if (NEGATIVE.test(why) && names.some(n => why.toLowerCase().includes(n.toLowerCase()))) return null;
-  return why;
+  return blamesSomeone(why, names) ? null : why;
 }
 
 /* Prompt blocks for the itinerary (one Gemini call; these only add text) */
@@ -517,8 +531,9 @@ export function buildInsights(args: { tripId: string; city: string | null; meId:
   const byClass = (cls: string) => AXES.filter(a => axes[a].class === cls);
   const style = groupStyle(withData);
   const tally = consensus(answers, members);
-  const tripAnswered = new Map<string, number>();
-  for (const a of answers) if (a.reply && a.reply.kind !== 'skip') tripAnswered.set(a.user_id, (tripAnswered.get(a.user_id) ?? 0) + 1);
+  // Only your own count: a mate's count minus the cards they're a fan of would give away their nopes
+  let myTripAnswered = 0;
+  for (const a of answers) if (a.user_id === meId && a.reply && a.reply.kind !== 'skip') myTripAnswered += 1;
 
   const squad: SquadMember[] = members.map(m => ({
     userId: m.userId,
@@ -528,8 +543,8 @@ export function buildInsights(args: { tripId: string; city: string | null; meId:
     persona: m.persona,
     vibe: m.vibe,
     confidence: m.taste ? overallConfidence(m.taste) : 0,
-    coreDone: m.swiped,
-    tripAnswered: tripAnswered.get(m.userId) ?? 0,
+    coreDone: m.coreDone,
+    tripAnswered: m.userId === meId ? myTripAnswered : 0,
     isMe: m.userId === meId,
   }));
 
@@ -554,6 +569,7 @@ export function buildInsights(args: { tripId: string; city: string | null; meId:
 }
 
 export async function squadInsights(db: Db, access: TripAccess, userId: string): Promise<SquadInsights> {
-  const { members, answers } = await loadSquad(db, access.trip.id);
-  return buildInsights({ tripId: access.trip.id, city: deckCity(access.trip.destination || access.trip.name), meId: userId, members, answers });
+  const city = tripCity(access.trip);
+  const { members, answers } = await loadSquad(db, access.trip.id, { city });
+  return buildInsights({ tripId: access.trip.id, city, meId: userId, members, answers });
 }

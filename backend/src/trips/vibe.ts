@@ -148,9 +148,10 @@ export function squadBrief(profile: SquadProfile, spotlights: Spotlight[][], fir
   const splits = byClass('split');
   if (loves.length) lines.push(`Everyone loves: ${list(loves)}. Lean on these for whole-group slots.`);
   if (splits.length) lines.push(`The squad splits on: ${list(splits)}. Never make the whole group do these together.`);
+  // Never who: the plan must not be able to say who isn't into something
   for (const axis of VIBE_AXES) {
-    const haters = profile.members.filter(m => m.vibe[axis] < DISLIKES).map(m => m.name);
-    if (haters.length) lines.push(`${haters.join(' and ')} ${haters.length === 1 ? 'dislikes' : 'dislike'} ${axis}: never put it in a whole-group slot.`);
+    const haters = profile.members.filter(m => m.vibe[axis] < DISLIKES).length;
+    if (haters) lines.push(`${haters === 1 ? 'One mate dislikes' : `${haters} mates dislike`} ${axis}: never put it in a whole-group slot.`);
   }
   lines.push('Slot plan (spotlights are built for specific members; fill the remaining slots with whole-group stops, meals and logistics):');
   spotlights.forEach((day, i) => {

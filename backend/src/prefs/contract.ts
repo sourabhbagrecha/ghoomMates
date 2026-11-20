@@ -90,7 +90,9 @@ export type SquadMember = {
   vibe: Vibe | null;
   /** 0–1, how much we know about them */
   confidence: number;
+  /** Has swiped at least one core card (a legacy-quiz member has a vibe but no swipes yet) */
   coreDone: boolean;
+  /** Your own trip-deck answers; 0 for everyone else, so no one can work out another member's nopes */
   tripAnswered: number;
   isMe: boolean;
 };
@@ -99,7 +101,7 @@ export type SquadInsights = {
   tripId: string;
   city: string | null;
   members: SquadMember[];
-  /** First names of members who haven't swiped the core deck */
+  /** Members with no taste data at all (left out of the maths); matches the itinerary's basis.pending */
   pending: string[];
   axes: Record<Axis, { mean: number; min: number; max: number; class: AxisClass }>;
   sharedLoves: Axis[];

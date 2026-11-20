@@ -65,7 +65,8 @@ describe('allocateSpotlights', () => {
     const profile = squadProfile(SPLIT_SQUAD)!;
     const brief = squadBrief(profile, allocateSpotlights(profile, 2));
     assert.match(brief, /SPLIT slot/);
-    assert.match(brief, /Aarav and Meera dislike chill/);
+    assert.match(brief, /2 mates dislike chill/);
+    assert.doesNotMatch(brief, /(Aarav|Meera)[^\n]*dislike/);
     assert.match(brief, /Day 2:/);
   });
 });

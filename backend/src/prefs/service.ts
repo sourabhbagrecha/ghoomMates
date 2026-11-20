@@ -6,8 +6,8 @@ import type { AnswersResponse, MeResponse, PrefAnswerDoc, ResetResponse, StoredT
 import { orderTripDeck, type SquadTally } from './order.ts';
 import { CARD_ORDER, CARDS, CORE_DECK, deckForCity, snapshot, tripCity } from './registry.ts';
 import {
-  AXES, DIETS, confidenceOf, overallConfidence, personaFor, scoreAnswers, styleConfidenceOf, styleOf, topTags, vibeOf,
-  type Answer, type Card, type Fan, type Taste,
+  AXES, DIETS, confidenceOf, overallConfidence, personaFor, scoreAnswers, styleConfidenceOf, styleOf, tasteFromVibe, topTags, vibeOf,
+  type Answer, type Card, type Fan, type Taste, type Vibe,
 } from './taste.ts';
 import { parseAnswers } from './validate.ts';
 
@@ -16,6 +16,12 @@ const CORE_BY_ID = new Map(CORE_DECK.map(card => [card.id, card]));
 
 const isObject = (value: unknown): value is Record<string, any> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+
+/** A complete 0–1 vibe (the old 8-card quiz result), else null */
+export function readLegacyVibe(value: unknown): Vibe | null {
+  if (!isObject(value) || !AXES.every(axis => isNumber(value[axis]) && value[axis] >= 0 && value[axis] <= 1)) return null;
+  return Object.fromEntries(AXES.map(axis => [axis, value[axis]])) as Vibe;
+}
 
 /** users.preferences.taste as stored by this module, or null for anything else (missing, older shapes) */
 export function readStoredTaste(value: unknown): StoredTaste | null {
@@ -148,19 +154,35 @@ export class PrefsService {
     };
   }
 
-  /** Re-scores every answer you have stored (core and every trip) from scratch, in a fixed order */
-  private async score(userId: string, session: ClientSession): Promise<Taste> {
+  /**
+   * Re-scores every answer you have stored (core and every trip) from scratch, in a fixed order. An old 8-card quiz
+   * result is the starting evidence (about four cards' worth per axis), so one swipe doesn't wipe it out; it is kept
+   * as preferences.vibe_legacy the first time a taste is written, and dropped when you retake the core deck.
+   */
+  private async score(userId: string, session: ClientSession, legacy: Vibe | null): Promise<Taste> {
     const docs = await this.answers.find({ user_id: userId }, { projection: { scope: 1, card_id: 1, reply: 1, ms: 1 }, session }).toArray();
     docs.sort((x, y) => Number(x.scope !== 'core') - Number(y.scope !== 'core') || x.scope.localeCompare(y.scope) || byDeckOrder(x, y));
-    return scoreAnswers(CARDS, docs.map(answerOf));
+    return scoreAnswers(CARDS, docs.map(answerOf), legacy ? tasteFromVibe(legacy) : undefined);
+  }
+
+  /** Your preferences as they are before this write */
+  private async preferencesOf(userId: string, session: ClientSession): Promise<Record<string, any>> {
+    const user = await this.users.findOne({ _id: userId }, { projection: { preferences: 1 }, session });
+    return isObject(user?.preferences) ? user.preferences : {};
+  }
+
+  /** The old quiz vibe to start from: the one kept at the first write, else (no taste yet) the current vibe */
+  private static legacyOf(prefs: Record<string, any>): Vibe | null {
+    return readLegacyVibe(prefs.vibe_legacy) ?? (readStoredTaste(prefs.taste) ? null : readLegacyVibe(prefs.vibe));
   }
 
   /** Writes the taste with dot paths, so every other preference (colour, …) stays. A taste with no evidence yet (only
    * skips) leaves vibe and persona alone rather than flattening an older vibe to 0.5 everywhere. */
-  private async writeTaste(userId: string, taste: Taste, session: ClientSession): Promise<StoredTaste> {
+  private async writeTaste(userId: string, taste: Taste, session: ClientSession, legacy: Vibe | null = null): Promise<StoredTaste> {
     const now = this.now();
     const stored: StoredTaste = { ...taste, updatedAt: now.toISOString() };
     const set: Record<string, unknown> = { 'preferences.taste': stored, updated_at: now };
+    if (legacy) set['preferences.vibe_legacy'] = legacy;
     if (taste.answered > 0) {
       set['preferences.vibe'] = vibeOf(taste);
       set['preferences.persona'] = personaFor(taste).name;
@@ -186,6 +208,7 @@ export class PrefsService {
 
     const taste = await transaction(this.database, async (session) => {
       const now = this.now();
+      const legacy = PrefsService.legacyOf(await this.preferencesOf(userId, session));
       await this.answers.bulkWrite(answers.map(answer => {
         const card = byId.get(answer.cardId)!;
         return {
@@ -199,7 +222,7 @@ export class PrefsService {
           },
         };
       }), { session });
-      return this.writeTaste(userId, await this.score(userId, session), session);
+      return this.writeTaste(userId, await this.score(userId, session, legacy), session, legacy);
     });
     return { taste, summary: summarize(taste), saved: answers.length, scope };
   }
@@ -207,13 +230,21 @@ export class PrefsService {
   async resetCore(userId: string, body: unknown): Promise<ResetResponse> {
     requireThat(object(body).scope === 'core', 'scope must be core: only the core deck can be retaken');
     return transaction(this.database, async (session) => {
+      const prefs = await this.preferencesOf(userId, session);
       await this.answers.deleteMany({ user_id: userId, scope: 'core' }, { session });
-      const taste = await this.score(userId, session);
+      // A retake starts fresh: the old quiz result goes too
+      const taste = await this.score(userId, session, null);
+      const unset: Record<string, ''> = { 'preferences.vibe_legacy': '' };
+      // A diet that only came from the deleted answers goes with them (one set elsewhere stays)
+      const oldDiet = readStoredTaste(prefs.taste)?.diet ?? null;
+      if (taste.diet === null && oldDiet !== null && prefs.diet === oldDiet) unset['preferences.diet'] = '';
       if (taste.answered === 0) {
-        // Nothing left to go on: drop the taste, keep the last vibe (and persona) for the screens that still read them
-        await this.users.updateOne({ _id: userId }, { $unset: { 'preferences.taste': '' }, $set: { updated_at: this.now() } }, { session });
+        // Nothing left to go on: you are back to "hasn't taken the quiz" everywhere
+        Object.assign(unset, { 'preferences.taste': '', 'preferences.vibe': '', 'preferences.persona': '' });
+        await this.users.updateOne({ _id: userId }, { $unset: unset, $set: { updated_at: this.now() } }, { session });
         return { taste: null, summary: null };
       }
+      await this.users.updateOne({ _id: userId }, { $unset: unset }, { session });
       const stored = await this.writeTaste(userId, taste, session);
       return { taste: stored, summary: summarize(stored) };
     });

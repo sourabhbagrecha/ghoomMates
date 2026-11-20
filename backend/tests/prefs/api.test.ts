@@ -200,6 +200,30 @@ describe('answers', () => {
     expect(again.data.taste.axes.adventure).toEqual(data.taste.axes.adventure);
   });
 
+  test('an old quiz vibe is the starting evidence: one swipe nudges it instead of wiping it', async () => {
+    const legacy = { adventure: 0.9, food: 0.2, nightlife: 0.1, culture: 0.8, chill: 0.3, shops: 0.2 };
+    const me = await createUser('Legacy Lee', { vibe: legacy, persona: 'The Thrill-Seeking Explorer' });
+    const { data } = await answer(me, [swipe('core:street-food', 'like')]);
+    const prefs = await prefsOf(me);
+    expect(prefs.vibe_legacy).toEqual(legacy);
+    // Untouched axes lean the old way (about 4 cards of evidence on a flat prior, not a flat 0.5);
+    // food moves up from 0.2 but not to a single-swipe 0.67
+    assert.ok(prefs.vibe.adventure > 0.7 && prefs.vibe.culture > 0.65 && prefs.vibe.nightlife < 0.3, JSON.stringify(prefs.vibe));
+    assert.ok(prefs.vibe.food > 0.2 && prefs.vibe.food < 0.6, JSON.stringify(prefs.vibe));
+    expect(data.taste.answered).toBe(1);
+
+    // Later saves start from the same old vibe (kept in vibe_legacy), not from the vibe they overwrote
+    await answer(me, [swipe('core:paragliding', 'like')]);
+    expect((await prefsOf(me)).vibe_legacy).toEqual(legacy);
+    assert.ok((await prefsOf(me)).vibe.nightlife < 0.3);
+
+    // Retaking the core deck starts fresh: the old quiz is dropped
+    await call(me, '/reset', { scope: 'core' });
+    const after = await prefsOf(me);
+    expect(after.vibe_legacy).toBe(undefined);
+    expect(after.vibe).toBe(undefined);
+  });
+
   test('a save with only skips keeps an older vibe and persona', async () => {
     const me = await createUser('Skip Sid', { vibe: LEGACY_VIBE, persona: 'The Culture Vulture' });
     const { status, data } = await answer(me, [skip('core:pace'), skip('core:homestay')]);
@@ -354,11 +378,18 @@ describe('reset', () => {
     expect(prefs.taste.answered).toBe(1);
     expect(prefs.vibe).toEqual(vibeOf(data.taste));
     expect(prefs.colour).toBe('#000000');
-    // The diet you told us before stays until you answer the diet card again
-    expect(prefs.diet).toBe('vegan');
+    // The diet came only from the deleted diet card, so it goes with it
+    expect(prefs.diet).toBe(undefined);
   });
 
-  test('with nothing left, the taste goes and the last vibe stays', async () => {
+  test('a diet set somewhere else survives a retake', async () => {
+    const me = await createUser('Diet Dev', { diet: 'jain' });
+    await answer(me, [swipe('core:paragliding', 'love'), swipe('core:street-food', 'like')]);
+    await call(me, '/reset', { scope: 'core' });
+    expect((await prefsOf(me)).diet).toBe('jain');
+  });
+
+  test('with nothing left, the taste, vibe and persona go: back to not having taken the quiz', async () => {
     const me = await createUser('Blank Bo');
     await answer(me, [swipe('core:street-food', 'love')]);
     const vibe = (await prefsOf(me)).vibe;
@@ -369,7 +400,8 @@ describe('reset', () => {
     expect(data).toEqual({ taste: null, summary: null });
     const prefs = await prefsOf(me);
     expect(prefs.taste).toBe(undefined);
-    expect(prefs.vibe).toEqual(vibe);
+    expect(prefs.vibe).toBe(undefined);
+    expect(prefs.persona).toBe(undefined);
     expect(await storedAnswers(me)).toEqual([]);
     expect((await call(me, '/me')).data).toEqual({ taste: null, summary: null, answers: { core: [] } });
   });

@@ -5,9 +5,10 @@ import { logger } from '../logger.ts';
 import { spendGemini } from '../gemini.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
 import type { Dealbreaker, Diet } from '../prefs/taste.ts';
+import { tripCity } from '../prefs/registry.ts';
 import type { TripAccess } from './service.ts';
 import {
-  cardWhy, clockTime, consensus, constraintsBrief, dealbreakerUnion, deckCity, groupStart, groupStyle, loadSquad, profileOf, safeWhy,
+  blamesSomeone, cardWhy, clockTime, consensus, constraintsBrief, dealbreakerUnion, groupStart, groupStyle, loadSquad, profileOf, safeWhy,
   shortlistBrief, shortlistOf, slotsPerDay, stopWhy, strictestDiet, type CardTally, type Shortlist,
 } from './squad.ts';
 import { allocateSpotlights, rebalance, squadBrief, VIBE_AXES, type Axis, type Fairness, type SquadProfile } from './vibe.ts';
@@ -300,9 +301,9 @@ export class ItineraryService {
     const tweaks = (Array.isArray(body.tweaks) ? body.tweaks : Array.isArray(details.tweaks) ? details.tweaks : [])
       .filter((t): t is string => typeof t === 'string').slice(0, 10);
     const onlyDay = body.day === undefined ? null : integer(body.day, 'day', 1, days);
-    const squad = await planningSquad(this.db, trip.id);
+    const deck = tripCity(trip);
+    const squad = await planningSquad(this.db, trip.id, deck);
     const place = trip.destination || trip.name;
-    const deck = deckCity(place);
 
     // Gemini first (one call), then the squad's swiped cards for Udaipur and Goa, then the fixed templates
     let draft: Draft | null = null;
@@ -318,7 +319,9 @@ export class ItineraryService {
     }
     draft ??= cityOf(place) === 'Udaipur' ? udaipurDraft(onlyDay ? 1 : days, onlyDay) : templateDraft(place, onlyDay ? 1 : days);
     const explained = explainDraft(draft, squad.shortlist, squad.names, squad.profile !== null);
-    return { ...withFairness(explained, squad.profile), basis: squad.basis };
+    // Gemini's tip is free text too: never let it say who isn't into something
+    const tip = blamesSomeone(explained.tip, squad.names) ? 'Tell me what to change and I’ll rework the plan.' : explained.tip;
+    return { ...withFairness({ ...explained, tip }, squad.profile), basis: squad.basis };
   }
 
   private async generate(args: {
@@ -440,8 +443,8 @@ export type PlanningSquad = Awaited<ReturnType<typeof planningSquad>>;
  * weighted by how sure we are of them), the group rules, the strictest diet, the anonymous deal-breakers and the
  * shortlist of swiped trip cards. Members without data are left out of the maths and listed in basis.pending.
  */
-export async function planningSquad(db: Db, tripId: string) {
-  const { members, answers } = await loadSquad(db, tripId);
+export async function planningSquad(db: Db, tripId: string, city: string | null) {
+  const { members, answers } = await loadSquad(db, tripId, { city });
   const withData = members.filter(m => m.vibe);
   const style = groupStyle(withData);
   // Safety constraints count for everyone, quiz or not
@@ -474,7 +477,10 @@ export function explainDraft(draft: Draft, shortlist: Shortlist, names: string[]
     const axis = VIBE_AXES.includes(stop.axis as Axis) || stop.axis === 'group' ? stop.axis! : VIBE_AXES.find(a => a === stop.tag.toLowerCase()) ?? 'group';
     const forMembers = (stop.forMembers ?? []).filter(n => known.has(n)).slice(0, 10);
     const why = card ? cardWhy(card) : safeWhy(stop.why, names) ?? (derive ? stopWhy({ forMembers, axis, tag: stop.tag }) : null);
-    return { ...stop, axis, forMembers, split: stop.split === true, why: why ? why.slice(0, 120) : null, cardId: card?.cardId ?? null };
+    // Notes and titles are Gemini's free text as well: drop any that name someone next to a no
+    const notes = blamesSomeone(stop.notes, names) ? '' : stop.notes;
+    const title = blamesSomeone(stop.title, names) ? card?.title ?? (stop.place || stop.tag) : stop.title;
+    return { ...stop, title, notes, axis, forMembers, split: stop.split === true, why: why ? why.slice(0, 120) : null, cardId: card?.cardId ?? null };
   };
   return { ...draft, days: draft.days.map(d => ({ ...d, slots: d.slots.map(slot => slot.map(explain)) })) };
 }
