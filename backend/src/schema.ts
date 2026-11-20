@@ -98,6 +98,12 @@ export const INDEXES: Record<string, IndexDescription[]> = {
     { key: { object_name: 1 }, unique },
     { key: { user_id: 1 } },
   ],
+  // Vibe Swipe answers (prefs module): one per user, scope ('core' or a trip id) and card, with a snapshot of the card
+  // so the trips module can do squad maths from this collection alone. The second index serves a trip's whole squad.
+  pref_answers: [
+    { key: { user_id: 1, scope: 1, card_id: 1 }, unique },
+    { key: { scope: 1, card_id: 1 } },
+  ],
   // Daily budgets shared by every instance (limits.ts): _id '<policy>:<caller>:<YYYY-MM-DD>', { count, expires_at }
   usage_counters: [
     { key: { expires_at: 1 }, expireAfterSeconds: 0 },

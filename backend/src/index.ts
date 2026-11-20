@@ -16,6 +16,7 @@ import { createHospitalityApp } from './hospitality/app.ts';
 import { edgeGuard, memoryCounters, mongoCounters, rateLimits } from './limits.ts';
 import { logger } from './logger.ts';
 import { createOpsApp } from './ops/app.ts';
+import { createPrefsApp } from './prefs/app.ts';
 import { createReelsApp } from './reels/app.ts';
 import { createStoriesApp } from './stories/app.ts';
 import { createMediaRouter, createMediaStorage } from './storage.ts';
@@ -163,6 +164,8 @@ const app = createServer({
   ops: createOpsApp({ db, authenticate, gemini }),
   // Mewar Utsav: browsing needs no database, adding an event to a plan does
   events: createEventsApp({ gemini, authenticate, ...(db ? { trips: createMongoEvents(db, storage, clientOrigin) } : {}) }),
+  // Vibe Swipe: the core deck is public and needs no database; trip decks and answers do (503 without one)
+  prefs: createPrefsApp({ db, authenticate }),
 });
 
 const server = app.listen(port, hostname, (err?: Error) => {

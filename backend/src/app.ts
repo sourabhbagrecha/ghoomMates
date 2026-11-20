@@ -34,9 +34,11 @@ export interface ServerModules {
   reels?: Router;
   // Mewar Utsav: Udaipur's festivals, fairs and nightly shows with the crowd each brings, mounted under /api/events. Browsing needs no database.
   events?: Router;
+  // Vibe Swipe preference quiz and trip decks, mounted under /api/prefs. The core deck needs no database; answers do (503 without).
+  prefs?: Router;
 }
 
-export function createServer({ guards = [], auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events }: ServerModules) {
+export function createServer({ guards = [], auth, expenses, trips, voice, heritage, media, frontend, ops, makers, reels, impact, hospitality, stories, events, prefs }: ServerModules) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -83,6 +85,7 @@ export function createServer({ guards = [], auth, expenses, trips, voice, herita
   if (media) app.use('/api/media', media);
   if (ops) app.use('/api/ops', ops);
   if (events) app.use('/api/events', events);
+  if (prefs) app.use('/api/prefs', prefs);
   app.use('/api', expenses ?? (() => {
     throw new ApiError(503, 'SERVICE_UNAVAILABLE', 'Expense API is not configured on this server');
   }));
