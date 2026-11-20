@@ -1,181 +1,35 @@
+import {
+  personaFor as tastePersona,
+  tasteFromVibe,
+  type Dealbreaker,
+  type Diet,
+  type Fan,
+  type StyleKey,
+} from '../../data/taste'
 import { VIBE_AXES, type VibeAxis, type VibeScores } from '../../data/vibe'
+import type { StyleRule } from '../../services/prefsService'
 
-/** #/quiz (intro) · #/quiz/1 … #/quiz/8 (cards) · #/quiz/persona (result) */
-export type QuizRoute = { screen: 'intro' } | { screen: 'card'; index: number } | { screen: 'persona' }
-
-export type QuizOption = {
-  id: string
-  /** 1–3 words; the icon carries the rest */
-  label: string
-  /** Name of an icon in src/assets/icons */
-  icon: string
-  /** How much picking this nudges each axis of the vibe chart */
-  vibe: Partial<VibeScores>
-}
-
-export type QuizCard = {
-  id: string
-  topic: string
-  question: string
-  multi: boolean
-  options: QuizOption[]
-}
-
-/** Card id → picked option ids */
-export type QuizAnswers = Record<string, string[]>
-
-export const QUIZ_CARDS: QuizCard[] = [
-  {
-    id: 'pace',
-    topic: 'Pace',
-    question: 'Your trip pace?',
-    multi: false,
-    options: [
-      { id: 'packed', label: 'Non-stop', icon: 'rocket', vibe: { adventure: 0.25, nightlife: 0.15, culture: 0.1 } },
-      { id: 'balanced', label: 'Balanced', icon: 'scale', vibe: { culture: 0.1, chill: 0.1, food: 0.1 } },
-      { id: 'slow', label: 'Slow and lazy', icon: 'bed', vibe: { chill: 0.35 } },
-    ],
-  },
-  {
-    id: 'budget',
-    topic: 'Budget',
-    question: 'Your budget style?',
-    multi: false,
-    options: [
-      { id: 'shoestring', label: 'Thrifty', icon: 'piggy-bank', vibe: { adventure: 0.1, food: 0.05 } },
-      { id: 'smart', label: 'Smart spends', icon: 'wallet', vibe: { food: 0.15, shops: 0.1 } },
-      { id: 'treat', label: 'Splurge', icon: 'gem', vibe: { shops: 0.3, nightlife: 0.1 } },
-    ],
-  },
-  {
-    id: 'food',
-    topic: 'Food',
-    question: 'Worth the queue?',
-    multi: true,
-    options: [
-      { id: 'street-food', label: 'Street food', icon: 'sandwich', vibe: { food: 0.25 } },
-      { id: 'seafood', label: 'Seafood shacks', icon: 'fish', vibe: { food: 0.2, chill: 0.05 } },
-      { id: 'tasting-menu', label: 'Fine dining', icon: 'wine', vibe: { food: 0.15, shops: 0.05 } },
-      { id: 'home-kitchen', label: 'Home-cooked', icon: 'soup', vibe: { food: 0.15, culture: 0.15 } },
-    ],
-  },
-  {
-    id: 'nightlife',
-    topic: 'Nightlife',
-    question: 'Your perfect evening?',
-    multi: true,
-    options: [
-      { id: 'street-food', label: 'Food crawl', icon: 'utensils', vibe: { food: 0.15 } },
-      { id: 'sunset-cruise', label: 'Sunset cruise', icon: 'sailboat', vibe: { chill: 0.2 } },
-      { id: 'beach-club', label: 'Beach club', icon: 'martini', vibe: { nightlife: 0.3 } },
-      { id: 'live-gig', label: 'Live gig', icon: 'guitar', vibe: { nightlife: 0.25, culture: 0.05 } },
-    ],
-  },
-  {
-    id: 'adventure',
-    topic: 'Adventure',
-    question: 'Scuba? Paragliding?',
-    multi: false,
-    options: [
-      { id: 'all', label: 'All in', icon: 'mountain', vibe: { adventure: 0.45 } },
-      { id: 'one', label: 'Just one', icon: 'camera', vibe: { adventure: 0.2 } },
-      { id: 'none', label: 'I’ll watch', icon: 'backpack', vibe: { chill: 0.2 } },
-    ],
-  },
-  {
-    id: 'mornings',
-    topic: 'Mornings',
-    question: '5 AM sunrise trek?',
-    multi: false,
-    options: [
-      { id: 'early', label: 'I’m up', icon: 'sunrise', vibe: { adventure: 0.15, culture: 0.1 } },
-      { id: 'coffee', label: 'With coffee', icon: 'coffee', vibe: { adventure: 0.05 } },
-      { id: 'asleep', label: 'Hard pass', icon: 'moon', vibe: { nightlife: 0.15, chill: 0.1 } },
-    ],
-  },
-  {
-    id: 'culture',
-    topic: 'Culture',
-    question: 'Worth skipping a nap?',
-    multi: true,
-    options: [
-      { id: 'forts', label: 'Old forts', icon: 'castle', vibe: { culture: 0.2, adventure: 0.05 } },
-      { id: 'museums', label: 'Museums', icon: 'landmark', vibe: { culture: 0.25 } },
-      { id: 'festivals', label: 'Festivals', icon: 'party-popper', vibe: { culture: 0.15, nightlife: 0.1 } },
-      { id: 'flea-markets', label: 'Flea markets', icon: 'shopping-bag', vibe: { shops: 0.25, culture: 0.05 } },
-    ],
-  },
-  {
-    id: 'souvenirs',
-    topic: 'Souvenirs',
-    question: 'You bring home…',
-    multi: true,
-    options: [
-      { id: 'tan', label: 'A tan', icon: 'sun', vibe: { chill: 0.25 } },
-      { id: 'snacks', label: 'Snacks', icon: 'cookie', vibe: { food: 0.15, shops: 0.1 } },
-      { id: 'outfits', label: 'New outfits', icon: 'shirt', vibe: { shops: 0.3 } },
-      { id: 'photos', label: 'Photos', icon: 'image', vibe: { adventure: 0.1, culture: 0.1 } },
-    ],
-  },
-]
-
-export const QUIZ_TOPICS = QUIZ_CARDS.map((c) => c.topic)
+/**
+ * #/quiz (intro) · #/quiz/play (the core deck; old #/quiz/1 … links land here too) · #/quiz/persona (your result)
+ * · #/quiz/trip/<tripId> (a trip's deck) · #/quiz/squad/<tripId> (Squad DNA)
+ */
+export type QuizRoute =
+  | { screen: 'intro' }
+  | { screen: 'play' }
+  | { screen: 'persona' }
+  | { screen: 'trip'; tripId: string }
+  | { screen: 'squad'; tripId: string }
 
 export const parseQuizRoute = (route: string): QuizRoute | null => {
   if (route === 'quiz') return { screen: 'intro' }
+  if (route === 'quiz/play' || /^quiz\/\d+$/.test(route)) return { screen: 'play' }
   if (route === 'quiz/persona') return { screen: 'persona' }
-  const index = Number(route.match(/^quiz\/(\d+)$/)?.[1]) - 1
-  return index >= 0 && index < QUIZ_CARDS.length ? { screen: 'card', index } : null
+  const deck = route.match(/^quiz\/(trip|squad)\/([^/]+)$/)
+  return deck ? { screen: deck[1] === 'trip' ? 'trip' : 'squad', tripId: deck[2] } : null
 }
 
-export const cardRoute = (index: number) => `quiz/${index + 1}`
-
-/** Single choice replaces the pick; multi choice toggles it */
-export const togglePick = (card: QuizCard, picked: string[], id: string) =>
-  !card.multi ? [id] : picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id]
-
-// Everyone starts with a little of every vibe, so skipped cards don't flatten the chart
-const BASE_SCORE = 0.2
-
-export function scoreQuiz(answers: QuizAnswers): VibeScores {
-  const scores = Object.fromEntries(VIBE_AXES.map(({ id }) => [id, BASE_SCORE])) as VibeScores
-  for (const card of QUIZ_CARDS) {
-    for (const option of card.options) {
-      if (!answers[card.id]?.includes(option.id)) continue
-      for (const [axis, value] of Object.entries(option.vibe) as [VibeAxis, number][]) {
-        scores[axis] = Math.min(1, scores[axis] + value)
-      }
-    }
-  }
-  return scores
-}
-
-const PERSONA_ADJECTIVE: Record<VibeAxis, string> = {
-  adventure: 'Thrill-Seeking',
-  food: 'Hungry',
-  nightlife: 'Night-Owl',
-  culture: 'Curious',
-  chill: 'Laid-Back',
-  shops: 'Bargain-Hunting',
-}
-
-const PERSONA_NOUN: Record<VibeAxis, string> = {
-  adventure: 'Explorer',
-  food: 'Foodie',
-  nightlife: 'Party Starter',
-  culture: 'Culture Buff',
-  chill: 'Beach Bum',
-  shops: 'Shopaholic',
-}
-
-const PERSONA_TAGLINE: Record<VibeAxis, string> = {
-  adventure: 'First in the water, last to say “let’s head back”.',
-  food: 'You plan the day around where you’ll eat next.',
-  nightlife: 'The trip really starts after sunset.',
-  culture: 'Every fort, festival and back lane has a story for you.',
-  chill: 'A hammock, a view and no plan: holiday sorted.',
-  shops: 'You know every market and still haggle like a local.',
-}
+export const tripDeckRoute = (tripId: string) => `quiz/trip/${tripId}`
+export const squadRoute = (tripId: string) => `quiz/squad/${tripId}`
 
 export type Persona = {
   name: string
@@ -184,12 +38,112 @@ export type Persona = {
   top: VibeAxis[]
 }
 
-/** “The Thrill-Seeking Foodie”: adjective from your strongest axis, noun from the next one */
+/** “The Thrill-Seeking Foodie” from an old six-number vibe (adjective from the strongest axis, noun from the next) */
 export function personaFor(scores: VibeScores): Persona {
-  const [first, second] = [...VIBE_AXES].sort((a, b) => scores[b.id] - scores[a.id]).map((a) => a.id)
-  return {
-    name: `The ${PERSONA_ADJECTIVE[first]} ${PERSONA_NOUN[second]}`,
-    tagline: PERSONA_TAGLINE[first],
-    top: [first, second],
-  }
+  const { name, tagline, top } = tastePersona(tasteFromVibe(scores))
+  return { name, tagline, top }
+}
+
+// ---- Copy ----
+
+/** The core deck at a glance (intro, Profile) */
+export const VIBE_SWIPE_LINE = '17 quick swipes · about 2 minutes'
+/** Answers sent per request while swiping (signed in) */
+export const SEND_EVERY = 4
+
+export const axisLabel = (axis: VibeAxis) => VIBE_AXES.find((a) => a.id === axis)?.label ?? axis
+
+/** 'street-food' → 'Street food' */
+export const tagLabel = (tag: string) => {
+  const words = tag.replace(/[-_]+/g, ' ').trim()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+export const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'Mate'
+
+/** "Riya", "Riya and Kabir", "Riya, Kabir and Meera", "Riya, Kabir and 3 more" */
+export function listNames(names: string[]): string {
+  if (names.length > 4) return `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+}
+
+/** "Riya and Kabir loved this" · "Riya liked this" · "Riya loved it, Kabir liked it". Only likes and loves exist here. */
+export function fansLine(fans: Fan[]): string {
+  const loved = fans.filter((f) => f.verdict === 'love').map((f) => firstName(f.name))
+  const liked = fans.filter((f) => f.verdict === 'like').map((f) => firstName(f.name))
+  if (loved.length && liked.length) return `${listNames(loved)} loved it, ${listNames(liked)} liked it`
+  return loved.length ? `${listNames(loved)} loved this` : `${listNames(liked)} liked this`
+}
+
+/** “Riya’s must-do” · “Riya and Kabir’s must-do” */
+export const mustDoLine = (fans: string[]) => (fans.length ? `${listNames(fans.map(firstName))}’s must-do` : 'A must-do')
+
+/** The twin match may come as 0–1 or 0–100 */
+export const percent = (value: number) => Math.round(value <= 1 ? value * 100 : value)
+
+// ---- Style ----
+
+export type StyleMeterSpec = { key: StyleKey; label: string; low: string; high: string }
+
+/** The style dimensions the persona shows as meters, with the words at each end */
+export const STYLE_METERS: StyleMeterSpec[] = [
+  { key: 'pace', label: 'Pace', low: 'Slow', high: 'Packed' },
+  { key: 'mornings', label: 'Mornings', low: 'Late riser', high: 'Early bird' },
+  { key: 'budget', label: 'Budget', low: 'Thrifty', high: 'Splurge' },
+  { key: 'walking', label: 'Getting around', low: 'Ride it', high: 'Walk it' },
+]
+
+/** “Leaning packed”, “Right in the middle” */
+export function meterWords({ low, high }: StyleMeterSpec, value: number): string {
+  if (value >= 0.8) return `Very ${high.toLowerCase()}`
+  if (value >= 0.6) return `Leaning ${high.toLowerCase()}`
+  if (value <= 0.2) return `Very ${low.toLowerCase()}`
+  if (value <= 0.4) return `Leaning ${low.toLowerCase()}`
+  return 'Right in the middle'
+}
+
+export const STYLE_NAMES: Record<StyleKey, string> = {
+  pace: 'Pace',
+  mornings: 'Mornings',
+  budget: 'Budget',
+  crowds: 'Crowds',
+  walking: 'Getting around',
+  together: 'Squad time',
+  eco: 'Footprint',
+}
+
+/** How the squad's value was picked; never names anyone */
+export const RULE_CAPTIONS: Record<StyleRule, string> = {
+  'least-misery': 'Nobody left out',
+  median: 'Middle ground',
+  mean: 'Squad average',
+  'most-pleasure': 'If anyone’s keen',
+}
+
+// ---- Diet and hard noes ----
+
+const DIET_LABELS: Record<Diet, string> = {
+  'non-veg': 'Non-veg',
+  eggetarian: 'Eggetarian',
+  veg: 'Veg',
+  vegan: 'Vegan',
+  jain: 'Jain',
+}
+
+const DEALBREAKER_LABELS: Record<Dealbreaker, string> = {
+  water: 'no deep water',
+  heights: 'no heights',
+  'early-starts': 'no early starts',
+  'late-nights': 'no late nights',
+  'long-drives': 'no long drives',
+  crowds: 'no big crowds',
+  spicy: 'go easy on spice',
+}
+
+/** "Veg · no deep water"; null when neither is set */
+export function dietLine(diet: Diet | null, dealbreakers: Dealbreaker[]): string | null {
+  const parts = [diet && DIET_LABELS[diet], ...dealbreakers.map((d) => DEALBREAKER_LABELS[d] ?? d)].filter(Boolean) as string[]
+  if (!parts.length) return null
+  const line = parts.join(' · ')
+  return line.charAt(0).toUpperCase() + line.slice(1)
 }

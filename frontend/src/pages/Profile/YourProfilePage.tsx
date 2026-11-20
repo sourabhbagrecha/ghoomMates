@@ -17,6 +17,8 @@ import { othersVibe } from '../../data/vibe'
 import { useEntryRoute, useNavigate } from '../../hooks/navigation'
 import { useToast } from '../../hooks/useToast'
 import { getStoredUser } from '../../services/authService'
+import { profileBadges } from '../../services/vibeStorage'
+import { VIBE_SWIPE_LINE } from '../Quiz/quizData'
 import { ACCOUNT, AXES, BADGES, PLACES, PLACE_STATUS } from './profileData'
 import { ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
@@ -26,7 +28,7 @@ import './YourProfilePage.css'
 
 const MENU = [
   { icon: iconPencil, title: 'Edit profile', detail: 'Photo, name, colour and selfie', to: 'profile/edit' },
-  { icon: iconSparkles, title: 'Vibe quiz', detail: '8 quick cards · about a minute', to: 'quiz' },
+  { icon: iconSparkles, title: 'Vibe quiz', detail: VIBE_SWIPE_LINE, to: 'quiz' },
   { icon: octopus, title: 'What GhoomMate remembers', detail: 'Your preferences it plans around', to: 'profile/ghoomate' },
   { icon: iconChefHat, title: 'Host kitchen', detail: 'Partner tools · farm orders, covers and leftovers', to: 'host' },
   { icon: iconSettings, title: 'Settings', detail: 'Account, notifications and privacy', to: 'profile/settings' },
@@ -39,6 +41,8 @@ export function YourProfilePage() {
   const backTo = useEntryRoute('profile')
   const profile = useProfileStore()
   const vibe = currentVibe()
+  // Style badges from the swipe deck ("Early bird · Crowd dodger"), when your profile has them
+  const badges = profileBadges()
   // The open trip's squad, once anyone else in it has taken the quiz
   const squadVibe = othersVibe(activeTrip.get().trip)
   const [toast, showToast] = useToast()
@@ -115,6 +119,7 @@ export function YourProfilePage() {
               <div className="your-profile__vibe-info">
                 <p className="overline">Your spiderweb</p>
                 <h3 className="your-profile__vibe-persona">{vibe.persona}</h3>
+                {badges.length > 0 && <p className="your-profile__vibe-badges">{badges.join(' · ')}</p>}
                 <VibeLegend squad={!!squadVibe} />
               </div>
             </div>
@@ -131,7 +136,7 @@ export function YourProfilePage() {
             size="compact"
             headingLevel={3}
             title="No vibe yet"
-            text="Take the 8-card quiz to get your spiderweb and travel persona."
+            text="A few quick swipes and you’ll get your spiderweb and travel persona."
             action={{ label: 'Take the vibe quiz', onClick: () => navigate('quiz') }}
           />
         )}
