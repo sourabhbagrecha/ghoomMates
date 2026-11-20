@@ -1,16 +1,21 @@
-"""Indexer HTTP handler against a real MongoDB with a fake face engine: idempotency, generations,
-deletes, permanent vs transient failures."""
+"""Indexer HTTP handler against a real MongoDB with a fake face engine and fake Gemini: idempotency, generations,
+deletes, permanent vs transient failures, emotion fields, and photo tags (separate from faces)."""
 
 from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
 
 import numpy as np
 import pytest
 from pymongo import MongoClient
 
+from faces import store
 from faces.config import Settings
 from faces.indexer import DELETED, FINALIZED, create_app
-from faces.pipeline import BadImage, Box, NoFace, PhotoFaces
+from faces.pipeline import BadImage, Box, NoFace, PhotoFaces, prepare
 from faces.storage import ObjectGone
+from faces.tagger import BUDGET_KEY, Tagger, TagResult, take_daily
 from tests.conftest import TRIP_A, fake_face, jpeg_bytes
 
 pytestmark = pytest.mark.db
@@ -26,13 +31,26 @@ class FakeEngine:
         self.faces_per_call: list[int] = []
         self.error: Exception | None = None
 
-    def analyze(self, data: bytes) -> PhotoFaces:
+    def prepare(self, data: bytes):
+        if isinstance(self.error, BadImage):
+            self.calls += 1
+            raise self.error
+        return prepare(data, 1600)
+
+    def faces(self, prepared) -> PhotoFaces:
         self.calls += 1
         if self.error:
             raise self.error
         n = self.faces_per_call.pop(0) if self.faces_per_call else 2
         rng = np.random.default_rng(self.calls)
-        return PhotoFaces(4000, 3000, [fake_face(rng.normal(size=512), Box(10 * i, 20, 50, 60)) for i in range(n)])
+        return PhotoFaces(4000, 3000, [
+            fake_face(rng.normal(size=512), Box(10 * i, 20, 50, 60), emotion="happy" if i == 0 else None,
+                      smile=0.912 if i == 0 else None)
+            for i in range(n)
+        ])
+
+    def analyze(self, data: bytes) -> PhotoFaces:
+        return self.faces(self.prepare(data))
 
     def selfie_embedding(self, data: bytes):
         faces = self.analyze(data).faces
@@ -281,3 +299,186 @@ def test_selfie_delete_removes_the_embedding(env):
     send(client, 2, name=SELFIE)
     assert send(client, 2, event_type=DELETED, name=SELFIE).status_code == 204
     assert selfie_rows(db) == []
+
+
+# --- Face attributes (emotion) ---
+
+
+def test_faces_carry_emotion_and_the_photo_its_attrs_version(env):
+    client, _, _, db = env
+    send(client, 1)
+    assert [(f["emotion"], f["smile"]) for f in db.faces.find().sort("x")] == [("happy", 0.912), (None, None)]
+    assert db.face_photos.find_one()["attrs_version"] == 1
+
+
+def test_attrs_version_bump_reindexes_photos_with_faces(env):
+    client, engine, reader, db = env
+    send(client, 1)
+    db.face_photos.update_many({}, {"$unset": {"attrs_version": 1}})  # indexed before emotions existed
+    send(client, 1)
+    assert engine.calls == 2 and db.face_photos.find_one()["attrs_version"] == 1
+    bumped = create_app(Settings(attrs_version=2), engine, db, reader).test_client()
+    send(bumped, 1)
+    send(bumped, 1)
+    assert engine.calls == 3 and db.face_photos.find_one()["attrs_version"] == 2
+
+
+def test_attrs_version_bump_leaves_no_faces_photos_alone(env):
+    client, engine, reader, db = env
+    engine.faces_per_call = [0]
+    send(client, 1)
+    send(create_app(Settings(attrs_version=2), engine, db, reader).test_client(), 1)
+    assert engine.calls == 1
+
+
+def test_emotions_off_records_attrs_version_zero(env):
+    client, engine, reader, db = env
+    off = create_app(Settings(emotions=False), engine, db, reader).test_client()
+    send(off, 1)
+    assert db.face_photos.find_one()["attrs_version"] == 0
+    send(client, 1)  # turning emotions on re-runs it
+    assert engine.calls == 2
+
+
+# --- Photo tags (Gemini, faked) ---
+
+TAGGING = Settings(vertex_project="proj-1")
+
+
+class FakeGemini:
+    def __init__(self):
+        self.calls = 0
+        self.status = 200
+        self.error: Exception | None = None
+        self.payload = {"caption": "Friends in yellow at a haldi.", "tags": ["Haldi", "yellow outfit", "haldi"]}
+
+    def __call__(self, url, headers, body, timeout):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        text = json.dumps({"candidates": [{"content": {"parts": [{"text": json.dumps(self.payload)}]}}]})
+        return self.status, text
+
+
+@pytest.fixture
+def tag_env(clean_db):
+    engine, reader, gemini = FakeEngine(), FakeReader(), FakeGemini()
+
+    def app(settings=TAGGING):
+        tagger = Tagger(settings, clean_db, post=gemini, token=lambda: "t")
+        return create_app(settings, engine, clean_db, reader, tagger).test_client()
+
+    return app, engine, gemini, clean_db
+
+
+def tag_rows(db):
+    return [(d["object_name"], d["trip_id"], d["generation"], d["status"], d["caption"], d["tags"], d["tags_version"])
+            for d in db.photo_tags.find()]
+
+
+def test_photo_is_tagged_alongside_faces(tag_env):
+    app, engine, gemini, db = tag_env
+    assert send(app(), 1).status_code == 204
+    assert tag_rows(db) == [(NAME, TRIP_A, 1, "tagged", "Friends in yellow at a haldi.", ["haldi", "yellow outfit"], 1)]
+    assert engine.calls == 1 and db.faces.count_documents({}) == 2
+    assert db.usage_counters.find_one()["count"] == 1
+    # Redelivery: nothing to do for either.
+    send(app(), 1)
+    assert (engine.calls, gemini.calls) == (1, 1)
+
+
+def test_tags_only_rerun_leaves_faces_untouched(tag_env):
+    app, engine, gemini, db = tag_env
+    send(app(Settings()), 1)  # indexed while tagging was off
+    assert tag_rows(db) == []
+    before = (sorted(f["_id"] for f in db.faces.find()), db.face_photos.find_one()["indexed_at"])
+    assert send(app(), 1).status_code == 204
+    assert (engine.calls, gemini.calls) == (1, 1)
+    assert (sorted(f["_id"] for f in db.faces.find()), db.face_photos.find_one()["indexed_at"]) == before
+    assert tag_rows(db)[0][3] == "tagged"
+
+
+def test_tags_version_bump_retags(tag_env):
+    app, engine, gemini, db = tag_env
+    send(app(), 1)
+    send(app(Settings(vertex_project="proj-1", tags_version=2)), 1)
+    assert (engine.calls, gemini.calls) == (1, 2) and tag_rows(db)[0][6] == 2
+
+
+def test_gemini_failure_never_fails_the_photo_and_is_retried(tag_env):
+    app, engine, gemini, db = tag_env
+    gemini.status = 500
+    assert send(app(), 1).status_code == 204
+    assert db.face_photos.find_one()["status"] == "indexed"
+    (doc,) = db.photo_tags.find()
+    assert doc["status"] == "error" and "Gemini 500" in doc["error"] and doc["tags"] == []
+    gemini.status, gemini.error = 200, None
+    send(app(), 1)  # redelivery / backfill: tags again, faces not
+    assert (engine.calls, gemini.calls) == (1, 2) and tag_rows(db)[0][3] == "tagged"
+
+
+def test_gemini_exception_is_recorded(tag_env):
+    app, engine, gemini, db = tag_env
+    gemini.error = ConnectionError("reset")
+    assert send(app(), 1).status_code == 204
+    assert db.photo_tags.find_one()["status"] == "error"
+
+
+def test_spent_budget_is_recorded_as_skipped(tag_env):
+    app, engine, gemini, db = tag_env
+    settings = Settings(vertex_project="proj-1", photo_tags_per_day=0)
+    assert send(app(settings), 1).status_code == 204
+    assert gemini.calls == 0 and tag_rows(db)[0][3] == "skipped"
+    assert db.face_photos.find_one()["status"] == "indexed"
+
+
+def test_daily_counter_against_mongodb(clean_db):
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    assert [take_daily(clean_db, BUDGET_KEY, 2, now) for _ in range(3)] == [True, True, False]
+    assert clean_db.usage_counters.find_one({"_id": "gemini:photo-tags:2026-11-20"})["count"] == 2
+
+
+def test_unreadable_image_gets_no_tags(tag_env):
+    app, engine, gemini, db = tag_env
+    engine.error = BadImage("broken")
+    assert send(app(), 1).status_code == 204
+    assert gemini.calls == 0 and tag_rows(db) == [] and db.face_photos.find_one()["status"] == "error"
+
+
+def test_face_failure_still_saves_tags(tag_env):
+    app, engine, gemini, db = tag_env
+    engine.error = RuntimeError("tensor shape mismatch")
+    assert send(app(), 1).status_code == 204
+    assert db.face_photos.find_one()["status"] == "error" and tag_rows(db)[0][3] == "tagged"
+
+
+def test_new_generation_retags_and_old_events_do_not_overwrite(tag_env):
+    app, engine, gemini, db = tag_env
+    send(app(), 5)
+    send(app(), 4)
+    assert gemini.calls == 1 and tag_rows(db)[0][2] == 5
+    stale = store.save_tags(db, bucket="ghoomates", name=NAME, generation=3, trip_id=TRIP_A,
+                            result=TagResult("tagged", "old", ["old"]), settings=TAGGING)
+    assert stale is False and tag_rows(db)[0][2] == 5
+    send(app(), 6)
+    assert gemini.calls == 2 and tag_rows(db)[0][2] == 6
+
+
+def test_delete_removes_photo_tags(tag_env):
+    app, _, _, db = tag_env
+    send(app(), 3)
+    assert send(app(), 3, event_type=DELETED).status_code == 204
+    assert rows(db) == ([], []) and tag_rows(db) == []
+
+
+def test_delete_of_an_overwritten_generation_keeps_the_new_tags(tag_env):
+    app, _, _, db = tag_env
+    send(app(), 3)
+    send(app(), 2, event_type=DELETED)
+    assert tag_rows(db)[0][2] == 3
+
+
+def test_selfies_are_never_tagged(tag_env):
+    app, _, gemini, db = tag_env
+    send(app(), 1, name=SELFIE)
+    assert gemini.calls == 0 and tag_rows(db) == []

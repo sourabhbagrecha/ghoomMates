@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { activeTrip } from '../../data/activeTrip'
-import type { FaceSummary, TripPhotos } from '../../services/tripsService'
+import type { FaceSummary, PhotoFilter, TripPhotos } from '../../services/tripsService'
 
 const POLL_MS = 8_000
 const POLL_MAX_MS = 5 * 60_000
@@ -10,18 +10,28 @@ const matchedTrips = new Set<string>()
 export const markMatched = (tripId: string) => matchedTrips.add(tripId)
 export const hasMatched = (tripId: string | null) => !!tripId && matchedTrips.has(tripId)
 
-/** Photo ids the find-me filter matched, or null while it is off. Shared so the viewer follows the same filter as the grid. */
-let matchedIds: Set<string> | null = null
-const matchListeners = new Set<() => void>()
-export const setMatchedIds = (ids: Set<string> | null) => {
-  matchedIds = ids
-  matchListeners.forEach((l) => l())
+/**
+ * What the album is filtered to, or null while it shows everything. Set by Find me, the photo search (box and chips)
+ * and GhoomMate's find_photos tool. Shared so the viewer steps through the same photos as the grid.
+ */
+export type PhotoFilterState = {
+  ids: Set<string>
+  /** Gallery title, e.g. "You & Bhavya · smiling" */
+  label: string
+  /** The search behind it; null for Find me */
+  filter: PhotoFilter | null
+  source: 'me' | 'search' | 'voice'
 }
-export const useMatchedIds = () =>
-  useSyncExternalStore(
-    (l) => (matchListeners.add(l), () => matchListeners.delete(l)),
-    () => matchedIds,
-  )
+let current: PhotoFilterState | null = null
+const listeners = new Set<() => void>()
+export const setPhotoFilter = (next: PhotoFilterState | null) => {
+  current = next
+  listeners.forEach((l) => l())
+}
+const subscribe = (l: () => void) => (listeners.add(l), () => void listeners.delete(l))
+export const usePhotoFilter = () => useSyncExternalStore(subscribe, () => current)
+/** Photo ids the album is filtered to, or null while it shows everything */
+export const useMatchedIds = () => useSyncExternalStore(subscribe, () => current?.ids ?? null)
 
 /** The server's trip-wide summary, or the same counts worked out from the loaded photos */
 export function faceSummaryOf(photos: TripPhotos | null): FaceSummary | null {

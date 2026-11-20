@@ -16,6 +16,8 @@ export type TripMember = {
   role: 'organiser' | 'mate'
   joinedAt?: string
   balancePaise: number
+  /** Whether the squad can find this member in photos: their profile selfie has been read */
+  selfie?: 'ready' | 'processing' | 'none'
 }
 
 export type TripSummaryMember = Pick<TripMember, 'memberId' | 'userId' | 'name' | 'picture' | 'colour'>
@@ -112,6 +114,26 @@ export type TripPhoto = {
   createdAt: string
   /** Filled in by the cloud pipeline a few seconds after upload */
   faces?: { status: 'pending' | 'indexed' | 'no_faces' | 'error'; count: number }
+  /** What GhoomMate saw in the photo (activity, place, occasion…), for scene search; empty until it is tagged */
+  tags?: string[]
+  sceneCaption?: string | null
+}
+
+/* Photo search: mirrors backend/src/trips/photoSearch.ts */
+export const PHOTO_EXPRESSIONS = ['happy', 'neutral', 'surprise', 'sad', 'angry', 'fear', 'disgust'] as const
+export type PhotoExpression = (typeof PHOTO_EXPRESSIONS)[number]
+export type PhotoFilter = { userIds: string[]; match: 'any' | 'all'; expression?: PhotoExpression; scene?: string }
+export type PhotoSearchResult = {
+  filter: PhotoFilter
+  /** "You & Bhavya · smiling" */
+  label: string
+  photoIds: string[]
+  sceneTags: string[]
+  /** People asked for who have no searchable selfie yet */
+  skipped: { userId: string; name: string; status: string }[]
+  truncated: boolean
+  /** From the search box: names that aren't in the trip */
+  unmatched?: string[]
 }
 
 export type FaceSummary = { indexed: number; noFaces: number; pending: number; failed: number; faces: number }
@@ -250,6 +272,10 @@ export const tripsApi = {
   selfieStatus: (id: string) => request<{ status: SelfieStatus }>(`${trip(id)}/photos/find-me/status`).then((r) => r.status),
   findMe: (id: string) =>
     request<{ matches: FindMeMatch[]; threshold: number; truncated: boolean }>(`${trip(id)}/photos/find-me`, { method: 'POST' }),
+  /** Photos of any members, by expression and/or scene (the chips, and GhoomMate) */
+  findPhotos: (id: string, filter: PhotoFilter) => request<PhotoSearchResult>(`${trip(id)}/photos/find`, { body: filter }),
+  /** The search box: a sentence, read by Gemini on the server */
+  searchPhotos: (id: string, query: string) => request<PhotoSearchResult>(`${trip(id)}/photos/search`, { body: { query } }),
   addPhotos: (id: string, photos: { key: string; width?: number; height?: number }[]) =>
     request<{ added: number }>(`${trip(id)}/photos`, { body: { photos } }),
   itinerary: (id: string) => request<{ days: ItineraryDay[] }>(`${trip(id)}/itinerary`).then((r) => r.days),

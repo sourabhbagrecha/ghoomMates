@@ -24,7 +24,8 @@ import { PastReels } from '../Reel/PastReels'
 import { useTripReels } from '../Reel/useTripReels'
 import { useTripStore } from '../Trip/tripStore'
 import { useProfileStore } from '../Profile/profileStore'
-import { faceSummaryOf, hasMatched, markMatched, setMatchedIds, useFacePolling, useMatchedIds } from './faceSearch'
+import { faceSummaryOf, hasMatched, markMatched, setPhotoFilter, useFacePolling, usePhotoFilter } from './faceSearch'
+import { PhotoSearch } from './PhotoSearch'
 import { PIPELINE, REEL, SELFIE_READ, type PipelineStep } from './photosData'
 import { useSelfieRead } from './selfieRead'
 import './PhotosPage.css'
@@ -38,8 +39,9 @@ export function PhotosPage() {
   const total = photos?.total ?? 0
   const summary = faceSummaryOf(photos)
   const [toast, showToast] = useToast()
-  // Photo ids found by the face filter, or null while it is off
-  const matchedIds = useMatchedIds()
+  // What the album is filtered to (Find me, the search card or GhoomMate), or null while it shows everything
+  const filter = usePhotoFilter()
+  const matchedIds = filter?.ids ?? null
   const [searching, setSearching] = useState(false)
   const { reels } = useTripReels(trip?.id ?? null)
   useFacePolling(summary?.pending ?? 0)
@@ -59,12 +61,15 @@ export function PhotosPage() {
           <FaceFilter
             tripId={trip?.id ?? null}
             total={total}
-            matchCount={matchedIds ? visible.length : null}
+            matchCount={filter?.source === 'me' ? visible.length : null}
             searching={searching}
             onSearching={setSearching}
-            onMatches={setMatchedIds}
+            onMatches={(ids) => setPhotoFilter(ids && { ids, label: 'Photos of you', filter: null, source: 'me' })}
             showToast={showToast}
           />
+          {trip && photos && total > 0 && (
+            <PhotoSearch trip={trip} photos={photos.items} onSearching={setSearching} showToast={showToast} />
+          )}
           <UploadCard
             total={total}
             uploaders={new Set(photos?.items.map((p) => p.uploadedBy.userId)).size}
@@ -73,21 +78,25 @@ export function PhotosPage() {
           />
           {!photos ? (
             <Skeleton variant="card" height={230} />
-          ) : matchedIds && !visible.length ? (
+          ) : filter && !visible.length ? (
             <EmptyState
               size="compact"
               headingLevel={3}
-              title="No photos of you yet"
-              text="We couldn’t spot you in the squad’s photos. Try a clearer selfie, or check back as more get added."
-              action={{ label: 'Show all photos', onClick: () => setMatchedIds(null) }}
+              title={filter.source === 'me' ? 'No photos of you yet' : `No photos for “${filter.label}”`}
+              text={
+                filter.source === 'me'
+                  ? 'We couldn’t spot you in the squad’s photos. Try a clearer selfie, or check back as more get added.'
+                  : 'Try fewer people or a broader moment, or check back as more get added.'
+              }
+              action={{ label: 'Show all photos', onClick: () => setPhotoFilter(null) }}
             />
           ) : photos.items.length ? (
             <section className="photo-gallery">
               <SectionHeader
-                title={matchedIds ? 'Photos of you' : 'All photos'}
+                title={filter ? filter.label : 'All photos'}
                 action={
-                  matchedIds ? (
-                    <button type="button" className="text-link" onClick={() => setMatchedIds(null)}>
+                  filter ? (
+                    <button type="button" className="text-link" onClick={() => setPhotoFilter(null)}>
                       Show all {total}
                     </button>
                   ) : (

@@ -94,6 +94,13 @@
   color: #fff;
 }
 
+.viewer__scene {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-on-brand-muted);
+}
+
 .viewer__time {
   font-weight: 600;
   font-size: 11px;

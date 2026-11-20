@@ -51,7 +51,7 @@ describe('groupByPhoto', () => {
   test('one entry per photo at its closest face, faces and photos sorted by distance', () => {
     const out = groupByPhoto([hit(0.3, 'a'), hit(0.2, 'b'), hit(0.1, 'a', { x: 9 })]);
     expect(out.map(p => [p.object_name, p.distance])).toEqual([['trips/t/photos/a.jpg', 0.1], ['trips/t/photos/b.jpg', 0.2]]);
-    expect(out[0].faces).toEqual([{ x: 9, y: 2, w: 3, h: 4, distance: 0.1 }, { x: 1, y: 2, w: 3, h: 4, distance: 0.3 }]);
+    expect(out[0].faces).toEqual([{ x: 9, y: 2, w: 3, h: 4, distance: 0.1, emotion: null, smile: null }, { x: 1, y: 2, w: 3, h: 4, distance: 0.3, emotion: null, smile: null }]);
     expect([out[0].width, out[0].height]).toEqual([100, 80]);
   });
 });
@@ -80,7 +80,7 @@ describe('createFaceSearch', () => {
 
 describe('mapMatches', () => {
   test('drops unregistered photos, sorts by distance and passes boxes through', () => {
-    const faces = [{ x: 1, y: 2, w: 3, h: 4, distance: 0.2 }];
+    const faces = [{ x: 1, y: 2, w: 3, h: 4, distance: 0.2, emotion: 'happy', smile: 0.9 }];
     const out = mapMatches([
       { object_name: 'b', width: 10, height: 20, distance: 0.3, faces },
       { object_name: 'gone', width: 10, height: 20, distance: 0.1, faces },

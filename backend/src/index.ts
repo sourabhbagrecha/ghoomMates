@@ -110,7 +110,7 @@ let voice: ReturnType<typeof createVoiceApp> | undefined;
 let reels: ReturnType<typeof createReelsApp> | undefined;
 let impact: ReturnType<typeof createImpactApp> | undefined;
 if (db) {
-  trips = createTripsApp(db, storage, authenticate, clientOrigin);
+  trips = createTripsApp(db, storage, authenticate, clientOrigin, undefined, gemini);
   reels = createReelsApp({ db, storage, gemini, authenticate });
   voice = createVoiceApp({
     db,

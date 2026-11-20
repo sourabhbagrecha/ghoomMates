@@ -62,6 +62,11 @@ export type DayPlan = {
   stops: DayPlanStop[];
 };
 
+/** Photo search (POST /api/trips/:tripId/photos/find); same shape as backend/src/trips/photoSearch.ts */
+export const PHOTO_EXPRESSIONS = ['happy', 'neutral', 'surprise', 'sad', 'angry', 'fear', 'disgust'] as const;
+export type PhotoExpression = typeof PHOTO_EXPRESSIONS[number];
+export type PhotoFilter = { userIds: string[]; match: 'any' | 'all'; expression?: PhotoExpression; scene?: string };
+
 export type UiEvent =
   | { type: 'expense.draft'; draft: ExpenseDraft }
   | { type: 'expense.added'; expense: AddedExpense }
@@ -73,6 +78,8 @@ export type UiEvent =
   | { type: 'day.plan'; plan: DayPlan }
   | { type: 'day.plan.added'; planId: string; dayNumber: number; count: number }
   | { type: 'day.plan.cancelled'; planId: string }
+  /** Show these photos on the Photos screen, titled with label ("You · smiling") */
+  | { type: 'photos.filter'; filter: PhotoFilter; label: string; photoIds: string[] }
   | { type: 'working'; label: string | null }
   | { type: 'notice'; message: string }
   /** GhoomMate hung up (the call sat idle); the app closes the call instead of showing it as dropped */

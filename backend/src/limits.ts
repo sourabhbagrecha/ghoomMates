@@ -204,8 +204,14 @@ export function defaultPolicies(env: Record<string, string | undefined> = proces
     // Every other route that asks Gemini for an answer
     {
       name: 'ai', methods: ['POST'],
-      path: new RegExp(`^/api/(trips/${ID}/itinerary/draft|hospitality/menu|ops/advisories/draft|events/${ID}/ask|makers/${ID}/ask)$`),
+      path: new RegExp(`^/api/(trips/${ID}/itinerary/draft|trips/${ID}/photos/search|hospitality/menu|ops/advisories/draft|events/${ID}/ask|makers/${ID}/ask)$`),
       per: 'client', perMinute: 12, perDay: n('AI_PER_USER_PER_DAY', 200), message: 'That’s a lot of questions at once. Give it a minute.',
+    },
+    // Photo search by people/expression/scene: vector searches, and a Gemini call when a scene matches no tag directly.
+    // Chips fire one per tap, so it is roomier than "ai".
+    {
+      name: 'photo-search', methods: ['POST'], path: new RegExp(`^/api/trips/${ID}/photos/find$`),
+      per: 'client', perMinute: 40, perDay: n('PHOTO_SEARCHES_PER_USER_PER_DAY', 600), message: 'That’s a lot of searching. Give it a minute.',
     },
     // Signed upload URLs: each upload wakes the face indexer and adds to the bucket
     {

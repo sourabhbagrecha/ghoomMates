@@ -18,7 +18,8 @@ def build_app():
     engine.warm_up()
     db = open_db(settings)
     logs.log(logging.getLogger("face-main"), logging.INFO, "models loaded",
-             model_name=settings.model_name, detector=settings.detector_backend)
+             model_name=settings.model_name, detector=settings.detector_backend, emotions=settings.emotions,
+             tags_model=settings.tags_model if settings.tagging else None)
     return indexer.create_app(settings, engine, db, make_reader(settings))
 
 

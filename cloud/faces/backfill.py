@@ -1,9 +1,12 @@
-"""Indexes photos that were uploaded before face-indexer existed (or while it was down).
+"""Indexes photos that were uploaded before face-indexer existed (or while it was down), and catches up photos
+whose faces or tags are out of date.
 
-Lists the bucket and runs every trip photo through the same indexer handler in-process, so the routing,
-idempotency and status rules are identical. Already indexed generations are skipped, so it is safe to rerun.
+Lists the bucket and sends every object through the same indexer handler in-process, so the routing, idempotency
+and status rules are identical: per photo, faces run again when the model, detector or ATTRS_VERSION changed (e.g.
+emotions were added), and tags run when the photo has none, they failed or were skipped (daily budget), or
+TAGS_VERSION changed. Photos with nothing to do are skipped, so it is safe to rerun.
 
-  BUCKET=ghoomates PREFIX=trips/ MONGODB_CONNECTION_STRING=... python -m faces.backfill
+  BUCKET=ghoomates PREFIX=trips/ VERTEX_PROJECT=<project> MONGODB_CONNECTION_STRING=... python -m faces.backfill
 """
 
 from __future__ import annotations
@@ -30,6 +33,8 @@ def main() -> None:
     engine.warm_up()
     db = open_db(settings)
     db.command("ping")  # fail fast on a bad connection string instead of 500 on every photo
+    print(f"faces: emotions={settings.emotions} attrs_version={settings.attrs_version}; "
+          f"tags: {'on, ' + settings.tags_model if settings.tagging else 'off (set VERTEX_PROJECT)'}", flush=True)
     client = create_app(settings, engine, db, GcsReader()).test_client()
     counts: dict[int, int] = {}
     for blob in storage.Client().list_blobs(bucket, prefix=prefix):

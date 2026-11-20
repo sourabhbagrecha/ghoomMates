@@ -18,12 +18,13 @@ Google sign-in keeps strangers out of trip data, but anyone can make a Google ac
 | `client` | all of `/api`, `/auth` | 300 a minute per caller | A busy app session is well under 100. |
 | `signin` | `/auth/google/verify`, `/auth/callback`, `/auth/google/callback`, `/auth/dev/login` | 20 a minute per IP | Each one calls Google or mints a session. |
 | `reel` | `POST /api/reels/trips/:id` | 4 a minute, 40 a day per caller | Up to 24 photos to the bigger Gemini model: the most expensive call. |
-| `ai` | `POST` itinerary draft, hospitality menu, ops advisory draft, event and maker questions | 12 a minute, 200 a day per caller | One Gemini call each. |
+| `ai` | `POST` itinerary draft, hospitality menu, ops advisory draft, event and maker questions, photo search box (`/photos/search`) | 12 a minute, 200 a day per caller | One Gemini call each. |
+| `photo-search` | `POST /api/trips/:id/photos/find` | 40 a minute, 600 a day per caller | The people / expression chips and GhoomMate's `find_photos`. Mostly database work; Gemini only runs when a scene matches none of the trip's tags. |
 | `upload` | `POST /api/trips/:id/uploads`, `POST /auth/uploads` | 300 per 10 minutes, 2000 a day per caller | Bulk uploads of 100 photos are normal; each upload wakes the face indexer. |
 | `voice` | `POST /api/voice/session` | 6 a minute, 2 open at once, 30 a day per caller, 300 a day for everyone | A call holds CPU while it lasts and is billed per minute by LiveKit and Gemini Live. |
 | Gemini | every Gemini request | 2000 a day for everyone | Caps the bill; features fall back. |
 
-Every number above can be changed with an environment variable (listed in `backend/.env.example`), except the per-minute numbers of `signin`, `reel`, `ai` and `voice`, which are in `defaultPolicies()`.
+Every number above can be changed with an environment variable (listed in `backend/.env.example`), except the per-minute numbers of `signin`, `reel`, `ai`, `photo-search` and `voice`, which are in `defaultPolicies()`.
 
 **A new route that costs money** (Gemini, Maps, voice, uploads) needs a line in `defaultPolicies()`, and its path in the `defaultPolicies cover the routes that cost money` test in `tests/limits.test.ts`.
 

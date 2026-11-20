@@ -9,7 +9,9 @@ import pytest
 from PIL import Image
 
 from faces.config import Settings
-from faces.pipeline import BadImage, Box, FaceEngine, NoFace, l2_normalize, prepare, scale_box, to_faces
+from faces.pipeline import (
+    BadImage, Box, FaceEngine, NoFace, crop_face, l2_normalize, prepare, read_emotion, scale_box, to_faces,
+)
 from tests.conftest import jpeg_bytes
 
 
@@ -158,3 +160,76 @@ def test_selfie_without_a_usable_face_raises():
         FaceEngine(Settings(), lambda px, s: []).selfie_embedding(jpeg_bytes(300, 300))
     with pytest.raises(NoFace):
         FaceEngine(Settings(), lambda px, s: [result(w=20, h=20)]).selfie_embedding(jpeg_bytes(300, 300))
+
+
+# --- emotion (fake DeepFace.analyze) ---
+
+
+def emotion_result(dominant="happy", happy=87.6543):
+    scores = {e: 1.0 for e in ("angry", "disgust", "fear", "sad", "surprise", "neutral")}
+    scores["happy"] = happy
+    return {"emotion": scores, "dominant_emotion": dominant, "region": {}, "face_confidence": 0}
+
+
+class FakeAnalyze:
+    def __init__(self, *results):
+        self.results = list(results)
+        self.crops = []
+
+    def __call__(self, crop):
+        self.crops.append(crop.shape)
+        r = self.results.pop(0) if self.results else emotion_result()
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+
+def test_each_face_gets_emotion_and_smile():
+    analyze = FakeAnalyze(emotion_result("happy", 87.6543), [emotion_result("sad", 2.0)])  # dict, then list
+    faces = [result(x=100, y=100, w=80, h=80), result(x=400, y=100, w=60, h=60)]
+    out = FaceEngine(Settings(), lambda px, s: faces, analyze).analyze(jpeg_bytes(3200, 2400))
+    assert [(f.emotion, f.smile) for f in out.faces] == [("happy", 0.877), ("sad", 0.02)]
+    # Crops come from the downscaled image the detector saw, padded 10% on each side.
+    assert analyze.crops == [(96, 96, 3), (72, 72, 3)]
+
+
+def test_dropped_faces_are_not_analyzed():
+    analyze = FakeAnalyze()
+    FaceEngine(Settings(), lambda px, s: [result(w=20, h=20)], analyze).analyze(jpeg_bytes(400, 400))
+    assert analyze.crops == []
+
+
+def test_crop_is_padded_and_clamped_to_the_image():
+    pixels = np.zeros((100, 200, 3), dtype=np.uint8)
+    assert crop_face(pixels, {"x": 50, "y": 30, "w": 40, "h": 20}).shape == (24, 48, 3)
+    assert crop_face(pixels, {"x": 0, "y": 0, "w": 40, "h": 40}).shape == (44, 44, 3)  # no negative start
+    assert crop_face(pixels, {"x": 180, "y": 90, "w": 40, "h": 40}).shape == (14, 24, 3)  # cut at the edges
+    assert crop_face(pixels, {"x": 300, "y": 0, "w": 10, "h": 10}) is None  # outside the image
+
+
+def test_emotion_failure_leaves_the_face_without_emotion():
+    analyze = FakeAnalyze(RuntimeError("model exploded"), emotion_result("neutral", 5))
+    faces = [result(x=0, w=80, h=80), result(x=200, w=80, h=80)]
+    out = FaceEngine(Settings(), lambda px, s: faces, analyze).analyze(jpeg_bytes(800, 800))
+    assert [(f.emotion, f.smile) for f in out.faces] == [(None, None), ("neutral", 0.05)]
+    assert all(f.embedding is not None for f in out.faces)
+
+
+def test_read_emotion_handles_odd_results():
+    assert read_emotion([]) == (None, None)
+    assert read_emotion(None) == (None, None)
+    assert read_emotion({"dominant_emotion": "bored", "emotion": {"happy": 150}}) == (None, 1.0)
+    assert read_emotion({"dominant_emotion": "fear", "emotion": {"happy": float("nan")}}) == ("fear", None)
+
+
+def test_emotions_off_skips_the_model():
+    analyze = FakeAnalyze()
+    engine = FaceEngine(Settings(emotions=False), lambda px, s: [result(w=80, h=80)], analyze)
+    out = engine.analyze(jpeg_bytes(400, 400))
+    assert analyze.crops == [] and (out.faces[0].emotion, out.faces[0].smile) == (None, None)
+
+
+def test_selfies_never_run_the_emotion_model():
+    analyze = FakeAnalyze()
+    face = FaceEngine(Settings(), lambda px, s: [result(w=80, h=80)], analyze).selfie_embedding(jpeg_bytes(400, 400))
+    assert analyze.crops == [] and face.emotion is None

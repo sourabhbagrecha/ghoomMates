@@ -130,7 +130,8 @@ export function PhotoViewerPage({ index }: { index: number }) {
 
       <div className="viewer__info">
         <div>
-          <h1 className="viewer__caption">{photo?.caption || trip?.name || 'Trip photo'}</h1>
+          <h1 className="viewer__caption">{photo?.caption || photo?.sceneCaption || trip?.name || 'Trip photo'}</h1>
+          {photo?.caption && photo.sceneCaption && <p className="viewer__scene">{photo.sceneCaption}</p>}
           <p className="viewer__time">{when}</p>
         </div>
         {photo && (

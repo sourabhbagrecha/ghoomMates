@@ -40,5 +40,7 @@ def setup(level: str = "INFO") -> None:
     root.setLevel(level)
 
 
-def log(logger: logging.Logger, level: int, message: str, exc_info: bool = False, **fields: Any) -> None:
+def log(
+    logger: logging.Logger, level: int, message: str, exc_info: bool | BaseException = False, **fields: Any,
+) -> None:
     logger.log(level, message, exc_info=exc_info, extra={"fields": fields})

@@ -4,6 +4,11 @@ import { ExpenseService } from '../expenses/service.ts';
 import { transaction, type ClientSession, type Database, type Db } from '../db.ts';
 import { IMAGE_TYPES, type MediaStorage } from '../storage.ts';
 import { DEFAULT_SPACE, EMBEDDING_DIM, mapMatches, type FaceSearch } from './faces.ts';
+import type { Gemini } from '../gemini.ts';
+import {
+  captionPattern, combinePeople, expandScene, expressionQuery, filterLabel, parseQuery, readFilter,
+  type PersonMatch, type PhotoFilter, type PhotoHit,
+} from './photoSearch.ts';
 import { fitStopsToLength, tripLength } from './itinerary.ts';
 
 export const EXPENSE_CATEGORIES = ['food', 'stays', 'travel', 'fun', 'other'] as const;
@@ -101,11 +106,22 @@ export class TripService {
       this.db.collection('group_members').find({ _id: { $in: members.map(m => m.ledger_member_id) } as any }).toArray(),
     ]);
     const userById = new Map(users.map(u => [u._id as unknown as string, u]));
+    const selfieKeys = users.flatMap(u => typeof u.selfie_key === 'string' ? [u.selfie_key] : []);
+    const selfies = selfieKeys.length
+      ? await this.db.collection('selfie_faces').find({ object_name: { $in: selfieKeys } }, { projection: { object_name: 1, status: 1 } }).toArray()
+      : [];
+    const selfieStatus = new Map(selfies.map(f => [f.object_name as string, f.status as string]));
+    // Whether others can find this member in photos: ready once the face-indexer stored the selfie's vector
+    const selfieOf = (u: Record<string, any>): 'ready' | 'processing' | 'none' => {
+      if (typeof u.selfie_key !== 'string') return 'none';
+      const status = selfieStatus.get(u.selfie_key);
+      return status === 'indexed' ? 'ready' : status === undefined ? 'processing' : 'none';
+    };
     const ledgerById = new Map(ledger.map(g => [g._id as unknown as string, g]));
     const rows = members.flatMap(m => {
       const u = userById.get(m.user_id);
       const g = ledgerById.get(m.ledger_member_id);
-      return u && g ? [{ ledger_member_id: m.ledger_member_id, user_id: m.user_id, role: m.role, joined_at: m.joined_at as Date, name: u.name, username: u.username, picture: u.picture, preferences: u.preferences, balance_paise: g.balance_paise, position: g.position as number }] : [];
+      return u && g ? [{ ledger_member_id: m.ledger_member_id, user_id: m.user_id, role: m.role, joined_at: m.joined_at as Date, name: u.name, username: u.username, picture: u.picture, preferences: u.preferences, balance_paise: g.balance_paise, position: g.position as number, selfie: selfieOf(u) }] : [];
     }).sort((a, b) => a.position - b.position);
     return rows.map(r => ({
       memberId: r.ledger_member_id,
@@ -120,6 +136,7 @@ export class TripService {
       role: r.role,
       joinedAt: r.joined_at.toISOString(),
       balancePaise: r.balance_paise as number,
+      selfie: r.selfie,
     }));
   }
 
@@ -428,11 +445,17 @@ export class TripService {
       collection.find({ trip_id: access.trip.id }).sort({ created_at: -1, _id: 1 }).skip(offset).limit(limit).toArray(),
       collection.countDocuments({ trip_id: access.trip.id }),
     ]);
-    const [uploaders, faces] = await Promise.all([
+    const [uploaders, faces, tagRows] = await Promise.all([
       this.db.collection('users').find({ _id: { $in: [...new Set(rows.map(r => r.uploaded_by))] } as any }, { projection: { name: 1 } }).toArray(),
       this.faceIndex(access.trip.id, rows.map(r => r.object_key)),
+      // Written by the face-indexer's Gemini pass (cloud/faces/tagger.py)
+      this.db.collection('photo_tags').find(
+        { trip_id: access.trip.id, object_name: { $in: rows.map(r => r.object_key) }, status: 'tagged' },
+        { projection: { object_name: 1, tags: 1, caption: 1 } },
+      ).toArray(),
     ]);
     const nameOf = new Map(uploaders.map(u => [u._id as unknown as string, u.name as string]));
+    const tagsOf = new Map(tagRows.map(t => [t.object_name as string, t]));
     return {
       total,
       faceSummary: faces.summary,
@@ -445,6 +468,8 @@ export class TripService {
         uploadedBy: { userId: r.uploaded_by, name: nameOf.get(r.uploaded_by) },
         createdAt: r.created_at.toISOString(),
         faces: faces.byKey.get(r.object_key) ?? { status: 'pending', count: 0 },
+        tags: Array.isArray(tagsOf.get(r.object_key)?.tags) ? tagsOf.get(r.object_key)!.tags as string[] : [],
+        sceneCaption: typeof tagsOf.get(r.object_key)?.caption === 'string' ? tagsOf.get(r.object_key)!.caption as string : null,
       }))),
     };
   }
@@ -494,5 +519,144 @@ export class TripService {
       : [];
     const matches = mapMatches(result.matches, new Map(rows.map(r => [r.object_key as string, r._id as unknown as string])));
     return { matches, threshold: result.threshold, truncated: result.truncated };
+  }
+
+  /* Photo search: people, expressions and scenes (photoSearch.ts) */
+
+  // The trip's photo tags, most used first: the vocabulary scene searches are matched against
+  async tagVocabulary(tripId: string, max = 400) {
+    const rows = await this.db.collection('photo_tags').aggregate([
+      { $match: { trip_id: tripId, status: 'tagged' } },
+      { $unwind: '$tags' },
+      { $group: { _id: '$tags', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: max },
+    ]).toArray();
+    return rows.map(r => String(r._id));
+  }
+
+  // trip_photos ids for GCS object keys
+  private async photoIds(tripId: string, keys: string[]) {
+    if (!keys.length) return new Map<string, string>();
+    const rows = await this.db.collection('trip_photos').find({ trip_id: tripId, object_key: { $in: keys } }, { projection: { object_key: 1 } }).toArray();
+    return new Map(rows.map(r => [r.object_key as string, r._id as unknown as string]));
+  }
+
+  // Photos whose tags hit the expanded scene, or whose Gemini caption or uploader caption has every scene word
+  private async sceneMatches(tripId: string, scene: string, tags: string[]) {
+    const pattern = captionPattern(scene);
+    const or = [...(tags.length ? [{ tags: { $in: tags } }] : []), ...(pattern ? [{ caption: pattern }] : [])];
+    const [tagged, captioned] = await Promise.all([
+      or.length
+        ? this.db.collection('photo_tags').find({ trip_id: tripId, status: 'tagged', $or: or }, { projection: { object_name: 1 } }).toArray()
+        : Promise.resolve([]),
+      pattern ? this.db.collection('trip_photos').find({ trip_id: tripId, caption: pattern }, { projection: { _id: 1 } }).toArray() : Promise.resolve([]),
+    ]);
+    const byKey = await this.photoIds(tripId, tagged.map(r => r.object_name as string));
+    return new Set([...byKey.values(), ...captioned.map(r => r._id as unknown as string)]);
+  }
+
+  // One person's photos: their selfie vector against the trip's faces
+  private async personMatches(tripId: string, userId: string, faceSearch: FaceSearch) {
+    const face = await this.selfieFace(userId);
+    if (face.status !== 'ready') return { status: face.status, matches: [] as PersonMatch[], truncated: false };
+    const { embedding, stored } = face;
+    const space = {
+      modelName: typeof stored.model_name === 'string' && stored.model_name ? stored.model_name : DEFAULT_SPACE.modelName,
+      detector: typeof stored.detector === 'string' && stored.detector ? stored.detector : DEFAULT_SPACE.detector,
+    };
+    const result = await faceSearch.search(tripId, embedding, space);
+    const ids = await this.photoIds(tripId, result.matches.map(m => m.object_name));
+    return { status: 'ready' as const, matches: mapMatches(result.matches, ids), truncated: result.truncated };
+  }
+
+  // Every photo with a face showing the expression, whoever it is
+  private async expressionMatches(tripId: string, expression: NonNullable<PhotoFilter['expression']>) {
+    const faces = await this.db.collection('faces').find(
+      { trip_id: tripId, ...expressionQuery(expression) },
+      { projection: { object_name: 1, x: 1, y: 1, w: 1, h: 1, emotion: 1, smile: 1 } },
+    ).toArray();
+    const ids = await this.photoIds(tripId, [...new Set(faces.map(f => f.object_name as string))]);
+    const hits = new Map<string, PhotoHit>();
+    for (const f of faces) {
+      const photoId = ids.get(f.object_name);
+      if (!photoId) continue;
+      let hit = hits.get(photoId);
+      if (!hit) hits.set(photoId, hit = { photoId, distance: 0, people: [], faces: [] });
+      hit.faces.push({ x: f.x, y: f.y, w: f.w, h: f.h, emotion: f.emotion ?? null, smile: f.smile ?? null });
+    }
+    return [...hits.values()];
+  }
+
+  // POST /photos/find (the app's chips and GhoomMate) and the second half of /photos/search.
+  async findPhotos(access: TripAccess, userId: string, input: unknown, faceSearch: FaceSearch, gemini?: Gemini, sceneTags?: string[]) {
+    const filter = readFilter(input);
+    const tripId = access.trip.id;
+    const members = await this.members(tripId);
+    const byUser = new Map(members.map(m => [m.userId, m]));
+    const stranger = filter.userIds.find(id => !byUser.has(id));
+    if (stranger) throw new ApiError(400, 'NOT_A_MEMBER', 'Only people in this trip can be searched for');
+    const nameOf = (id: string) => (id === userId ? 'You' : byUser.get(id)?.name.split(/\s+/)[0] ?? 'Someone');
+
+    let hits: PhotoHit[] | null = null;
+    let truncated = false;
+    const skipped: { userId: string; name: string; status: string }[] = [];
+    if (filter.userIds.length) {
+      const results = await Promise.all(filter.userIds.map(id => this.personMatches(tripId, id, faceSearch)));
+      const perPerson = new Map<string, PersonMatch[]>();
+      filter.userIds.forEach((id, i) => {
+        const r = results[i];
+        if (r.status === 'ready') perPerson.set(id, r.matches);
+        else skipped.push({ userId: id, name: nameOf(id), status: r.status });
+        truncated ||= r.truncated;
+      });
+      if (!perPerson.size) {
+        const one = filter.userIds.length === 1 ? skipped[0] : null;
+        const who = one ? (one.userId === userId ? 'You haven’t' : `${one.name} hasn’t`) : 'Nobody you picked has';
+        if (one?.status === 'processing') {
+          throw new ApiError(409, 'SELFIE_PROCESSING', `${one.userId === userId ? 'Your' : `${one.name}’s`} selfie is still being read. Try again in a few seconds`);
+        }
+        throw new ApiError(409, 'NO_SELFIE', `${who} added a selfie yet, so they can’t be found in photos`);
+      }
+      // "Together" only counts the people who can be searched; the ones skipped are reported back
+      hits = combinePeople(perPerson, filter.match, filter.expression);
+    } else if (filter.expression) {
+      hits = await this.expressionMatches(tripId, filter.expression);
+    }
+
+    let tags: string[] = [];
+    if (filter.scene) {
+      tags = sceneTags ?? await expandScene(filter.scene, await this.tagVocabulary(tripId), gemini);
+      const scenePhotos = await this.sceneMatches(tripId, filter.scene, tags);
+      hits = hits
+        ? hits.filter(h => scenePhotos.has(h.photoId))
+        : [...scenePhotos].map(photoId => ({ photoId, distance: 0, people: [], faces: [] }));
+    }
+
+    const matches = hits ?? [];
+    return {
+      filter,
+      label: filterLabel(filter, nameOf),
+      matches,
+      photoIds: matches.map(m => m.photoId),
+      sceneTags: tags,
+      skipped,
+      truncated,
+    };
+  }
+
+  // POST /photos/search: a sentence ("Bhavya's photos from the haldi") → filter → findPhotos
+  async searchPhotos(access: TripAccess, userId: string, input: unknown, faceSearch: FaceSearch, gemini?: Gemini) {
+    const body = object(input);
+    const query = text(body.query, 'query', 200);
+    const tripId = access.trip.id;
+    const [members, vocabulary] = await Promise.all([this.members(tripId), this.tagVocabulary(tripId)]);
+    const parsed = await parseQuery(query, members.map(m => ({ userId: m.userId, name: m.name, username: m.username })), userId, vocabulary, gemini);
+    if (!parsed.filter.userIds.length && !parsed.filter.expression && !parsed.filter.scene) {
+      const names = parsed.unmatched.join(', ');
+      throw new ApiError(404, 'NOT_IN_TRIP', names ? `${names} isn’t in this trip` : 'Try a name, an expression or a place');
+    }
+    const result = await this.findPhotos(access, userId, parsed.filter, faceSearch, gemini, parsed.sceneTags.length ? parsed.sceneTags : parsed.source === 'gemini' ? [] : undefined);
+    return { ...result, query, unmatched: parsed.unmatched };
   }
 }

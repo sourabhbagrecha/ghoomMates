@@ -34,8 +34,12 @@ def unit(v: np.ndarray) -> np.ndarray:
     return v / np.linalg.norm(v)
 
 
-def fake_face(embedding: np.ndarray, box: Box = Box(10, 20, 50, 60), confidence: float = 0.99) -> Face:
-    return Face(box=box, confidence=confidence, embedding=unit(embedding), detected_area=box.w * box.h)
+def fake_face(
+    embedding: np.ndarray, box: Box = Box(10, 20, 50, 60), confidence: float = 0.99,
+    emotion: str | None = None, smile: float | None = None,
+) -> Face:
+    return Face(box=box, confidence=confidence, embedding=unit(embedding), detected_area=box.w * box.h,
+                emotion=emotion, smile=smile)
 
 
 def near(base: np.ndarray, rng: np.random.Generator, noise: float = 0.01) -> np.ndarray:
@@ -71,6 +75,8 @@ def clean_db(db: Any) -> Any:
     db.face_photos.delete_many({})
     db.faces.delete_many({})
     db.selfie_faces.delete_many({})
+    db.photo_tags.delete_many({})
+    db.usage_counters.delete_many({})
     return db
 
 

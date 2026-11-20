@@ -6,6 +6,7 @@ import { logger } from '../logger.ts';
 import type { Database } from '../db.ts';
 import type { MediaStorage } from '../storage.ts';
 import type { User } from '../auth/types.ts';
+import type { Gemini } from '../gemini.ts';
 import { atlasNearestFaces, createFaceSearch, type FaceSearch } from './faces.ts';
 import { ItineraryService } from './itinerary.ts';
 import { TripService, type TripAccess } from './service.ts';
@@ -23,7 +24,7 @@ function page(req: Request, max = 100) {
 }
 
 // Trip groups for signed-in users: create, invite, join, expenses, settlements and photo uploads. Mount under /api/trips.
-export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string, faceSearch: FaceSearch = createFaceSearch(atlasNearestFaces(db.db))) {
+export function createApp(db: Database, storage: MediaStorage, authenticate: Authenticate, clientOrigin: string, faceSearch: FaceSearch = createFaceSearch(atlasNearestFaces(db.db)), gemini?: Gemini) {
   const service = new TripService(db, storage, clientOrigin);
   const itinerary = new ItineraryService(db);
   const router = Router();
@@ -125,6 +126,23 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
     const started = Date.now();
     const result = await service.findMe(access(res), user(res).id, faceSearch);
     logger.info('Trips', `${user(res).email} found ${result.matches.length} photo(s) of themselves in trip ${access(res).trip.id} (${Date.now() - started} ms)`);
+    res.json(result);
+  });
+
+  // Photos of any members (selfie matches), with an expression and/or a scene: { userIds, match, expression, scene }.
+  // The app's chips and GhoomMate's find_photos tool call this.
+  router.post('/:tripId/photos/find', jsonBody, async (req, res) => {
+    const started = Date.now();
+    const result = await service.findPhotos(access(res), user(res).id, req.body, faceSearch, gemini);
+    logger.info('Trips', `photo search "${result.label}" in trip ${access(res).trip.id}: ${result.matches.length} photo(s) (${Date.now() - started} ms)`);
+    res.json(result);
+  });
+
+  // The search box: { query: "Bhavya's photos from the haldi" }. Gemini turns it into a filter (keywords when it can't).
+  router.post('/:tripId/photos/search', jsonBody, async (req, res) => {
+    const started = Date.now();
+    const result = await service.searchPhotos(access(res), user(res).id, req.body, faceSearch, gemini);
+    logger.info('Trips', `photo search "${result.query}" → "${result.label}" in trip ${access(res).trip.id}: ${result.matches.length} photo(s) (${Date.now() - started} ms)`);
     res.json(result);
   });
 

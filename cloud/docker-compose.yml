@@ -12,6 +12,10 @@ x-faces: &faces
     MONGODB_DB: ghoomates
     LOCAL_MEDIA_DIR: /media
     LOG_LEVEL: INFO
+    # Photo tags (Gemini) stay off locally unless VERTEX_PROJECT is set in your shell; the container also needs
+    # Google credentials then (README "Local development").
+    VERTEX_PROJECT: ${VERTEX_PROJECT:-}
+    VERTEX_LOCATION: ${VERTEX_LOCATION:-global}
   volumes:
     - ./local-bucket:/media:ro
 

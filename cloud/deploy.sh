@@ -12,7 +12,7 @@
 #   ./deploy.sh indexer     deploy face-indexer
 #   ./deploy.sh invokers    let the trigger call face-indexer
 #   ./deploy.sh triggers    create the Eventarc triggers (finalized + deleted)
-#   ./deploy.sh backfill    index photos uploaded before the trigger existed (safe to rerun)
+#   ./deploy.sh backfill    index photos uploaded before the trigger existed, or catch up emotions/tags (safe to rerun)
 #   ./deploy.sh status      show URLs and triggers
 # Redeploying code later: ./deploy.sh build && ./deploy.sh indexer
 #
@@ -35,12 +35,17 @@ TRIGGER_SA="face-trigger@${PROJECT_ID}.iam.gserviceaccount.com"
 # (backend/docs/limits.md). Bulk uploads just take longer to index.
 MAX_INDEXER_INSTANCES="${MAX_INDEXER_INSTANCES:-2}"
 
+# Photo tags (Gemini via Vertex AI, billed to this project). PHOTO_TAGS_PER_DAY caps the calls per IST day.
+VERTEX_PROJECT="${VERTEX_PROJECT:-$PROJECT_ID}"
+VERTEX_LOCATION="${VERTEX_LOCATION:-global}"
+PHOTO_TAGS_PER_DAY="${PHOTO_TAGS_PER_DAY:-1500}"
+
 load_mongodb_settings() {
   if [[ -z "${MONGODB_CONNECTION_STRING:-}" && -f .env ]]; then
-    MONGODB_CONNECTION_STRING="$(grep -E '^MONGODB_CONNECTION_STRING=' .env | head -n1 | cut -d= -f2-)"
+    MONGODB_CONNECTION_STRING="$({ grep -E '^MONGODB_CONNECTION_STRING=' .env || true; } | head -n1 | cut -d= -f2-)"
   fi
   if [[ -z "${MONGODB_DB:-}" && -f .env ]]; then
-    MONGODB_DB="$(grep -E '^MONGODB_DB=' .env | head -n1 | cut -d= -f2-)"
+    MONGODB_DB="$({ grep -E '^MONGODB_DB=' .env || true; } | head -n1 | cut -d= -f2-)"
   fi
   MONGODB_DB="${MONGODB_DB:-ghoomates}"
   if [[ -z "${MONGODB_CONNECTION_STRING:-}" ]]; then
@@ -59,6 +64,9 @@ env_file() {
     echo "LOG_LEVEL: 'INFO'"
     echo "MONGODB_CONNECTION_STRING: '${MONGODB_CONNECTION_STRING//\'/\'\'}'"
     echo "MONGODB_DB: '${MONGODB_DB//\'/\'\'}'"
+    echo "VERTEX_PROJECT: '${VERTEX_PROJECT}'"
+    echo "VERTEX_LOCATION: '${VERTEX_LOCATION}'"
+    echo "PHOTO_TAGS_PER_DAY: '${PHOTO_TAGS_PER_DAY}'"
   } > "$file"
   echo "$file"
 }
@@ -73,6 +81,7 @@ step_apis() {
     cloudbuild.googleapis.com \
     iam.googleapis.com \
     logging.googleapis.com \
+    aiplatform.googleapis.com \
     --project="$PROJECT_ID"
 }
 
@@ -96,6 +105,12 @@ step_iam() {
   gcloud storage buckets add-iam-policy-binding "gs://${BUCKET}" \
     --member="serviceAccount:${INDEXER_SA}" \
     --role="roles/storage.objectViewer"
+
+  # face-indexer calls Gemini on Vertex AI for photo tags (generateContent only needs aiplatform.user).
+  gcloud projects add-iam-policy-binding "$VERTEX_PROJECT" \
+    --member="serviceAccount:${INDEXER_SA}" \
+    --role="roles/aiplatform.user" \
+    --condition=None
 
   # The trigger identity receives events from Eventarc.
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
@@ -192,6 +207,9 @@ step_backfill() {
     -e MONGODB_DB="$MONGODB_DB" \
     -e BUCKET="$BUCKET" \
     -e PREFIX="trips/" \
+    -e VERTEX_PROJECT="$VERTEX_PROJECT" \
+    -e VERTEX_LOCATION="$VERTEX_LOCATION" \
+    -e PHOTO_TAGS_PER_DAY="$PHOTO_TAGS_PER_DAY" \
     -e GOOGLE_CLOUD_PROJECT="$PROJECT_ID" \
     -e GOOGLE_APPLICATION_CREDENTIALS=/adc.json \
     -v "${HOME}/.config/gcloud/application_default_credentials.json:/adc.json:ro" \

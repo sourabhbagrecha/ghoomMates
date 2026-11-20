@@ -1,11 +1,11 @@
-"""MongoDB reads and writes for face_photos and faces (indexes in faces/migrate.py). Functions take a pymongo
-Database."""
+"""MongoDB reads and writes for face_photos, faces, selfie_faces and photo_tags (indexes in faces/migrate.py).
+Functions take a pymongo Database."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Sequence
 
 import numpy as np
 from bson import ObjectId
@@ -17,6 +17,9 @@ from pymongo.errors import DuplicateKeyError
 
 from faces.config import VECTOR_SEARCH_MAX, Settings
 from faces.pipeline import Face
+
+if TYPE_CHECKING:
+    from faces.tagger import TagResult
 
 DONE_STATUSES = ("indexed", "no_faces")
 VECTOR_INDEX = "faces_embedding"
@@ -34,16 +37,23 @@ class StoredPhoto:
     status: str
     model_name: str
     detector: str
+    attrs_version: int = 0
 
 
 def get_photo(db: Database, bucket: str, name: str) -> StoredPhoto | None:
     doc = db.face_photos.find_one(
         {"bucket": bucket, "object_name": name},
-        {"generation": 1, "status": 1, "model_name": 1, "detector": 1},
+        {"generation": 1, "status": 1, "model_name": 1, "detector": 1, "attrs_version": 1},
     )
     if doc is None:
         return None
-    return StoredPhoto(doc["_id"], doc["generation"], doc["status"], doc["model_name"], doc["detector"])
+    return StoredPhoto(doc["_id"], doc["generation"], doc["status"], doc["model_name"], doc["detector"],
+                       doc.get("attrs_version") or 0)
+
+
+def attrs_version(settings: Settings) -> int:
+    """What a photo indexed with these settings records: 0 when face attributes (emotion) are off."""
+    return settings.attrs_version if settings.emotions else 0
 
 
 def skip_reason(
@@ -62,6 +72,20 @@ def skip_reason(
     ):
         return "generation already indexed"
     return None
+
+
+def faces_skip_reason(stored: StoredPhoto | None, generation: int, settings: Settings) -> str | None:
+    """skip_reason for trip photos, plus: a photo with faces indexed before the current face attributes
+    (attrs_version older, or missing) is run again. no_faces photos have no attributes to add."""
+    reason = skip_reason(stored, generation, settings)
+    if (
+        reason == "generation already indexed"
+        and stored is not None
+        and stored.status == "indexed"
+        and stored.attrs_version < attrs_version(settings)
+    ):
+        return None
+    return reason
 
 
 def save_photo(
@@ -84,7 +108,7 @@ def save_photo(
     photo = {
         "generation": generation, "trip_id": trip_id, "width": width, "height": height, "face_count": len(faces),
         "status": status, "error": error, "model_name": settings.model_name, "detector": settings.detector_backend,
-        "indexed_at": now,
+        "attrs_version": attrs_version(settings), "indexed_at": now,
     }
 
     def write(session: ClientSession) -> ObjectId:
@@ -103,6 +127,7 @@ def save_photo(
                 {
                     "photo_id": photo_id, "trip_id": trip_id, "x": int(f.box.x), "y": int(f.box.y),
                     "w": int(f.box.w), "h": int(f.box.h), "det_confidence": float(f.confidence),
+                    "emotion": f.emotion, "smile": None if f.smile is None else float(f.smile),
                     "embedding": to_vector(f.embedding), "model_name": settings.model_name,
                     "detector": settings.detector_backend, "created_at": now, "bucket": bucket, "object_name": name,
                     "generation": generation, "width": width, "height": height,
@@ -119,21 +144,70 @@ def save_photo(
 
 
 def delete_photo(db: Database, bucket: str, name: str, generation: int) -> int:
-    """Removes the photo and its faces unless a newer generation replaced it. GCS also sends `deleted` for the old
-    generation when an object is overwritten, which must not remove the new one."""
+    """Removes the photo, its faces and its tags unless a newer generation replaced them. GCS also sends `deleted`
+    for the old generation when an object is overwritten, which must not remove the new one."""
 
     def write(session: ClientSession) -> int:
+        tags = db.photo_tags.delete_one({"object_name": name, "generation": {"$lte": generation}}, session=session)
         doc = db.face_photos.find_one_and_delete(
             {"bucket": bucket, "object_name": name, "generation": {"$lte": generation}},
             projection={"_id": 1}, session=session,
         )
         if doc is None:
-            return 0
+            return 1 if tags.deleted_count else 0
         db.faces.delete_many({"photo_id": doc["_id"]}, session=session)
         return 1
 
     with db.client.start_session() as session:
         return session.with_transaction(write)
+
+
+# --- Photo tags ---
+#
+# One photo_tags document per trip photo, keyed by object_name (= trip_photos.object_key): Gemini's caption and
+# scene tags, which the backend's photo search matches on. Written independently of face_photos, so a tags-only
+# rerun (new TAGS_VERSION, budget spent yesterday) never touches the faces.
+
+
+def get_tags(db: Database, name: str) -> dict[str, Any] | None:
+    return db.photo_tags.find_one({"object_name": name}, {"generation": 1, "status": 1, "tags_version": 1})
+
+
+def tags_needed(stored: dict[str, Any] | None, generation: int, settings: Settings) -> bool:
+    """True when this generation of the photo should be (re)tagged."""
+    if not settings.tagging:
+        return False
+    if stored is None:
+        return True
+    stored_generation = stored.get("generation") or 0
+    if stored_generation > generation:
+        return False  # stale event
+    if stored_generation < generation:
+        return True
+    if (stored.get("tags_version") or 0) < settings.tags_version:
+        return True
+    return stored.get("status") != "tagged"
+
+
+def save_tags(
+    db: Database, *, bucket: str, name: str, generation: int, trip_id: str, result: "TagResult", settings: Settings,
+) -> bool:
+    """Upserts the photo's tags. False when a newer generation is already stored (a stale event)."""
+    doc = {
+        "bucket": bucket, "trip_id": trip_id, "generation": generation, "status": result.status,
+        "caption": result.caption, "tags": list(result.tags), "error": result.error, "model": settings.tags_model,
+        "tags_version": settings.tags_version, "tagged_at": datetime.now(timezone.utc),
+    }
+    try:
+        # A newer stored generation fails the filter, so the upsert inserts a duplicate object_name: stale.
+        db.photo_tags.update_one(
+            {"object_name": name, "generation": {"$lte": generation}},
+            {"$set": doc, "$setOnInsert": {"object_name": name}},
+            upsert=True,
+        )
+        return True
+    except DuplicateKeyError:
+        return False
 
 
 # --- Profile selfies ---
@@ -208,6 +282,8 @@ class FaceHit:
     generation: int
     width: int | None
     height: int | None
+    emotion: str | None = None
+    smile: float | None = None
 
 
 @dataclass
@@ -230,7 +306,9 @@ class PhotoMatch:
             "height": self.height,
             "distance": round(self.distance, 4),
             "faces": [
-                {"x": f.x, "y": f.y, "w": f.w, "h": f.h, "distance": round(f.distance, 4)} for f in self.faces
+                {"x": f.x, "y": f.y, "w": f.w, "h": f.h, "distance": round(f.distance, 4), "emotion": f.emotion,
+                 "smile": f.smile}
+                for f in self.faces
             ],
         }
 
@@ -253,13 +331,13 @@ def nearest_faces(db: Database, query: np.ndarray, trip_id: str, k: int, setting
         }},
         {"$project": {
             "photo_id": 1, "x": 1, "y": 1, "w": 1, "h": 1, "bucket": 1, "object_name": 1, "generation": 1,
-            "width": 1, "height": 1, "score": {"$meta": "vectorSearchScore"},
+            "width": 1, "height": 1, "emotion": 1, "smile": 1, "score": {"$meta": "vectorSearchScore"},
         }},
     ]
     hits = [
         # Atlas cosine score is (1 + cos) / 2; distance = 1 - cos keeps MATCH_THRESHOLD's meaning.
         FaceHit(d["_id"], d["photo_id"], d["x"], d["y"], d["w"], d["h"], 2 * (1 - d["score"]), d["bucket"],
-                d["object_name"], d["generation"], d.get("width"), d.get("height"))
+                d["object_name"], d["generation"], d.get("width"), d.get("height"), d.get("emotion"), d.get("smile"))
         for d in db.faces.aggregate(pipeline)
     ]
     return sorted(hits, key=lambda h: h.distance)

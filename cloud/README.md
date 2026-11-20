@@ -4,7 +4,7 @@ This folder contains the `face-indexer` Cloud Run service, which embeds every fa
 
 | Service | Trigger | What it does |
 | --- | --- | --- |
-| `face-indexer` | Eventarc, on `google.cloud.storage.object.v1.finalized` and `.deleted` in bucket `ghoomates` | Downloads each new trip photo, detects faces, embeds them, and stores them in MongoDB Atlas (Atlas Vector Search). When a photo is deleted, its faces are removed. Also embeds each new profile selfie (`users/<userId>/selfies/`) into `selfie_faces`. |
+| `face-indexer` | Eventarc, on `google.cloud.storage.object.v1.finalized` and `.deleted` in bucket `ghoomates` | Downloads each new trip photo, detects faces, embeds them, reads each face's emotion, and stores them in MongoDB Atlas (Atlas Vector Search). In parallel, asks Gemini for a caption and scene tags (`photo_tags`) for photo search. When a photo is deleted, its faces and tags are removed. Also embeds each new profile selfie (`users/<userId>/selfies/`) into `selfie_faces`. |
 
 The face pipeline must match the prototype notebook exactly: Pillow `exif_transpose`, conversion to RGB, a thumbnail at most 1600 px on its longest side, then `DeepFace.represent(model_name="Facenet512", detector_backend="retinaface", align=True, enforce_detection=True)`, followed by L2-normalization.
 
@@ -15,7 +15,8 @@ browser ──PUT──> gs://ghoomates/trips/<tripId>/photos/<uuid>.jpg
                  gs://ghoomates/users/<userId>/selfies/<uuid>.jpg
                       │ object.v1.finalized / deleted
                       ▼
-                 Eventarc ──> face-indexer ──> Atlas: face_photos, faces (float32[512], vector index)
+                 Eventarc ──> face-indexer ──> Atlas: face_photos, faces (float32[512], vector index, emotion, smile)
+                                           ├─> Gemini (Vertex AI) ──> Atlas: photo_tags (caption, tags)
                                            └─> Atlas: selfie_faces (one selfie vector per upload)
                                                                ▲
 backend find-me ──$vectorSearch on faces (query = selfie vector from selfie_faces) ┘
@@ -26,15 +27,16 @@ backend find-me ──$vectorSearch on faces (query = selfie vector from selfie_
 ```text
 cloud/
   faces/config.py       every constant; each one can be overridden by an env var of the same name
-  faces/pipeline.py     Pillow preprocessing, DeepFace call, face filtering, bbox scaling, L2-normalization
+  faces/pipeline.py     Pillow preprocessing, DeepFace call, face filtering, bbox scaling, L2-normalization, per-face emotion
+  faces/tagger.py       Gemini caption + scene tags per photo (Vertex AI REST), daily budget in usage_counters
   faces/indexer.py      face-indexer Flask app (CloudEvent parsing, routing, idempotency, status codes)
-  faces/store.py        all MongoDB access: upsert/replace faces, generation-aware deletes, $vectorSearch and grouping (reference for the backend's find-me)
+  faces/store.py        all MongoDB access: upsert/replace faces, photo_tags, generation-aware deletes, $vectorSearch and grouping (reference for the backend's find-me)
   faces/db.py           one pymongo MongoClient per process (MONGODB_CONNECTION_STRING, MONGODB_DB)
   faces/storage.py      reads objects from GCS, or from a local folder in development
   faces/main.py         WSGI entry point for the indexer; models load once at startup
-  faces/migrate.py      creates the face_photos / faces indexes and the Atlas Vector Search index (idempotent)
-  faces/warmup.py       Docker build step that downloads and loads both models into the image
-  faces/backfill.py     indexes photos that were uploaded before the trigger existed
+  faces/migrate.py      creates the face_photos / faces / selfie_faces / photo_tags indexes and the Atlas Vector Search index (idempotent)
+  faces/warmup.py       Docker build step that downloads and loads the models (Facenet512, RetinaFace, Emotion) into the image
+  faces/backfill.py     indexes photos uploaded before the trigger existed; catches up emotions and tags
   faces/logs.py         JSON logs with a severity field for Cloud Logging
   scripts/send_event.py      sends a fake GCS CloudEvent to the local indexer
   tests/                pytest: unit, database, and end-to-end integration tests
@@ -80,19 +82,62 @@ Notes:
 - **Selfies.** Each selfie uses its largest face that passes the filters. With several selfies, a gallery face's distance is its minimum across all of them.
 - **Engine.** deepface 0.0.103 can run on TensorFlow, PyTorch, or ONNX. The image sets `DEEPFACE_BACKEND_ENGINE=tensorflow` so it uses the same TensorFlow Keras weights as the notebook.
 
+### Emotion per face
+
+Each face that passes the filters is cropped from the downscaled image (the detector's `facial_area`, padded 10% on each side, clamped to the image) and run through `DeepFace.analyze(actions=["emotion"], detector_backend="skip", enforce_detection=False)`. Each `faces` document gets:
+
+- `emotion`: the dominant emotion, one of `angry`, `disgust`, `fear`, `happy`, `sad`, `surprise`, `neutral`, or `null`
+- `smile`: DeepFace's `happy` probability as 0..1 (3 decimals), or `null`
+
+A failure on one face leaves both `null`; it never fails the photo. Selfies skip the emotion model. Settings:
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `EMOTIONS` | `true` | Off: faces are stored with `null` emotion and the photo with `attrs_version: 0`. |
+| `ATTRS_VERSION` | `1` | Stored on `face_photos`. An `indexed` photo with an older (or missing) `attrs_version` has its faces run again on redelivery or backfill. `no_faces` photos are left alone. |
+
+The Emotion model (about 6 MB) is downloaded and loaded by `faces.warmup` at image build time, like the other two.
+
+## Photo tags (Gemini)
+
+For photo search ("haldi", "beach", "sunset"), each trip photo gets a caption and 5 to 12 scene tags from Gemini on Vertex AI. `faces/tagger.py` sends the decoded, upright image re-encoded as a JPEG (longest side `TAGS_IMAGE_SIDE`, 768 px) inline to `generateContent` with a JSON response schema (`caption`, `tags`), temperature 0.2 and minimal thinking. The URL is the backend's (`backend/src/gemini.ts`): `https://aiplatform.googleapis.com/v1/projects/<VERTEX_PROJECT>/locations/global/publishers/google/models/<TAGS_MODEL>:generateContent` (`<location>-aiplatform.googleapis.com` for a regional location), authenticated with Application Default Credentials (the service account on Cloud Run).
+
+The prompt asks for a one-sentence caption that never names or identifies people, and lowercase singular tags covering the activity, the setting, a visible occasion (haldi, mehendi, sangeet, wedding, birthday, conference, festival; Indian ceremonies only when clearly visible), the time of day and notable objects. The answer is normalised: lowercase, trimmed, deduplicated, tags over 40 characters dropped, at most 15 tags, caption at most 200 characters.
+
+**Runs in parallel with DeepFace** on the same decoded image (a worker thread), so it adds no time to an event. Tagging never fails face indexing and never makes the indexer answer non-2xx: an HTTP or parsing failure is stored as `status: error` with the message. An image that can't be decoded gets no tags.
+
+**Budget.** Before each call the tagger takes one unit of a daily counter in `usage_counters`, the same documents as the backend's `mongoCounters.take` (`backend/src/limits.ts`): `_id: "gemini:photo-tags:<YYYY-MM-DD in IST>"`, `count`, `expires_at` (now + 2 days, removed by the backend's TTL index). Once `PHOTO_TAGS_PER_DAY` is reached, photos are stored with `status: skipped` and a later backfill tags them. If the counter can't be written (database trouble), the call goes ahead.
+
+| Setting | Default | Notes |
+| --- | --- | --- |
+| `TAGS_ENABLED` | `true` | Tagging runs only when this is on **and** `VERTEX_PROJECT` is set. |
+| `VERTEX_PROJECT` | (empty) | The project billed for Gemini. `deploy.sh` sets it to `PROJECT_ID`. Empty locally, so tags are off. |
+| `VERTEX_LOCATION` | `global` | |
+| `TAGS_MODEL` | `gemini-3.5-flash-lite` | |
+| `TAGS_VERSION` | `1` | Stored on each `photo_tags` doc. Bump it after changing the prompt or model; the backfill re-tags older docs. |
+| `PHOTO_TAGS_PER_DAY` | `1500` | Daily cap (IST days). `0` turns calls off. |
+| `TAGS_IMAGE_SIDE` | `768` | Longest side of the JPEG sent to Gemini. |
+| `TAGS_TIMEOUT` | `30` | Seconds per call. |
+
 ## Data model (`faces/migrate.py`)
 
-Two collections in the backend's Atlas database (`MONGODB_DB`, default `ghoomates`). The backend's `schema.ts` leaves them to this service.
+Collections in the backend's Atlas database (`MONGODB_DB`, default `ghoomates`). This service creates their indexes.
 
 ```text
 face_photos  _id (ObjectId), bucket, object_name, generation, trip_id (uuid string), width, height, face_count,
-             status (indexed | no_faces | error), error, model_name, detector, indexed_at
+             status (indexed | no_faces | error), error, model_name, detector, attrs_version, indexed_at
              unique (bucket, object_name), (trip_id), (object_name, trip_id)
 faces        _id, photo_id -> face_photos._id, trip_id, x, y, w, h, det_confidence,
+             emotion (angry | disgust | fear | happy | sad | surprise | neutral | null), smile (0..1 | null),
              embedding (BSON float32 vector, 512), model_name, detector, created_at,
              bucket, object_name, generation, width, height   (copied from the photo)
              (photo_id), (trip_id), vector search index faces_embedding
+photo_tags   _id, object_name (= trip_photos.object_key), bucket, trip_id (uuid string), generation,
+             status (tagged | error | skipped), caption, tags (lowercase strings), error, model, tags_version, tagged_at
+             unique (object_name), (trip_id, tags)
 ```
+
+`photo_tags` is written independently of `face_photos`: a tags-only rerun (new `TAGS_VERSION`, a budget-skipped photo) never touches the faces, and the upsert is generation-aware like `face_photos` (an older event never overwrites a newer generation's tags).
 
 - `faces_embedding` is an Atlas Vector Search index: `embedding` (512 dims, cosine) plus `trip_id`, `model_name` and `detector` as filter fields, so the trip filter is applied inside the approximate scan.
 - Each face carries its photo's fields, so a search is one `$vectorSearch` with no join. Deleting a photo deletes its faces in the same transaction (there are no foreign keys).
@@ -123,11 +168,13 @@ Atlas reports cosine similarity as `score = (1 + cos) / 2`, so the code converts
 
 ## Event handling
 
-- **Delivery.** Eventarc delivers at least once and retries non-2xx responses with backoff. The indexer is idempotent:
-  - A `finalized` event for a generation that is already `indexed` or `no_faces` with the current model is skipped.
+- **Delivery.** Eventarc delivers at least once and retries non-2xx responses with backoff. The indexer is idempotent. A trip photo's `finalized` event decides two things separately:
+  - **Faces** are needed unless this generation is already `indexed` or `no_faces` with the current model and detector (and, for `indexed`, the current `attrs_version`).
+  - **Tags** are needed when tagging is on and there is no `photo_tags` doc, its generation is older, its `tags_version` is older, or its status is not `tagged`.
+  - Neither needed: the event is skipped. Only tags needed: download, decode and tag; the faces are left as they are. An event older than the stored generation is skipped for both.
   - Otherwise, one transaction upserts the photo document, deletes its faces, and inserts the new ones.
   - The upsert only matches if the stored generation is not newer (`generation: {$lte}`). If a newer one is stored, the upsert collides with the unique `(bucket, object_name)` index and the event is treated as stale, so a late retry of an old generation never overwrites a newer upload.
-- **Deletes.** A `deleted` event removes the photo document and its faces (one transaction), but only if the stored generation is not newer. GCS also sends `deleted` for the old generation when an object is overwritten, and that event must not remove the new upload.
+- **Deletes.** A `deleted` event removes the photo document, its faces and its `photo_tags` doc (one transaction), but only if the stored generation is not newer. GCS also sends `deleted` for the old generation when an object is overwritten, and that event must not remove the new upload.
 - **Permanent failures return 204 with the status recorded,** so Eventarc does not retry them for a day:
   - corrupt or unsupported image: `error`, with the message
   - no usable faces: `no_faces`
@@ -136,7 +183,7 @@ Atlas reports cosine similarity as `score = (1 + cos) / 2`, so the code converts
   - object already gone: nothing recorded
   - malformed event or ignored object: nothing recorded
 - **Transient failures return 500,** so Eventarc retries: database unavailable, or GCS download error.
-- **Logs.** Each event logs one JSON line with `severity`, `message`, `event_id`, `bucket`, `object`, `generation`, `trip_id`, `status`, `face_count`, and `timings_ms` (`db_read`, `download`, `analyze`, `db_write`, `total`).
+- **Logs.** Each event logs one JSON line with `severity`, `message`, `event_id`, `bucket`, `object`, `generation`, `trip_id`, `work` (`faces`, `tags`, or `faces+tags`), `status`, `face_count`, `tags_status`, and `timings_ms` (`db_read`, `download`, `analyze`, `tags`, `db_write`, `total`).
 
 ## Selfie embeddings
 
@@ -164,6 +211,8 @@ python3 scripts/send_event.py ~/Pictures/group.jpg --trip 6f1c7f9e-0000-4000-800
 docker compose exec db mongosh ghoomates --quiet --eval 'db.face_photos.find({}, {object_name: 1, status: 1, face_count: 1})'
 ```
 
+Photo tags are off locally unless you export `VERTEX_PROJECT` before `docker compose up`. The container then also needs Google credentials, e.g. a `docker-compose.override.yml` for the `indexer` service with `GOOGLE_APPLICATION_CREDENTIALS: /adc.json` and the volume `~/.config/gcloud/application_default_credentials.json:/adc.json:ro`. Look at the tags with `docker compose exec db mongosh ghoomates --quiet --eval 'db.photo_tags.find({}, {object_name: 1, status: 1, caption: 1, tags: 1})'`.
+
 Sending the same image again uses a new generation (the current time), so it is re-indexed. To see a redelivery being skipped, send a new object name twice with the same generation, for example `--name trips/<trip>/photos/dup.jpg --generation 5`. An older generation than the stored one is skipped as stale.
 
 ### Tests
@@ -174,10 +223,11 @@ docker compose --profile test run --rm tests                        # everything
 docker compose --profile test run --rm tests pytest -v tests/test_pipeline.py tests/test_events.py   # unit only
 ```
 
-- `test_pipeline.py` covers preprocessing (EXIF orientation, modes, HEIC, thumbnail, corrupt files), bbox scaling, face filtering, L2-normalization, and largest-face selection. A fake replaces DeepFace.
+- `test_pipeline.py` covers preprocessing (EXIF orientation, modes, HEIC, thumbnail, corrupt files), bbox scaling, face filtering, L2-normalization, largest-face selection, and emotion (crop padding and clamping, failures, emotions off, selfies skipping it). Fakes replace DeepFace.
+- `test_tagger.py` covers the Gemini request (URL, body, schema), parsing and normalisation of the answer, HTTP and JSON failures, the daily budget (counter documents, IST day, a full counter, a down database). Fakes replace HTTP and credentials.
 - `test_events.py` covers CloudEvent parsing, which objects get indexed, config (including the Atlas `k` cap), and lazy database connection.
-- `test_indexer_db.py` covers idempotency, generations, deletes, and permanent versus transient failures, against MongoDB with transactions.
-- `test_search_db.py` covers `$vectorSearch`: trip scoping, the threshold, minimum distance over several selfies, grouping, k doubling (no truncation), model filtering, and recall with the trip filter.
+- `test_indexer_db.py` covers idempotency, generations, deletes, and permanent versus transient failures, against MongoDB with transactions; plus emotion fields, `attrs_version` re-runs, and photo tags (tags-only reruns leave faces untouched, Gemini failures and a spent budget never fail the photo, deletes remove tags).
+- `test_search_db.py` covers `$vectorSearch`: trip scoping, the threshold, minimum distance over several selfies, grouping, k doubling (no truncation), model filtering, recall with the trip filter, and that hits carry `emotion` and `smile`.
 - `test_integration.py` indexes sample photos with the real models through the indexer endpoint, then embeds a selfie and runs `store.search`. The photos come from the deepface repository's test set, at a pinned commit.
 
 The database tests need `TEST_MONGODB_CONNECTION_STRING` (set by the compose `tests` service; locally: `TEST_MONGODB_CONNECTION_STRING='mongodb://localhost:27018/?directConnection=true' pytest`). They create and drop their own database (`faces_test_<random>`), so they never touch the `ghoomates` database the local stack uses. Without it they are skipped.
@@ -228,6 +278,7 @@ Steps 8 and 9 come after the deploy because IAM bindings on a service, and trigg
 - `cloudbuild`: builds the image.
 - `iam`: service accounts.
 - `logging`: logs.
+- `aiplatform`: Vertex AI, for photo tags (Gemini).
 
 `--project` selects the project. Every command below uses it, and it is not repeated.
 
@@ -249,10 +300,11 @@ Steps 8 and 9 come after the deploy because IAM bindings on a service, and trigg
 - `--member=serviceAccount:face-indexer@…`: who gets the role.
 - `--role=roles/storage.objectViewer`: read objects, scoped to this one bucket only.
 
-`gcloud projects add-iam-policy-binding PROJECT` (step `iam`, used twice):
+`gcloud projects add-iam-policy-binding PROJECT` (step `iam`, used three times):
 
 - `--member=serviceAccount:face-trigger@…` with `--role=roles/eventarc.eventReceiver`: lets the trigger's identity receive events.
 - `--member=serviceAccount:<Cloud Storage service agent>` with `--role=roles/pubsub.publisher`: lets Cloud Storage publish bucket notifications to the Pub/Sub topic Eventarc creates. The agent's address comes from `gcloud storage service-agent --project`, which prints the project's Cloud Storage service account.
+- `--member=serviceAccount:face-indexer@…` with `--role=roles/aiplatform.user`: lets the indexer call Gemini on Vertex AI (`generateContent`) for photo tags, in `VERTEX_PROJECT` (default `PROJECT_ID`).
 - `--condition=None`: adds the binding without an IAM condition, and avoids an interactive prompt on projects that already use conditions.
 
 These roles are not granted. Each is commented in `deploy.sh` with the reason:
@@ -292,7 +344,7 @@ These roles are not granted. Each is commented in `deploy.sh` with the reason:
 | `--min-instances` | `0` | Scales to zero when nobody uploads. |
 | `--max-instances` | `10` | Caps parallel indexing (see sizing below). |
 | `--cpu-boost` | | Extra CPU during startup to load TensorFlow and the models faster. |
-| `--env-vars-file` | temp YAML | `LOG_LEVEL`, `MONGODB_CONNECTION_STRING`, `MONGODB_DB`. A file avoids shell quoting problems with the URL and is deleted right after. |
+| `--env-vars-file` | temp YAML | `LOG_LEVEL`, `MONGODB_CONNECTION_STRING`, `MONGODB_DB`, `VERTEX_PROJECT` (default `PROJECT_ID`), `VERTEX_LOCATION` (`global`), `PHOTO_TAGS_PER_DAY` (`1500`). A file avoids shell quoting problems with the URL and is deleted right after. |
 
 `gcloud run services add-iam-policy-binding SERVICE` (step `invokers`):
 
@@ -318,8 +370,9 @@ Retries are left at the default, which retries non-2xx responses with backoff. `
 - `-e GOOGLE_APPLICATION_CREDENTIALS=/adc.json -v ~/.config/gcloud/application_default_credentials.json:/adc.json:ro`: mounts your Application Default Credentials read-only, so the container can list and read the bucket.
 - `-e GOOGLE_CLOUD_PROJECT`: sets the project for the storage client.
 - `-e BUCKET`, `-e PREFIX=trips/`: what to scan.
+- `-e VERTEX_PROJECT`, `-e VERTEX_LOCATION`, `-e PHOTO_TAGS_PER_DAY`: tags the photos too, with your ADC (your account needs Vertex AI access in the project).
 
-The backfill runs the same indexer code locally against Atlas. Photos that are already indexed are skipped.
+The backfill runs the same indexer code locally against Atlas, with the same per-photo decisions: photos whose faces and tags are both current are skipped, so it is safe to rerun.
 
 `gcloud run services list --filter="metadata.name~^face-" --format=table(...)` and `gcloud eventarc triggers list --location` (step `status`): `--filter` keeps only the face services, and `--format` prints the name, URL, and live revision.
 
@@ -334,4 +387,6 @@ The backfill runs the same indexer code locally against Atlas. Photos that are a
 
 - **Logs.** In Logs Explorer, query `resource.labels.service_name="face-indexer" jsonPayload.status="error"`.
 - **Re-index after changing `MODEL_NAME`, `DETECTOR_BACKEND` or preprocessing.** Deploy, then run `./deploy.sh backfill`. Documents with a different `model_name`/`detector` are not skipped, so every photo is re-indexed. Search only compares faces from the current model.
+- **Add emotions and tags to photos indexed before them.** After deploying this version (image rebuilt so the Emotion weights are baked in, `./deploy.sh iam` for `roles/aiplatform.user`, `./deploy.sh migrate` for the `photo_tags` indexes), run `docker compose build migrate && ./deploy.sh backfill` (it scans `PREFIX=trips/`). Photos with faces and no `attrs_version` are re-run for emotions (their faces are replaced, same boxes and vectors); every photo without tags is tagged. Photos past `PHOTO_TAGS_PER_DAY` are stored as `skipped`; run the backfill again the next day (IST) to finish them. Same for a `TAGS_VERSION` or `ATTRS_VERSION` bump.
+- **Photos whose tags failed.** `db.photo_tags.find({ status: { $ne: 'tagged' } }, { object_name: 1, status: 1, error: 1 })`.
 - **Photos that failed.** `db.face_photos.find({ status: 'error' }, { object_name: 1, error: 1 })` in mongosh.

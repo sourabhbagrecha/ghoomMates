@@ -7,7 +7,8 @@ import { logger } from '../logger.ts';
 // cloud/faces/store.py has the same search (nearest_faces, matches_for_selfie, group_by_photo), tested against Atlas
 // local; keep the two in step.
 
-export type FaceBox = { x: number; y: number; w: number; h: number; distance: number };
+// emotion/smile come from the face-indexer's DeepFace emotion pass (null on faces indexed before it, or if it failed).
+export type FaceBox = { x: number; y: number; w: number; h: number; distance: number; emotion: string | null; smile: number | null };
 export type FaceMatch = { object_name: string; width: number | null; height: number | null; distance: number; faces: FaceBox[] };
 export type FaceSearchResult = { matches: FaceMatch[]; threshold: number; truncated: boolean };
 // The embedding space a vector belongs to. Only faces embedded by the same model and detector are comparable.
@@ -19,7 +20,7 @@ export type FaceSearch = {
 
 export type FaceHit = {
   faceId: string; photoId: string; x: number; y: number; w: number; h: number; distance: number;
-  objectName: string; width: number | null; height: number | null;
+  objectName: string; width: number | null; height: number | null; emotion?: string | null; smile?: number | null;
 };
 export type NearestFaces = (tripId: string, embedding: number[], space: FaceSpace, k: number) => Promise<FaceHit[]>;
 
@@ -54,13 +55,14 @@ export function atlasNearestFaces(db: Db): NearestFaces {
           filter: { $and: [{ trip_id: { $eq: tripId } }, { model_name: { $eq: space.modelName } }, { detector: { $eq: space.detector } }] },
         },
       },
-      { $project: { photo_id: 1, x: 1, y: 1, w: 1, h: 1, object_name: 1, width: 1, height: 1, score: { $meta: 'vectorSearchScore' } } },
+      { $project: { photo_id: 1, x: 1, y: 1, w: 1, h: 1, object_name: 1, width: 1, height: 1, emotion: 1, smile: 1, score: { $meta: 'vectorSearchScore' } } },
     ]).toArray();
     return docs
       // Atlas cosine score is (1 + cos) / 2; distance = 1 - cos = 2 * (1 - score).
       .map(d => ({
         faceId: String(d._id), photoId: String(d.photo_id), x: d.x, y: d.y, w: d.w, h: d.h, distance: 2 * (1 - d.score),
         objectName: d.object_name, width: d.width ?? null, height: d.height ?? null,
+        emotion: typeof d.emotion === 'string' ? d.emotion : null, smile: typeof d.smile === 'number' ? d.smile : null,
       }))
       .sort((a, b) => a.distance - b.distance);
   };
@@ -85,7 +87,7 @@ export function groupByPhoto(hits: FaceHit[]): FaceMatch[] {
   for (const h of hits) {
     let p = photos.get(h.photoId);
     if (!p) photos.set(h.photoId, p = { object_name: h.objectName, width: h.width, height: h.height, distance: h.distance, faces: [] });
-    p.faces.push({ x: h.x, y: h.y, w: h.w, h: h.h, distance: h.distance });
+    p.faces.push({ x: h.x, y: h.y, w: h.w, h: h.h, distance: h.distance, emotion: h.emotion ?? null, smile: h.smile ?? null });
     p.distance = Math.min(p.distance, h.distance);
   }
   for (const p of photos.values()) p.faces.sort((a, b) => a.distance - b.distance);
@@ -120,7 +122,7 @@ export function mapMatches(matches: FaceMatch[], idByKey: Map<string, string>) {
       distance: m.distance,
       width: m.width,
       height: m.height,
-      faces: m.faces.map(f => ({ x: f.x, y: f.y, w: f.w, h: f.h, distance: f.distance })),
+      faces: m.faces.map(f => ({ x: f.x, y: f.y, w: f.w, h: f.h, distance: f.distance, emotion: f.emotion, smile: f.smile })),
     }))
     .sort((a, b) => a.distance - b.distance);
 }

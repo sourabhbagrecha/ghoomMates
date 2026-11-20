@@ -1,5 +1,6 @@
-"""Creates the indexes of face_photos, faces and selfie_faces, including the Atlas Vector Search index. Idempotent:
-run it before the first deploy and again whenever it changes. The backend's schema.ts leaves these collections alone.
+"""Creates the indexes of face_photos, faces, selfie_faces and photo_tags, including the Atlas Vector Search index.
+Idempotent: run it before the first deploy and again whenever it changes. The backend's schema.ts leaves these
+collections alone.
 
 Usage: MONGODB_CONNECTION_STRING=... python -m faces.migrate
 """
@@ -45,6 +46,12 @@ def migrate(db: Database, settings: Settings, wait: float = 300) -> None:
         IndexModel([("object_name", ASCENDING)], unique=True),
         IndexModel([("user_id", ASCENDING)]),
     ])
+    # Gemini scene tags per trip photo: the indexer upserts by object_name; the backend's photo search filters a
+    # trip's photos by tag.
+    db.photo_tags.create_indexes([
+        IndexModel([("object_name", ASCENDING)], unique=True),
+        IndexModel([("trip_id", ASCENDING), ("tags", ASCENDING)]),
+    ])
     if not list(db.faces.list_search_indexes(VECTOR_INDEX)):
         db.faces.create_search_index(
             SearchIndexModel(vector_index_definition(settings), name=VECTOR_INDEX, type="vectorSearch")
@@ -62,5 +69,5 @@ if __name__ == "__main__":
         sys.exit("Set MONGODB_CONNECTION_STRING")
     db = open_db(settings)
     migrate(db, settings)
-    print(f"face indexes ready in {settings.mongodb_db}: face_photos, faces, selfie_faces, {VECTOR_INDEX}")
+    print(f"face indexes ready in {settings.mongodb_db}: face_photos, faces, selfie_faces, photo_tags, {VECTOR_INDEX}")
     db.client.close()

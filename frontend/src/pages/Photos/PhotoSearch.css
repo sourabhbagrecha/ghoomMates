@@ -1,0 +1,27 @@
+/* Photo search card: sentence box, people row, expression + scene chips */
+.photo-search {
+  gap: 14px;
+}
+
+.photo-search__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Rows that bleed to the card edge and scroll sideways */
+.photo-search__people,
+.photo-search__chips {
+  display: flex;
+  margin: 0 -14px;
+  padding: 0 14px;
+  overflow-x: auto;
+}
+
+.photo-search__people {
+  gap: 10px;
+}
+
+.photo-search__chips {
+  gap: 6px;
+}

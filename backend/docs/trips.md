@@ -24,6 +24,8 @@ Every route except the invite preview needs `Authorization: Bearer <session toke
 | GET / POST | `/api/trips/:id/photos` | List the album (signed read URLs, face index status) / register uploaded keys |
 | GET | `/api/trips/:id/photos/find-me/status` | How far the face-indexer has got with your selfie: `none`, `processing`, `ready`, `no_face` or `error` |
 | POST | `/api/trips/:id/photos/find-me` | Selfie search: the album photos that contain the person in the selfies |
+| POST | `/api/trips/:id/photos/find` | Photo search by filter: `{ userIds, match, expression?, scene? }` (chips, GhoomMate) |
+| POST | `/api/trips/:id/photos/search` | Photo search by sentence: `{ query }`, e.g. "show me all photos where I was smiling" |
 | GET / PUT | `/api/trips/:id/itinerary` | Days and stops with RSVPs / replace the whole plan |
 | POST | `/api/trips/:id/itinerary/draft` | Suggested plan (`{ day? }` for one day); nothing is saved |
 | POST / PATCH / DELETE | `/api/trips/:id/stops[/:stopId]` | Add / edit / remove a stop |
@@ -106,6 +108,7 @@ trips             _id, name, group_name, destination, start_date, end_date, budg
                   invite_code, expense_group_id → groups, created_by → users
 trip_members      _id (ObjectId), trip_id, user_id, ledger_member_id → group_members, role (organiser | mate)
 trip_photos       _id, trip_id, uploaded_by, object_key, content_type, size_bytes, width, height, caption
+                  (face_photos, faces, selfie_faces and photo_tags are written by cloud/faces, keyed by object_name)
 trip_stops        _id, trip_id, day_number, time, minutes, title, tag, place, notes, created_by
 trip_stop_rsvps   _id (ObjectId), stop_id, user_id, rsvp
 expenses          + category, receipt_key, created_by
@@ -147,3 +150,33 @@ Matches are sorted by distance ascending. Face boxes are in original image pixel
 | 503 | `FACE_SEARCH_UNAVAILABLE` | The vector search failed: Atlas unreachable, or no `faces_embedding` index (a plain local MongoDB, or `cloud/faces/migrate.py` not run) |
 
 `FACE_MATCH_THRESHOLD` (default `0.40`) is the cosine distance under which a face counts as a match. Keep it equal to `MATCH_THRESHOLD` in `cloud/`.
+
+## Photo search
+
+Search the album by who is in a photo, their expression and the scene. Code: `src/trips/photoSearch.ts` (pure parsing and combining) and `findPhotos` / `searchPhotos` in `src/trips/service.ts`.
+
+```ts
+type PhotoFilter = { userIds: string[]; match: 'any' | 'all'; expression?: 'happy' | 'neutral' | 'surprise' | 'sad' | 'angry' | 'fear' | 'disgust'; scene?: string }
+```
+
+- **People.** Any trip member can be searched for, not only you, as long as their profile selfie has been read (`selfie_faces`). Each person runs the same vector search as find-me with their own selfie vector. `any` keeps photos with at least one of them, sorted by how many are in it; `all` keeps photos with every one of them. Up to 12 people. A user id that isn't a member is `400 NOT_A_MEMBER`.
+- **Expressions.** The face-indexer stores `emotion` (DeepFace's dominant emotion) and `smile` (its happy score, 0–1) on every `faces` document. With people, the expression must be on that person's own face. Without people, any face counts. `happy` also matches `smile >= 0.5`.
+- **Scenes.** The face-indexer asks Gemini flash-lite for a caption and 5–12 lowercase tags per photo (activity, place, occasion, time of day) and stores them in `photo_tags` (`{ object_name, trip_id, status: 'tagged' | 'error' | 'skipped', caption, tags }`). A scene first matches the trip's own tags by word stems ("hike" finds `hiking`, "haldi event" finds `haldi`). Only when no tag matches does one Gemini lite call pick related tags from the trip's tags ("climbing" finds `trek`). It also matches the tagger's caption and the uploader's caption when every scene word is in them. A scene is intersected with the people and expression results.
+- **Missing selfies.** People without a searchable selfie are listed in `skipped: [{ userId, name, status }]` and the rest are still searched. Only when nobody asked for can be searched is it an error: `409 SELFIE_PROCESSING` (one person, still being read) or `409 NO_SELFIE`.
+
+`/photos/search` turns the sentence into a filter with one Gemini lite call that knows the members and the trip's tags. When Gemini is off, over budget or fails, a keyword parser takes over: names (full, first or username, possessive `'s` dropped), "me / my / I", "with / together / both" for `all`, smiling, laughing, serious, surprised, and the leftover words as the scene. A sentence with nothing usable is `404 NOT_IN_TRIP`.
+
+```json
+{ "filter": { "userIds": ["usr_…"], "match": "any", "expression": "happy", "scene": "hiking" },
+  "label": "You · smiling · hiking",
+  "photoIds": ["uuid"], "matches": [ … same shape as find-me … ],
+  "sceneTags": ["hiking", "trek"], "skipped": [], "truncated": false,
+  "query": "…", "unmatched": ["Rahul"] }
+```
+
+`query` and `unmatched` (names in the sentence that are not trip members) only come back from `/photos/search`. In `label` the caller is "You" and others go by first name.
+
+`GET /api/trips/:id` gives each member `selfie: 'ready' | 'processing' | 'none'`, so the app can grey out people who can't be found yet. `GET /api/trips/:id/photos` gives each item `tags` and `sceneCaption` (from `photo_tags`) for the scene chips and the photo viewer.
+
+Photos indexed before emotions and tags existed get them from a backfill: `PREFIX=trips/ python cloud/faces/backfill.py` re-runs only the missing part for each photo.
+

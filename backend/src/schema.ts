@@ -10,7 +10,7 @@ import type { Db, IndexDescription } from 'mongodb';
 // expense_shares is embedded in expenses as `shares: [{ position, member_id, amount_paise }]`.
 // Foreign keys and ON DELETE cascades are enforced in code (see trips/itinerary.ts for stop deletes).
 //
-// face_photos and faces belong to the Python face services; cloud/faces/migrate.py creates their indexes,
+// face_photos, faces and photo_tags belong to the Python face services; cloud/faces/migrate.py creates their indexes,
 // including the Atlas Vector Search index.
 const unique = true;
 

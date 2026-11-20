@@ -93,6 +93,7 @@ Agent → frontend, RPC `ghoomate.ui`, payload JSON `UiEvent`:
 | `day.plan` | `plan: DayPlan` (dayLabel, dayNumber or null, stops[{experienceId, start, end, matchPercent}]) | Day-plan card with Add to Day N / Not this |
 | `day.plan.added` | `planId, dayNumber, count` | Card flips to added; itinerary reloads; notice with View |
 | `day.plan.cancelled` | `planId` | Card dismissed |
+| `photos.filter` | `filter: PhotoFilter` (`userIds, match, expression?, scene?`), `label`, `photoIds` | Sets the album filter (the same store the search card uses) and opens the Photos screen |
 | `working` | `label` or `null` | Shown as GhoomMate's status (sheet and pill) while a tool runs; sent automatically for tools listed in their skill's `working` map |
 | `notice` | `message` | The notice pill, e.g. "I'll remember: vegetarian" |
 | `call.ended` | `reason: 'idle'` | Closes the call (no "dropped" error) and shows a notice; sent just before the agent deletes the room |
@@ -169,6 +170,10 @@ Every turn (spoken or typed) is saved per person per trip in the `ghoomate_messa
 - **What it ignores.** One-off moods and anything about other people.
 - **The memory screen.** You can see, edit, add and remove notes yourself at **Profile → What GhoomMate remembers** (`#/profile/ghoomate`). The screen and the agent save the same shape.
 - **Edits mid-chat are safe.** The agent re-reads your latest memory before each change, so an edit made on the screen during a chat isn't overwritten.
+
+## Photo search
+
+`skills/photos.ts` gives the model `find_photos({ people, together, expression, scene })`. The realtime model reads the request itself: "Sourabh's and Bhavya's photos" is two people with `together: false`; "me with Bhavya" is `together: true`; smiling or laughing is `happy`; "my hiking photos" is `people: ['me'], scene: 'hiking'`. Names resolve with `resolveMember` like expense names, and an unclear or unknown name comes back as a `ToolError` question. The tool posts the filter to `POST /api/trips/:id/photos/find` (see `trips.md`, Photo search), pushes `photos.filter` so the app shows the result, and tells the model the count and anyone who couldn't be searched because they have no selfie yet.
 
 ## Working status and filler
 

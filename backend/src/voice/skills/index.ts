@@ -5,8 +5,9 @@ import { expenses } from './expenses.ts';
 import { experiences } from './experiences.ts';
 import { memory } from './memory.ts';
 import { navigation } from './navigation.ts';
+import { photos } from './photos.ts';
 import type { Skill } from './types.ts';
 
-export const SKILLS: Skill[] = [expenses, experiences, crowds, events, memory, navigation];
+export const SKILLS: Skill[] = [expenses, experiences, crowds, events, memory, photos, navigation];
 
 export type { Skill, SkillContext, SessionState, TripDetail, Tool } from './types.ts';

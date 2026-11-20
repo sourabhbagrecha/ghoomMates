@@ -1,0 +1,56 @@
+/* Search field: floats on the blue header, or sits inset in a white card */
+.search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--color-surface);
+  filter: var(--shadow-float);
+  cursor: text;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.search input::placeholder {
+  color: var(--color-subtle);
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search__voice {
+  display: flex;
+  /* 36px tap target around the 18px icon */
+  margin: -9px;
+  padding: 9px;
+}
+
+.search--inset {
+  padding: 10px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-tile);
+  background: var(--color-bg);
+  filter: none;
+}
+
+.search--inset:focus-within {
+  border-color: var(--color-primary);
+}
+
+.search input:disabled {
+  opacity: 0.6;
+}

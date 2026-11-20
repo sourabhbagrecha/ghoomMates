@@ -148,3 +148,15 @@ def test_trip_filter_finds_the_match_among_other_trips_and_noise(clean_db, rng):
     assert len(hits) == 40 and hits[0].object_name == "a.jpg"
     assert {h.object_name for h in hits} <= {"a.jpg", f"noise-{TRIP_A}.jpg"}
 
+
+
+def test_search_results_carry_emotion_and_smile(clean_db, rng):
+    me = unit(rng.normal(size=512))
+    add(clean_db, "smile.jpg", TRIP_A, [fake_face(near(me, rng), emotion="happy", smile=0.934)])
+    add(clean_db, "plain.jpg", TRIP_A, [fake_face(near(me, rng))])
+    matches, _ = run(clean_db, [me], TRIP_A)
+    by_name = {m.object_name: m.faces[0] for m in matches}
+    assert (by_name["smile.jpg"].emotion, by_name["smile.jpg"].smile) == ("happy", 0.934)
+    assert (by_name["plain.jpg"].emotion, by_name["plain.jpg"].smile) == (None, None)
+    face_json = next(m for m in matches if m.object_name == "smile.jpg").as_json()["faces"][0]
+    assert (face_json["emotion"], face_json["smile"]) == ("happy", 0.934)

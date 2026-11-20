@@ -55,6 +55,25 @@ class Settings:
     # Measured: same person 0.16 to 0.34, closest stranger 0.80.
     match_threshold: float = 0.40
 
+    # Per-face emotion (DeepFace's Emotion model on each kept face's crop). Bump ATTRS_VERSION when the face attributes
+    # change: indexed photos with an older face_photos.attrs_version are re-run (backfill).
+    emotions: bool = True
+    attrs_version: int = 1
+
+    # Per-photo scene tags and a caption from Gemini (Vertex AI REST), for photo search. On only when TAGS_ENABLED and
+    # VERTEX_PROJECT is set (see `tagging`). Bump TAGS_VERSION when the prompt or model changes to re-tag on backfill.
+    tags_enabled: bool = True
+    tags_model: str = "gemini-3.5-flash-lite"
+    tags_version: int = 1
+    vertex_project: str = ""
+    vertex_location: str = "global"
+    # Daily cap on tagging calls, counted in usage_counters like the backend's budgets
+    # (key gemini:photo-tags:<IST day>).
+    photo_tags_per_day: int = 1500
+    # Longest side of the JPEG sent to Gemini.
+    tags_image_side: int = 768
+    tags_timeout: int = 30
+
     # Which uploads get indexed. The scope (trip id) is the named group "scope" of INCLUDE_PATTERN.
     include_pattern: str = r"^trips/(?P<scope>[0-9a-fA-F-]{36})/photos/[^/]+$"
     # Profile selfies, embedded as soon as they are uploaded so find-me only runs the vector search. The user id is
@@ -95,6 +114,10 @@ class Settings:
         object.__setattr__(self, "search_max_k", max_k)
         object.__setattr__(self, "search_initial_k", min(self.search_initial_k, max_k))
 
+    @property
+    def tagging(self) -> bool:
+        return self.tags_enabled and bool(self.vertex_project)
+
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
         env = os.environ if env is None else env
@@ -111,6 +134,16 @@ class Settings:
             min_face_px=_int(env, "MIN_FACE_PX", d.min_face_px),
             min_face_confidence=_float(env, "MIN_FACE_CONFIDENCE", d.min_face_confidence),
             match_threshold=_float(env, "MATCH_THRESHOLD", d.match_threshold),
+            emotions=_bool(env, "EMOTIONS", d.emotions),
+            attrs_version=_int(env, "ATTRS_VERSION", d.attrs_version),
+            tags_enabled=_bool(env, "TAGS_ENABLED", d.tags_enabled),
+            tags_model=_str(env, "TAGS_MODEL", d.tags_model),
+            tags_version=_int(env, "TAGS_VERSION", d.tags_version),
+            vertex_project=_str(env, "VERTEX_PROJECT", d.vertex_project),
+            vertex_location=_str(env, "VERTEX_LOCATION", d.vertex_location),
+            photo_tags_per_day=_int(env, "PHOTO_TAGS_PER_DAY", d.photo_tags_per_day),
+            tags_image_side=_int(env, "TAGS_IMAGE_SIDE", d.tags_image_side),
+            tags_timeout=_int(env, "TAGS_TIMEOUT", d.tags_timeout),
             include_pattern=_str(env, "INCLUDE_PATTERN", d.include_pattern),
             selfie_pattern=_str(env, "SELFIE_PATTERN", d.selfie_pattern),
             skip_prefixes=_list(env, "SKIP_PREFIXES", ",".join(d.skip_prefixes)),

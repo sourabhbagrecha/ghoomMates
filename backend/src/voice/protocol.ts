@@ -98,6 +98,11 @@ export type DayPlan = {
   stops: DayPlanStop[];
 };
 
+/** Photo search (POST /api/trips/:tripId/photos/find); same shape as backend/src/trips/photoSearch.ts */
+export const PHOTO_EXPRESSIONS = ['happy', 'neutral', 'surprise', 'sad', 'angry', 'fear', 'disgust'] as const;
+export type PhotoExpression = typeof PHOTO_EXPRESSIONS[number];
+export type PhotoFilter = { userIds: string[]; match: 'any' | 'all'; expression?: PhotoExpression; scene?: string };
+
 /** Agent → frontend. Add new variants here when a new skill needs UI. */
 export type UiEvent =
   | { type: 'expense.draft'; draft: ExpenseDraft }
@@ -110,6 +115,8 @@ export type UiEvent =
   | { type: 'day.plan'; plan: DayPlan }
   | { type: 'day.plan.added'; planId: string; dayNumber: number; count: number }
   | { type: 'day.plan.cancelled'; planId: string }
+  /** Show these photos on the Photos screen, titled with label ("You · smiling") */
+  | { type: 'photos.filter'; filter: PhotoFilter; label: string; photoIds: string[] }
   /** What GhoomMate is doing while a tool runs ("Checking balances…"); null when it's done */
   | { type: 'working'; label: string | null }
   /** A short confirmation pill, e.g. "Added 3 stops" */

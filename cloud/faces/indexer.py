@@ -1,5 +1,8 @@
-"""face-indexer: receives Eventarc Cloud Storage events and keeps face_photos / faces (trip photos) and
-selfie_faces (profile selfies) in sync with the bucket.
+"""face-indexer: receives Eventarc Cloud Storage events and keeps face_photos / faces / photo_tags (trip photos)
+and selfie_faces (profile selfies) in sync with the bucket.
+
+A trip photo needs up to two pieces of work, decided separately: faces (DeepFace: embeddings + emotion) and tags
+(Gemini caption + scene tags). Both run on the same decoded image, in parallel. Tagging never fails the event.
 
 Response codes drive Eventarc retries:
 - 2xx: done, skipped, or failed permanently (status recorded). Eventarc will not redeliver.
@@ -11,6 +14,7 @@ from __future__ import annotations
 import logging
 import posixpath
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,8 +24,9 @@ from pymongo.database import Database
 from faces import store
 from faces.config import Settings
 from faces.logs import log
-from faces.pipeline import BadImage, FaceEngine, NoFace
+from faces.pipeline import BadImage, FaceEngine, NoFace, Prepared
 from faces.storage import ObjectGone, ObjectReader
+from faces.tagger import Tagger, TagResult
 
 logger = logging.getLogger("face-indexer")
 
@@ -93,8 +98,11 @@ def route(name: str, content_type: str, settings: Settings) -> tuple[Target | No
     return target, None
 
 
-def create_app(settings: Settings, engine: FaceEngine, db: Database, reader: ObjectReader) -> Flask:
+def create_app(
+    settings: Settings, engine: FaceEngine, db: Database, reader: ObjectReader, tagger: Tagger | None = None,
+) -> Flask:
     app = Flask("face-indexer")
+    tagger = tagger or Tagger(settings, db)
 
     @app.get("/healthz")
     def healthz() -> Response:
@@ -159,16 +167,43 @@ def create_app(settings: Settings, engine: FaceEngine, db: Database, reader: Obj
             if saved is None:
                 fields["skipped"] = "stale event: a newer generation is already stored"
 
+        def save_tags(result: TagResult) -> None:
+            # Best effort: tags never decide the response. A database outage fails the faces write anyway.
+            fields["tags_status"] = result.status
+            try:
+                store.save_tags(db, bucket=event.bucket, name=event.name, generation=event.generation,
+                                trip_id=trip_id, result=result, settings=settings)
+            except Exception:
+                log(logger, logging.WARNING, "could not save photo tags", exc_info=True, **fields)
+
+        def tag(prepared: Prepared) -> TagResult:
+            t = time.monotonic()
+            try:
+                return tagger.tag_prepared(prepared)
+            except Exception as exc:  # Tagger doesn't raise; this is a safety net
+                return TagResult("error", error=f"{type(exc).__name__}: {exc}"[:1000])
+            finally:
+                timings["tags"] = ms(t)
+
         t = time.monotonic()
-        reason = store.skip_reason(store.get_photo(db, event.bucket, event.name), event.generation, settings)
+        stored = store.get_photo(db, event.bucket, event.name)
+        faces_reason = store.faces_skip_reason(stored, event.generation, settings)
+        stale = stored is not None and stored.generation > event.generation
+        need_tags = not stale and store.tags_needed(store.get_tags(db, event.name), event.generation, settings)
+        need_faces = faces_reason is None
         timings["db_read"] = ms(t)
-        if reason:
+        if not need_faces and not need_tags:
             timings["total"] = ms(started)
-            log(logger, logging.INFO, "event skipped", reason=reason, **fields)
+            log(logger, logging.INFO, "event skipped", reason=faces_reason, **fields)
             return "", 204
+        fields["work"] = "+".join(w for w, needed in (("faces", need_faces), ("tags", need_tags)) if needed)
 
         if event.size is not None and event.size > settings.max_image_bytes:
-            save("error", error=f"object is {event.size} bytes, over MAX_IMAGE_BYTES")
+            too_large = f"object is {event.size} bytes, over MAX_IMAGE_BYTES"
+            if need_tags:
+                save_tags(TagResult("error", error=too_large))
+            if need_faces:
+                save("error", error=too_large)
             timings["total"] = ms(started)
             log(logger, logging.WARNING, "photo too large", status="error", **fields)
             return "", 204
@@ -184,21 +219,40 @@ def create_app(settings: Settings, engine: FaceEngine, db: Database, reader: Obj
 
         t = time.monotonic()
         try:
-            result = engine.analyze(data)
+            prepared = engine.prepare(data)
         except BadImage as exc:
+            # Undecodable: no tags either (Gemini would get nothing to look at).
             timings["analyze"] = ms(t)
-            save("error", error=str(exc)[:1000])
+            if need_faces:
+                save("error", error=str(exc)[:1000])
             timings["total"] = ms(started)
             log(logger, logging.WARNING, "unreadable image", status="error", error=str(exc), **fields)
             return "", 204
-        except Exception as exc:
-            # A model failure on one image repeats on every retry; record it instead of retrying for a day.
-            timings["analyze"] = ms(t)
-            save("error", error=f"{type(exc).__name__}: {exc}"[:1000])
+
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="tags") as pool:
+            # Gemini runs while DeepFace works on the CPU, so tagging adds no time to the event.
+            pending = pool.submit(tag, prepared) if need_tags else None
+            result, failure = None, None
+            if need_faces:
+                try:
+                    result = engine.faces(prepared)
+                except Exception as exc:
+                    # A model failure on one image repeats on every retry; record it instead of retrying for a day.
+                    failure = exc
+                timings["analyze"] = ms(t)
+            tag_result = pending.result() if pending is not None else None
+
+        if tag_result is not None:
+            save_tags(tag_result)
+        if not need_faces:
             timings["total"] = ms(started)
-            log(logger, logging.ERROR, "face pipeline failed", exc_info=True, status="error", **fields)
+            log(logger, logging.INFO, "photo tagged", **fields)
             return "", 204
-        timings["analyze"] = ms(t)
+        if failure is not None:
+            save("error", error=f"{type(failure).__name__}: {failure}"[:1000])
+            timings["total"] = ms(started)
+            log(logger, logging.ERROR, "face pipeline failed", exc_info=failure, status="error", **fields)
+            return "", 204
 
         status = "indexed" if result.faces else "no_faces"
         save(status, width=result.width, height=result.height, faces=result.faces)

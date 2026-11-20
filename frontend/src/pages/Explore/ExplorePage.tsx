@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react'
 import headerBg from '../../assets/figma/explore-header-bg.svg'
 import iconArrowPrimary from '../../assets/figma/icon-arrow-primary.svg'
 import iconFlame from '../../assets/figma/icon-flame.svg'
-import iconMicPrimary from '../../assets/figma/icon-mic-primary.svg'
-import iconSearch from '../../assets/figma/icon-search.svg'
 import iconStarSmall from '../../assets/figma/icon-star-small.svg'
 import iconUsers from '../../assets/figma/icon-users.svg'
 import { Avatar, AvatarStack } from '../../components/Avatar'
 import { Chip } from '../../components/Chip'
 import { ScreenLayout } from '../../components/ScreenLayout'
+import { SearchField } from '../../components/SearchField'
 import { SectionHeader } from '../../components/SectionHeader'
 import { Toast } from '../../components/Toast'
 import { useVoice } from '../../components/voice/voiceContext'
@@ -43,19 +42,13 @@ export function ExplorePage() {
     <>
     <ScreenLayout headerBg={headerBg} headerHeight={170} eyebrow="Trending near your squad" title={title}>
       <div className="screen__header-row">
-        <label className="search">
-          <img src={iconSearch} alt="" width={18} height={18} />
-          <input
-            type="search"
-            placeholder="Search spots, guides, vibes…"
-            aria-label="Search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <button type="button" className="search__voice" aria-label="Search by voice" onClick={() => voice.open('Find food nearby')}>
-            <img src={iconMicPrimary} alt="" width={18} height={18} />
-          </button>
-        </label>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search spots, guides, vibes…"
+          label="Search"
+          onVoice={() => voice.open('Find food nearby')}
+        />
       </div>
 
       <main className="screen__body">

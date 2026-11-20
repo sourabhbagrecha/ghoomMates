@@ -1,3 +1,4 @@
+import { setPhotoFilter } from '../../pages/Photos/faceSearch'
 import { formatINR } from '../../pages/Trip/tripFormat'
 import {
   SCREEN_ROUTES,
@@ -97,6 +98,12 @@ export const UI_EVENT_HANDLERS: UiEventHandlers = {
   },
 
   'experience.open': ({ experienceId }, fx) => fx.navigate(experienceRoute(experienceId)),
+
+  // find_photos: filter the album to what was asked for, then open it (the Photos screen reads the shared filter)
+  'photos.filter': ({ filter, label, photoIds }, fx) => {
+    setPhotoFilter({ ids: new Set(photoIds), label, filter, source: 'voice' })
+    fx.navigate(SCREEN_ROUTES.photos)
+  },
 
   'day.plan': ({ plan }, fx) => {
     fx.setCard(() => ({ kind: 'dayPlan', plan, status: 'draft' }))

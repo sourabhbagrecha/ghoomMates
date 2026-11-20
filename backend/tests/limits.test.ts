@@ -218,9 +218,10 @@ test('defaultPolicies cover the routes that cost money', () => {
   const trip = '2b4f1e0a-1c2d-4e5f-8a9b-0c1d2e3f4a5b';
   assert.deepEqual(names('POST', `/api/reels/trips/${trip}`), ['client', 'ip', 'reel']);
   assert.deepEqual(names('GET', `/api/reels/trips/${trip}`), ['client', 'ip']);
-  for (const path of [`/api/trips/${trip}/itinerary/draft`, '/api/hospitality/menu', '/api/ops/advisories/draft', '/api/events/diwali/ask', '/api/makers/m1/ask']) {
+  for (const path of [`/api/trips/${trip}/itinerary/draft`, `/api/trips/${trip}/photos/search`, '/api/hospitality/menu', '/api/ops/advisories/draft', '/api/events/diwali/ask', '/api/makers/m1/ask']) {
     assert.deepEqual(names('POST', path), ['ai', 'client', 'ip'], path);
   }
+  assert.deepEqual(names('POST', `/api/trips/${trip}/photos/find`), ['client', 'ip', 'photo-search']);
   assert.deepEqual(names('POST', `/api/trips/${trip}/uploads`), ['client', 'ip', 'upload']);
   assert.deepEqual(names('POST', '/auth/uploads'), ['client', 'ip', 'upload']);
   assert.deepEqual(names('POST', '/api/voice/session'), ['client', 'ip', 'voice']);
