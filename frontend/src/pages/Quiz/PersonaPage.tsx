@@ -1,92 +1,159 @@
 import { useState } from 'react'
-import { AvatarStack } from '../../components/Avatar'
-import { Button } from '../../components/Button'
-import { Chip } from '../../components/Chip'
+import { Button, LinkButton } from '../../components/Button'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { EmptyState } from '../../components/states/EmptyState'
+import { ErrorState } from '../../components/states/ErrorState'
+import { Skeleton } from '../../components/states/Skeleton'
 import { VibeChart } from '../../components/VibeChart'
 import { activeTrip } from '../../data/activeTrip'
-import { othersVibe, VIBE_AXES, vibeMatch, type VibeScores } from '../../data/vibe'
-import { personaFor } from './quizData'
-import './QuizPages.css'
+import { VIBE_AXES } from '../../data/vibe'
+import { loadPersona, restartCore, type PersonaData } from './decks'
+import { QuizScreen, ScreenReaderText, StyleMeters } from './QuizParts'
+import { goBack, useLoad, useSignedIn } from './quizHooks'
+import { STYLE_METERS, VIBE_SWIPE_LINE, dietLine, tagLabel, tripDeckRoute } from './quizData'
 
 type PersonaPageProps = {
-  scores: VibeScores
-  onBack: () => void
+  go: (route: string) => void
   onDone: () => void
 }
 
-export function PersonaPage({ scores, onBack, onDone }: PersonaPageProps) {
-  const [compare, setCompare] = useState(false)
-  const persona = personaFor(scores)
-  // Compared with the open trip's squad, once anyone else in it has taken the quiz
-  const trip = activeTrip.get().trip
-  const squadVibe = othersVibe(trip)
-  const group = trip?.groupName || trip?.name || 'your squad'
-  const showSquad = compare && !!squadVibe
-  const label = (id: string) => VIBE_AXES.find((a) => a.id === id)?.label
+/** Your travel persona: from the swipes on this device, else your profile */
+export function PersonaPage({ go, onDone }: PersonaPageProps) {
+  const signedIn = useSignedIn()
+  const persona = useLoad(signedIn ? 'signed-in' : 'signed-out', loadPersona)
+  const [restart, setRestart] = useState<'idle' | 'busy' | 'failed'>('idle')
+
+  const retake = () => {
+    setRestart('busy')
+    restartCore().then(
+      () => go('quiz/play'),
+      () => setRestart('failed'),
+    )
+  }
+
+  const data = persona.status === 'ready' ? persona.data : null
+  // Straight on to the open trip's deck, when there is one to swipe
+  const tripId = signedIn ? activeTrip.get().tripId : null
+  const busy = restart === 'busy'
+
+  const actions = data ? (
+    <>
+      {tripId ? (
+        <Button variant="primary" onClick={() => go(tripDeckRoute(tripId))}>
+          Swipe your trip’s deck
+        </Button>
+      ) : (
+        <Button variant="primary" onClick={onDone}>
+          Let’s go
+        </Button>
+      )}
+      <div className="quiz-screen__links">
+        {tripId && <LinkButton onClick={onDone}>Not now</LinkButton>}
+        <LinkButton onClick={retake} disabled={busy}>
+          {busy ? 'Starting over…' : 'Retake'}
+        </LinkButton>
+      </div>
+      {restart === 'failed' && (
+        <p className="quiz-screen__error" role="alert">
+          Couldn’t clear your old answers. Check your connection and try again?
+        </p>
+      )}
+    </>
+  ) : undefined
 
   return (
-    <OnboardingLayout
-      eyebrow="Your travel persona"
-      title="Meet your vibe"
-      onBack={onBack}
-      bodyClassName="quiz__body"
-      actions={
-        <Button variant="primary" onClick={onDone}>
-          Continue
-        </Button>
-      }
-    >
-      <section className="card persona">
-        <p className="overline">You're</p>
-        <h2 className="persona__name">{persona.name}</h2>
-        <p className="persona__tagline">{persona.tagline}</p>
-        <VibeChart
-          series={[
-            ...(showSquad ? [{ scores: squadVibe, color: 'var(--color-sky)', fillOpacity: 0.28 }] : []),
-            { scores, color: 'var(--color-amber)', fillOpacity: showSquad ? 0.15 : 0.3, dots: true },
-          ]}
-          width={260}
-          label={`Your vibe chart${showSquad ? ` compared with ${group}` : ''}`}
-        />
-        <div className="persona__footer">
-          <div className="persona__traits">
-            {persona.top.map((id) => (
-              <span key={id} className="tag">
-                {label(id)}
-              </span>
-            ))}
+    <QuizScreen>
+      <OnboardingLayout
+        eyebrow="Your travel persona"
+        title="Meet your vibe"
+        onBack={() => goBack(onDone)}
+        bodyClassName="quiz-screen__body"
+        actions={actions}
+      >
+        {persona.status === 'loading' ? (
+          <div className="card quiz-persona__hero" aria-busy="true" role="status">
+            <ScreenReaderText>Loading your persona…</ScreenReaderText>
+            <Skeleton width={120} />
+            <Skeleton width={220} height={24} />
+            <Skeleton width={180} />
+            <Skeleton variant="circle" width={196} />
           </div>
-          {squadVibe && (
-            <Chip selected={compare} onClick={() => setCompare((c) => !c)}>
-              Compare squad
-            </Chip>
-          )}
-        </div>
-        {showSquad && (
-          <div className="persona__legend">
-            <span>
-              <span className="persona__swatch persona__swatch--squad" />
-              {group}
-            </span>
-            <span>
-              <span className="persona__swatch persona__swatch--you" />
-              You
-            </span>
-          </div>
+        ) : persona.status === 'error' ? (
+          <ErrorState
+            title="Your persona didn’t load"
+            text="We couldn’t fetch your vibe. Give it another go?"
+            detail={persona.error instanceof Error ? persona.error.message : undefined}
+            onRetry={persona.retry}
+          />
+        ) : data ? (
+          <PersonaResult data={data} />
+        ) : (
+          <EmptyState
+            title="No vibe yet"
+            text={`${VIBE_SWIPE_LINE} and we’ll show you your travel persona.`}
+            action={{ label: 'Start swiping', onClick: () => go('quiz/play') }}
+          />
         )}
-      </section>
-
-      {trip && squadVibe && (
-        <section className="list-card persona__match">
-          <AvatarStack people={trip.members.map((m) => m.memberId)} size={26} overlap={9} />
-          <div className="persona__match-text">
-            <p>{group}</p>
-            <span>Blended into the squad spiderweb</span>
-          </div>
-          <span className="persona__match-pill">{vibeMatch(scores, squadVibe)}% match</span>
-        </section>
-      )}
-    </OnboardingLayout>
+      </OnboardingLayout>
+    </QuizScreen>
   )
 }
+
+function PersonaResult({ data: { summary, legacy } }: { data: PersonaData }) {
+  const { persona } = summary
+  const diet = dietLine(summary.diet, summary.dealbreakers)
+  const hasStyle = STYLE_METERS.some((m) => summary.styleConfidence[m.key] > 0)
+  const chartLabel = `Your vibe chart: ${VIBE_AXES.map(({ id, label }) => `${label} ${Math.round(summary.vibe[id] * 100)}%`).join(', ')}`
+
+  return (
+    <>
+      <section className="card quiz-persona__hero" aria-labelledby="quiz-persona-name">
+        <p className="overline">You’re</p>
+        <h2 id="quiz-persona-name" className="quiz-persona__name">
+          {persona.name}
+        </h2>
+        <p className="quiz-persona__tagline">{persona.tagline}</p>
+        <VibeChart
+          series={[{ scores: summary.vibe, color: 'var(--color-amber)', fillOpacity: 0.3, dots: true }]}
+          width={240}
+          label={chartLabel}
+        />
+        {persona.badges.length > 0 && (
+          <ul className="quiz-persona__badges" aria-label="Your badges">
+            {persona.badges.map((badge) => (
+              <li key={badge} className="quiz-persona__badge">
+                {badge}
+              </li>
+            ))}
+          </ul>
+        )}
+        {summary.topTags.length > 0 && (
+          <ul className="quiz-persona__tags" aria-label="What you’re into">
+            {summary.topTags.map((tag) => (
+              <li key={tag} className="tag">
+                {tagLabel(tag)}
+              </li>
+            ))}
+          </ul>
+        )}
+        {legacy && <p className="quiz-persona__note">From your old quiz. Swipe the new deck for a sharper read.</p>}
+      </section>
+
+      {(diet || hasStyle) && (
+        <section className="card quiz-persona__style" aria-labelledby="quiz-persona-style">
+          <h2 id="quiz-persona-style" className="quiz-section-title">
+            How you travel
+          </h2>
+          <StyleMeters style={summary.style} confidence={summary.styleConfidence} />
+          {diet && (
+            <p className="quiz-persona__diet">
+              <span className="overline">Food and hard noes</span>
+              <span>{diet}</span>
+            </p>
+          )}
+        </section>
+      )}
+    </>
+  )
+}
+

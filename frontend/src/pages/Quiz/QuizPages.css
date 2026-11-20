@@ -1,47 +1,204 @@
-.quiz__body {
+/* Vibe Swipe screens: intro, the core deck, persona, a trip's deck and Squad DNA.
+   Prefixes: quiz-screen, quiz-intro, quiz-play, quiz-persona, trip-deck, squad-dna and the shared quiz-* parts
+   (Stories' quiz board owns .quiz and .quiz__*). */
+
+/* ---- Screen ---- */
+
+.quiz-screen__body {
   gap: 14px;
-  padding-top: 40px;
+  padding-top: 32px;
 }
 
-/* New card slides in from the right, like dealing the next flashcard */
-.quiz-card__flashcard .flashcard {
-  animation: quiz-deal 260ms ease-out;
+/* Titles over the header: "Swipe the Udaipur deck" wraps at the long title size instead of running off a 360px phone */
+.quiz-screen--long-title .onboarding__title {
+  font-size: 22px;
+  line-height: 26px;
+  letter-spacing: -0.4px;
+  white-space: normal;
 }
 
-@keyframes quiz-deal {
+.quiz-screen .onboarding__eyebrow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Each screen's cards rise in, one after another */
+.quiz-screen__body > * {
+  animation: quiz-rise 280ms ease-out backwards;
+}
+
+.quiz-screen__body > :nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.quiz-screen__body > :nth-child(3) {
+  animation-delay: 100ms;
+}
+
+.quiz-screen__body > :nth-child(n + 4) {
+  animation-delay: 150ms;
+}
+
+@keyframes quiz-rise {
   from {
     opacity: 0;
-    transform: translateX(28px) rotate(3deg);
+    transform: translateY(12px);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .quiz-card__flashcard .flashcard {
-    animation: none;
-  }
+.quiz-screen__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
 }
 
-/* Intro: topics on the preview card */
-.quiz-intro__topic {
-  padding: 5px 10px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.6);
-  font-weight: 700;
+.quiz-screen__links .link-button,
+.onboarding__actions .link-button {
+  min-height: 32px;
+}
+
+.quiz-screen__error {
+  font-weight: 600;
   font-size: 11px;
   line-height: 17px;
+  text-align: center;
+  color: var(--color-crowd-packed);
+}
+
+.onboarding__header-link:focus-visible,
+.quiz-screen .link-button:focus-visible {
+  outline: 2px solid var(--color-sky);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.quiz-section-title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+/* Read by screen readers, not shown */
+.quiz-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Progress ---- */
+
+.quiz-progress {
+  position: relative;
+  height: 4px;
+  margin: 16px 20px 0;
+  border-radius: 2px;
+  background: var(--color-glass-strong);
+  overflow: hidden;
+}
+
+.quiz-progress__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-yellow);
+  transform-origin: left center;
+  transition: transform 320ms ease-out;
+}
+
+/* ---- Loading ---- */
+
+.quiz-skeleton,
+.squad-dna__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.quiz-skeleton__row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* ---- Intro ---- */
+
+.quiz-intro__how {
+  gap: 10px;
+}
+
+.quiz-intro__how-title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.quiz-intro__gestures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quiz-intro__gesture {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.quiz-intro__gesture-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  filter: var(--shadow-card);
+}
+
+.quiz-intro__gesture--must .quiz-intro__gesture-icon {
+  background: var(--color-crowd-busy-tint);
+}
+
+.quiz-intro__gesture-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
   color: var(--color-primary);
   white-space: nowrap;
 }
 
-.quiz-intro__unlock,
-.quiz-card__so-far {
+.quiz-intro__gesture-arrow {
+  flex-shrink: 0;
+}
+
+.quiz-intro__unlock {
   flex-direction: row;
   align-items: center;
   gap: 12px;
 }
 
-.quiz-intro__unlock-text,
-.quiz-card__so-far-text {
+.quiz-intro__unlock .vibe-chart {
+  flex-shrink: 0;
+}
+
+.quiz-intro__unlock-text {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -56,29 +213,97 @@
   color: var(--color-ink);
 }
 
-.quiz-intro__unlock-text p:last-child,
-.quiz-card__so-far-text p:last-child {
+.quiz-intro__unlock-text p:last-child {
   font-weight: 600;
   font-size: 11px;
   line-height: 17px;
   color: var(--color-muted);
 }
 
-/* Persona result */
-.persona {
+/* ---- Core deck ---- */
+
+.quiz-play__stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.quiz-play__done,
+.trip-deck__done {
+  align-items: center;
+  gap: 4px;
+  padding: 20px 14px;
+  text-align: center;
+}
+
+.quiz-play__done-title,
+.trip-deck__done-title {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+.quiz-play__done-text,
+.trip-deck__done-text {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* Live preview under the stack */
+.quiz-live {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.quiz-live .vibe-chart {
+  flex-shrink: 0;
+}
+
+.quiz-live__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quiz-live__persona {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.quiz-live__sure {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* ---- Persona ---- */
+
+.quiz-persona__hero,
+.squad-dna__hero {
   align-items: center;
   gap: 4px;
   text-align: center;
 }
 
-.persona__name {
+.quiz-persona__name,
+.squad-dna__persona {
+  max-width: 300px;
   font-weight: 800;
-  font-size: 20px;
+  font-size: 22px;
   line-height: 26px;
+  letter-spacing: -0.4px;
   color: var(--color-ink);
 }
 
-.persona__tagline {
+.quiz-persona__tagline {
   max-width: 280px;
   font-weight: 600;
   font-size: 12px;
@@ -86,31 +311,183 @@
   color: var(--color-muted);
 }
 
-.persona .vibe-chart {
+.quiz-persona__hero .vibe-chart,
+.squad-dna__hero .vibe-chart {
+  max-width: 100%;
+  height: auto;
   margin: 8px 0 4px;
 }
 
-.persona__footer {
+.quiz-persona__badges,
+.quiz-persona__tags {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  align-self: stretch;
-  gap: 8px;
-}
-
-.persona__traits {
-  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
-}
-
-.persona__legend {
-  display: flex;
-  align-self: flex-start;
-  gap: 10px;
   padding-top: 6px;
 }
 
-.persona__legend > span {
+.quiz-persona__badge {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.quiz-persona__note {
+  padding-top: 8px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+.quiz-persona__style {
+  gap: 12px;
+}
+
+.quiz-persona__diet,
+.squad-dna__diet {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+/* Style meters: words at both ends, a dot where you sit */
+.quiz-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.quiz-meters__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quiz-meters__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quiz-meters__label {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+.quiz-meters__words {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+  text-align: right;
+}
+
+.quiz-meters__track {
+  position: relative;
+  height: 6px;
+  margin: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-track);
+}
+
+.quiz-meters__dot {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-primary);
+  filter: var(--shadow-card);
+  transform: translate(-50%, -50%);
+  transition: left 320ms ease-out;
+}
+
+.quiz-meters__ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+/* ---- Fans under a trip card ---- */
+
+.quiz-fans {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quiz-fans .avatar-stack {
+  flex-shrink: 0;
+}
+
+.quiz-fans__text {
+  min-width: 0;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* ---- Trip deck end ---- */
+
+.trip-deck__musts {
+  gap: 10px;
+}
+
+.trip-deck__must-list,
+.squad-dna__picks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trip-deck__must,
+.squad-dna__pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.trip-deck__must img,
+.squad-dna__pick img {
+  flex-shrink: 0;
+}
+
+/* ---- Squad DNA ---- */
+
+.squad-dna__legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.squad-dna__legend > span {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -120,54 +497,183 @@
   color: var(--color-muted);
 }
 
-.persona__swatch {
+.squad-dna__swatch {
   width: 10px;
   height: 10px;
   border-radius: 3px;
 }
 
-.persona__swatch--squad {
+.squad-dna__swatch--squad {
   background: var(--color-sky);
 }
 
-.persona__swatch--you {
+.squad-dna__swatch--you {
   background: var(--color-amber);
 }
 
-.persona__match {
-  gap: 10px;
-  padding: 12px;
+.squad-dna__twin {
+  margin-top: 10px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-yellow);
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
 }
 
-.persona__match-text {
+.squad-dna__nudge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.squad-dna__nudge img {
+  flex-shrink: 0;
+}
+
+.squad-dna__section {
+  gap: 12px;
+}
+
+.squad-dna__members {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.squad-dna__member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.squad-dna__member .avatar {
+  flex-shrink: 0;
+}
+
+.squad-dna__member-text,
+.squad-dna__style-text,
+.squad-dna__pick-text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.persona__match-text p {
+.squad-dna__member-name,
+.squad-dna__style-name {
   font-weight: 800;
   font-size: 13px;
   line-height: 20px;
   color: var(--color-ink);
 }
 
-.persona__match-text span {
+.squad-dna__member-persona,
+.squad-dna__style-label,
+.squad-dna__pick-meta,
+.squad-dna__caption {
   font-weight: 600;
   font-size: 11px;
   line-height: 17px;
   color: var(--color-muted);
 }
 
-.persona__match-pill {
+.squad-dna__status {
   flex-shrink: 0;
-  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
   border-radius: var(--radius-pill);
+  background: var(--color-divider);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.squad-dna__status--done {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+
+.squad-dna__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.squad-dna__chips ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.squad-dna__chip {
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.squad-dna__chip--love {
   background: var(--color-yellow);
   font-weight: 800;
+}
+
+.squad-dna__style {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.squad-dna__style-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.squad-dna__rule,
+.squad-dna__count {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-tint);
+  font-weight: 700;
   font-size: 11px;
   line-height: 17px;
   color: var(--color-primary);
   white-space: nowrap;
+}
+
+.squad-dna__pick-title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* ---- Motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-screen__body > * {
+    animation: none;
+  }
+
+  .quiz-progress__fill,
+  .quiz-meters__dot {
+    transition: none;
+  }
 }

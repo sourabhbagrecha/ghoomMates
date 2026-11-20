@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import { saveVibe } from '../../services/vibeStorage'
 import { PersonaPage } from './PersonaPage'
-import { QuizCardPage } from './QuizCardPage'
 import { QuizIntroPage } from './QuizIntroPage'
-import { QUIZ_CARDS, cardRoute, scoreQuiz, togglePick, type QuizAnswers, type QuizRoute } from './quizData'
+import { QuizPlayPage } from './QuizPlayPage'
+import { SquadDnaPage } from './SquadDnaPage'
+import { TripDeckPage } from './TripDeckPage'
+import type { QuizRoute } from './quizData'
 
 type QuizFlowProps = {
   route: QuizRoute
@@ -12,40 +12,20 @@ type QuizFlowProps = {
 }
 
 /**
- * Intro → 8 flashcards → your travel persona → app.
- * Holds the answers so they survive moving back and forth between cards.
+ * Vibe Swipe: intro → the core deck → your travel persona → (with a trip) the trip's deck → Squad DNA.
+ * Answers live in a draft per deck (services/vibeStorage), so each screen can be opened on its own and survives a reload.
  */
 export function QuizFlow({ route, go, onDone }: QuizFlowProps) {
-  const [answers, setAnswers] = useState<QuizAnswers>({})
-  const lastCard = QUIZ_CARDS.length - 1
-  const next = (index: number) => {
-    if (index < lastCard) return go(cardRoute(index + 1))
-    saveVibe(scoreQuiz(answers))
-    go('quiz/persona')
-  }
-
   switch (route.screen) {
     case 'intro':
-      return <QuizIntroPage onBack={() => window.history.back()} onStart={() => go(cardRoute(0))} onSkip={onDone} />
-    case 'card':
-      return (
-        <QuizCardPage
-          key={route.index}
-          index={route.index}
-          picked={answers[QUIZ_CARDS[route.index].id] ?? []}
-          scores={scoreQuiz(answers)}
-          onToggle={(id) =>
-            setAnswers((a) => {
-              const card = QUIZ_CARDS[route.index]
-              return { ...a, [card.id]: togglePick(card, a[card.id] ?? [], id) }
-            })
-          }
-          onBack={() => go(route.index > 0 ? cardRoute(route.index - 1) : 'quiz')}
-          onNext={() => next(route.index)}
-          onSkipQuiz={onDone}
-        />
-      )
+      return <QuizIntroPage go={go} onDone={onDone} />
+    case 'play':
+      return <QuizPlayPage go={go} onDone={onDone} />
     case 'persona':
-      return <PersonaPage scores={scoreQuiz(answers)} onBack={() => go(cardRoute(lastCard))} onDone={onDone} />
+      return <PersonaPage go={go} onDone={onDone} />
+    case 'trip':
+      return <TripDeckPage key={route.tripId} tripId={route.tripId} go={go} onDone={onDone} />
+    case 'squad':
+      return <SquadDnaPage key={route.tripId} tripId={route.tripId} go={go} onDone={onDone} />
   }
 }

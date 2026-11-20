@@ -13,6 +13,7 @@ import { useToast } from '../../hooks/useToast'
 import { checkSingleFace } from '../../services/faceCheck'
 import { toJpegIfHeic } from '../../services/tripsService'
 import { COLOURS } from '../Onboarding/onboardingData'
+import { VIBE_SWIPE_LINE } from '../Quiz/quizData'
 import { ConfirmBox, ProfileAvatar } from './ProfileParts'
 import { currentVibe, displayName, profileActions, useProfileStore } from './profileStore'
 import './EditProfilePage.css'
@@ -210,7 +211,7 @@ export function EditProfilePage() {
           </span>
           <span className="profile-edit__row-text">
             <strong>{vibe ? 'Retake vibe quiz' : 'Take the vibe quiz'}</strong>
-            <span>{vibe ? `You’re ${vibe.persona}` : '8 quick cards · about a minute'}</span>
+            <span>{vibe ? `You’re ${vibe.persona}` : VIBE_SWIPE_LINE}</span>
           </span>
           <img src={iconChevron} alt="" width={16} height={16} />
         </button>

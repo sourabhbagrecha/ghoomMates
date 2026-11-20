@@ -135,6 +135,14 @@
   color: var(--color-ink);
 }
 
+.your-profile__vibe-badges {
+  margin-top: -4px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-primary);
+}
+
 .your-profile__traits {
   display: flex;
   flex-wrap: wrap;
