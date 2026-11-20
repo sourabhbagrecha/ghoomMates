@@ -8,6 +8,7 @@ import { GhoomMateTip } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { tripDayLabel } from '../../data/activeTrip'
 import { splitSlotStops, type DraftPlan, type DraftStop } from '../../services/tripsService'
+import { WhyLine } from '../Itinerary/StopWhy'
 import { TAG_PHOTOS } from '../Trip/tripDetailData'
 import './DraftStep.css'
 
@@ -177,6 +178,7 @@ export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, 
                         <li key={i}>
                           <h3 className="create-stop__title">{o.title}</h3>
                           {forLabel(o) && <p className="create-stop__for">{forLabel(o)}</p>}
+                          <WhyLine why={o.why} clamp />
                         </li>
                       ))}
                     </ul>
@@ -205,6 +207,7 @@ export function DraftStep({ tripName, dates, startDate, summary, plan, sharing, 
                   </p>
                   <h3 className="create-stop__title">{stop.title}</h3>
                   {forLabel(stop) && <p className="create-stop__for">{forLabel(stop)}</p>}
+                  <WhyLine why={stop.why} clamp />
                 </div>
                 <div className="create-stop__actions">
                   <button

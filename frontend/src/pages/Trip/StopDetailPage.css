@@ -2,6 +2,19 @@
   gap: 4px;
 }
 
+/* Who GhoomMate planned the stop for, and why it's on the plan */
+.stop-detail__plan-for {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.stop-detail__why {
+  padding-top: 2px;
+}
+
 .stop-detail__when {
   display: flex;
   align-items: center;

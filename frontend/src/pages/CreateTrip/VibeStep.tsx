@@ -37,7 +37,7 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
     <OnboardingLayout
       eyebrow="New trip · Step 4 of 4"
       title="Your squad’s vibe"
-      subtitle="I’ll blend everyone’s vibe checks into one plan style."
+      subtitle="I’ll blend everyone’s swipes into one plan style."
       step={4}
       onBack={onBack}
       bodyClassName="create-vibe__body"
@@ -52,7 +52,7 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
           <p className="overline">Squad spiderweb</p>
           <span className="create-vibe-card__squad">
             <AvatarStack people={['you']} size={18} overlap={6} />
-            {vibe ? 'Your vibe check' : 'Sample vibe'}
+            {vibe ? 'Your swipes' : 'Sample vibe'}
           </span>
         </div>
         <div
@@ -79,7 +79,7 @@ export function VibeStep({ trip, onChange, onBack, onBuild }: VibeStepProps) {
         </div>
         <h2 className="create-vibe-card__persona">{vibe ? personaFor(vibe) : VIBE.persona}</h2>
         <p className="create-vibe-card__summary">
-          {vibe ? 'Mates who join add their vibe, and the plan adapts to the whole squad.' : VIBE.summary}
+          {vibe ? 'Mates who join swipe too, and the plan adapts to the whole squad.' : VIBE.summary}
         </p>
       </section>
 
