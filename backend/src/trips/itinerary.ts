@@ -4,8 +4,13 @@ import { transaction, type ClientSession, type Database, type Db } from '../db.t
 import { logger } from '../logger.ts';
 import { spendGemini } from '../gemini.ts';
 import { cityOf, crowdBrief, crowdForStop } from '../heritage/crowd.ts';
+import type { Dealbreaker, Diet } from '../prefs/taste.ts';
 import type { TripAccess } from './service.ts';
-import { allocateSpotlights, rebalance, squadBrief, squadProfile, VIBE_AXES, type Fairness, type SquadProfile, type Vibe } from './vibe.ts';
+import {
+  cardWhy, clockTime, consensus, constraintsBrief, dealbreakerUnion, deckCity, groupStart, groupStyle, loadSquad, profileOf, safeWhy,
+  shortlistBrief, shortlistOf, slotsPerDay, stopWhy, strictestDiet, type CardTally, type Shortlist,
+} from './squad.ts';
+import { allocateSpotlights, rebalance, squadBrief, VIBE_AXES, type Axis, type Fairness, type SquadProfile } from './vibe.ts';
 
 export const STOP_TAGS = ['Adventure', 'Food', 'Chill', 'Culture', 'Nightlife', 'Shops', 'Stay', 'Travel'] as const;
 const RSVPS = ['going', 'maybe', 'skip'] as const;
@@ -16,11 +21,18 @@ const TIME = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
 
 // forMembers: who the stop was planned for (empty for whole-group stops). axis: the vibe it serves, or 'group'.
 // split: a split slot, where the options run in parallel for different members instead of pick-then-alternative.
-export type DraftStop = { time: string; title: string; tag: string; place: string; notes: string; forMembers?: string[]; axis?: string; split?: boolean };
+// why: one line on why it's in the plan (never says who said no). cardId: the Vibe Swipe trip card it came from.
+export type DraftStop = {
+  time: string; title: string; tag: string; place: string; notes: string;
+  forMembers?: string[]; axis?: string; split?: boolean; why?: string | null; cardId?: string | null;
+};
 // Each slot holds the suggested stop first, then alternatives the app can swap to.
 export type DraftDay = { title: string; slots: DraftStop[][] };
-export type Draft = { days: DraftDay[]; tip: string; source: 'gemini' | 'template' };
+// shortlist: built without Gemini from the squad's swiped trip cards (Udaipur and Goa)
+export type Draft = { days: DraftDay[]; tip: string; source: 'gemini' | 'shortlist' | 'template' };
 export type SquadSummary = { sharedLoves: string[]; splits: string[]; vetoes: string[] };
+/** Whose swipes a draft is built on: members with quiz data out of everyone, and the first names still to swipe */
+export type DraftBasis = { answered: number; total: number; pending: string[] };
 
 function minutesOf(time: string) {
   const match = TIME.exec(time.trim());
@@ -38,6 +50,10 @@ function normaliseTime(value: unknown) {
 
 function stopInput(value: unknown) {
   const s = object(value);
+  return { ...baseInput(s), ...whyInput(s) };
+}
+
+function baseInput(s: Record<string, unknown>) {
   const tag = s.tag === undefined || s.tag === '' ? '' : String(s.tag);
   requireThat(tag === '' || STOP_TAGS.includes(tag as never), `tag must be one of ${STOP_TAGS.join(', ')}`);
   const opt = (v: unknown, field: string, max: number) => {
@@ -47,6 +63,39 @@ function stopInput(value: unknown) {
   };
   const time = normaliseTime(s.time);
   return { time, minutes: minutesOf(time), title: text(s.title, 'title', 200), tag, place: opt(s.place, 'place', 200), notes: opt(s.notes, 'notes', 2000) };
+}
+
+const NO_WHY = { axis: null, for_members: [] as string[], split: false, why: null, card_id: null };
+type WhyFields = { axis: string | null; for_members: string[]; split: boolean; why: string | null; card_id: string | null };
+
+/**
+ * The "why is this here" fields a stop carries, as stored on trip_stops. Missing fields get their defaults, or with
+ * `partial` are left out so an edit that doesn't send them keeps what's saved.
+ */
+function whyInput(s: Record<string, unknown>, partial = false): Partial<WhyFields> {
+  const out: Partial<WhyFields> = partial ? {} : { ...NO_WHY, for_members: [] };
+  const given = (key: string) => s[key] !== undefined;
+  const optText = (value: unknown, field: string, max: number) => {
+    if (value === null || value === '') return null;
+    requireThat(typeof value === 'string' && value.trim().length <= max, `${field} must be at most ${max} characters`);
+    return (value as string).trim() || null;
+  };
+  if (given('axis')) {
+    requireThat(s.axis === null || s.axis === '' || VIBE_AXES.includes(s.axis as Axis) || s.axis === 'group', `axis must be one of ${VIBE_AXES.join(', ')} or group`);
+    out.axis = s.axis === '' ? null : s.axis as string | null;
+  }
+  if (given('forMembers')) {
+    const list = s.forMembers === null ? [] : s.forMembers;
+    requireThat(Array.isArray(list) && list.length <= 10 && list.every(n => typeof n === 'string' && n.trim().length > 0 && n.trim().length <= 40), 'forMembers must be up to 10 names of at most 40 characters');
+    out.for_members = (list as string[]).map(n => n.trim());
+  }
+  if (given('split')) {
+    requireThat(s.split === null || typeof s.split === 'boolean', 'split must be true or false');
+    out.split = s.split === true;
+  }
+  if (given('why')) out.why = optText(s.why, 'why', 120);
+  if (given('cardId')) out.card_id = optText(s.cardId, 'cardId', 80);
+  return out;
 }
 
 const parseDate = (value: string) => new Date(`${value}T00:00:00Z`);
@@ -119,17 +168,26 @@ export class ItineraryService {
 
   async itinerary(access: TripAccess, userId: string) {
     const trip = access.trip;
-    const [docs, members, row] = await Promise.all([
+    const [docs, members, row, squad] = await Promise.all([
       this.db.collection('trip_stops').find({ trip_id: trip.id }).sort({ day_number: 1, minutes: 1, created_at: 1 }).toArray(),
       this.db.collection('trip_members').find({ trip_id: trip.id }).sort({ joined_at: 1 }).toArray(),
-      this.db.collection('trips').findOne({ _id: trip.id as any }, { projection: { day_titles: 1 } }),
+      this.db.collection('trips').findOne({ _id: trip.id as any }, { projection: { day_titles: 1, itinerary_generated_at: 1 } }),
+      loadSquad(this.db, trip.id, { answers: false }),
     ]);
+    // Stale: someone swiped after the plan was last shared, or the plan predates the squad's swipes altogether
+    const generatedAt = row?.itinerary_generated_at instanceof Date ? row.itinerary_generated_at.getTime() : null;
+    const stale = docs.length > 0 && (generatedAt === null
+      ? squad.members.some(m => m.swiped)
+      : squad.members.some(m => m.tasteUpdatedAt !== null && Date.parse(m.tasteUpdatedAt) > generatedAt));
+    const pending = squad.members.filter(m => !m.vibe).map(m => m.name);
     const rsvpDocs = await this.db.collection('trip_stop_rsvps').find({ stop_id: { $in: docs.map(s => s._id) } }).toArray();
     // RSVPs from people who left the trip don't count
     const memberOf = new Map(members.map(m => [m.user_id as string, m.ledger_member_id as string]));
     const stops = docs.map(s => ({
       id: s._id as unknown as string, day_number: s.day_number as number, time: s.time as string, title: s.title as string,
       tag: s.tag as string, place: s.place as string, notes: s.notes as string,
+      axis: (s.axis ?? null) as string | null, forMembers: Array.isArray(s.for_members) ? s.for_members as string[] : [],
+      split: s.split === true, why: (s.why ?? null) as string | null, cardId: (s.card_id ?? null) as string | null,
       rsvps: rsvpDocs.filter(r => r.stop_id === s._id && memberOf.has(r.user_id)).map(r => ({ memberId: memberOf.get(r.user_id)!, userId: r.user_id, rsvp: r.rsvp })),
     }));
     const titles: string[] = row?.day_titles ?? [];
@@ -150,6 +208,7 @@ export class ItineraryService {
             const mine = rsvps.find(r => r.userId === userId)?.rsvp;
             return {
               id: s.id, dayNumber: s.day_number, time: s.time, title: s.title, tag: s.tag, place: s.place, notes: s.notes,
+              axis: s.axis, forMembers: s.forMembers, split: s.split, why: s.why, cardId: s.cardId,
               // Everyone is going unless they said otherwise
               going: members.map(m => m.ledger_member_id).filter(id => !out.has(id)),
               myRsvp: mine ?? 'going',
@@ -160,6 +219,8 @@ export class ItineraryService {
           }),
         };
       }),
+      stale,
+      pending,
     };
   }
 
@@ -176,8 +237,9 @@ export class ItineraryService {
     await transaction(this.database, async (session) => {
       const old = await this.db.collection('trip_stops').find({ trip_id: access.trip.id }, { projection: { _id: 1 }, session }).toArray();
       await deleteStopsCascade(this.db, old.map(s => s._id as unknown as string), session);
-      await this.db.collection('trips').updateOne({ _id: access.trip.id as any }, { $set: { day_titles: days.map(d => d.title) } }, { session });
       const now = new Date();
+      // itinerary_generated_at: when the squad's plan was last shared, for the "swipes changed, regenerate?" nudge
+      await this.db.collection('trips').updateOne({ _id: access.trip.id as any }, { $set: { day_titles: days.map(d => d.title), itinerary_generated_at: now } }, { session });
       const rows = days.flatMap((d, i) => d.stops.map(s => ({ _id: randomUUID() as any, trip_id: access.trip.id, day_number: i + 1, ...s, created_by: userId, created_at: now })));
       if (rows.length) await this.db.collection('trip_stops').insertMany(rows, { session });
     });
@@ -207,9 +269,11 @@ export class ItineraryService {
   async updateStop(access: TripAccess, stopId: string, input: unknown) {
     await this.assertStop(access, stopId);
     const body = object(input);
-    const stop = stopInput(body);
+    // The why-fields are only changed when sent, so an ordinary edit keeps them
+    const stop = baseInput(body);
+    const why = whyInput(body, true);
     const day = body.dayNumber === undefined ? null : integer(body.dayNumber, 'dayNumber', 1, 60);
-    await this.db.collection('trip_stops').updateOne({ _id: stopId as any }, { $set: { ...stop, ...(day === null ? {} : { day_number: day }) } });
+    await this.db.collection('trip_stops').updateOne({ _id: stopId as any }, { $set: { ...stop, ...why, ...(day === null ? {} : { day_number: day }) } });
     return { id: stopId };
   }
 
@@ -228,16 +292,6 @@ export class ItineraryService {
 
   /* Draft generation */
 
-  // The squad's vibe: every member's quiz scores (0–1 per axis), kept per member rather than averaged.
-  private async squadVibe(tripId: string) {
-    const members = await this.db.collection('trip_members').find({ trip_id: tripId }, { projection: { user_id: 1 } }).toArray();
-    const rows = await this.db.collection('users').find({ _id: { $in: members.map(m => m.user_id) } as any }, { projection: { name: 1, preferences: 1 } }).toArray();
-    const vibes = rows
-      .map(r => ({ name: String(r.name).split(' ')[0], vibe: r.preferences?.vibe as Record<string, number> | undefined }))
-      .filter(r => r.vibe && VIBE_AXES.every(a => typeof r.vibe![a] === 'number'));
-    return { size: rows.length, profile: squadProfile(vibes.map(v => ({ name: v.name, vibe: v.vibe as Vibe }))) };
-  }
-
   async draft(access: TripAccess, input: unknown) {
     const body = input && typeof input === 'object' ? input as Record<string, unknown> : {};
     const trip = access.trip;
@@ -246,40 +300,49 @@ export class ItineraryService {
     const tweaks = (Array.isArray(body.tweaks) ? body.tweaks : Array.isArray(details.tweaks) ? details.tweaks : [])
       .filter((t): t is string => typeof t === 'string').slice(0, 10);
     const onlyDay = body.day === undefined ? null : integer(body.day, 'day', 1, days);
-    const squad = await this.squadVibe(trip.id);
+    const squad = await planningSquad(this.db, trip.id);
     const place = trip.destination || trip.name;
+    const deck = deckCity(place);
 
+    // Gemini first (one call), then the squad's swiped cards for Udaipur and Goa, then the fixed templates
     let draft: Draft | null = null;
     if (this.geminiKey) {
       try {
         draft = { ...await this.generate({ place, days, startDate: trip.start_date, budget: String(details.budgetLabel ?? trip.budget ?? ''), tweaks, squad, onlyDay }), source: 'gemini' };
       } catch (err: any) {
-        logger.warn('Itinerary', `Gemini draft failed (${err.message}); using the template plan`);
+        logger.warn('Itinerary', `Gemini draft failed (${err.message}); using the fallback plan`);
       }
     }
+    if (!draft && deck) {
+      draft = shortlistDraft({ city: deck, days, onlyDay, shortlist: squad.shortlist, start: squad.start, slots: squad.slots, dealbreakers: squad.dealbreakers, diet: squad.diet });
+    }
     draft ??= cityOf(place) === 'Udaipur' ? udaipurDraft(onlyDay ? 1 : days, onlyDay) : templateDraft(place, onlyDay ? 1 : days);
-    return withFairness(draft, squad.profile);
+    const explained = explainDraft(draft, squad.shortlist, squad.names, squad.profile !== null);
+    return { ...withFairness(explained, squad.profile), basis: squad.basis };
   }
 
   private async generate(args: {
-    place: string; days: number; startDate: string | null; budget: string; tweaks: string[];
-    squad: Awaited<ReturnType<ItineraryService['squadVibe']>>; onlyDay: number | null;
+    place: string; days: number; startDate: string | null; budget: string; tweaks: string[]; squad: PlanningSquad; onlyDay: number | null;
   }): Promise<Omit<Draft, 'source'>> {
     const { place, days, startDate, budget, tweaks, squad, onlyDay } = args;
     const city = cityOf(place);
-    const { profile } = squad;
+    const { profile, shortlist } = squad;
     // Spotlights are planned across the whole trip so a regenerated day keeps its share of the rotation
-    const spotlights = profile ? allocateSpotlights(profile, days) : [];
+    const spotlights = profile ? allocateSpotlights(profile, days, squad.slots) : [];
+    const slotCount = squad.style.pace.voters ? `${squad.slots}` : '3 to 5';
     const prompt = [
       `Plan a ${days}-day group trip to ${place}${startDate ? ` starting ${startDate}` : ''} for ${squad.size} friend${squad.size === 1 ? '' : 's'} from India.`,
       budget && `Budget per person: ${budget}.`,
       profile && squadBrief(profile, onlyDay ? spotlights.slice(onlyDay - 1, onlyDay) : spotlights, onlyDay ?? 1),
+      constraintsBrief(squad.style, squad.diet, squad.dealbreakers),
+      shortlistBrief(shortlist, squad.members),
       tweaks.length && `Requested tweaks: ${tweaks.join(', ')}.`,
       onlyDay ? `Only plan day ${onlyDay} of ${days}, with fresh ideas.` : `Plan every day from day 1 to day ${days}.`,
       'Day 1 starts with arriving and checking in; the last day ends with heading home.',
-      'Each day: a short catchy title and 3 to 5 time slots in order. Each slot has 2 options: the best pick first, then a good alternative at the same time.',
+      `Each day: a short catchy title and ${slotCount} time slots in order. Each slot has 2 options: the best pick first, then a good alternative at the same time.`,
       `Use real, specific places in ${place}. Times in 12-hour format like "09:30 AM". Tags: ${STOP_TAGS.join(', ')}.`,
       'notes: one practical tip (timing, cost in ₹, what to carry). Also give one overall tip for the group.',
+      'why: one short line (at most 100 characters) on why the option suits the squad, such as who it is for or that everyone liked it. Never mention who dislikes or said no to anything, in why or in notes.',
       'Travel responsibly: popular heritage sites get overcrowded, so visit them in their quiet windows, not at peak. Every day include at least one lesser-known gem, and favour local family-run eateries and artisans over chains.',
       'Group nearby stops so the squad can walk or take a shared e-rickshaw between them.',
       city && `Crowd forecast for ${city}'s heritage sites${startDate ? ' around the trip dates' : ''}:\n${crowdBrief(city, startDate)}\nSchedule each site you use inside its quiet window, and use the site names above so the app can track crowds.`,
@@ -291,6 +354,7 @@ export class ItineraryService {
         time: { type: 'STRING' }, title: { type: 'STRING' }, tag: { type: 'STRING', enum: [...STOP_TAGS] },
         place: { type: 'STRING' }, notes: { type: 'STRING' },
         axis: { type: 'STRING', enum: [...VIBE_AXES, 'group'] }, forMembers: { type: 'ARRAY', items: { type: 'STRING' } }, split: { type: 'BOOLEAN' },
+        why: { type: 'STRING' }, card: { type: 'STRING' },
       },
       required: ['time', 'title', 'tag', 'place', 'notes'],
     };
@@ -332,17 +396,21 @@ export class ItineraryService {
       if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
       const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
       const raw = data.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? '';
-      const parsed = JSON.parse(raw) as { days?: { title?: string; slots?: { options?: Partial<DraftStop>[] }[] }[]; tip?: string };
-      const names = new Set(profile?.members.map(m => m.name) ?? []);
-      const clean = (s: Partial<DraftStop>): DraftStop | null => {
+      type GeminiStop = Partial<DraftStop> & { card?: unknown };
+      const parsed = JSON.parse(raw) as { days?: { title?: string; slots?: { options?: GeminiStop[] }[] }[]; tip?: string };
+      const names = new Set(squad.names);
+      const clean = (s: GeminiStop): DraftStop | null => {
         if (!s.title) return null;
         const time = TIME.test(String(s.time ?? '').trim()) ? normaliseTime(s.time) : '';
         const tag = STOP_TAGS.includes(s.tag as never) ? s.tag! : 'Chill';
         const axis = VIBE_AXES.includes(s.axis as never) || s.axis === 'group' ? s.axis! : VIBE_AXES.find(a => a === tag.toLowerCase()) ?? 'group';
+        // Gemini may quote a shortlist id with its brackets; anything not on the shortlist is dropped
+        const card = typeof s.card === 'string' ? s.card.trim().replace(/^\[|\]$/g, '') : '';
         return {
           time, title: String(s.title).slice(0, 200), tag,
           place: String(s.place ?? '').slice(0, 200), notes: String(s.notes ?? '').slice(0, 500),
           axis, forMembers: Array.isArray(s.forMembers) ? s.forMembers.filter(n => names.has(n)) : [], split: s.split === true,
+          why: typeof s.why === 'string' ? s.why : null, cardId: shortlist.byId.has(card) ? card : null,
         };
       };
       const planned = (parsed.days ?? []).slice(0, onlyDay ? 1 : days).map(d => ({
@@ -361,6 +429,261 @@ export class ItineraryService {
       clearTimeout(timer);
     }
   }
+}
+
+/* The squad, as the planner sees it */
+
+export type PlanningSquad = Awaited<ReturnType<typeof planningSquad>>;
+
+/**
+ * Everything a draft needs from the squad's Vibe Swipe data, read once: the vibe profile (members with data, each
+ * weighted by how sure we are of them), the group rules, the strictest diet, the anonymous deal-breakers and the
+ * shortlist of swiped trip cards. Members without data are left out of the maths and listed in basis.pending.
+ */
+export async function planningSquad(db: Db, tripId: string) {
+  const { members, answers } = await loadSquad(db, tripId);
+  const withData = members.filter(m => m.vibe);
+  const style = groupStyle(withData);
+  // Safety constraints count for everyone, quiz or not
+  const dealbreakers = dealbreakerUnion(members);
+  const basis: DraftBasis = { answered: withData.length, total: members.length, pending: members.filter(m => !m.vibe).map(m => m.name) };
+  return {
+    size: members.length,
+    names: members.map(m => m.name),
+    members,
+    profile: profileOf(members),
+    style,
+    diet: strictestDiet(members),
+    dealbreakers,
+    start: groupStart(style, dealbreakers),
+    slots: slotsPerDay(style.pace.value),
+    shortlist: shortlistOf(consensus(answers, members)),
+    basis,
+  };
+}
+
+/**
+ * Settles each draft stop's axis, forMembers, split, cardId and why. A stop from a shortlisted card gets its why
+ * from the swipes (only likers and lovers are named); any other stop keeps Gemini's why unless it names someone next
+ * to a no, else one derived from who it's for ("Picked for Riya · food") when the squad has quiz data.
+ */
+export function explainDraft(draft: Draft, shortlist: Shortlist, names: string[], derive: boolean): Draft {
+  const known = new Set(names);
+  const explain = (stop: DraftStop): DraftStop => {
+    const card = stop.cardId ? shortlist.byId.get(stop.cardId) : undefined;
+    const axis = VIBE_AXES.includes(stop.axis as Axis) || stop.axis === 'group' ? stop.axis! : VIBE_AXES.find(a => a === stop.tag.toLowerCase()) ?? 'group';
+    const forMembers = (stop.forMembers ?? []).filter(n => known.has(n)).slice(0, 10);
+    const why = card ? cardWhy(card) : safeWhy(stop.why, names) ?? (derive ? stopWhy({ forMembers, axis, tag: stop.tag }) : null);
+    return { ...stop, axis, forMembers, split: stop.split === true, why: why ? why.slice(0, 120) : null, cardId: card?.cardId ?? null };
+  };
+  return { ...draft, days: draft.days.map(d => ({ ...d, slots: d.slots.map(slot => slot.map(explain)) })) };
+}
+
+/* A plan from the squad's swiped cards, without Gemini (Udaipur and Goa) */
+
+export type ShortlistPlan = {
+  city: 'Udaipur' | 'Goa';
+  days: number;
+  onlyDay?: number | null;
+  shortlist: Shortlist;
+  /** Group start, minutes after midnight */
+  start: number;
+  slots: number;
+  dealbreakers: Dealbreaker[];
+  diet: Diet | null;
+};
+
+const AXIS_TAG: Record<Axis, string> = { adventure: 'Adventure', food: 'Food', nightlife: 'Nightlife', culture: 'Culture', chill: 'Chill', shops: 'Shops' };
+const WATER = /\b(swim\w*|snorkel\w*|kayak\w*|canoe\w*|paddl\w*|scuba|div(?:e|ing)|raft\w*|surf\w*|parasail\w*|jet ?ski\w*)\b/i;
+const HEIGHTS = /\b(paraglid\w*|zip-?lin\w*|steep|rock climb\w*|rappel\w*|bungee)\b/i;
+const LONG_DRIVE = /\bday trip\b|\b\d{2,}\s*km\b/i;
+// Picks don't butt up against each other: 30 minutes to get between them
+const BUFFER = 30;
+
+/** "2.5 hrs" or "90 min" in minutes; 2 hours when unknown */
+export function durationOf(text: string | undefined) {
+  const hours = /(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i.exec(text ?? '');
+  if (hours) return Math.round(Number(hours[1]) * 60);
+  const minutes = /(\d+)\s*(?:m|min|mins|minutes)\b/i.exec(text ?? '');
+  return minutes ? Number(minutes[1]) : 120;
+}
+
+const topAxis = (axes: Partial<Record<Axis, number>>) => {
+  let best: Axis | null = null;
+  for (const axis of VIBE_AXES) if ((axes[axis] ?? 0) > 0 && (best === null || (axes[axis] ?? 0) > (axes[best] ?? 0))) best = axis;
+  return best;
+};
+
+type CityKit = {
+  arrive: string; middle: string; leave: string; oneDay: string;
+  stay: { title: string; place: string; notes: string };
+  lunch: (diet: Diet | null) => { title: string; place: string; notes: string };
+  dinner: (diet: Diet | null) => { title: string; place: string; notes: string };
+  wander: { title: string; tag: string; place: string; notes: string };
+};
+
+const CITY_KIT: Record<ShortlistPlan['city'], CityKit> = {
+  Udaipur: {
+    arrive: 'Hello, City of Lakes', middle: 'The squad’s Udaipur', leave: 'Last chai, then home', oneDay: 'Udaipur in a day',
+    stay: { title: 'Check in at a family-run haveli homestay', place: 'Lal Ghat, old city', notes: 'Family-run havelis keep the money in the old city. Refill bottles at the host’s RO tap.' },
+    lunch: () => ({ title: 'Mewari thali at a family-run bhojanalaya', place: 'Old city, Udaipur', notes: 'Unlimited thali, around ₹200 a head.' }),
+    dinner: () => ({ title: 'Rooftop dinner at a family-run place by Lal Ghat', place: 'Lal Ghat, Udaipur', notes: 'Book ahead for the squad; ask for the seasonal Mewari sabzis.' }),
+    wander: { title: 'Old city lanes and the lake ghats', tag: 'Culture', place: 'Gangaur Ghat, Udaipur', notes: 'Free, and best before the midday heat.' },
+  },
+  Goa: {
+    arrive: 'Susegad starts here', middle: 'The squad’s Goa', leave: 'Last sunset, then home', oneDay: 'Goa in a day',
+    stay: { title: 'Check in at a family-run guesthouse', place: 'North Goa', notes: 'Family-run guesthouses keep the money in the village. Refill bottles instead of buying plastic.' },
+    lunch: diet => (diet && diet !== 'non-veg'
+      ? { title: 'Veg Goan thali at a family-run kitchen', place: 'Panaji', notes: 'Around ₹250 a head: khatkhate, tondak and sol kadhi.' }
+      : { title: 'Fish curry rice at a family-run kitchen', place: 'Panaji', notes: 'Around ₹300 a head; the catch of the day is the cheapest thing on the menu.' }),
+    dinner: diet => ({
+      title: 'Dinner at a family-run beach shack',
+      place: 'North Goa',
+      notes: diet && diet !== 'non-veg' ? 'Ask for the veg xacuti and mushroom cafreal.' : 'Order the catch of the day, cooked recheado or cafreal.',
+    }),
+    wander: { title: 'Fontainhas lanes and the Mandovi promenade', tag: 'Culture', place: 'Fontainhas, Panaji', notes: 'Free; go early before the heat.' },
+  },
+};
+
+const DIET_NOTE: Record<Diet, string> = {
+  'non-veg': '',
+  eggetarian: 'Order vegetarian and egg dishes for the table.',
+  veg: 'Order vegetarian for the table.',
+  vegan: 'Order vegan for the table: no dairy or ghee.',
+  jain: 'Order Jain food for the table: no onion, garlic or root vegetables.',
+};
+
+type Pick = { card: CardTally; from: number; to: number };
+
+/**
+ * A plan built from the squad's shortlisted trip cards when Gemini is off or fails: must-dos first, then whole-group
+ * favourites, each at its own start time, spread across the days with a second option where another pick starts
+ * close by. Honours the group start time, slots per day and the deal-breakers. null when fewer than three shortlisted
+ * cards have a start time, so the caller falls back to the fixed templates.
+ */
+export function shortlistDraft(plan: ShortlistPlan): Draft | null {
+  const { city, shortlist, dealbreakers, diet } = plan;
+  const kit = CITY_KIT[city];
+  const total = Math.max(1, plan.days);
+  const slots = Math.min(5, Math.max(3, plan.slots));
+  const seen = new Set<string>();
+  const timed = [...shortlist.mustDos, ...shortlist.consensus].filter(card => {
+    if (seen.has(card.cardId)) return false;
+    seen.add(card.cardId);
+    return TIME.test(card.place?.startTime?.trim() ?? '');
+  });
+  if (timed.length < 3) return null;
+
+  const lateCap = dealbreakers.includes('late-nights') ? 22 * 60 : Infinity;
+  const candidates: Pick[] = timed.flatMap(card => {
+    const from = minutesOf(card.place!.startTime!);
+    const length = durationOf(card.place?.duration);
+    const to = from + length;
+    const words = [card.title, card.tags.join(' '), card.place?.pitch ?? ''].join(' ');
+    if (from < plan.start || to > lateCap) return [];
+    if (dealbreakers.includes('water') && WATER.test(words)) return [];
+    if (dealbreakers.includes('heights') && HEIGHTS.test(words)) return [];
+    if (dealbreakers.includes('long-drives') && (length > 6 * 60 || LONG_DRIVE.test(`${words} ${card.place?.area ?? ''}`))) return [];
+    return [{ card, from, to }];
+  });
+
+  // Where picks can go each day: arrival afternoons, full middle days, a morning before checking out
+  const windowOf = (day: number) => {
+    if (total === 1) return { from: plan.start + 30, until: Math.min(lateCap, 21 * 60), cap: Math.max(1, slots - 2) };
+    if (day === 0) return { from: Math.max(plan.start, 15 * 60), until: lateCap, cap: Math.max(1, slots - 2) };
+    if (day === total - 1) return { from: plan.start, until: 12 * 60, cap: Math.max(0, slots - 3) };
+    return { from: plan.start, until: lateCap, cap: Math.max(1, slots - 1) };
+  };
+  const fits = (day: number, p: Pick) => p.from >= windowOf(day).from && p.to <= windowOf(day).until;
+  const clashes = (list: Pick[], p: Pick) => list.some(o => p.from < o.to + BUFFER && o.from < p.to + BUFFER);
+
+  const picks: Pick[][] = Array.from({ length: total }, () => []);
+  const leftovers: Pick[] = [];
+  for (const p of candidates) {
+    const order = picks.map((list, day) => ({ day, n: list.length })).sort((a, b) => a.n - b.n || a.day - b.day);
+    const spot = order.find(({ day }) => fits(day, p) && picks[day].length < windowOf(day).cap && !clashes(picks[day], p));
+    if (spot) picks[spot.day].push(p);
+    else leftovers.push(p);
+  }
+  if (picks.every(list => !list.length)) return null;
+
+  // A second option for a slot: a leftover that starts within 90 minutes of the pick
+  const options = picks.map(list => list.sort((a, b) => a.from - b.from).map(p => [p]));
+  for (const p of leftovers) {
+    let best: { slot: Pick[]; gap: number } | null = null;
+    for (let day = 0; day < total; day++) {
+      if (!fits(day, p)) continue;
+      for (const slot of options[day]) {
+        const gap = Math.abs(slot[0].from - p.from);
+        if (slot.length < 2 && gap <= 90 && (!best || gap < best.gap)) best = { slot, gap };
+      }
+    }
+    best?.slot.push(p);
+  }
+
+  const cardStop = (p: Pick): DraftStop => {
+    const place = p.card.place ?? {};
+    const axis = topAxis(p.card.axes);
+    const notes = [place.pitch, place.priceRupees ? `About ₹${place.priceRupees} a head` : '', place.duration ? `Takes ${place.duration}` : '']
+      .filter(Boolean).join('. ');
+    return {
+      time: normaliseTime(place.startTime), title: p.card.title.slice(0, 200), tag: axis ? AXIS_TAG[axis] : 'Culture',
+      place: (place.area ?? '').slice(0, 200), notes: notes.slice(0, 500),
+      axis: axis ?? 'group', forMembers: p.card.lovers.slice(0, 10), split: false, cardId: p.card.cardId,
+    };
+  };
+  const mealNote = (base: string) => [base, diet ? DIET_NOTE[diet] : '', dealbreakers.includes('spicy') ? 'Ask for mild versions too.' : ''].filter(Boolean).join(' ');
+  const LOCAL = 'Family-run, so the money stays local';
+
+  const planDay = (day: number): DraftDay => {
+    const list = picks[day];
+    const out: { at: number; options: DraftStop[] }[] = options[day].map(slot => ({ at: slot[0].from, options: slot.map(cardStop) }));
+    const add = (at: number, stop: Omit<DraftStop, 'time'>) => out.push({ at, options: [{ time: clockTime(at), ...stop }] });
+    const busy = (from: number, to: number) => list.some(p => p.from < to && from < p.to);
+    // Lunch goes in the first free hour around 1 PM; a pick that runs through all of them (a cooking class) is lunch
+    const lunch = (at: number) => {
+      const free = [at, at + 30, at - 60, at + 60, at + 90].find(t => !busy(t, t + 60));
+      if (free === undefined) return;
+      const meal = kit.lunch(diet);
+      add(free, { title: meal.title, tag: 'Food', place: meal.place, notes: mealNote(meal.notes), why: LOCAL });
+    };
+    const dinner = () => {
+      if (out.length >= slots || busy(19 * 60 + 30, 21 * 60) || 20 * 60 >= lateCap) return;
+      const meal = kit.dinner(diet);
+      add(20 * 60, { title: meal.title, tag: 'Food', place: meal.place, notes: mealNote(meal.notes), why: LOCAL });
+    };
+    let title = kit.middle;
+    if (total === 1) {
+      title = kit.oneDay;
+      add(plan.start, { title: `Arrive in ${city} and drop your bags`, tag: 'Travel', place: '', notes: 'Leave the bags with a café or your host for the day.' });
+      lunch(13 * 60);
+      const lastEnd = Math.max(0, ...list.map(p => p.to));
+      add(Math.min(23 * 60, Math.max(18 * 60, lastEnd + BUFFER)), { title: 'Head home', tag: 'Travel', place: '', notes: 'Share one cab to the airport or station.' });
+    } else if (day === 0) {
+      title = kit.arrive;
+      add(12 * 60, { title: kit.stay.title, tag: 'Stay', place: kit.stay.place, notes: kit.stay.notes });
+      lunch(13 * 60 + 30);
+      dinner();
+    } else if (day === total - 1) {
+      title = kit.leave;
+      add(12 * 60, { title: 'Check out', tag: 'Stay', place: '', notes: 'Settle up in GhoomMates before you leave!' });
+      lunch(13 * 60);
+      add(15 * 60, { title: 'Head home', tag: 'Travel', place: '', notes: 'Share one cab to the airport or station.' });
+    } else {
+      title = `${kit.middle} · Day ${day + 1}`;
+      if (!list.length) add(plan.start, { title: kit.wander.title, tag: kit.wander.tag, place: kit.wander.place, notes: kit.wander.notes });
+      lunch(13 * 60);
+      dinner();
+    }
+    return { title, slots: out.sort((a, b) => a.at - b.at).map(s => s.options) };
+  };
+
+  const full = Array.from({ length: total }, (_, day) => planDay(day));
+  return {
+    days: plan.onlyDay ? [full[Math.min(total, plan.onlyDay) - 1]] : full,
+    tip: 'Built from the squad’s swipes: everyone’s must-dos and whole-group favourites at their usual start times. Book the guided ones a day ahead.',
+    source: 'shortlist',
+  };
 }
 
 // Used when Gemini isn't configured or fails, so trip creation never blocks on the AI.

@@ -70,6 +70,51 @@ describe('allocateSpotlights', () => {
   });
 });
 
+describe('confidence weighting', () => {
+  const sure = (v: number): Partial<Vibe> => ({ adventure: v, food: v, nightlife: v, culture: v, chill: v, shops: v });
+
+  test('a member we barely know counts a little towards the mean and not at all towards the range', () => {
+    const profile = squadProfile([
+      { name: 'Known', vibe: vibe({ adventure: 0.9 }), confidence: sure(0.8) },
+      { name: 'New', vibe: vibe({ adventure: 0.1 }), confidence: sure(0.05) },
+    ])!;
+    // weights 0.8 and the 0.15 floor: (0.9·0.8 + 0.1·0.15) / 0.95
+    assert.ok(Math.abs(profile.axes.adventure.mean - 0.77) < 0.01, `mean was ${profile.axes.adventure.mean}`);
+    expect(profile.axes.adventure.min).toBe(0.9);
+    expect(profile.axes.adventure.class).toBe('love');
+    // Without confidence the same two members are split
+    expect(squadProfile([{ name: 'Known', vibe: vibe({ adventure: 0.9 }) }, { name: 'New', vibe: vibe({ adventure: 0.1 }) }])!.axes.adventure.class).toBe('split');
+  });
+
+  test('full confidence is the same as none', () => {
+    const withConfidence = SPLIT_SQUAD.map(m => ({ ...m, confidence: sure(1) }));
+    expect(squadProfile(withConfidence)!.axes).toEqual(squadProfile(SPLIT_SQUAD)!.axes);
+  });
+
+  test('when nobody is sure enough, everyone sets the range', () => {
+    const profile = squadProfile([
+      { name: 'A', vibe: vibe({ shops: 0.1 }), confidence: sure(0.1) },
+      { name: 'B', vibe: vibe({ shops: 0.6 }), confidence: sure(0.2) },
+    ])!;
+    expect(profile.axes.shops.min).toBe(0.1);
+    expect(profile.axes.shops.max).toBe(0.6);
+  });
+
+  test('allocateSpotlights takes the slots per day from the group pace', () => {
+    // Everyone loves a different axis, and nothing is split, so each spotlight serves one member
+    const low = { adventure: 0.55, food: 0.55, nightlife: 0.55, culture: 0.55, chill: 0.55, shops: 0.55 };
+    const profile = squadProfile([
+      { name: 'A', vibe: { ...low, adventure: 0.95 } },
+      { name: 'B', vibe: { ...low, food: 0.95 } },
+      { name: 'C', vibe: { ...low, culture: 0.95 } },
+      { name: 'D', vibe: { ...low, shops: 0.95 } },
+    ])!;
+    // One slot a day is left for the whole group
+    expect(allocateSpotlights(profile, 1, 3)[0]).toHaveLength(2);
+    expect(allocateSpotlights(profile, 1, 5)[0]).toHaveLength(4);
+  });
+});
+
 describe('fairness and rebalance', () => {
   test('axisOf falls back to the tag and ignores logistics', () => {
     expect(axisOf(stop('Culture'))).toBe('culture');

@@ -8,7 +8,8 @@
 export const VIBE_AXES = ['adventure', 'food', 'nightlife', 'culture', 'chill', 'shops'] as const;
 export type Axis = (typeof VIBE_AXES)[number];
 export type Vibe = Record<Axis, number>;
-export type MemberVibe = { name: string; vibe: Vibe };
+/** confidence: how sure we are of each axis, 0–1 (from the swipe quiz's evidence). Absent means fully sure. */
+export type MemberVibe = { name: string; vibe: Vibe; confidence?: Partial<Vibe> };
 
 /** love: everyone's into it · split: some love it, some don't · veto: someone can't stand it and nobody loves it */
 export type AxisClass = 'love' | 'split' | 'veto' | 'neutral';
@@ -39,6 +40,10 @@ export type Fairness = {
 
 const LOVES = 0.65;
 const DISLIKES = 0.2;
+// A member we know little about still counts a little towards the mean, but only members we know something about
+// can stretch the range (min / max) that decides love, split and veto.
+const MIN_WEIGHT = 0.15;
+const RANGE_CONFIDENCE = 0.25;
 const round = (n: number) => Math.round(n * 100) / 100;
 const isAxis = (value: unknown): value is Axis => VIBE_AXES.includes(value as Axis);
 
@@ -49,12 +54,20 @@ export function axisOf(stop: PlanStop): Axis | null {
   return isAxis(fromTag) ? fromTag : null;
 }
 
+/**
+ * The squad's shape per axis. The mean is weighted by each member's confidence on that axis (at least 0.15), and
+ * min / max / spread only look at members whose confidence is 0.25 or more (everyone, if nobody is). Without
+ * confidence every member weighs 1, which is a plain mean over everyone.
+ */
 export function squadProfile(list: MemberVibe[]): SquadProfile | null {
   if (!list.length) return null;
   const members = list.map(m => ({ ...m, top: [...VIBE_AXES].sort((a, b) => m.vibe[b] - m.vibe[a]).slice(0, 2) }));
   const axes = Object.fromEntries(VIBE_AXES.map(axis => {
-    const scores = list.map(m => m.vibe[axis]);
-    const mean = scores.reduce((s, v) => s + v, 0) / scores.length;
+    const sure = (m: MemberVibe) => m.confidence?.[axis] ?? 1;
+    const weights = list.map(m => Math.max(MIN_WEIGHT, sure(m)));
+    const mean = list.reduce((s, m, i) => s + m.vibe[axis] * weights[i], 0) / weights.reduce((s, w) => s + w, 0);
+    const known = list.filter(m => sure(m) >= RANGE_CONFIDENCE);
+    const scores = (known.length ? known : list).map(m => m.vibe[axis]);
     const min = Math.min(...scores);
     const max = Math.max(...scores);
     const spread = max - min;

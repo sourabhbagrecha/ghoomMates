@@ -5,9 +5,13 @@ import type { Database } from '../../src/db.ts';
 import { ApiError, errorHandler, notFound } from '../../src/http.ts';
 import { createMediaRouter, createMediaStorage } from '../../src/storage.ts';
 import { createApp } from '../../src/trips/app.ts';
+import { deleteTripAnswers } from '../../src/trips/squad.ts';
 import type { User } from '../../src/auth/types.ts';
 import { serve } from '../helpers.ts';
 import { testDatabase } from '../mongo.ts';
+
+// Drafts never call Gemini here: no key, no network
+delete process.env.GEMINI_API_KEY;
 
 let db: Database;
 let server: Awaited<ReturnType<typeof serve>>;
@@ -197,4 +201,144 @@ test('draft, share and edit an itinerary with RSVPs', async () => {
   expect(skipped.myRsvp).toBe('skip');
   expect(skipped.answered).toBe(true);
   expect((await call(asha, `/api/trips/${trip.id}/stops/${added.data.id}`, undefined, 'DELETE')).status).toBe(204);
+});
+
+// users.preferences.taste and pref_answers in the shapes the prefs module writes (src/prefs/contract.ts)
+function storedTaste(means: Record<string, number>, extra: Record<string, unknown> = {}) {
+  const full: Record<string, number> = { adventure: 0.5, food: 0.5, nightlife: 0.5, culture: 0.5, chill: 0.5, shops: 0.5, ...means };
+  return {
+    v: 2, axes: Object.fromEntries(Object.entries(full).map(([axis, m]) => [axis, { a: 10 * m, b: 10 * (1 - m) }])),
+    style: {}, tags: {}, dealbreakers: [], diet: null, answered: 10, updatedAt: '2026-11-19T10:00:00.000Z', ...extra,
+  };
+}
+
+const UDAIPUR_CARDS: Record<string, { title: string; axes: Record<string, number>; place: Record<string, unknown> }> = {
+  'exp:palace': { title: 'City Palace royal stories walk', axes: { culture: 1 }, place: { area: 'City Palace, Udaipur', startTime: '09:30 AM', duration: '2.5 hrs', priceRupees: 1099 } },
+  'exp:boat': { title: 'Lake Pichola sunset boat ride', axes: { chill: 0.9, culture: 0.6 }, place: { area: 'Lal Ghat, Udaipur', startTime: '04:45 PM', duration: '2 hrs', priceRupees: 1299 } },
+  'exp:food-walk': { title: 'Old city kachori and chaat walk', axes: { food: 1 }, place: { area: 'Jagdish Chowk, Udaipur', startTime: '05:30 PM', duration: '3 hrs' } },
+  'exp:painting': { title: 'Mewar miniature painting workshop', axes: { culture: 1 }, place: { area: 'Hathi Pol, Udaipur', startTime: '10:00 AM', duration: '3 hrs' } },
+};
+
+async function swipe(userId: string, scope: string, cardId: string, verdict: 'nope' | 'like' | 'love' | 'skip') {
+  const card = UDAIPUR_CARDS[cardId];
+  const now = new Date();
+  await db.db.collection('pref_answers').insertOne({
+    user_id: userId, scope, card_id: cardId, format: 'swipe', ms: 800,
+    reply: verdict === 'skip' ? { kind: 'skip' } : { kind: 'swipe', verdict },
+    card: { title: card.title, kind: 'experience', axes: card.axes, tags: [], city: 'Udaipur', place: card.place },
+    created_at: now, updated_at: now,
+  });
+}
+
+async function udaipurSquad() {
+  const riya = await createUser('Riya Shah');
+  const kabir = await createUser('Kabir Mehta');
+  const dee = await createUser('Dee Rao');
+  const pat = await createUser('Pat Iyer');
+  const trip = (await call(riya, '/api/trips', { name: 'Lake City', destination: 'Udaipur', startDate: '2026-12-11', endDate: '2026-12-13' })).data;
+  for (const u of [kabir, dee, pat]) await call(u, '/api/trips/join', { code: trip.inviteCode });
+  const setTaste = (id: string, taste: unknown) => db.db.collection('users').updateOne({ _id: id as any }, { $set: { 'preferences.taste': taste } });
+  await setTaste(riya, storedTaste({ chill: 0.9 }, { style: { mornings: { sum: 1, weight: 2 } } }));
+  await setTaste(kabir, storedTaste({ culture: 0.8 }));
+  await setTaste(dee, storedTaste({ adventure: 0.2 }, { dealbreakers: ['heights'] }));
+  // Riya loves the boat; Kabir likes everything; Dee only says no or skips; Pat hasn't swiped
+  for (const id of Object.keys(UDAIPUR_CARDS)) {
+    await swipe(riya, trip.id, id, id === 'exp:boat' ? 'love' : 'like');
+    await swipe(kabir, trip.id, id, 'like');
+    await swipe(dee, trip.id, id, id === 'exp:painting' ? 'nope' : 'skip');
+  }
+  await swipe(riya, 'core', 'exp:boat', 'like');
+  return { riya, kabir, dee, pat, trip };
+}
+
+const stopsOf = (plan: { days: { stops: any[] }[] }) => plan.days.flatMap(d => d.stops);
+
+test('squad insights for members, and never who said no', async () => {
+  const { riya, trip } = await udaipurSquad();
+  const outsider = await createUser('Olu');
+  const res = await call(riya, `/api/trips/${trip.id}/squad`);
+  expect(res.status).toBe(200);
+  const squad = res.data;
+  expect(squad.city).toBe('Udaipur');
+  expect(squad.members.map((m: { name: string }) => m.name)).toEqual(['Riya', 'Kabir', 'Dee', 'Pat']);
+  expect(squad.pending).toEqual(['Pat']);
+  expect(squad.members[0].isMe).toBe(true);
+  expect(squad.members[0].coreDone).toBe(true);
+  expect(squad.members.map((m: { tripAnswered: number }) => m.tripAnswered)).toEqual([4, 4, 1, 0]);
+  expect(squad.mustDos).toEqual([{ cardId: 'exp:boat', title: 'Lake Pichola sunset boat ride', fans: ['Riya'] }]);
+  expect(squad.consensus).toHaveLength(3);
+  expect(squad.contested).toEqual([{ cardId: 'exp:painting', title: 'Mewar miniature painting workshop', fans: ['Riya', 'Kabir'] }]);
+  expect(squad.dealbreakers).toEqual(['heights']);
+  expect(squad.style.mornings.value).toBe(0.5);
+  const { members: _members, pending: _pending, twin: _twin, ...rest } = squad;
+  expect(JSON.stringify(rest).includes('Dee')).toBe(false);
+
+  expect((await call(outsider, `/api/trips/${trip.id}/squad`)).status).toBe(404);
+});
+
+test('a group-fair draft from a partial squad, and why-lines that survive saving and editing', async () => {
+  const { riya, kabir, trip } = await udaipurSquad();
+
+  // A plan that predates the squad's swipes is stale
+  const early = await call(riya, `/api/trips/${trip.id}/stops`, { dayNumber: 1, time: '10:00 AM', title: 'Breakfast', tag: 'Food' });
+  expect(early.status).toBe(201);
+  let plan = (await call(riya, `/api/trips/${trip.id}/itinerary`)).data;
+  expect(plan.stale).toBe(true);
+  expect(plan.pending).toEqual(['Pat']);
+  const plain = plan.days[0].stops[0];
+  expect([plain.axis, plain.forMembers, plain.split, plain.why, plain.cardId]).toEqual([null, [], false, null, null]);
+
+  // No Gemini key: the plan comes from the squad's swiped cards
+  const draft = (await call(kabir, `/api/trips/${trip.id}/itinerary/draft`, {})).data;
+  expect(draft.source).toBe('shortlist');
+  expect(draft.basis).toEqual({ answered: 3, total: 4, pending: ['Pat'] });
+  expect(draft.days).toHaveLength(3);
+  const options = draft.days.flatMap((d: { slots: unknown[][] }) => d.slots.flat()) as { cardId: string | null; why: string | null }[];
+  expect(options.find(o => o.cardId === 'exp:boat')!.why).toBe('Riya’s must-do');
+  expect(options.some(o => o.cardId === 'exp:painting')).toBe(false);
+  // Dee is only in the fairness scores (every member with data is); no stop or why-line names her
+  expect(JSON.stringify(draft.days).includes('Dee')).toBe(false);
+  expect(draft.fairness.members.map((m: { name: string }) => m.name)).toEqual(['Riya', 'Kabir', 'Dee']);
+
+  const days = draft.days.map((d: { title: string; slots: unknown[][] }) => ({ title: d.title, stops: d.slots.map(o => o[0]) }));
+  expect((await call(kabir, `/api/trips/${trip.id}/itinerary`, { days }, 'PUT')).status).toBe(200);
+  plan = (await call(riya, `/api/trips/${trip.id}/itinerary`)).data;
+  expect(plan.stale).toBe(false);
+  const saved = stopsOf(plan).find(s => s.cardId === 'exp:boat');
+  expect([saved.axis, saved.forMembers, saved.split, saved.why]).toEqual(['chill', ['Riya'], false, 'Riya’s must-do']);
+
+  // An edit that doesn't send the why-fields keeps them; one that does changes only those
+  const patch = (body: unknown) => call(riya, `/api/trips/${trip.id}/stops/${saved.id}`, body, 'PATCH');
+  const reload = async () => stopsOf((await call(riya, `/api/trips/${trip.id}/itinerary`)).data).find(s => s.id === saved.id);
+  expect((await patch({ title: 'Sunset boat', time: '05:00 PM', tag: 'Chill' })).status).toBe(200);
+  let edited = await reload();
+  expect([edited.title, edited.axis, edited.forMembers, edited.why, edited.cardId]).toEqual(['Sunset boat', 'chill', ['Riya'], 'Riya’s must-do', 'exp:boat']);
+  expect((await patch({ title: 'Sunset boat', why: 'Golden hour on the lake', split: true })).status).toBe(200);
+  edited = await reload();
+  expect([edited.why, edited.split, edited.cardId, edited.forMembers]).toEqual(['Golden hour on the lake', true, 'exp:boat', ['Riya']]);
+  expect((await patch({ title: 'Sunset boat', why: 'x'.repeat(121) })).status).toBe(400);
+  expect((await patch({ title: 'Sunset boat', axis: 'karaoke' })).status).toBe(400);
+  expect((await patch({ title: 'Sunset boat', forMembers: Array.from({ length: 11 }, (_, i) => `M${i}`) })).status).toBe(400);
+
+  // Someone swipes again after the plan was shared: it's stale until it is saved again
+  await db.db.collection('users').updateOne({ _id: kabir as any }, { $set: { 'preferences.taste.updatedAt': new Date(Date.now() + 60_000).toISOString() } });
+  expect((await call(riya, `/api/trips/${trip.id}/itinerary`)).data.stale).toBe(true);
+
+  // A one-day redo keeps the basis
+  const day2 = (await call(riya, `/api/trips/${trip.id}/itinerary/draft`, { day: 2 })).data;
+  expect(day2.days).toHaveLength(1);
+  expect(day2.basis.pending).toEqual(['Pat']);
+});
+
+test('pref_answers cascade with a deleted trip or a member who leaves', async () => {
+  const { riya, dee, trip } = await udaipurSquad();
+  const count = (filter: object) => db.db.collection('pref_answers').countDocuments(filter);
+  expect(await count({ scope: trip.id })).toBe(12);
+  expect(await deleteTripAnswers(db.db, trip.id, dee)).toBe(4);
+  expect(await count({ scope: trip.id, user_id: dee })).toBe(0);
+  expect(await count({ scope: trip.id })).toBe(8);
+  expect(await deleteTripAnswers(db.db, trip.id)).toBe(8);
+  expect(await count({ scope: trip.id })).toBe(0);
+  // The core deck isn't the trip's
+  expect(await count({ scope: 'core', user_id: riya })).toBe(1);
 });

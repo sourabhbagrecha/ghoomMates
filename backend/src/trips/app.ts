@@ -10,6 +10,7 @@ import type { Gemini } from '../gemini.ts';
 import { atlasNearestFaces, createFaceSearch, type FaceSearch } from './faces.ts';
 import { ItineraryService } from './itinerary.ts';
 import { TripService, type TripAccess } from './service.ts';
+import { squadInsights } from './squad.ts';
 
 export type Authenticate = (token: string) => Promise<User>;
 
@@ -150,6 +151,12 @@ export function createApp(db: Database, storage: MediaStorage, authenticate: Aut
     const result = await service.addPhotos(access(res), user(res).id, req.body);
     logger.info('Trips', `${result.added} photo(s) added to trip ${access(res).trip.id}`);
     res.status(201).json(result);
+  });
+
+  // What the squad's Vibe Swipe answers add up to: shared loves, splits, group rules, must-dos and whole-group picks.
+  // Free to call (no Gemini). Names appear on likes and loves only; who said no is never in the response.
+  router.get('/:tripId/squad', async (_req, res) => {
+    res.json(await squadInsights(db.db, access(res), user(res).id));
   });
 
   router.get('/:tripId/itinerary', async (_req, res) => {
