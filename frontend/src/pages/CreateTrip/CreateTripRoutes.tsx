@@ -7,6 +7,7 @@ import {
   DEFAULT_DESTINATION,
   VIBE,
   budgetLabel,
+  destinationFor,
   destinationName,
   findDestination,
   generatingSteps,
@@ -33,7 +34,8 @@ function toNewTrip(trip: TripDetails): NewTrip {
     startDate: trip.flexible ? null : trip.start,
     endDate: trip.flexible ? null : (trip.end ?? trip.start),
     budget: budgetLabel(trip.budget),
-    cover: findDestination(trip.destination)?.id ?? '',
+    // A searched place we have a guide for ("Kasol") still gets that guide's cover
+    cover: (findDestination(trip.destination) ?? destinationFor(destinationName(trip.destination)))?.id ?? '',
     details: { tweaks, flexibleDays: trip.flexible ? trip.flexibleDays : undefined, budgetLabel: budgetLabel(trip.budget) },
   }
 }

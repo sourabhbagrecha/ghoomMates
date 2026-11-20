@@ -15,10 +15,10 @@ const THUMB = 'https://thumb.wikimedia.org/wikipedia/commons/thumb/'
 const ORIGINAL = 'https://upload.wikimedia.org/wikipedia/commons/'
 
 /** `path` is the Commons hash path + file name, e.g. "d/db/Dudhsagar_falls.jpg" */
-const thumb = (path: string) => `${THUMB}${path}/960px-${path.split('/').pop()}`
+export const thumb = (path: string) => `${THUMB}${path}/960px-${path.split('/').pop()}`
 const original = (path: string) => `${ORIGINAL}${path}`
 
-const photo = (src: string, alt: string, credit: string, license: string, curid: number): ExperiencePhoto => ({
+export const photo = (src: string, alt: string, credit: string, license: string, curid: number): ExperiencePhoto => ({
   src,
   alt,
   credit,

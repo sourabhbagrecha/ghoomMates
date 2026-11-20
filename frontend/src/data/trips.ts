@@ -1,8 +1,5 @@
-import grid3 from '../assets/figma/photo-grid-3.svg'
-import grid4 from '../assets/figma/photo-grid-4.svg'
-import grid5 from '../assets/figma/photo-grid-5.svg'
-import grid6 from '../assets/figma/photo-grid-6.svg'
 import { EXPERIENCE_PHOTOS } from '../pages/Explore/experiencePhotos'
+import { DESTINATION_PHOTOS } from './destinationPhotos'
 import type { PersonId } from './people'
 import { daysUntil, formatDateRange } from './tripDates'
 
@@ -37,7 +34,7 @@ const countdown = (start: string) => {
 // Sample trips for the planning and recap screens, which aren't backed by real data yet (your real trips come from
 // the trips service). The Mewar Mates' Udaipur weekend is the one planned in src/pages/Plan.
 const UDAIPUR_WEEKEND = { start: '2026-11-20', end: '2026-11-23' }
-const PONDICHERRY_LONG_WEEKEND = { start: '2027-01-22', end: '2027-01-25' }
+const GOKARNA_LONG_WEEKEND = { start: '2027-01-22', end: '2027-01-25' }
 
 export const UPCOMING_TRIPS: Trip[] = [
   {
@@ -54,17 +51,17 @@ export const UPCOMING_TRIPS: Trip[] = [
     startsIn: countdown(UDAIPUR_WEEKEND.start),
   },
   {
-    id: 'pondicherry',
-    name: 'Pondicherry Long Weekend',
+    id: 'gokarna',
+    name: 'Gokarna Long Weekend',
     group: 'Café Hoppers',
-    place: 'Pondicherry',
-    dates: formatDateRange(PONDICHERRY_LONG_WEEKEND.start, PONDICHERRY_LONG_WEEKEND.end),
-    startDate: PONDICHERRY_LONG_WEEKEND.start,
+    place: 'Gokarna',
+    dates: formatDateRange(GOKARNA_LONG_WEEKEND.start, GOKARNA_LONG_WEEKEND.end),
+    startDate: GOKARNA_LONG_WEEKEND.start,
     status: 'upcoming',
     members: ['you', 'kabir', 'riya'],
-    cover: grid4,
+    cover: DESTINATION_PHOTOS.gokarna.src,
     note: 'Stays booked',
-    startsIn: countdown(PONDICHERRY_LONG_WEEKEND.start),
+    startsIn: countdown(GOKARNA_LONG_WEEKEND.start),
   },
 ]
 
@@ -77,18 +74,18 @@ export const PAST_TRIPS: Trip[] = [
     dates: 'Aug 2026',
     status: 'completed',
     members: ['you', 'riya', 'kabir', 'meera', 'dev'],
-    cover: grid3,
+    cover: DESTINATION_PHOTOS.rishikesh.src,
     note: '412 pics',
   },
   {
-    id: 'jaipur',
-    name: 'Jaipur Pink City',
+    id: 'jaisalmer',
+    name: 'Jaisalmer Golden City',
     group: 'Café Hoppers',
-    place: 'Jaipur',
+    place: 'Jaisalmer',
     dates: 'Mar 2026',
     status: 'completed',
     members: ['you', 'kabir', 'riya'],
-    cover: grid5,
+    cover: DESTINATION_PHOTOS.jaisalmer.src,
     note: '288 pics',
   },
   {
@@ -99,7 +96,7 @@ export const PAST_TRIPS: Trip[] = [
     dates: 'Dec 2025',
     status: 'completed',
     members: ['you', 'meera', 'dev'],
-    cover: grid6,
+    cover: DESTINATION_PHOTOS.hampi.src,
     note: '196 pics',
     balance: '₹320',
   },

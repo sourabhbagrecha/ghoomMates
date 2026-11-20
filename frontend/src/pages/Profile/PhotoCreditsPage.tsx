@@ -1,5 +1,6 @@
 import { OnboardingLayout } from '../../components/OnboardingLayout'
 import { useNavigate } from '../../hooks/navigation'
+import { DESTINATION_PHOTOS } from '../../data/destinationPhotos'
 import { EXPERIENCE_PHOTOS } from '../Explore/experiencePhotos'
 import './PhotoCreditsPage.css'
 
@@ -10,7 +11,7 @@ function backTo() {
 }
 
 // The same photo can sit in two galleries; it is credited once
-const PHOTOS = [...new Map(Object.values(EXPERIENCE_PHOTOS).flat().map((photo) => [photo.source, photo])).values()].sort(
+const PHOTOS = [...new Map([...Object.values(EXPERIENCE_PHOTOS).flat(), ...Object.values(DESTINATION_PHOTOS)].map((photo) => [photo.source, photo])).values()].sort(
   (a, b) => a.credit.localeCompare(b.credit) || a.alt.localeCompare(b.alt),
 )
 

@@ -105,31 +105,31 @@ export const PAST_TRIP_DETAILS: Record<string, PastTripDetails> = {
     ],
     balances: [],
   },
-  jaipur: {
-    trip: byId('jaipur'),
+  jaisalmer: {
+    trip: byId('jaisalmer'),
     dates: 'Fri 13 – Sun 15 Mar',
     days: [
       {
         label: 'Day 1 · Fri 13 Mar',
-        title: 'Old city',
+        title: 'Inside the fort',
         stops: [
-          { time: '03:00 PM', title: 'Check in at a Bapu Bazaar haveli', tag: 'Stays', photo: grid5, rating: 5 },
-          { time: '06:00 PM', title: 'Sunset at Nahargarh Fort', tag: 'Chill', photo: vagator, rating: 5 },
+          { time: '03:00 PM', title: 'Check in at a haveli inside the fort', tag: 'Stays', photo: grid5, rating: 5 },
+          { time: '06:00 PM', title: 'Sunset at Vyas Chhatri', tag: 'Chill', photo: vagator, rating: 5 },
         ],
       },
       {
         label: 'Day 2 · Sat 14 Mar',
-        title: 'Forts and cafés',
+        title: 'Havelis and dunes',
         stops: [
-          { time: '10:00 AM', title: 'Amer Fort tour', tag: 'Culture', photo: market, rating: 4 },
-          { time: '01:00 PM', title: 'Rooftop thali in Johari Bazaar', tag: 'Food', photo: dinner, rating: 5 },
-          { time: '08:00 PM', title: 'Chokhi Dhani folk evening', tag: 'Culture', photo: grid2, rating: 4 },
+          { time: '10:00 AM', title: 'Patwon ki Haveli', tag: 'Culture', photo: market, rating: 4 },
+          { time: '01:00 PM', title: 'Rajasthani thali at Chandan Shree', tag: 'Food', photo: dinner, rating: 5 },
+          { time: '08:00 PM', title: 'Folk night at a Sam dunes camp', tag: 'Culture', photo: grid2, rating: 4 },
         ],
       },
       {
         label: 'Day 3 · Sun 15 Mar',
-        title: 'Pink City, then home',
-        stops: [{ time: '07:30 AM', title: 'Hawa Mahal at sunrise', tag: 'Culture', photo: grid1, rating: 4 }],
+        title: 'Golden City, then home',
+        stops: [{ time: '07:30 AM', title: 'Gadisar Lake at sunrise', tag: 'Chill', photo: grid1, rating: 4 }],
       },
     ],
     photos: [
@@ -144,22 +144,22 @@ export const PAST_TRIP_DETAILS: Record<string, PastTripDetails> = {
     stats: [
       { label: 'Days', value: '3' },
       { label: 'Photos', value: '288' },
-      { label: 'Forts', value: '3' },
+      { label: 'Havelis', value: '3' },
       { label: 'Spent', value: '₹27,600' },
-      { label: 'Top-rated', value: 'Amer Fort' },
+      { label: 'Top-rated', value: 'Sam dunes' },
       { label: 'Most tagged', value: 'Riya' },
     ],
     awards: [
       { person: 'riya', title: 'Most photographed', detail: 'In 97 of 288 pics' },
-      { person: 'kabir', title: 'Thali champion', detail: 'Three refills, zero regrets' },
+      { person: 'kabir', title: 'Thali champion', detail: 'Three helpings of ker sangri, zero regrets' },
     ],
     persona: 'The Culture Café Crawlers',
-    reel: { title: 'Jaipur in 60 seconds', clips: 24 },
+    reel: { title: 'Jaisalmer in 60 seconds', clips: 24 },
     expenses: [
-      { title: 'Bapu Bazaar haveli, 2 nights', paidBy: 'riya', amount: 12600, category: 'Stays' },
-      { title: 'Flights split', paidBy: 'you', amount: 9000, category: 'Travel' },
-      { title: 'Johari Bazaar and cafés', paidBy: 'kabir', amount: 4200, category: 'Food' },
-      { title: 'Amer Fort and Hawa Mahal', paidBy: 'kabir', amount: 1800, category: 'Fun' },
+      { title: 'Fort haveli, 2 nights', paidBy: 'riya', amount: 12600, category: 'Stays' },
+      { title: 'Train and jeep to Sam', paidBy: 'you', amount: 9000, category: 'Travel' },
+      { title: 'Thalis and rooftop cafés', paidBy: 'kabir', amount: 4200, category: 'Food' },
+      { title: 'Fort museum and haveli tickets', paidBy: 'kabir', amount: 1800, category: 'Fun' },
     ],
     balances: [],
   },

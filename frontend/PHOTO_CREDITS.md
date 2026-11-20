@@ -6,11 +6,42 @@ The destination, guide and plan screens show real photographs hotlinked from [Wi
 - **Settings → Legal → Photo credits** (`#/profile/credits`): every photo below, one row each, linking to Commons.
 - **Explore and the Plan overview**: a one-line note at the bottom ("Photos from Wikimedia Commons, credited to their authors") that opens the credits screen.
 
-The data lives in `src/pages/Explore/experiencePhotos.ts` (author, licence and Commons page per photo). Add a photo there with its credit and it appears on the credits screen; add it to this table too (the table below was generated from that file).
+The data lives in `src/pages/Explore/experiencePhotos.ts` and, for the one cover photo per destination (create-trip cards, trip covers, profile places), `src/data/destinationPhotos.ts` (author, licence and Commons page per photo). Add a photo there with its credit and it appears on the credits screen; add it to this table too (the table below was generated from that file).
 
 Other images in the app are not from Commons: the makers and farm-to-table pictures, the stories' painted panels and the demo squad photos are AI-generated illustrations (Gemini on Vertex AI) of invented people and places, the GhoomMate mascot comes from the project's Figma file, and the icons are [Lucide](https://lucide.dev) (see `src/assets/icons/LICENSE`).
 
 Licence texts: [CC0](https://creativecommons.org/publicdomain/zero/1.0/), [CC BY 2.0 / 3.0 / 4.0](https://creativecommons.org/licenses/by/4.0/), [CC BY-SA 2.0 / 2.5 / 3.0 / 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Photos are shown unmodified except for Commons' own resized thumbnails.
+
+## Destinations
+
+One cover per destination guide; Udaipur reuses the Lake Pichola photo listed under Pichola.
+
+| Photo | Author | Licence | Source |
+| --- | --- | --- | --- |
+| Chettinad Palace, a white merchant mansion in Kanadukathan | Karthick jack | CC BY-SA 3.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=28105500) |
+| The spires of Chaturbhuj Temple rising over Orchha | Yann | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=16333561) |
+| A boat on a quiet river channel on Majuli island | Dhrubazaan Photography | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=49289670) |
+| Virupaksha Temple tower among the Hampi ruins | iMahesh | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=164320563) |
+| Boats moored at Dashashwamedh Ghat, Varanasi | Sulagna Halder | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=94025705) |
+| The Taj Mahal from its gardens | Yann, edited by Jim Carter | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=36310839) |
+| Painted hall of Tawang Monastery | J P Dutt | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=123452027) |
+| Habba Khatoon peak above the Kishanganga in Gurez | Zahid samoon | CC BY 3.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=8561766) |
+| The stone Tungnath temple below rocky peaks | Varun Shiv Kapur | CC BY 2.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=6853724) |
+| Key Monastery on its hill above the Spiti river | Pranav perspective | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=72700213) |
+| Snow peaks over the meadows of Solang Valley, Manali | Harvinder Chandigarh | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=42114457) |
+| Blue Pangong Tso under bare Ladakh mountains | Neek-Theri | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=138684871) |
+| The tiered Trayambakeshwar temple by Lakshman Jhula, Rishikesh | VK1983 | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=123554764) |
+| Rolling green hills of Dzükou Valley | Samudra Bikash Hazarika, edited by UnpetitproleX | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=167262514) |
+| Green paddies and a village below forested hills in Ziro | Arunachal2007 | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=94462528) |
+| The Penna river winding through the Gandikota gorge | Sudhakarbichali | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=49809035) |
+| Living root bridges over a stream at Nongriat | Arshiya Urveeja Bose | CC BY 2.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=17238490) |
+| The white salt desert of the Great Rann of Kutch | Prof Ranga Sai | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=127686727) |
+| Jaisalmer Fort’s golden walls above the old city | Gérard Janot | CC BY-SA 3.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=474831) |
+| Palms over the turquoise lagoon at Agatti, Lakshadweep | Asssagar | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=59924868) |
+| The curve of Kudle Beach, Gokarna, from the cliff path | Happyshopper | CC BY 2.5 | [Commons](https://commons.wikimedia.org/w/index.php?curid=6449540) |
+| Palms and shacks along Palolem Beach, South Goa | iMahesh | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=151673985) |
+| Hills and backwaters in Satpura Tiger Reserve | BSSKrishnaS | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=49304692) |
+| A one-horned rhino in the grassland at Kaziranga | Diganta Talukdar | CC BY-SA 4.0 | [Commons](https://commons.wikimedia.org/w/index.php?curid=60799652) |
 
 ## Dudhsagar
 

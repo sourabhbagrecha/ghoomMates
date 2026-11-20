@@ -6,9 +6,10 @@ import iconSparkles from '../../assets/figma/icon-sparkles-primary.svg'
 import { Button } from '../../components/Button'
 import { GhoomMateAvatar } from '../../components/GhoomMate'
 import { OnboardingLayout } from '../../components/OnboardingLayout'
+import { PhotoCreditLine } from '../../components/PhotoCreditLine'
 import { SectionHeader } from '../../components/SectionHeader'
 import { TextField } from '../../components/TextField'
-import { DESTINATIONS, SURPRISES, customDestinationId, destinationName, findDestination } from './createTripData'
+import { DESTINATIONS, SURPRISES, currentMonth, customDestinationId, destinationName, findDestination, inSeason } from './createTripData'
 import './DestinationStep.css'
 
 type DestinationStepProps = {
@@ -18,27 +19,38 @@ type DestinationStepProps = {
   onContinue: () => void
 }
 
+// The squad pick first, then the places at their best this month, so nobody's offered Spiti in January
+const ORDERED = [...DESTINATIONS].sort(
+  (a, b) => Number(!!b.badge) - Number(!!a.badge) || Number(inSeason(b)) - Number(inSeason(a)),
+)
+const IN_SEASON_SURPRISES = SURPRISES.filter((s) => {
+  const d = findDestination(s.destination)
+  return d && inSeason(d, currentMonth())
+})
+const SURPRISE_POOL = IN_SEASON_SURPRISES.length ? IN_SEASON_SURPRISES : SURPRISES
+
 export function DestinationStep({ destination, onPick, onBack, onContinue }: DestinationStepProps) {
   const [query, setQuery] = useState('')
   // Index of the last surprise shown, -1 before the first tap
   const [surpriseIndex, setSurpriseIndex] = useState(-1)
-  const surprise = SURPRISES[surpriseIndex]
+  const surprise = SURPRISE_POOL[surpriseIndex]
   const picked = findDestination(destination)
 
   const q = query.trim().toLowerCase()
+  // Towns and landmarks count too: "Kasol" finds Kullu-Manali, "Taj" finds Agra
   const matches = q
-    ? DESTINATIONS.filter((d) => `${d.name} ${d.region} ${d.tag}`.toLowerCase().includes(q))
-    : DESTINATIONS
+    ? ORDERED.filter((d) => `${d.name} ${d.region} ${d.tag} ${d.aliases.join(' ')}`.toLowerCase().includes(q))
+    : ORDERED
   // A place we don't have a card for can still be planned (and stays visible once picked)
   const pickedCustom = destination && !picked ? destination : null
   const customId = q ? (matches.some((d) => d.name.toLowerCase() === q) ? null : customDestinationId(query)) : pickedCustom
 
   const surpriseUs = () => {
     // TODO: ask GhoomMate for a pick based on the squad's vibe checks
-    const next = (surpriseIndex + 1) % SURPRISES.length
+    const next = (surpriseIndex + 1) % SURPRISE_POOL.length
     setSurpriseIndex(next)
     setQuery('')
-    onPick(SURPRISES[next].destination)
+    onPick(SURPRISE_POOL[next].destination)
   }
 
   return (
@@ -118,7 +130,7 @@ export function DestinationStep({ destination, onPick, onBack, onContinue }: Des
                   onClick={() => onPick(d.id)}
                 >
                   <span className="create-place__cover">
-                    <img src={d.photo} alt="" width={116} height={110} />
+                    <img src={d.photo} alt="" width={116} height={110} loading="lazy" />
                     {d.badge && <span className="create-place__badge">{d.badge}</span>}
                     {selected && (
                       <span className="create-place__check">
@@ -139,6 +151,8 @@ export function DestinationStep({ destination, onPick, onBack, onContinue }: Des
       ) : (
         <p className="create-destination__empty">No cards for “{query.trim()}” yet, but you can still plan it.</p>
       )}
+
+      <PhotoCreditLine from="create" />
     </OnboardingLayout>
   )
 }
