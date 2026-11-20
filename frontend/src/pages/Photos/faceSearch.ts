@@ -5,22 +5,17 @@ import type { FaceSummary, PhotoFilter, TripPhotos } from '../../services/tripsS
 const POLL_MS = 8_000
 const POLL_MAX_MS = 5 * 60_000
 
-/** Trips where a find-me search has worked this session (lights up the Match pipeline step) */
-const matchedTrips = new Set<string>()
-export const markMatched = (tripId: string) => matchedTrips.add(tripId)
-export const hasMatched = (tripId: string | null) => !!tripId && matchedTrips.has(tripId)
-
 /**
- * What the album is filtered to, or null while it shows everything. Set by Find me, the photo search (box and chips)
+ * What the album is filtered to, or null while it shows everything. Set by the photo search (box, people and chips)
  * and GhoomMate's find_photos tool. Shared so the viewer steps through the same photos as the grid.
  */
 export type PhotoFilterState = {
   ids: Set<string>
   /** Gallery title, e.g. "You & Bhavya · smiling" */
   label: string
-  /** The search behind it; null for Find me */
+  /** The search behind it */
   filter: PhotoFilter | null
-  source: 'me' | 'search' | 'voice'
+  source: 'search' | 'voice'
 }
 let current: PhotoFilterState | null = null
 const listeners = new Set<() => void>()

@@ -1,27 +1,28 @@
-/* Photo search card: sentence box, people row, expression + scene chips */
-.photo-search {
-  gap: 14px;
-}
-
-.photo-search__group {
+/* People and chips under the header: flat rows on the page, no card */
+.photo-filters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-/* Rows that bleed to the card edge and scroll sideways */
-.photo-search__people,
-.photo-search__chips {
-  display: flex;
-  margin: 0 -14px;
-  padding: 0 14px;
-  overflow-x: auto;
-}
-
-.photo-search__people {
   gap: 10px;
 }
 
-.photo-search__chips {
+/* Rows that bleed to the screen edge and scroll sideways */
+.photo-filters__people,
+.photo-filters__chips {
+  display: flex;
+  margin: 0 -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+}
+
+.photo-filters__people {
+  gap: 8px;
+}
+
+.photo-filters__chips {
   gap: 6px;
+}
+
+/* Nobody picked yet: show the whole squad at full strength (PersonToggle dims unselected people) */
+.photo-filters:not(.photo-filters--picking) .person-toggle:not(:disabled) .avatar {
+  opacity: 1;
 }

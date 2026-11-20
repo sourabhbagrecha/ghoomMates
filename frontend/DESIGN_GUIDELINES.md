@@ -145,9 +145,9 @@ GhoomMates is designed for a **393 × 852 pt** iPhone frame. On desktop the app 
 │ .screen__body                │  padding 16 16 0 · gap 14 between sections
 │   cards, section headers…    │
 │                              │
-│        [GhoomMate says]  (FAB)  ← bubble: right 92 / bottom 118 · FAB: right 8 / bottom 92
+│            [GhoomMate says]  │  ← bubble: right 22 / bottom 98, above the docked FAB
 ├──────────────────────────────┤
-│ TabBar (88, fixed)           │
+│ TabBar (88, fixed) [tabs](FAB)│
 └──────────────────────────────┘
 ```
 
@@ -163,7 +163,7 @@ GhoomMates is designed for a **393 × 852 pt** iPhone frame. On desktop the app 
 | Screen | Header SVG height |
 |---|---|
 | Itinerary | 190 |
-| Photos & Reels | 262 (the find-me panel sits on the blue) |
+| Photos & Reels | 170 (search on the blue, Explore's artwork) |
 | Split Expenses | 210 |
 | Explore | 170 |
 
@@ -197,7 +197,7 @@ All shadows are tinted with the primary blue, never black. Use `filter: drop-sha
 | `--shadow-float` | `drop-shadow(0 8px 10px rgba(7,42,200,.18))` | Elements floating over the header (search) |
 | `--shadow-cover-card` | `0 6px 18px rgba(7,42,200,.1)` (box-shadow) | Image cards with `overflow: hidden` |
 | `--shadow-fab` | `0 10px 24px rgba(7,42,200,.45)` | GhoomMate button |
-| Tab bar | `drop-shadow(0 -6px 12px rgba(7,42,200,.1))` | Upward shadow above the tab bar |
+| Tab bar | `--shadow-tab-bar` | Soft lift and hairline under the floating tab bar |
 | Settle CTA | `drop-shadow(0 10px 12px rgba(255,198,0,.45))` | A yellow glow, only for the sunshine CTA |
 
 ---
@@ -236,10 +236,10 @@ Toggleable pill used for filters and multi-select answers.
 An 18 px title with a right-aligned `action` slot: a `.text-link` ("See all"), a `.pill-button` ("+ Add") or a custom control (day pills).
 
 ### `TabBar`: [`src/components/TabBar.tsx`](src/components/TabBar.tsx)
-Four tabs: Itinerary, Photos, Expenses, Explore. The active tab gets a 56 × 32 yellow pill, a primary-blue icon and an 800-weight label. Inactive tabs use `--color-subtle`. Each icon has a separate `-active` SVG.
+Four tabs: Itinerary, Photos, Expenses, Explore, in a floating frosted pill (`--color-surface-frosted`, `--shadow-tab-bar`, 16 px from the sides, 22 px above the bottom) with the page fading out behind it (`--gradient-tab-bar-fade`). Inactive tabs show only their `--color-subtle` icon; the active tab grows into a yellow pill with its primary-blue `-active` icon and its 800-weight name. On trip screens the GhoomMate button sits at the right end of the row in its own 64 px frosted pill (`<TabBar trailing={<GhoomMateFab docked />}>`). The outer `.tab-bar` keeps an 88 px footprint at the bottom: the voice dock and `ScreenLayout` padding measure against it.
 
 ### `GhoomMateFab` and `GhoomMateSays`: [`src/components/GhoomMate.tsx`](src/components/GhoomMate.tsx)
-The FAB lives at app level and appears on every screen. `GhoomMateSays` is a dark ink bubble (corners 18/18/4/18, with the 4 px corner pointing at the FAB) holding **one short sentence** (≤ ~60 characters) suggesting something to say or do. Use it on at most one tip per screen, and leave it off when the screen already has a strong CTA near the bottom (as Explore does).
+The FAB lives at app level and appears on every screen: docked into the tab bar on trip screens, free-standing bottom-right elsewhere (Home, Plan). `GhoomMateSays` is a dark ink bubble (corners 18/18/4/18, with the 4 px corner pointing down at the docked FAB) holding **one short sentence** (≤ ~60 characters) suggesting something to say or do. Use it on at most one tip per screen, and leave it off when the screen already has a strong CTA near the bottom (as Explore does).
 
 ### `HeaderActions` and `TopSafeArea`
 Fixed header chrome: a QR invite button (frosted glass, opens Members) and your profile avatar (your photo, else your Google photo, else your initial, with a yellow ring). `TopSafeArea` is the small top margin of every screen (`--top-inset`: 24 px, or the phone's own status-bar height when the app runs full-screen on a notched phone). Don't draw a fake time, signal or battery. The header artwork is shifted up by `--header-art-offset` so headers keep their Figma shape.
@@ -362,7 +362,7 @@ Every tappable element must be a `<button>` (or `<a>`), never a clickable `<div>
 - **Colour is baked into the SVG.** Each colour variant is its own file, named `icon-<name>-<colour>.svg` (e.g. `icon-arrow-sky.svg`, `icon-mic-white.svg`). Don't recolour with CSS filters. Export a new variant from Figma instead.
 - Always pass `width` and `height` and `alt=""` for decorative icons. Put the accessible name on the button (`aria-label`).
 - Photo placeholders are gradient-plus-mountain SVGs from Figma. Swap them for real images (same size and radius) when data is wired up.
-- Real photographs come from Wikimedia Commons with their author and licence in [`src/pages/Explore/experiencePhotos.ts`](src/pages/Explore/experiencePhotos.ts). They are credited on the guide trip they belong to, on the credits screen (`#/profile/credits`, Settings → Legal) and in [`PHOTO_CREDITS.md`](PHOTO_CREDITS.md). Never add a photo without its credit.
+- Real photographs come from Wikimedia Commons with their author and licence in [`src/pages/Explore/experiencePhotos.ts`](src/pages/Explore/experiencePhotos.ts), and one cover per destination guide in [`src/data/destinationPhotos.ts`](src/data/destinationPhotos.ts) (create-trip cards, trip covers, profile places). They are credited on the guide trip they belong to, on the credits screen (`#/profile/credits`, Settings → Legal) and in [`PHOTO_CREDITS.md`](PHOTO_CREDITS.md). Never add a photo without its credit.
 - **GhoomMate mascot:** the octopus PNG sits inside the sky-gradient circle. Don't crop, recolour or use the mascot anywhere else without design review.
 
 ---

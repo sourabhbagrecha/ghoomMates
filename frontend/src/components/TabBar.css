@@ -1,59 +1,127 @@
+/*
+ * Floating tab bar. The outer `.tab-bar` keeps the old 88px footprint at the bottom of the frame
+ * (the voice dock and ScreenLayout padding measure against it) and fades the page out behind the
+ * bar. Inside it, a row holds the frosted tab pill and, on its right, the GhoomMate pill.
+ */
 .tab-bar {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 10;
-  display: flex;
-  align-items: flex-start;
   height: 88px;
-  padding: 10px 8px 0;
-  background: var(--color-surface);
-  border-radius: 26px 26px 0 0;
-  filter: drop-shadow(0 -6px 12px rgba(7, 42, 200, 0.1));
+  background: var(--gradient-tab-bar-fade);
+  pointer-events: none;
 }
 
-.tab-bar__tab {
+.tab-bar__row {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 64px;
+  pointer-events: auto;
+}
+
+.tab-bar__dock {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  height: 100%;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-frosted);
+  box-shadow: var(--shadow-tab-bar);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+}
+
+/* Inactive tabs share the room left over; the active one grows to fit its label */
+.tab-bar__tab {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+  min-width: 44px;
+  height: 100%;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-bar__tab--active {
+  flex: 0 0 auto;
+}
+
+.tab-bar__tab:focus-visible {
+  outline: none;
+}
+
+.tab-bar__tab:focus-visible .tab-bar__pill {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .tab-bar__pill {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 32px;
-  border-radius: 16px;
+  height: 44px;
+  padding: 0 11px;
+  border-radius: var(--radius-pill);
+  transition:
+    background-color 240ms ease,
+    padding 320ms cubic-bezier(0.34, 1.36, 0.5, 1),
+    scale 160ms ease;
 }
 
-.tab-bar__label {
-  font-weight: 600;
-  font-size: 11px;
-  line-height: 17px;
-  color: var(--color-subtle);
-  white-space: nowrap;
+.tab-bar__tab:active .tab-bar__pill {
+  scale: 0.92;
 }
 
 .tab-bar__tab--active .tab-bar__pill {
+  padding: 0 14px 0 12px;
   background: var(--color-yellow);
 }
 
-.tab-bar__tab--active .tab-bar__label {
+/* Collapsed to nothing on inactive tabs, slides open on the active one */
+.tab-bar__label {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
   font-weight: 800;
+  font-size: 12px;
+  line-height: 18px;
   color: var(--color-primary);
+  white-space: nowrap;
+  transition:
+    max-width 320ms cubic-bezier(0.34, 1.36, 0.5, 1),
+    margin-left 320ms ease,
+    opacity 200ms ease;
+}
+
+.tab-bar__tab--active .tab-bar__label {
+  max-width: 80px;
+  margin-left: 6px;
+  opacity: 1;
+  transition-delay: 0ms, 0ms, 80ms;
 }
 
 .tab-bar__home-indicator {
   position: absolute;
   left: 50%;
-  top: 75px;
+  bottom: 8px;
   width: 135px;
   height: 5px;
   margin-left: -67.5px;
   border-radius: 3px;
   background: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-bar__pill,
+  .tab-bar__label {
+    transition: none;
+  }
 }

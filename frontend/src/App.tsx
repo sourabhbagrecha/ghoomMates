@@ -257,8 +257,11 @@ function App() {
     screen = (
       <ScreenBackContext.Provider value={() => navigate(entries.trip ?? '')}>
         <Page />
-        <TabBar active={tab} onSelect={(t) => navigate(`trip/${t}`, { replace: true })} />
-        <GhoomMateFab />
+        <TabBar
+          active={tab}
+          onSelect={(t) => navigate(`trip/${t}`, { replace: true })}
+          trailing={<GhoomMateFab docked />}
+        />
       </ScreenBackContext.Provider>
     )
   } else if (section === 'plan') {

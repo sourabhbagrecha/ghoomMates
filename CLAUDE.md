@@ -2,7 +2,6 @@
 
 Group travel app. Members join a trip group, share photos (filter to photos they appear in), generate reels/stories, split expenses, and get an itinerary built from every member's preferences.
 
-**Hackathon project:** demoable, end-to-end vision beats production hardening. Prefer the simplest working path; mock or stub anything slow to build rather than leaving a feature missing.
 
 ## Layout
 

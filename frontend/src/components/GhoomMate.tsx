@@ -6,11 +6,18 @@ import { useVoice } from './voice/voiceContext'
 import './GhoomMate.css'
 
 /** Voice-first AI travel buddy. Floats bottom-right on every screen above the tab bar. */
-export function GhoomMateFab() {
+export function GhoomMateFab({ docked = false }: { docked?: boolean }) {
   const { open } = useVoice()
 
   return (
-    <button type="button" className="ghoommate-fab" aria-label="Talk to GhoomMate" aria-haspopup="dialog" onClick={() => open()}>
+    <button
+      type="button"
+      // Docked: a round pill at the right end of the tab bar; otherwise free-standing bottom-right
+      className={`ghoommate-fab${docked ? ' ghoommate-fab--docked' : ''}`}
+      aria-label="Talk to GhoomMate"
+      aria-haspopup="dialog"
+      onClick={() => open()}
+    >
       {/* Full-body mascot, free-standing, with a gentle CSS float */}
       <img className="ghoommate-fab__mascot" src={mascotStill} alt="" width={84} height={88} />
       <span className="ghoommate-fab__mic">

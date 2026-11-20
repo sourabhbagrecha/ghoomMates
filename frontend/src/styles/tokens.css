@@ -51,6 +51,9 @@
   --color-glass: rgba(255, 255, 255, 0.16);
   --color-glass-strong: rgba(255, 255, 255, 0.18);
 
+  /* Floating tab bar: frosted white over the page */
+  --color-surface-frosted: rgba(255, 255, 255, 0.86);
+
   /* Gradients */
   --gradient-sky: linear-gradient(135deg, var(--color-sky) 8.33%, var(--color-primary) 91.67%);
   --gradient-deep: linear-gradient(152.49deg, var(--color-primary) 8.33%, var(--color-primary-bright) 91.67%);
@@ -59,6 +62,8 @@
   --gradient-brand-instagram: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
   --color-brand-whatsapp: #25d366;
   /* The dim layer behind a bottom sheet (the date sheet; the GhoomMate sheet draws the same values itself) */
+  /* Fades the page into the background behind the floating tab bar */
+  --gradient-tab-bar-fade: linear-gradient(180deg, rgba(242, 248, 255, 0) 0%, var(--color-bg) 58%);
   --gradient-scrim: linear-gradient(180deg, rgba(7, 42, 200, 0.45) 0%, rgba(11, 23, 71, 0.72) 100%);
 
   /* Type */
@@ -76,6 +81,8 @@
   --shadow-float: drop-shadow(0 8px 10px rgba(7, 42, 200, 0.18));
   --shadow-cover-card: 0 6px 18px rgba(7, 42, 200, 0.1);
   --shadow-fab: 0 10px 24px rgba(7, 42, 200, 0.45);
+  /* Floating tab bar: soft lift plus a hairline so it reads on white cards */
+  --shadow-tab-bar: 0 10px 28px rgba(7, 42, 200, 0.14), 0 2px 6px rgba(7, 42, 200, 0.06), 0 0 0 1px rgba(7, 42, 200, 0.04);
 
   /* Space above the header: a small margin, or the phone's own status bar when the app runs full-screen */
   --top-inset: max(env(safe-area-inset-top, 0px), 24px);

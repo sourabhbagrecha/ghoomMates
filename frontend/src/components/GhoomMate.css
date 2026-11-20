@@ -58,11 +58,50 @@
   background: var(--color-yellow);
 }
 
-/* Anchored to the left of the FAB, its tail pointing at it */
+/* Docked in the tab bar: its own round frosted pill at the right end, matching the tab pill
+   (white keeps the blue octopus readable; the yellow mic badge is the cue to tap) */
+.ghoommate-fab--docked {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-frosted);
+  box-shadow: var(--shadow-tab-bar);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ghoommate-fab--docked .ghoommate-fab__mascot {
+  position: absolute;
+  left: 3px;
+  bottom: 2px;
+  width: 58px;
+  height: 61px;
+  filter: none;
+}
+
+.ghoommate-fab--docked .ghoommate-fab__mic {
+  right: -2px;
+  bottom: -2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+}
+
+.ghoommate-fab--docked:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+/* Anchored above the docked GhoomMate pill, its tail pointing down at it */
 .ghoommate-says {
   position: absolute;
-  right: 92px;
-  bottom: 118px;
+  right: 22px;
+  bottom: 98px;
   z-index: 20;
   padding: 10px 36px 10px 14px;
   border-radius: 18px 18px 4px 18px;
