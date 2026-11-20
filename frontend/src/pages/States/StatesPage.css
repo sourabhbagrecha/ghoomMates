@@ -113,3 +113,124 @@
   gap: 8px;
   padding-top: 4px;
 }
+
+/* ---------- Swipe kit ---------- */
+
+/* The stack fills the height it is given; this one is about a phone screen's worth */
+.swipe-demo__stage {
+  display: flex;
+  flex-direction: column;
+  height: 640px;
+}
+
+.swipe-demo__fans {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary);
+}
+
+.swipe-demo__done {
+  position: absolute;
+  inset: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+
+.swipe-demo__done-title {
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 23px;
+  color: var(--color-ink);
+}
+
+.swipe-demo__done-text,
+.swipe-demo__empty {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.swipe-demo__log {
+  gap: 8px;
+}
+
+.swipe-demo__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.swipe-demo__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-tile);
+  background: var(--color-tint);
+}
+
+.swipe-demo__row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.swipe-demo__prompt {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+.swipe-demo__ms {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+.swipe-demo__reply {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-primary);
+  overflow-wrap: anywhere;
+}
+
+.swipe-demo__tones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.swipe-demo__tone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  list-style: none;
+}
+
+.swipe-demo__tone {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swipe-demo__tone .swipe-art {
+  border-radius: var(--radius-tile);
+}
+
+.swipe-demo__tone-name {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--color-muted);
+  text-align: center;
+  text-transform: capitalize;
+}
